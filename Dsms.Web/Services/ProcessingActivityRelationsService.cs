@@ -64,6 +64,12 @@ public class ProcessingActivityRelationsService(ApplicationDbContext db)
             .Select(l => l.Measure)
             .ToListAsync(ct);
 
+        var dpiaAssessments = await db.DataProtectionImpactAssessments
+            .AsNoTracking()
+            .Where(d => d.ProcessingActivityId == processingActivityId && d.TenantId == tenantId)
+            .OrderByDescending(d => d.UpdatedAt ?? d.CreatedAt)
+            .ToListAsync(ct);
+
         var auditAnswerRows = await db.ProcessingActivityAuditAnswers
             .AsNoTracking()
             .Where(l => l.ProcessingActivityId == processingActivityId && l.TenantId == tenantId)
@@ -84,7 +90,7 @@ public class ProcessingActivityRelationsService(ApplicationDbContext db)
                 l.AuditAnswer.Notes))
             .ToListAsync(ct);
 
-        var warnings = BuildWarnings(activity, toms, serviceProviderLinks, documents, measureLinks, auditAnswerRows);
+        var warnings = BuildWarnings(activity, toms, serviceProviderLinks, documents, measureLinks, auditAnswerRows, dpiaAssessments);
 
         return new ProcessingActivityRelationsSnapshot(
             activity,
@@ -93,6 +99,7 @@ public class ProcessingActivityRelationsService(ApplicationDbContext db)
             documents,
             measureLinks,
             auditAnswerRows,
+            dpiaAssessments,
             warnings);
     }
 
@@ -105,7 +112,8 @@ public class ProcessingActivityRelationsService(ApplicationDbContext db)
         IReadOnlyList<ProcessingActivityServiceProvider> serviceProviderLinks,
         IReadOnlyList<EvidenceDocument> documents,
         IReadOnlyList<Measure> measures,
-        IReadOnlyList<LinkedAuditAnswerRow> auditAnswers)
+        IReadOnlyList<LinkedAuditAnswerRow> auditAnswers,
+        IReadOnlyList<DataProtectionImpactAssessment> dpiaAssessments)
     {
         var warnings = new List<string>();
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -170,10 +178,7 @@ public class ProcessingActivityRelationsService(ApplicationDbContext db)
             warnings.Add($"Audit-Antwort „{ComplianceLabels.GetLevelLabel(row.ComplianceLevel)}“: {row.AuditRunTitle} – Frage {row.QuestionSortOrder}.");
         }
 
-        if (activity.DpiaRequired)
-        {
-            warnings.Add("DSFA erforderlich – vollständiges DSFA-Modul ist noch nicht implementiert.");
-        }
+        warnings.AddRange(DsfaLabels.BuildProcessingActivityWarnings(activity, dpiaAssessments));
 
         return warnings;
     }
@@ -460,4 +465,5 @@ public record ProcessingActivityRelationsSnapshot(
     IReadOnlyList<EvidenceDocument> Documents,
     IReadOnlyList<Measure> Measures,
     IReadOnlyList<LinkedAuditAnswerRow> AuditAnswers,
+    IReadOnlyList<DataProtectionImpactAssessment> DpiaAssessments,
     IReadOnlyList<string> Warnings);

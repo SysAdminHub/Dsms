@@ -43,8 +43,9 @@ c:\code\DS\
     ├── Dsms.Web.csproj
     ├── Domain/
     │   ├── Entities/              # Fach-Entities (inkl. ProcessingActivity, Tom, ServiceProvider)
-    │   ├── Enums/                 # u. a. ProcessingActivityStatus, Tom*, ServiceProvider*
+    │   ├── Enums/                 # u. a. ProcessingActivityStatus, Tom*, ServiceProvider*, Dpia*
     │   ├── ProcessingActivityLabels.cs
+    │   ├── DsfaLabels.cs
     │   ├── TomLabels.cs
     │   ├── ServiceProviderLabels.cs
     │   └── DsmsRoles.cs
@@ -140,6 +141,7 @@ Docker Compose (`docker-compose.yml`) legt `dsms_dev` mit Root-Passwort `changem
 | `ServiceProviderToms` | `ServiceProviderTom` |
 | `ProcessingActivityMeasures` | `ProcessingActivityMeasure` |
 | `ProcessingActivityAuditAnswers` | `ProcessingActivityAuditAnswer` |
+| `DataProtectionImpactAssessments` | `DataProtectionImpactAssessment` |
 
 Zusätzlich alle **ASP.NET Identity**-Standardtabellen (`AspNetUsers`, `AspNetRoles`, …).
 
@@ -166,9 +168,11 @@ Tenant
  │        ←──→ ServiceProvider (ProcessingActivityServiceProvider, Rolle)
  │        ←──→ Measure (ProcessingActivityMeasure)
  │        ←──→ AuditAnswer (ProcessingActivityAuditAnswer)
+ │        ── DataProtectionImpactAssessment (1:n DSFA)
  │        ── EvidenceDocument (ProcessingActivityId, optional)
  ├── Tom ←──→ ServiceProvider (ServiceProviderTom)
  ├── ServiceProvider ── EvidenceDocument (optional)
+ ├── DataProtectionImpactAssessment ── EvidenceDocument (optional)
  └── Tom
 
 ApplicationUser.TenantId → logische Zuordnung (kein EF-FK auf Tenants)
@@ -186,7 +190,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | Service | Registrierung | Aufgabe |
 |---------|---------------|---------|
 | `ICurrentUserContext` / `CurrentUserContext` | Scoped | User-ID, TenantId, Rollenprüfung via `AuthenticationStateProvider` + `UserManager` |
-| `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, VVT-Verknüpfungen) |
+| `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, DSFA, VVT-Verknüpfungen) |
 | `ProcessingActivityRelationsService` | Scoped | Laden/Speichern von VVT-Verknüpfungen, Warnhinweise, Mandantenvalidierung |
 | `DocumentStorageService` | Scoped | Speichern/Lesen von Upload-Dateien unter `Data/Uploads/{tenantId}/` |
 | `IdentityRedirectManager` | Scoped | Weiterleitungen nach Login/Logout |
@@ -208,8 +212,8 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | Rolle | Typische Rechte (aus `[Authorize]` und NavMenu) |
 |-------|--------------------------------------------------|
 | **Admin** | + Mandanten, Benutzer; Menüpunkt „Verwaltung“ |
-| **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, TOMs und Dienstleister anlegen/bearbeiten |
-| **User** | Listen lesen, VVT/TOM/Dienstleister-Detailansicht, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von VVT, TOMs, Dienstleistern, Vorlagen/Durchläufen |
+| **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, DSFA, TOMs und Dienstleister anlegen/bearbeiten |
+| **User** | Listen lesen, VVT/DSFA/TOM/Dienstleister-Detailansicht, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von VVT, DSFA, TOMs, Dienstleistern, Vorlagen/Durchläufen |
 
 ### Mandantenfilter
 
@@ -250,7 +254,7 @@ Reihenfolge in `Program.cs`:
 
 ### Migrationen
 
-- Migrationen: **`InitialCreate`**, **`AddProcessingActivities`**, **`AddToms`**, **`AddServiceProviders`**, **`AddProcessingActivityRelations`** (Tabellen `ProcessingActivityMeasures`, `ProcessingActivityAuditAnswers`; Spalte `EvidenceDocuments.ProcessingActivityId`)
+- Migrationen: **`InitialCreate`**, **`AddProcessingActivities`**, **`AddToms`**, **`AddServiceProviders`**, **`AddProcessingActivityRelations`**, **`AddDataProtectionImpactAssessments`** (Tabelle `DataProtectionImpactAssessments`; Spalte `EvidenceDocuments.DataProtectionImpactAssessmentId`)
 - Snapshot: `Migrations/ApplicationDbContextModelSnapshot.cs`
 
 ### Seed (`DatabaseSeeder.SeedAsync`)
@@ -278,9 +282,11 @@ dotnet ef database update
 | Dokumente | `EvidenceDocument.ProcessingActivityId` | 1:n (optionaler FK), analog zu Audit/Maßnahme/Dienstleister |
 | Maßnahmen | `ProcessingActivityMeasure` | Many-to-Many – Maßnahme kann mehreren VVT-Einträgen zugeordnet sein |
 | Audit-Antworten | `ProcessingActivityAuditAnswer` | Many-to-Many – keine `ProcessingActivityId` auf `AuditAnswer`, da Antworten über Durchlauf mandantenbezogen bleiben |
-| DSFA | `ProcessingActivity.DpiaRequired` | Vorbereitung; kein DSFA-Entity |
+| DSFA | `DataProtectionImpactAssessment` (1:n zu `ProcessingActivity`) | Pflicht-FK; `TenantId` + Indexe; Cascade beim Löschen der VVT |
 
-**Seiten:** `ProcessingActivities/Detail.razor`, `ProcessingActivities/Links.razor` (`[Authorize(Roles = Admin,Auditor)]`).
+**Seiten:** `ProcessingActivities/Detail.razor`, `ProcessingActivities/Links.razor` (`[Authorize(Roles = Admin,Auditor)]`); DSFA: `Dsfa/Index.razor`, `Dsfa/Detail.razor`, `Dsfa/Edit.razor`.
+
+**Routen DSFA:** `/dsfa`, `/dsfa/{Id}`, `/dsfa/edit`, `/dsfa/edit/{Id}` (Bearbeitung nur Admin/Auditor).
 
 **Mandantenschutz:** Alle Lade- und Speicheroperationen in `ProcessingActivityRelationsService` prüfen `TenantId` der Hauptentität und jeder referenzierten ID.
 
@@ -334,7 +340,8 @@ Die Login-Seite ist an das DSMS-Design angepasst; viele Manage-/Register-Seiten 
 | Kein globaler Mandanten-Query-Filter | Risiko bei neuen Queries ohne `TenantId`-Filter (VVT-Seiten filtern explizit nach `TenantId`) |
 | VVT: Owner als Freitext | Keine Verknüpfung zu `ApplicationUser`; keine Benutzerauswahl in der UI |
 | VVT: Kein Löschen in der UI | Analog zu anderen Fachmodulen |
-| DSFA-Modul fehlt | Nur `DpiaRequired` und UI-Hinweis auf der VVT-Detailseite |
+| DSFA: `DpiaRequired` nur bool | Kein Wert „Zu prüfen“; kein Freigabe-Workflow |
+| DSFA: kein Löschen in der UI | Analog zu anderen Fachmodulen |
 | Audit-Antwort ↔ VVT nur über Links-Seite | Direkte Zuordnung in `Answers.razor` bewusst zurückgestellt |
 | Kein FK `ApplicationUser` → `Tenant` | Referenzielle Integrität nur über Anwendungslogik |
 | UI/API für `AssignedUserId` fehlt | Datenmodell vorbereitet, nicht genutzt |

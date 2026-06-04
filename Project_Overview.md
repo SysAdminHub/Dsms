@@ -22,8 +22,9 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 
 | Bereich | Funktion |
 |--------|----------|
-| Dashboard | Kennzahlen zu Maßnahmen, Audits, TOMs, Dienstleistern und VVT-Verknüpfungen sowie Kurzlisten (mandantenbezogen) |
+| Dashboard | Kennzahlen zu Maßnahmen, Audits, TOMs, Dienstleistern, DSFA und VVT-Verknüpfungen sowie Kurzlisten (mandantenbezogen) |
 | Verarbeitungstätigkeiten | Verzeichnis von Verarbeitungstätigkeiten (VVT) – Listen, Detail als zentrale Verknüpfungsübersicht, Verknüpfungen pflegen, Stammdaten |
+| DSFA | Datenschutz-Folgenabschätzungen – Listen, Detail, Anlegen/Bearbeiten; Zuordnung zu Verarbeitungstätigkeiten |
 | TOM-Verzeichnis | Technische und organisatorische Maßnahmen – Listen, Detail, Anlegen/Bearbeiten; Verknüpfung mit Verarbeitungstätigkeiten |
 | Dienstleister | Auftragsverarbeiter und externe Dienstleister – AVV, Drittland, TOM-Prüfung; Verknüpfung mit VVT und TOMs |
 | Audit-Vorlagen | Listen, Anlegen und Bearbeiten von Vorlagen inkl. Fragen |
@@ -46,6 +47,10 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 | `/processing-activities/links/{Id}` | Verknüpfungen bearbeiten | Nur **Admin** und **Auditor** |
 | `/processing-activities/edit` | Verarbeitungstätigkeit anlegen | Nur **Admin** und **Auditor** |
 | `/processing-activities/edit/{Id}` | Verarbeitungstätigkeit bearbeiten (Stammdaten) | Nur **Admin** und **Auditor** |
+| `/dsfa` | DSFA (Liste) | Alle angemeldeten Benutzer mit Mandant |
+| `/dsfa/{Id}` | DSFA (Detail) | Alle angemeldeten Benutzer mit Mandant |
+| `/dsfa/edit` | DSFA anlegen | Nur **Admin** und **Auditor** |
+| `/dsfa/edit/{Id}` | DSFA bearbeiten | Nur **Admin** und **Auditor** |
 | `/toms` | TOM-Verzeichnis (Liste) | TOMs des eigenen Mandanten |
 | `/toms/{Id}` | TOM (Detail) | Inkl. verknüpfte Verarbeitungstätigkeiten; alle angemeldeten Benutzer mit Mandant |
 | `/toms/edit` | TOM anlegen | Nur **Admin** und **Auditor** |
@@ -98,6 +103,7 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 | **Verarbeitungstätigkeit** | Eintrag im Verzeichnis von Verarbeitungstätigkeiten (VVT) zu einer konkreten Datenverarbeitung |
 | **TOM** | Technische oder organisatorische Maßnahme zum Schutz von Verarbeitungstätigkeiten |
 | **Dienstleister** | Externe Stelle (Auftragsverarbeiter oder sonstiger Dienstleister) mit AVV- und Risikodokumentation |
+| **DSFA** | Datenschutz-Folgenabschätzung zu einer Verarbeitungstätigkeit (Risiken, Maßnahmen, Restrisiko, Ergebnis) |
 | **Maßnahme** | Aufgabe zur Umsetzung (optional verknüpft mit einem Audit-Durchlauf) |
 | **Nachweisdokument** | Metadaten zu einer hochgeladenen Datei (Inhalt im Dateisystem) |
 | **Rollen** | **Admin**, **Auditor**, **User** – steuern Menü und Seitenzugriff |
@@ -145,14 +151,35 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 - Dokumente: `EvidenceDocument.ProcessingActivityId`
 - Maßnahmen: `ProcessingActivityMeasures`
 - Audit-Antworten: `ProcessingActivityAuditAnswers` (Many-to-Many)
-- DSFA: nur Feld `DpiaRequired` und Hinweisblock (Modul folgt später)
+- DSFA: 1:n über `DataProtectionImpactAssessment`; Übersicht und Warnhinweise auf der VVT-Detailseite
 
 **Bekannte Einschränkungen / offene Punkte:**
 
-- Kein vollständiges DSFA-Modul
 - Kein Dokumenten-Download
 - Audit-Antwort-Zuordnung nicht in der Antwortmaske, nur über Verknüpfungsseite
 - Dienstleister-Rolle in der Verarbeitung wird bei Zuordnung von der VVT-Seite nicht bearbeitet
+
+## Modul DSFA
+
+**Zweck:** Strukturierte Dokumentation von Datenschutz-Folgenabschätzungen (DSFA) zu Verarbeitungstätigkeiten – inkl. Risiken, Schutzmaßnahmen, Restrisiko, Ergebnis und Prüfstatus.
+
+**Benutzerfunktionen:**
+
+- Liste aller DSFAs des Mandanten mit Verarbeitungstätigkeit, Status, Restrisiko, Ergebnis und Prüfterminen
+- Detailansicht mit fachlichen Textfeldern, verknüpfter Verarbeitungstätigkeit und zugeordneten Nachweisdokumenten
+- Anlegen und Bearbeiten (Admin/Auditor) mit Auswahl der Verarbeitungstätigkeit (nur eigener Mandant)
+- VVT-Detailseite: DSFA-Kennzahlen, neueste DSFA, Warnhinweise, Schnellanlage mit vorausgefüllter Verarbeitungstätigkeit
+- Einfache Warnhinweise (z. B. DSFA-Pflicht ohne Eintrag, hohes Restrisiko, überfällige Prüfung, kritisches Ergebnis)
+
+**Verknüpfung:** Pflicht-FK `ProcessingActivityId` (1:n). Nachweisdokumente optional über `EvidenceDocument.DataProtectionImpactAssessmentId`.
+
+**Berechtigungen:** Alle angemeldeten Benutzer mit Mandant dürfen lesen; Admin und Auditor dürfen anlegen und bearbeiten.
+
+**Bekannte Einschränkungen / offene Punkte:**
+
+- `DpiaRequired` an der Verarbeitungstätigkeit ist nur Ja/Nein (kein „Zu prüfen“)
+- Kein Löschen von DSFA über die UI
+- Keine DSFA-Versionierung oder Freigabe-Workflow-Engine
 
 ## Modul Dienstleister / Auftragsverarbeiter
 
@@ -186,7 +213,7 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 - Mandantenbezogene Datenfilterung über `TenantId` des Benutzers
 - Demo-Daten und Demo-Benutzer beim ersten Start (leere Datenbank)
 - Automatische Datenbankmigration beim Start
-- CRUD-ähnliche Bearbeitung für Verarbeitungstätigkeiten (VVT), TOMs, Dienstleister, Vorlagen, Durchläufe, Maßnahmen, Mandanten (ohne Löschen in der UI)
+- CRUD-ähnliche Bearbeitung für Verarbeitungstätigkeiten (VVT), DSFA, TOMs, Dienstleister, Vorlagen, Durchläufe, Maßnahmen, Mandanten (ohne Löschen in der UI)
 - TOM-Verzeichnis mit Verknüpfung zu Verarbeitungstätigkeiten und Dashboard-Kennzahlen zu TOMs
 - Dienstleister-Verzeichnis mit AVV-/Drittland-Dokumentation, VVT- und TOM-Verknüpfung, Dashboard-Kennzahlen
 - Nachweisdokumente optional einem Dienstleister zuordenbar
@@ -234,7 +261,7 @@ flowchart TD
     B -->|Ja| E[Dashboard]
     D --> E
     E --> F[Compliance-Bereich wählen]
-    F --> G[VVT / TOMs / Dienstleister / Vorlagen / Durchläufe / Maßnahmen / Dokumente]
+    F --> G[VVT / DSFA / TOMs / Dienstleister / Vorlagen / Durchläufe / Maßnahmen / Dokumente]
     G --> H[Daten erfassen oder bearbeiten]
     H --> I[Speichern in MySQL]
 ```

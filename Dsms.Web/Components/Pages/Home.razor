@@ -92,6 +92,26 @@ else if (_summary is not null)
             <div class="dsms-stat-label">DSFA erforderlich (VVT)</div>
             <div class="dsms-stat-value">@_summary.ProcessingActivitiesDpiaRequiredCount</div>
         </div>
+        <div class="dsms-stat-card dsms-stat-card--primary">
+            <div class="dsms-stat-label">DSFA gesamt</div>
+            <div class="dsms-stat-value">@_summary.TotalDpiaAssessmentsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--primary">
+            <div class="dsms-stat-label">DSFA in Prüfung</div>
+            <div class="dsms-stat-value">@_summary.DpiaInReviewCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">DSFA Restrisiko hoch/kritisch</div>
+            <div class="dsms-stat-value">@_summary.DpiaHighOrCriticalRiskCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">DSFA-Prüfungen überfällig</div>
+            <div class="dsms-stat-value">@_summary.OverdueDpiaReviewsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--warning">
+            <div class="dsms-stat-label">DSFA-Pflicht ohne DSFA</div>
+            <div class="dsms-stat-value">@_summary.ProcessingActivitiesDpiaRequiredWithoutAssessmentCount</div>
+        </div>
         <div class="dsms-stat-card dsms-stat-card--danger">
             <div class="dsms-stat-label">VVT mit Risiko-Dienstleister</div>
             <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithHighRiskProvidersCount</div>

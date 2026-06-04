@@ -1,0 +1,242 @@
+@*
+    Anlegen und Bearbeiten von DSFA inkl. Zuordnung zu einer Verarbeitungstätigkeit.
+    Nur Admin und Auditor; Speichern und Laden immer mit TenantId-Filter.
+*@
+
+@page "/dsfa/edit"
+@page "/dsfa/edit/{Id:int}"
+
+@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+
+@rendermode InteractiveServer
+
+<PageTitle>DSFA bearbeiten</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="DSFA" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_notFound)
+{
+    <PageHeader Title="DSFA" />
+    <div class="alert alert-warning dsms-alert">Eintrag nicht gefunden oder kein Zugriff.</div>
+}
+else
+{
+    <PageHeader Title="@(_model.Id == 0 ? "DSFA anlegen" : "DSFA bearbeiten")" />
+
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+                <ValidationSummary class="alert alert-danger dsms-alert" />
+
+                <div class="mb-3">
+                    <label class="form-label">Titel *</label>
+                    <InputText class="form-control" @bind-Value="_model.Title" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Verarbeitungstätigkeit *</label>
+                    <InputSelect class="form-select" @bind-Value="_model.ProcessingActivityId">
+                        <option value="0">— bitte wählen —</option>
+                        @foreach (var activity in _availableActivities)
+                        {
+                            <option value="@activity.Id">@activity.Name</option>
+                        }
+                    </InputSelect>
+                    <p class="form-text text-muted">Nur Verarbeitungstätigkeiten des eigenen Mandanten.</p>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Beschreibung der Verarbeitung</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.ProcessingDescription" rows="3" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Grund für DSFA</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.ReasonForDpia" rows="3" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Notwendigkeit und Verhältnismäßigkeit</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.NecessityAndProportionality" rows="3" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Bewertung der Risiken</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.RiskAssessment" rows="3" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Schutzmaßnahmen</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.ProtectiveMeasures" rows="3" />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Restrisiko</label>
+                        <InputSelect class="form-select" @bind-Value="_model.ResidualRisk">
+                            @foreach (var risk in Enum.GetValues<DpiaResidualRisk>())
+                            {
+                                <option value="@risk">@DsfaLabels.GetResidualRiskLabel(risk)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Ergebnis</label>
+                        <InputSelect class="form-select" @bind-Value="_model.Outcome">
+                            @foreach (var outcome in Enum.GetValues<DpiaOutcome>())
+                            {
+                                <option value="@outcome">@DsfaLabels.GetOutcomeLabel(outcome)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Status</label>
+                        <InputSelect class="form-select" @bind-Value="_model.Status">
+                            @foreach (var status in Enum.GetValues<DpiaStatus>())
+                            {
+                                <option value="@status">@DsfaLabels.GetStatusLabel(status)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Verantwortliche Person</label>
+                        <InputText class="form-control" @bind-Value="_model.ResponsiblePerson" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Prüfung durch</label>
+                        <InputText class="form-control" @bind-Value="_model.ReviewedBy" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Prüfdatum</label>
+                        <InputDate class="form-control" @bind-Value="_reviewedAt" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Nächste Prüfung am</label>
+                    <InputDate class="form-control" @bind-Value="_nextReviewAt" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(_saveError))
+                {
+                    <div class="alert alert-danger dsms-alert">@_saveError</div>
+                }
+
+                <div class="dsms-form-actions">
+                    <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                    <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"dsfa/{_model.Id}" : "dsfa")">Abbrechen</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _notFound;
+    private bool _saving;
+    private string? _saveError;
+    private DataProtectionImpactAssessment _model = new();
+    private DateTime? _reviewedAt;
+    private DateTime? _nextReviewAt;
+    private List<ProcessingActivity> _availableActivities = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _availableActivities = await Db.ProcessingActivities
+            .Where(p => p.TenantId == _tenantId)
+            .OrderBy(p => p.Name)
+            .ToListAsync();
+
+        if (Id is > 0)
+        {
+            var existing = await Db.DataProtectionImpactAssessments
+                .FirstOrDefaultAsync(d => d.Id == Id && d.TenantId == _tenantId);
+
+            if (existing is null)
+            {
+                _notFound = true;
+                return;
+            }
+
+            _model = existing;
+            _reviewedAt = existing.ReviewedAt?.ToDateTime(TimeOnly.MinValue);
+            _nextReviewAt = existing.NextReviewAt?.ToDateTime(TimeOnly.MinValue);
+        }
+        else
+        {
+            _model.TenantId = _tenantId.Value;
+            _model.Status = DpiaStatus.Draft;
+            _model.ResidualRisk = DpiaResidualRisk.NotEvaluated;
+            _model.Outcome = DpiaOutcome.NotEvaluated;
+
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query)
+                .TryGetValue("processingActivityId", out var paValue)
+                && int.TryParse(paValue.FirstOrDefault(), out var paId)
+                && _availableActivities.Any(p => p.Id == paId))
+            {
+                _model.ProcessingActivityId = paId;
+            }
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_tenantId is null || string.IsNullOrWhiteSpace(_model.Title))
+        {
+            return;
+        }
+
+        if (_model.ProcessingActivityId <= 0)
+        {
+            _saveError = "Bitte wählen Sie eine Verarbeitungstätigkeit.";
+            return;
+        }
+
+        _saving = true;
+        _saveError = null;
+
+        _model.TenantId = _tenantId.Value;
+        _model.ReviewedAt = _reviewedAt.HasValue ? DateOnly.FromDateTime(_reviewedAt.Value) : null;
+        _model.NextReviewAt = _nextReviewAt.HasValue ? DateOnly.FromDateTime(_nextReviewAt.Value) : null;
+
+        // Verarbeitungstätigkeit muss zum aktuellen Mandanten gehören (Schutz vor ID-Manipulation).
+        var activityOk = await Db.ProcessingActivities.AnyAsync(p =>
+            p.Id == _model.ProcessingActivityId && p.TenantId == _tenantId);
+        if (!activityOk)
+        {
+            _saveError = "Die gewählte Verarbeitungstätigkeit gehört nicht zu Ihrem Mandanten.";
+            _saving = false;
+            return;
+        }
+
+        if (_model.Id == 0)
+        {
+            _model.CreatedAt = DateTime.UtcNow;
+            Db.DataProtectionImpactAssessments.Add(_model);
+        }
+        else
+        {
+            _model.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await Db.SaveChangesAsync();
+        Navigation.NavigateTo($"dsfa/{_model.Id}");
+    }
+}

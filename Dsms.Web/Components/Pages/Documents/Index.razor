@@ -14,7 +14,7 @@
 }
 else
 {
-    <PageHeader Title="Dokumente" Subtitle="Nachweise zu Audits, Maßnahmen, Dienstleistern und Verarbeitungstätigkeiten" />
+    <PageHeader Title="Dokumente" Subtitle="Nachweise zu Audits, Maßnahmen, Dienstleistern, Verarbeitungstätigkeiten und DSFA" />
 
     <div class="dsms-card mb-4">
         <div class="dsms-card-header">Datei hochladen</div>
@@ -61,6 +61,16 @@ else
                         }
                     </InputSelect>
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label">DSFA (optional)</label>
+                    <InputSelect class="form-select" @bind-Value="_selectedDpiaId">
+                        <option value="">— keine —</option>
+                        @foreach (var dpia in _dpiaAssessments)
+                        {
+                            <option value="@dpia.Id">@dpia.Title</option>
+                        }
+                    </InputSelect>
+                </div>
             </div>
             @if (!string.IsNullOrEmpty(_uploadMessage))
             {
@@ -98,6 +108,7 @@ else
                                     @if (doc.MeasureId.HasValue) { <StatusBadge Text="@($"Maßnahme #{doc.MeasureId}")" /> }
                                     @if (doc.ServiceProviderId.HasValue) { <StatusBadge Text="@($"Dienstleister #{doc.ServiceProviderId}")" Variant="warning" /> }
                                     @if (doc.ProcessingActivityId.HasValue) { <StatusBadge Text="@($"VVT #{doc.ProcessingActivityId}")" Variant="primary" /> }
+                                    @if (doc.DataProtectionImpactAssessmentId.HasValue) { <StatusBadge Text="@($"DSFA #{doc.DataProtectionImpactAssessmentId}")" Variant="warning" /> }
                                 </td>
                             </tr>
                         }
@@ -119,10 +130,12 @@ else
     private List<Measure> _measures = [];
     private List<DsmsServiceProvider> _serviceProviders = [];
     private List<ProcessingActivity> _processingActivities = [];
+    private List<DataProtectionImpactAssessment> _dpiaAssessments = [];
     private int? _selectedAuditRunId;
     private int? _selectedMeasureId;
     private int? _selectedServiceProviderId;
     private int? _selectedProcessingActivityId;
+    private int? _selectedDpiaId;
     private string? _uploadMessage;
 
     protected override async Task OnInitializedAsync()
@@ -144,6 +157,10 @@ else
         _measures = await Db.Measures.Where(m => m.TenantId == _tenantId).ToListAsync();
         _serviceProviders = await Db.ServiceProviders.Where(s => s.TenantId == _tenantId).OrderBy(s => s.Name).ToListAsync();
         _processingActivities = await Db.ProcessingActivities.Where(p => p.TenantId == _tenantId).OrderBy(p => p.Name).ToListAsync();
+        _dpiaAssessments = await Db.DataProtectionImpactAssessments
+            .Where(d => d.TenantId == _tenantId)
+            .OrderBy(d => d.Title)
+            .ToListAsync();
     }
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
@@ -180,6 +197,17 @@ else
             }
         }
 
+        if (_selectedDpiaId.HasValue)
+        {
+            var dpiaOk = await Db.DataProtectionImpactAssessments.AnyAsync(d =>
+                d.Id == _selectedDpiaId && d.TenantId == _tenantId);
+            if (!dpiaOk)
+            {
+                _uploadMessage = "Die gewählte DSFA gehört nicht zu Ihrem Mandanten.";
+                return;
+            }
+        }
+
         await using var stream = file.OpenReadStream(10 * 1024 * 1024);
         var path = await Storage.SaveAsync(_tenantId.Value, file.Name, stream);
 
@@ -194,6 +222,7 @@ else
             MeasureId = _selectedMeasureId,
             ServiceProviderId = _selectedServiceProviderId,
             ProcessingActivityId = _selectedProcessingActivityId,
+            DataProtectionImpactAssessmentId = _selectedDpiaId,
             UploadedByUserId = await CurrentUser.GetUserIdAsync()
         };
 

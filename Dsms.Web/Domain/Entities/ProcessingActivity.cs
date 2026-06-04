@@ -66,4 +66,7 @@ public class ProcessingActivity : EntityBase
 
     /// <summary>Nachweisdokumente, die direkt dieser Verarbeitungstätigkeit zugeordnet sind.</summary>
     public ICollection<EvidenceDocument> Documents { get; set; } = [];
+
+    /// <summary>Datenschutz-Folgenabschätzungen (DSFA) zu dieser Verarbeitungstätigkeit.</summary>
+    public ICollection<DataProtectionImpactAssessment> DpiaAssessments { get; set; } = [];
 }

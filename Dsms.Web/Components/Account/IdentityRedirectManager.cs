@@ -28,8 +28,15 @@ internal sealed class IdentityRedirectManager(NavigationManager navigationManage
         {
             uri = navigationManager.ToBaseRelativePath(uri);
         }
-
-        navigationManager.NavigateTo(uri);
+        try
+        {
+            navigationManager.NavigateTo(uri);
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+        
     }
 
     public void RedirectTo(string uri, Dictionary<string, object?> queryParameters)

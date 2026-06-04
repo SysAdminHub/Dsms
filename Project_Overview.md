@@ -31,8 +31,8 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 | Audit-Durchläufe | Listen, Anlegen und Bearbeiten von Durchläufen; Beantwortung der Vorlagenfragen |
 | Maßnahmen | Listen, Anlegen und Bearbeiten von Maßnahmen mit Status und Fälligkeit |
 | Dokumente | Upload von Nachweisdateien (max. 10 MB), Zuordnung zu Audit, Maßnahme, Dienstleister oder Verarbeitungstätigkeit |
-| Mandanten | Verwaltung von Organisationseinheiten (nur Rolle Admin) |
-| Benutzer | Bearbeiten von Anzeigename, Mandant und Rolle (nur Rolle Admin) |
+| Mandanten | Verwaltung von Organisationseinheiten (**nur Superuser**, plattformweit) |
+| Benutzer | Anlegen und Bearbeiten von Konten, Rollen, Mandant, Aktiv-Status (**Superuser** mandantenübergreifend, **Admin** nur im eigenen Mandant) |
 | Konto | Standard-Identity-Funktionen (Profil, Passwort, optional 2FA usw.) |
 
 ## Module und Seiten
@@ -71,15 +71,21 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 | `/measures/edit/{Id}` | Maßnahme bearbeiten | Alle angemeldeten Benutzer |
 | `/documents` | Dokumente | Upload und Liste, mandantenbezogen |
 
-### Verwaltung (nur Rolle **Admin**)
+### Plattformverwaltung (nur Rolle **Superuser**)
 
 | Route | Seite |
 |-------|-------|
 | `/tenants` | Mandanten (Liste) |
 | `/tenants/edit` | Mandant anlegen |
 | `/tenants/edit/{Id}` | Mandant bearbeiten |
-| `/users` | Benutzer (Liste) |
-| `/users/edit/{UserId}` | Benutzer bearbeiten |
+
+### Benutzerverwaltung (**Superuser** und **Admin**)
+
+| Route | Seite | Zugriff |
+|-------|-------|---------|
+| `/users` | Benutzer (Liste) | Superuser: alle Mandanten; Admin: nur eigener Mandant |
+| `/users/create` | Benutzer anlegen | Superuser: Rolle + Mandant; Admin: Rolle ohne Superuser, Mandant automatisch |
+| `/users/edit/{UserId}` | Benutzer bearbeiten | Wie Liste; Admin darf keine Superuser bearbeiten |
 
 ### Konto und Anmeldung
 
@@ -106,7 +112,9 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 | **DSFA** | Datenschutz-Folgenabschätzung zu einer Verarbeitungstätigkeit (Risiken, Maßnahmen, Restrisiko, Ergebnis) |
 | **Maßnahme** | Aufgabe zur Umsetzung (optional verknüpft mit einem Audit-Durchlauf) |
 | **Nachweisdokument** | Metadaten zu einer hochgeladenen Datei (Inhalt im Dateisystem) |
-| **Rollen** | **Admin**, **Auditor**, **User** – steuern Menü und Seitenzugriff |
+| **Rollen** | **Superuser** (plattformweit), **Admin** (Mandant), **Auditor**, **User** – steuern Menü und serverseitige Prüfungen |
+| **Superuser** | SaaS-Betreiber: alle Mandanten und Benutzer, keine Pflicht-Mandantenzuordnung (`TenantId` null) |
+| **Admin** | Mandanten-Administrator: nur eigener `TenantId`, Benutzerverwaltung ohne Superuser-Rolle |
 
 ### Statuswerte (im UI oft englische Enum-Namen)
 
@@ -225,12 +233,13 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 - Löschen von Fachdatensätzen über die UI (Mandanten, Vorlagen, Durchläufe, Maßnahmen, Verarbeitungstätigkeiten, TOMs, Dienstleister, Dokumente)
 - Upload von Nachweisdokumenten mit direkter Zuordnung zu TOMs
 - Herunterladen hochgeladener Nachweisdokumente über die Dokumenten-Seite
-- Anlegen neuer Benutzer über die Benutzerverwaltung (nur Bearbeiten bestehender Konten)
+- Mandantenwechsel im UI für Compliance-Daten (Superuser ohne `TenantId` sieht kein mandantenbezogenes Dashboard)
 - Bearbeiten oder Löschen einzelner Audit-Fragen nach dem Anlegen
 - Zuweisung von Verantwortlichen (`AssignedUserId`) in der UI – Feld existiert im Datenmodell
 - Echter E-Mail-Versand (Bestätigung, Passwort-Reset)
 - Öffentliche Selbstregistrierung als Standard-Workflow (Register-Seite existiert, ist aber nicht eingebunden)
-- Mehrmandanten-Übersicht für Compliance-Daten (Admin sieht in Compliance-Modulen nur den eigenen `TenantId`)
+- Mehrere Mandanten pro Benutzer (geplant; aktuell genau ein `TenantId` pro Konto, außer Superuser)
+- Rollen pro Mandant und Impersonation (geplant)
 
 ## Geplante oder offene Funktionen (aus Code/README)
 
@@ -272,13 +281,14 @@ flowchart TD
 4. Im Dashboard den Überblick nutzen und in die Module wechseln.
 5. **Auditor/Admin:** Verarbeitungstätigkeiten (VVT), Vorlagen und Durchläufe anlegen und pflegen.
 6. **Alle Rollen:** Audit-Fragen beantworten, Maßnahmen pflegen, Dokumente hochladen.
-7. **Admin:** Mandanten und Benutzer verwalten.
+7. **Superuser:** Mandanten und alle Benutzer verwalten; **Admin:** nur Benutzer des eigenen Mandanten.
 8. Abmelden über die Sidebar (POST an `/Account/Logout`).
 
 ### Demo-Zugänge (aus `DatabaseSeeder` / README)
 
 | E-Mail | Passwort | Rolle |
 |--------|----------|-------|
+| superuser@demo.local | Demo123! | Superuser |
 | admin@demo.local | Demo123! | Admin |
 | auditor@demo.local | Demo123! | Auditor |
 | user@demo.local | Demo123! | User |
@@ -286,7 +296,8 @@ flowchart TD
 ## Bekannte Einschränkungen und offene Punkte
 
 - **Mandantentrennung:** Filterung erfolgt in den Razor-Seiten per `ICurrentUserContext.GetTenantIdAsync()` – keine zentrale Datenzugriffsschicht; **Noch zu klären:** Schutz vor Manipulation von URLs/IDs über andere Mandanten (teilweise durch `TenantId`-Filter in Queries abgesichert).
-- **Admin und Compliance:** Admin-Benutzer aus dem Seed haben `TenantId` der Demo GmbH – globale Mandantenverwaltung, aber Compliance-Daten nur für diesen Mandanten.
+- **Superuser und Compliance:** Superuser haben keinen Mandanten – Compliance-Module nutzen weiterhin `TenantId` des Benutzers; Plattformverwaltung über eigene Menüpunkte.
+- **Ein Mandant pro Benutzer (V1):** `ApplicationUser.TenantId`; spätere Erweiterung über separate Zuordnungstabelle vorgesehen.
 - **UI-Sprache:** Fachseiten überwiegend deutsch; viele Identity-Standardseiten noch englisch.
 - **Enum-Anzeige:** Status und Compliance-Stufen erscheinen im UI als englische Enum-Namen.
 - **Dokumente:** Kein Download-Link in der Dokumentenliste.

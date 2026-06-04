@@ -15,7 +15,16 @@
 }
 else if (_tenantId is null)
 {
-    <div class="alert alert-warning dsms-alert">Ihrem Benutzerkonto ist kein Mandant zugeordnet.</div>
+    <div class="alert alert-info dsms-alert">
+        @if (_isSuperuser)
+        {
+            <text>Als Superuser verwalten Sie die Plattform unter „Mandanten“ und „Benutzer“. Compliance-Daten erfordern eine Mandantenzuordnung (geplant: Mandantenwechsel).</text>
+        }
+        else
+        {
+            <text>Ihrem Benutzerkonto ist kein Mandant zugeordnet. Bitte wenden Sie sich an einen Administrator.</text>
+        }
+    </div>
 }
 else if (_summary is not null)
 {
@@ -165,11 +174,13 @@ else if (_summary is not null)
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
 
     private bool _loading = true;
+    private bool _isSuperuser;
     private int? _tenantId;
     private DashboardSummary? _summary;
 
     protected override async Task OnInitializedAsync()
     {
+        _isSuperuser = await CurrentUser.IsInRoleAsync(DsmsRoles.Superuser);
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId.HasValue)
         {

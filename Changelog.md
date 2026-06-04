@@ -6,6 +6,25 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **SaaS-Basis: Rollen und Benutzer-/Mandantenverwaltung (Version 1):**
+  - Neue Rolle **Superuser** (plattformweit, `TenantId` optional null)
+  - **Admin** nur noch mandantenbezogene Benutzerverwaltung; **Mandanten** (`/tenants`) nur Superuser
+  - Services `IUserAccessService`, `IUserManagementService` – zentrale serverseitige Prüfungen (Rollen, Mandant, bearbeitbare Benutzer)
+  - Benutzer anlegen (`/users/create`), bearbeiten inkl. **IsActive** (Deaktivierung statt Löschen)
+  - `ApplicationUser`: `IsActive`, `CreatedAt`, `CreatedByUserId`
+  - EF-Migration `AddUserProfileFieldsForSaaS`
+  - Demo-Benutzer `superuser@demo.local` (Seed bei leerer Datenbank)
+  - Login blockiert inaktive Konten
+  - Navigation: Sektion „Plattform“ (Superuser) und „Verwaltung“ (Benutzer für Superuser/Admin)
+  - **Ein Benutzer = ein Mandant** (außer Superuser); Architektur kommentiert für spätere Multi-Tenant-Zuordnung
+
+### Offene Punkte (SaaS V1)
+
+- Mehrere Mandanten pro Benutzer und Rollen pro Mandant (geplant, nicht umgesetzt)
+- Mandantenwechsel / Arbeitskontext für Superuser in Compliance-Modulen
+- Kein Impersonation, keine Abrechnung
+- Bestehende Installationen: Superuser-Rolle wird angelegt; Konto `superuser@demo.local` nur bei Erst-Seed
+
 - **Modul DSFA (Datenschutz-Folgenabschätzung):**
   - Entity `DataProtectionImpactAssessment` mit Status, Restrisiko, Ergebnis und Prüffeldern
   - Enums `DpiaStatus`, `DpiaResidualRisk`, `DpiaOutcome` mit deutschen Labels (`DsfaLabels`)

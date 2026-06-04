@@ -1,11 +1,13 @@
-@* Nur Admin: alle Identity-Benutzer inkl. Mandant und Rollen. *@
+@* Superuser: alle Benutzer; Admin: nur eigener Mandant. Auditor/User: kein Zugriff (Authorize). *@
 @page "/users"
-@attribute [Authorize(Roles = DsmsRoles.Admin)]
+@attribute [Authorize(Roles = DsmsRoles.UserManagement)]
 @rendermode InteractiveServer
 
 <PageTitle>Benutzer</PageTitle>
 
-<PageHeader Title="Benutzer" Subtitle="Konten, Mandanten und Rollen verwalten" />
+<PageHeader Title="Benutzer" Subtitle="Konten, Mandanten und Rollen verwalten">
+    <a class="btn btn-primary" href="users/create">Neuer Benutzer</a>
+</PageHeader>
 
 @if (_users is null)
 {
@@ -22,6 +24,7 @@ else
                         <th>Anzeigename</th>
                         <th>Mandant</th>
                         <th>Rollen</th>
+                        <th>Status</th>
                         <th class="dsms-table-actions"></th>
                     </tr>
                 </thead>
@@ -38,6 +41,9 @@ else
                                     <StatusBadge Text="@role" Variant="primary" />
                                 }
                             </td>
+                            <td>
+                                <StatusBadge Text="@(entry.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(entry.IsActive ? "success" : "default")" />
+                            </td>
                             <td class="dsms-table-actions">
                                 <a class="btn btn-sm btn-outline-secondary" href="@($"users/edit/{entry.User.Id}")">Bearbeiten</a>
                             </td>
@@ -50,24 +56,10 @@ else
 }
 
 @code {
-    [Inject] private UserManager<ApplicationUser> UserManager { get; set; } = null!;
-    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private IUserManagementService UserManagement { get; set; } = null!;
 
-    private List<UserRow>? _users;
+    private IReadOnlyList<UserListItem>? _users;
 
-    protected override async Task OnInitializedAsync()
-    {
-        var tenants = await Db.Tenants.ToDictionaryAsync(t => t.Id, t => t.Name);
-        var users = await UserManager.Users.OrderBy(u => u.Email).ToListAsync();
-        _users = [];
-
-        foreach (var user in users)
-        {
-            var roles = await UserManager.GetRolesAsync(user);
-            var tenantName = user.TenantId is int tid && tenants.TryGetValue(tid, out var name) ? name : "—";
-            _users.Add(new UserRow(user, tenantName, roles));
-        }
-    }
-
-    private record UserRow(ApplicationUser User, string TenantName, IList<string> Roles);
+    protected override async Task OnInitializedAsync() =>
+        _users = await UserManagement.ListUsersAsync(includeInactive: true);
 }

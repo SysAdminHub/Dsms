@@ -1,102 +1,214 @@
 ﻿@*
-    Hauptnavigation; Admin-Menüpunkte nur innerhalb AuthorizeView Roles=Admin.
+
+    Hauptnavigation; Mandanten nur für Superuser, Benutzer für Superuser und Admin.
+
     Logout erfolgt per Form-POST an /Account/Logout (Identity-Endpunkt).
+
 *@
+
 @implements IDisposable
+
 @inject NavigationManager NavigationManager
 
+
+
 <div class="dsms-sidebar-header">
+
     <a class="dsms-sidebar-brand" href="">
+
         <span class="dsms-sidebar-logo">DS</span>
+
         <span class="dsms-sidebar-title">DSMS</span>
+
     </a>
+
 </div>
+
+
 
 <input type="checkbox" title="Menü" class="navbar-toggler" id="dsms-nav-toggle" />
 
+
+
 <label for="dsms-nav-toggle" class="navbar-toggler-label" aria-label="Navigation umschalten"></label>
 
+
+
 <div class="nav-scrollable">
+
     <nav class="nav flex-column dsms-nav">
-        <AuthorizeView>
+
+        <AuthorizeView Context="authContext">
+
             <Authorized>
+
                 <div class="nav-item">
+
                     <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Dashboard</NavLink>
+
                 </div>
+
                 <div class="nav-section">Compliance</div>
+
                 <div class="nav-item">
+
                     <NavLink class="nav-link" href="processing-activities">Verarbeitungstätigkeiten</NavLink>
+
                 </div>
+
                 <div class="nav-item">
+
+                    <NavLink class="nav-link" href="dsfa">DSFA</NavLink>
+
+                </div>
+
+                <div class="nav-item">
+
                     <NavLink class="nav-link" href="toms">TOM-Verzeichnis</NavLink>
+
                 </div>
+
                 <div class="nav-item">
+
                     <NavLink class="nav-link" href="service-providers">Dienstleister</NavLink>
+
                 </div>
+
                 <div class="nav-item">
+
                     <NavLink class="nav-link" href="audit-templates">Audit-Vorlagen</NavLink>
+
                 </div>
+
                 <div class="nav-item">
+
                     <NavLink class="nav-link" href="audit-runs">Audit-Durchläufe</NavLink>
+
                 </div>
+
                 <div class="nav-item">
+
                     <NavLink class="nav-link" href="measures">Maßnahmen</NavLink>
+
                 </div>
+
                 <div class="nav-item">
+
                     <NavLink class="nav-link" href="documents">Dokumente</NavLink>
+
                 </div>
-                <AuthorizeView Roles="@DsmsRoles.Admin" Context="adminContext">
-                    <div class="nav-section">Verwaltung</div>
+
+                <AuthorizeView Roles="@DsmsRoles.Superuser" Context="superNav">
+
+                    <div class="nav-section">Plattform</div>
+
                     <div class="nav-item">
+
                         <NavLink class="nav-link" href="tenants">Mandanten</NavLink>
+
                     </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="users">Benutzer</NavLink>
-                    </div>
+
                 </AuthorizeView>
+
+                <AuthorizeView Roles="@DsmsRoles.UserManagement" Context="userNav">
+
+                    <div class="nav-section">Verwaltung</div>
+
+                    <div class="nav-item">
+
+                        <NavLink class="nav-link" href="users">Benutzer</NavLink>
+
+                    </div>
+
+                </AuthorizeView>
+
                 <div class="nav-section dsms-nav-footer">Konto</div>
+
                 <div class="nav-item">
-                    <NavLink class="nav-link" href="Account/Manage">@ShortUserName(context.User.Identity?.Name)</NavLink>
+
+                    <NavLink class="nav-link" href="Account/Manage">@ShortUserName(authContext.User.Identity?.Name)</NavLink>
+
                 </div>
+
                 <div class="nav-item">
+
                     <form action="Account/Logout" method="post">
+
                         <AntiforgeryToken />
+
                         <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+
                         <button type="submit" class="nav-link dsms-nav-logout">Abmelden</button>
+
                     </form>
+
                 </div>
+
             </Authorized>
+
             <NotAuthorized>
+
                 <div class="nav-item">
+
                     <NavLink class="nav-link" href="Account/Login">Anmelden</NavLink>
+
                 </div>
+
             </NotAuthorized>
+
         </AuthorizeView>
+
     </nav>
+
 </div>
 
+
+
 @code {
+
     private string? currentUrl;
 
+
+
     protected override void OnInitialized()
+
     {
+
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+
         NavigationManager.LocationChanged += OnLocationChanged;
+
     }
 
+
+
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+
     {
+
         currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
+
         StateHasChanged();
+
     }
+
+
 
     public void Dispose() => NavigationManager.LocationChanged -= OnLocationChanged;
 
-    // In der Sidebar nur der lokale Teil der E-Mail anzeigen.
+
+
     private static string ShortUserName(string? email)
+
     {
+
         if (string.IsNullOrEmpty(email)) return "Profil";
+
         var at = email.IndexOf('@');
+
         return at > 0 ? email[..at] : email;
+
     }
+
 }
+

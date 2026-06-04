@@ -187,6 +187,7 @@ public static class DatabaseSeeder
 
         await db.SaveChangesAsync();
 
+        await CreateUserAsync(userManager, "superuser@demo.local", "Superuser Demo", "Demo123!", tenantId: null, DsmsRoles.Superuser);
         await CreateUserAsync(userManager, "admin@demo.local", "Admin Demo", "Demo123!", tenant.Id, DsmsRoles.Admin);
         await CreateUserAsync(userManager, "auditor@demo.local", "Auditor Demo", "Demo123!", tenant.Id, DsmsRoles.Auditor);
         await CreateUserAsync(userManager, "user@demo.local", "Benutzer Demo", "Demo123!", tenant.Id, DsmsRoles.User);
@@ -200,7 +201,7 @@ public static class DatabaseSeeder
         string email,
         string displayName,
         string password,
-        int tenantId,
+        int? tenantId,
         string role)
     {
         var user = new ApplicationUser
@@ -209,7 +210,9 @@ public static class DatabaseSeeder
             Email = email,
             EmailConfirmed = true, // Demo: kein E-Mail-Bestätigungsflow
             DisplayName = displayName,
-            TenantId = tenantId
+            TenantId = tenantId,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
         };
 
         var result = await userManager.CreateAsync(user, password);

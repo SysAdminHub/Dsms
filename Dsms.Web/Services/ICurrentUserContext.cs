@@ -1,3 +1,5 @@
+using Dsms.Web.Data;
+
 namespace Dsms.Web.Services;
 
 /// <summary>
@@ -10,10 +12,13 @@ public interface ICurrentUserContext
     Task<string?> GetUserIdAsync();
 
     /// <summary>
-    /// Mandanten-ID aus dem Benutzerprofil. Null bei fehlender Anmeldung oder nicht zugeordnetem Mandanten.
+    /// Mandanten-ID aus dem Benutzerprofil. Null bei Superuser, fehlender Anmeldung oder nicht zugeordnetem Mandanten.
     /// </summary>
     Task<int?> GetTenantIdAsync();
 
     /// <summary>Prüft die angegebene Identity-Rolle (siehe <see cref="Domain.DsmsRoles"/>).</summary>
     Task<bool> IsInRoleAsync(string role);
+
+    /// <summary>Lädt den vollständigen Benutzerdatensatz (z. B. für Profilfelder).</summary>
+    Task<ApplicationUser?> GetUserAsync();
 }

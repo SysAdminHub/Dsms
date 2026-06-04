@@ -1,6 +1,6 @@
 @page "/tenants/edit"
 @page "/tenants/edit/{Id:int}"
-@attribute [Authorize(Roles = DsmsRoles.Admin)]
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
 @rendermode InteractiveServer
 
 <PageTitle>@(_model.Id == 0 ? "Mandant anlegen" : "Mandant bearbeiten")</PageTitle>

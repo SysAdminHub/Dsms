@@ -27,6 +27,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<ServiceProviderTom> ServiceProviderToms => Set<ServiceProviderTom>();
     public DbSet<ProcessingActivityMeasure> ProcessingActivityMeasures => Set<ProcessingActivityMeasure>();
     public DbSet<ProcessingActivityAuditAnswer> ProcessingActivityAuditAnswers => Set<ProcessingActivityAuditAnswer>();
+    public DbSet<DataProtectionImpactAssessment> DataProtectionImpactAssessments => Set<DataProtectionImpactAssessment>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -87,7 +88,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasOne(d => d.Measure).WithMany(m => m.Documents).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(d => d.ServiceProvider).WithMany(sp => sp.Documents).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(d => d.ProcessingActivity).WithMany(p => p.Documents).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(d => d.DataProtectionImpactAssessment).WithMany(dpia => dpia.Documents).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(d => new { d.TenantId, d.ProcessingActivityId });
+            e.HasIndex(d => new { d.TenantId, d.DataProtectionImpactAssessmentId });
         });
 
         // Verzeichnis von Verarbeitungstätigkeiten (VVT) – mandantenbezogen, kein Kaskaden-Löschen des Mandanten.
@@ -233,6 +236,28 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(l => l.TenantId);
             e.HasIndex(l => new { l.ProcessingActivityId, l.AuditAnswerId }).IsUnique();
+        });
+
+        // DSFA – mandantenbezogen, 1:n zu Verarbeitungstätigkeit; Mandant und VVT werden nicht kaskadiert gelöscht.
+        builder.Entity<DataProtectionImpactAssessment>(e =>
+        {
+            e.ToTable("DataProtectionImpactAssessments");
+            e.Property(d => d.Title).HasMaxLength(200).IsRequired();
+            e.Property(d => d.ProcessingDescription).HasColumnType("text");
+            e.Property(d => d.ReasonForDpia).HasColumnType("text");
+            e.Property(d => d.NecessityAndProportionality).HasColumnType("text");
+            e.Property(d => d.RiskAssessment).HasColumnType("text");
+            e.Property(d => d.ProtectiveMeasures).HasColumnType("text");
+            e.Property(d => d.ResponsiblePerson).HasMaxLength(200);
+            e.Property(d => d.ReviewedBy).HasMaxLength(200);
+            e.HasOne(d => d.Tenant).WithMany(t => t.DpiaAssessments).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(d => d.ProcessingActivity)
+                .WithMany(p => p.DpiaAssessments)
+                .HasForeignKey(d => d.ProcessingActivityId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(d => d.TenantId);
+            e.HasIndex(d => d.ProcessingActivityId);
+            e.HasIndex(d => new { d.TenantId, d.ProcessingActivityId });
         });
     }
 }

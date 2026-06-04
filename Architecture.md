@@ -43,8 +43,9 @@ c:\code\DS\
     ├── Dsms.Web.csproj
     ├── Domain/
     │   ├── Entities/              # Fach-Entities (inkl. ProcessingActivity, Tom, ServiceProvider)
-    │   ├── Enums/                 # u. a. ProcessingActivityStatus, Tom*, ServiceProvider*
+    │   ├── Enums/                 # u. a. ProcessingActivityStatus, Tom*, ServiceProvider*, Dpia*
     │   ├── ProcessingActivityLabels.cs
+    │   ├── DsfaLabels.cs
     │   ├── TomLabels.cs
     │   ├── ServiceProviderLabels.cs
     │   └── DsmsRoles.cs
@@ -140,6 +141,7 @@ Docker Compose (`docker-compose.yml`) legt `dsms_dev` mit Root-Passwort `changem
 | `ServiceProviderToms` | `ServiceProviderTom` |
 | `ProcessingActivityMeasures` | `ProcessingActivityMeasure` |
 | `ProcessingActivityAuditAnswers` | `ProcessingActivityAuditAnswer` |
+| `DataProtectionImpactAssessments` | `DataProtectionImpactAssessment` |
 
 Zusätzlich alle **ASP.NET Identity**-Standardtabellen (`AspNetUsers`, `AspNetRoles`, …).
 
@@ -166,9 +168,11 @@ Tenant
  │        ←──→ ServiceProvider (ProcessingActivityServiceProvider, Rolle)
  │        ←──→ Measure (ProcessingActivityMeasure)
  │        ←──→ AuditAnswer (ProcessingActivityAuditAnswer)
+ │        ── DataProtectionImpactAssessment (1:n DSFA)
  │        ── EvidenceDocument (ProcessingActivityId, optional)
  ├── Tom ←──→ ServiceProvider (ServiceProviderTom)
  ├── ServiceProvider ── EvidenceDocument (optional)
+ ├── DataProtectionImpactAssessment ── EvidenceDocument (optional)
  └── Tom
 
 ApplicationUser.TenantId → logische Zuordnung (kein EF-FK auf Tenants)
@@ -177,7 +181,9 @@ ApplicationUser.TenantId → logische Zuordnung (kein EF-FK auf Tenants)
 **`ApplicationUser`** (Identity):
 
 - `DisplayName`
-- `TenantId` (nullable `int`) – Mandantenzuordnung im Profil, nicht als Claim
+- `TenantId` (nullable `int`) – ein Mandant pro Benutzer in V1; `null` für Superuser
+- `IsActive` – deaktivierte Konten können sich nicht anmelden
+- `CreatedAt`, `CreatedByUserId` – Metadaten zur Kontoanlage
 
 Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in der UI **nicht** gesetzt.
 
@@ -186,7 +192,9 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | Service | Registrierung | Aufgabe |
 |---------|---------------|---------|
 | `ICurrentUserContext` / `CurrentUserContext` | Scoped | User-ID, TenantId, Rollenprüfung via `AuthenticationStateProvider` + `UserManager` |
-| `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, VVT-Verknüpfungen) |
+| `IUserAccessService` / `UserAccessService` | Scoped | Zentrale Berechtigungen (Superuser vs. Admin, Mandantenzugriff, bearbeitbare Benutzer) |
+| `IUserManagementService` / `UserManagementService` | Scoped | Benutzerliste, Anlegen, Bearbeiten, Deaktivieren inkl. serverseitiger Validierung |
+| `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, DSFA, VVT-Verknüpfungen) |
 | `ProcessingActivityRelationsService` | Scoped | Laden/Speichern von VVT-Verknüpfungen, Warnhinweise, Mandantenvalidierung |
 | `DocumentStorageService` | Scoped | Speichern/Lesen von Upload-Dateien unter `Data/Uploads/{tenantId}/` |
 | `IdentityRedirectManager` | Scoped | Weiterleitungen nach Login/Logout |
@@ -205,17 +213,22 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 
 ### Rollen (`DsmsRoles`)
 
-| Rolle | Typische Rechte (aus `[Authorize]` und NavMenu) |
-|-------|--------------------------------------------------|
-| **Admin** | + Mandanten, Benutzer; Menüpunkt „Verwaltung“ |
-| **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, TOMs und Dienstleister anlegen/bearbeiten |
-| **User** | Listen lesen, VVT/TOM/Dienstleister-Detailansicht, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von VVT, TOMs, Dienstleistern, Vorlagen/Durchläufen |
+| Rolle | Typische Rechte (aus `[Authorize]`, NavMenu, `IUserAccessService`) |
+|-------|---------------------------------------------------------------------|
+| **Superuser** | Plattform: alle Mandanten (`/tenants`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
+| **Admin** | Benutzer im eigenen Mandant; **keine** Mandantenverwaltung; Compliance wie bisher für `TenantId` |
+| **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, DSFA, TOMs und Dienstleister anlegen/bearbeiten; **keine** Benutzerverwaltung |
+| **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen |
+
+**Unterschied Superuser vs. Admin:** Superuser ist mandantenunabhängig (`TenantId` null) und global; Admin ist strikt an einen `TenantId` gebunden. Beide dürfen Benutzer verwalten, aber nur der Superuser sieht fremde Mandanten und darf Superuser anlegen.
+
+**Version 1 – Mandant pro Benutzer:** `ApplicationUser.TenantId` (nullable). Keine `UserTenants`-Tabelle; Architektur über `IUserAccessService`/`UserManagementService` erweiterbar für Multi-Tenant-Zuordnung und Rollen pro Mandant.
 
 ### Mandantenfilter
 
 - Implementierung: `ICurrentUserContext.GetTenantIdAsync()` in Razor-`OnInitializedAsync`
 - **Kein** globaler EF-Query-Filter auf `DbContext`
-- Admin-Seiten `/tenants`, `/users` ohne Mandantenfilter (globale Liste)
+- `/tenants` nur Superuser; `/users` gefiltert über `UserManagementService` (Superuser: alle, Admin: `TenantId`)
 
 ### Identity-Endpunkte
 
@@ -250,14 +263,14 @@ Reihenfolge in `Program.cs`:
 
 ### Migrationen
 
-- Migrationen: **`InitialCreate`**, **`AddProcessingActivities`**, **`AddToms`**, **`AddServiceProviders`**, **`AddProcessingActivityRelations`** (Tabellen `ProcessingActivityMeasures`, `ProcessingActivityAuditAnswers`; Spalte `EvidenceDocuments.ProcessingActivityId`)
+- Migrationen: **`InitialCreate`**, **`AddProcessingActivities`**, **`AddToms`**, **`AddServiceProviders`**, **`AddProcessingActivityRelations`**, **`AddDataProtectionImpactAssessments`** (Tabelle `DataProtectionImpactAssessments`; Spalte `EvidenceDocuments.DataProtectionImpactAssessmentId`)
 - Snapshot: `Migrations/ApplicationDbContextModelSnapshot.cs`
 
 ### Seed (`DatabaseSeeder.SeedAsync`)
 
 1. **`await db.Database.MigrateAsync()`** – wendet ausstehende Migrationen an (Startzeit)
-2. Rollen anlegen, falls fehlend (`Admin`, `Auditor`, `User`)
-3. Wenn **kein** Mandant existiert: Demo-Mandant, Vorlage, Durchlauf, Antworten, Maßnahmen, drei Benutzer
+2. Rollen anlegen, falls fehlend (`Superuser`, `Admin`, `Auditor`, `User`)
+3. Wenn **kein** Mandant existiert: Demo-Mandant, Fachdaten, vier Demo-Benutzer inkl. `superuser@demo.local` (ohne `TenantId`)
 
 **Hinweis:** Es gibt **keine** separate Prüfung einzelner Tabellen/Spalten außerhalb von EF-Migrationen. Schema-Änderungen erfolgen über neue EF-Migrationen.
 
@@ -278,9 +291,11 @@ dotnet ef database update
 | Dokumente | `EvidenceDocument.ProcessingActivityId` | 1:n (optionaler FK), analog zu Audit/Maßnahme/Dienstleister |
 | Maßnahmen | `ProcessingActivityMeasure` | Many-to-Many – Maßnahme kann mehreren VVT-Einträgen zugeordnet sein |
 | Audit-Antworten | `ProcessingActivityAuditAnswer` | Many-to-Many – keine `ProcessingActivityId` auf `AuditAnswer`, da Antworten über Durchlauf mandantenbezogen bleiben |
-| DSFA | `ProcessingActivity.DpiaRequired` | Vorbereitung; kein DSFA-Entity |
+| DSFA | `DataProtectionImpactAssessment` (1:n zu `ProcessingActivity`) | Pflicht-FK; `TenantId` + Indexe; Cascade beim Löschen der VVT |
 
-**Seiten:** `ProcessingActivities/Detail.razor`, `ProcessingActivities/Links.razor` (`[Authorize(Roles = Admin,Auditor)]`).
+**Seiten:** `ProcessingActivities/Detail.razor`, `ProcessingActivities/Links.razor` (`[Authorize(Roles = Admin,Auditor)]`); DSFA: `Dsfa/Index.razor`, `Dsfa/Detail.razor`, `Dsfa/Edit.razor`.
+
+**Routen DSFA:** `/dsfa`, `/dsfa/{Id}`, `/dsfa/edit`, `/dsfa/edit/{Id}` (Bearbeitung nur Admin/Auditor).
 
 **Mandantenschutz:** Alle Lade- und Speicheroperationen in `ProcessingActivityRelationsService` prüfen `TenantId` der Hauptentität und jeder referenzierten ID.
 
@@ -290,7 +305,8 @@ dotnet ef database update
 |--------------|-----------------------------------|
 | Blazor Server | Interaktive UI ohne separates SPA-Frontend |
 | Monolith `Dsms.Web` | Einfaches Grundgerüst, eine deploybare Einheit |
-| `TenantId` am User | „Einfache Mandantentrennung in Version 1“, kein Claim |
+| `TenantId` am User | Ein Mandant pro Benutzer in V1; Superuser ohne Mandant; kein Claim |
+| `UserAccessService` / `UserManagementService` | Serverseitige SaaS-Berechtigungen statt verteilter Razor-Logik |
 | Dateien im Dateisystem | DB nur Metadaten (`StoragePath`) |
 | Seed beim Start | Demo/Entwicklung ohne separates Setup-Skript |
 | Direkter DbContext in Razor | Schnelle Umsetzung, weniger Schichten |
@@ -334,7 +350,8 @@ Die Login-Seite ist an das DSMS-Design angepasst; viele Manage-/Register-Seiten 
 | Kein globaler Mandanten-Query-Filter | Risiko bei neuen Queries ohne `TenantId`-Filter (VVT-Seiten filtern explizit nach `TenantId`) |
 | VVT: Owner als Freitext | Keine Verknüpfung zu `ApplicationUser`; keine Benutzerauswahl in der UI |
 | VVT: Kein Löschen in der UI | Analog zu anderen Fachmodulen |
-| DSFA-Modul fehlt | Nur `DpiaRequired` und UI-Hinweis auf der VVT-Detailseite |
+| DSFA: `DpiaRequired` nur bool | Kein Wert „Zu prüfen“; kein Freigabe-Workflow |
+| DSFA: kein Löschen in der UI | Analog zu anderen Fachmodulen |
 | Audit-Antwort ↔ VVT nur über Links-Seite | Direkte Zuordnung in `Answers.razor` bewusst zurückgestellt |
 | Kein FK `ApplicationUser` → `Tenant` | Referenzielle Integrität nur über Anwendungslogik |
 | UI/API für `AssignedUserId` fehlt | Datenmodell vorbereitet, nicht genutzt |

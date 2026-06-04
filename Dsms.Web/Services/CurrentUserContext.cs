@@ -46,4 +46,11 @@ public class CurrentUserContext(
         var user = await userManager.FindByIdAsync(userId);
         return user is not null && await userManager.IsInRoleAsync(user, role);
     }
+
+    /// <inheritdoc />
+    public async Task<ApplicationUser?> GetUserAsync()
+    {
+        var userId = await GetUserIdAsync();
+        return userId is null ? null : await userManager.FindByIdAsync(userId);
+    }
 }

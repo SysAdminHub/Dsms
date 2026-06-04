@@ -181,7 +181,9 @@ ApplicationUser.TenantId → logische Zuordnung (kein EF-FK auf Tenants)
 **`ApplicationUser`** (Identity):
 
 - `DisplayName`
-- `TenantId` (nullable `int`) – Mandantenzuordnung im Profil, nicht als Claim
+- `TenantId` (nullable `int`) – ein Mandant pro Benutzer in V1; `null` für Superuser
+- `IsActive` – deaktivierte Konten können sich nicht anmelden
+- `CreatedAt`, `CreatedByUserId` – Metadaten zur Kontoanlage
 
 Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in der UI **nicht** gesetzt.
 
@@ -190,6 +192,8 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | Service | Registrierung | Aufgabe |
 |---------|---------------|---------|
 | `ICurrentUserContext` / `CurrentUserContext` | Scoped | User-ID, TenantId, Rollenprüfung via `AuthenticationStateProvider` + `UserManager` |
+| `IUserAccessService` / `UserAccessService` | Scoped | Zentrale Berechtigungen (Superuser vs. Admin, Mandantenzugriff, bearbeitbare Benutzer) |
+| `IUserManagementService` / `UserManagementService` | Scoped | Benutzerliste, Anlegen, Bearbeiten, Deaktivieren inkl. serverseitiger Validierung |
 | `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, DSFA, VVT-Verknüpfungen) |
 | `ProcessingActivityRelationsService` | Scoped | Laden/Speichern von VVT-Verknüpfungen, Warnhinweise, Mandantenvalidierung |
 | `DocumentStorageService` | Scoped | Speichern/Lesen von Upload-Dateien unter `Data/Uploads/{tenantId}/` |
@@ -209,17 +213,22 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 
 ### Rollen (`DsmsRoles`)
 
-| Rolle | Typische Rechte (aus `[Authorize]` und NavMenu) |
-|-------|--------------------------------------------------|
-| **Admin** | + Mandanten, Benutzer; Menüpunkt „Verwaltung“ |
-| **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, DSFA, TOMs und Dienstleister anlegen/bearbeiten |
-| **User** | Listen lesen, VVT/DSFA/TOM/Dienstleister-Detailansicht, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von VVT, DSFA, TOMs, Dienstleistern, Vorlagen/Durchläufen |
+| Rolle | Typische Rechte (aus `[Authorize]`, NavMenu, `IUserAccessService`) |
+|-------|---------------------------------------------------------------------|
+| **Superuser** | Plattform: alle Mandanten (`/tenants`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
+| **Admin** | Benutzer im eigenen Mandant; **keine** Mandantenverwaltung; Compliance wie bisher für `TenantId` |
+| **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, DSFA, TOMs und Dienstleister anlegen/bearbeiten; **keine** Benutzerverwaltung |
+| **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen |
+
+**Unterschied Superuser vs. Admin:** Superuser ist mandantenunabhängig (`TenantId` null) und global; Admin ist strikt an einen `TenantId` gebunden. Beide dürfen Benutzer verwalten, aber nur der Superuser sieht fremde Mandanten und darf Superuser anlegen.
+
+**Version 1 – Mandant pro Benutzer:** `ApplicationUser.TenantId` (nullable). Keine `UserTenants`-Tabelle; Architektur über `IUserAccessService`/`UserManagementService` erweiterbar für Multi-Tenant-Zuordnung und Rollen pro Mandant.
 
 ### Mandantenfilter
 
 - Implementierung: `ICurrentUserContext.GetTenantIdAsync()` in Razor-`OnInitializedAsync`
 - **Kein** globaler EF-Query-Filter auf `DbContext`
-- Admin-Seiten `/tenants`, `/users` ohne Mandantenfilter (globale Liste)
+- `/tenants` nur Superuser; `/users` gefiltert über `UserManagementService` (Superuser: alle, Admin: `TenantId`)
 
 ### Identity-Endpunkte
 
@@ -260,8 +269,8 @@ Reihenfolge in `Program.cs`:
 ### Seed (`DatabaseSeeder.SeedAsync`)
 
 1. **`await db.Database.MigrateAsync()`** – wendet ausstehende Migrationen an (Startzeit)
-2. Rollen anlegen, falls fehlend (`Admin`, `Auditor`, `User`)
-3. Wenn **kein** Mandant existiert: Demo-Mandant, Vorlage, Durchlauf, Antworten, Maßnahmen, drei Benutzer
+2. Rollen anlegen, falls fehlend (`Superuser`, `Admin`, `Auditor`, `User`)
+3. Wenn **kein** Mandant existiert: Demo-Mandant, Fachdaten, vier Demo-Benutzer inkl. `superuser@demo.local` (ohne `TenantId`)
 
 **Hinweis:** Es gibt **keine** separate Prüfung einzelner Tabellen/Spalten außerhalb von EF-Migrationen. Schema-Änderungen erfolgen über neue EF-Migrationen.
 
@@ -296,7 +305,8 @@ dotnet ef database update
 |--------------|-----------------------------------|
 | Blazor Server | Interaktive UI ohne separates SPA-Frontend |
 | Monolith `Dsms.Web` | Einfaches Grundgerüst, eine deploybare Einheit |
-| `TenantId` am User | „Einfache Mandantentrennung in Version 1“, kein Claim |
+| `TenantId` am User | Ein Mandant pro Benutzer in V1; Superuser ohne Mandant; kein Claim |
+| `UserAccessService` / `UserManagementService` | Serverseitige SaaS-Berechtigungen statt verteilter Razor-Logik |
 | Dateien im Dateisystem | DB nur Metadaten (`StoragePath`) |
 | Seed beim Start | Demo/Entwicklung ohne separates Setup-Skript |
 | Direkter DbContext in Razor | Schnelle Umsetzung, weniger Schichten |

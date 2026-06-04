@@ -4,7 +4,8 @@ namespace Dsms.Web.Data;
 
 /// <summary>
 /// Identity-Benutzer mit DSMS-spezifischen Profilfeldern.
-/// <see cref="TenantId"/> steuert die einfache Mandantentrennung in Version 1 (kein Claim).
+/// <see cref="TenantId"/> steuert die Mandantentrennung in Version 1 (ein Mandant pro Benutzer).
+/// Superuser haben typischerweise <c>null</c> – sie sind plattformweit, nicht an einen Mandanten gebunden.
 /// </summary>
 public class ApplicationUser : IdentityUser
 {
@@ -12,7 +13,17 @@ public class ApplicationUser : IdentityUser
     public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Zugehöriger Mandant. Null nur bei Admin-Sonderfällen; normale Anwender haben immer einen Mandanten.
+    /// Zugehöriger Mandant. Pflicht für Admin, Auditor und User; bei Superuser in der Regel null.
+    /// Später erweiterbar auf mehrere Mandanten (eigene Zuordnungstabelle).
     /// </summary>
     public int? TenantId { get; set; }
+
+    /// <summary>Inaktive Konten können sich nicht anmelden und werden in Listen weiterhin angezeigt.</summary>
+    public bool IsActive { get; set; } = true;
+
+    /// <summary>Zeitpunkt der Kontoanlage (UTC).</summary>
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>Identity-ID des anlegenden Benutzers; null bei Seed oder System.</summary>
+    public string? CreatedByUserId { get; set; }
 }

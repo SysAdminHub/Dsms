@@ -41,7 +41,8 @@ Migrationen werden beim ersten Start automatisch angewendet (inkl. Demo-Daten).
 
 | E-Mail | Passwort | Rolle |
 |--------|----------|-------|
-| admin@demo.local | Demo123! | Admin |
+| superuser@demo.local | Demo123! | Superuser (Plattform) |
+| admin@demo.local | Demo123! | Admin (Mandant Demo GmbH) |
 | auditor@demo.local | Demo123! | Auditor |
 | user@demo.local | Demo123! | User |
 

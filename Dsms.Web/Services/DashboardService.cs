@@ -104,6 +104,30 @@ public class DashboardService(ApplicationDbContext db)
             .Where(p => p.TenantId == tenantId && p.DpiaRequired)
             .CountAsync(ct);
 
+        var totalDpiaAssessments = await db.DataProtectionImpactAssessments
+            .Where(d => d.TenantId == tenantId)
+            .CountAsync(ct);
+
+        var dpiaInReview = await db.DataProtectionImpactAssessments
+            .Where(d => d.TenantId == tenantId && d.Status == DpiaStatus.InReview)
+            .CountAsync(ct);
+
+        var dpiaHighOrCriticalRisk = await db.DataProtectionImpactAssessments
+            .Where(d => d.TenantId == tenantId
+                && (d.ResidualRisk == DpiaResidualRisk.High || d.ResidualRisk == DpiaResidualRisk.Critical))
+            .CountAsync(ct);
+
+        var overdueDpiaReviews = await db.DataProtectionImpactAssessments
+            .Where(d => d.TenantId == tenantId && d.NextReviewAt != null && d.NextReviewAt < today)
+            .CountAsync(ct);
+
+        // VVT mit DSFA-Pflicht, aber ohne mindestens einen DSFA-Eintrag.
+        var activitiesDpiaRequiredWithoutAssessment = await db.ProcessingActivities
+            .Where(p => p.TenantId == tenantId && p.DpiaRequired
+                && !db.DataProtectionImpactAssessments.Any(d =>
+                    d.ProcessingActivityId == p.Id && d.TenantId == tenantId))
+            .CountAsync(ct);
+
         var activitiesWithHighRiskProviders = await db.ProcessingActivityServiceProviders
             .Where(l => l.TenantId == tenantId
                 && (l.ServiceProvider.RiskAssessment == ServiceProviderRiskAssessment.High
@@ -145,6 +169,11 @@ public class DashboardService(ApplicationDbContext db)
             activitiesWithoutDocuments,
             activitiesWithOpenMeasures,
             activitiesDpiaRequired,
+            totalDpiaAssessments,
+            dpiaInReview,
+            dpiaHighOrCriticalRisk,
+            overdueDpiaReviews,
+            activitiesDpiaRequiredWithoutAssessment,
             activitiesWithHighRiskProviders,
             recentMeasures,
             recentAudits);
@@ -171,6 +200,11 @@ public record DashboardSummary(
     int ProcessingActivitiesWithoutDocumentsCount,
     int ProcessingActivitiesWithOpenMeasuresCount,
     int ProcessingActivitiesDpiaRequiredCount,
+    int TotalDpiaAssessmentsCount,
+    int DpiaInReviewCount,
+    int DpiaHighOrCriticalRiskCount,
+    int OverdueDpiaReviewsCount,
+    int ProcessingActivitiesDpiaRequiredWithoutAssessmentCount,
     int ProcessingActivitiesWithHighRiskProvidersCount,
     IReadOnlyList<Domain.Entities.Measure> RecentMeasures,
     IReadOnlyList<Domain.Entities.AuditRun> RecentAudits);

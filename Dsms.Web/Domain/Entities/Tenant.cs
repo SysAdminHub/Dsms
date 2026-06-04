@@ -16,4 +16,5 @@ public class Tenant : EntityBase
     public ICollection<ProcessingActivity> ProcessingActivities { get; set; } = [];
     public ICollection<Tom> Toms { get; set; } = [];
     public ICollection<ServiceProvider> ServiceProviders { get; set; } = [];
+    public ICollection<DataProtectionImpactAssessment> DpiaAssessments { get; set; } = [];
 }

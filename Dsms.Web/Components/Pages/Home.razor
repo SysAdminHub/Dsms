@@ -15,7 +15,16 @@
 }
 else if (_tenantId is null)
 {
-    <div class="alert alert-warning dsms-alert">Ihrem Benutzerkonto ist kein Mandant zugeordnet.</div>
+    <div class="alert alert-info dsms-alert">
+        @if (_isSuperuser)
+        {
+            <text>Als Superuser verwalten Sie die Plattform unter „Mandanten“ und „Benutzer“. Compliance-Daten erfordern eine Mandantenzuordnung (geplant: Mandantenwechsel).</text>
+        }
+        else
+        {
+            <text>Ihrem Benutzerkonto ist kein Mandant zugeordnet. Bitte wenden Sie sich an einen Administrator.</text>
+        }
+    </div>
 }
 else if (_summary is not null)
 {
@@ -92,6 +101,26 @@ else if (_summary is not null)
             <div class="dsms-stat-label">DSFA erforderlich (VVT)</div>
             <div class="dsms-stat-value">@_summary.ProcessingActivitiesDpiaRequiredCount</div>
         </div>
+        <div class="dsms-stat-card dsms-stat-card--primary">
+            <div class="dsms-stat-label">DSFA gesamt</div>
+            <div class="dsms-stat-value">@_summary.TotalDpiaAssessmentsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--primary">
+            <div class="dsms-stat-label">DSFA in Prüfung</div>
+            <div class="dsms-stat-value">@_summary.DpiaInReviewCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">DSFA Restrisiko hoch/kritisch</div>
+            <div class="dsms-stat-value">@_summary.DpiaHighOrCriticalRiskCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">DSFA-Prüfungen überfällig</div>
+            <div class="dsms-stat-value">@_summary.OverdueDpiaReviewsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--warning">
+            <div class="dsms-stat-label">DSFA-Pflicht ohne DSFA</div>
+            <div class="dsms-stat-value">@_summary.ProcessingActivitiesDpiaRequiredWithoutAssessmentCount</div>
+        </div>
         <div class="dsms-stat-card dsms-stat-card--danger">
             <div class="dsms-stat-label">VVT mit Risiko-Dienstleister</div>
             <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithHighRiskProvidersCount</div>
@@ -145,11 +174,13 @@ else if (_summary is not null)
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
 
     private bool _loading = true;
+    private bool _isSuperuser;
     private int? _tenantId;
     private DashboardSummary? _summary;
 
     protected override async Task OnInitializedAsync()
     {
+        _isSuperuser = await CurrentUser.IsInRoleAsync(DsmsRoles.Superuser);
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId.HasValue)
         {

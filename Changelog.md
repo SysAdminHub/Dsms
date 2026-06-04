@@ -6,6 +6,44 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **SaaS-Basis: Rollen und Benutzer-/Mandantenverwaltung (Version 1):**
+  - Neue Rolle **Superuser** (plattformweit, `TenantId` optional null)
+  - **Admin** nur noch mandantenbezogene Benutzerverwaltung; **Mandanten** (`/tenants`) nur Superuser
+  - Services `IUserAccessService`, `IUserManagementService` – zentrale serverseitige Prüfungen (Rollen, Mandant, bearbeitbare Benutzer)
+  - Benutzer anlegen (`/users/create`), bearbeiten inkl. **IsActive** (Deaktivierung statt Löschen)
+  - `ApplicationUser`: `IsActive`, `CreatedAt`, `CreatedByUserId`
+  - EF-Migration `AddUserProfileFieldsForSaaS`
+  - Demo-Benutzer `superuser@demo.local` (Seed bei leerer Datenbank)
+  - Login blockiert inaktive Konten
+  - Navigation: Sektion „Plattform“ (Superuser) und „Verwaltung“ (Benutzer für Superuser/Admin)
+  - **Ein Benutzer = ein Mandant** (außer Superuser); Architektur kommentiert für spätere Multi-Tenant-Zuordnung
+
+### Offene Punkte (SaaS V1)
+
+- Mehrere Mandanten pro Benutzer und Rollen pro Mandant (geplant, nicht umgesetzt)
+- Mandantenwechsel / Arbeitskontext für Superuser in Compliance-Modulen
+- Kein Impersonation, keine Abrechnung
+- Bestehende Installationen: Superuser-Rolle wird angelegt; Konto `superuser@demo.local` nur bei Erst-Seed
+
+- **Modul DSFA (Datenschutz-Folgenabschätzung):**
+  - Entity `DataProtectionImpactAssessment` mit Status, Restrisiko, Ergebnis und Prüffeldern
+  - Enums `DpiaStatus`, `DpiaResidualRisk`, `DpiaOutcome` mit deutschen Labels (`DsfaLabels`)
+  - 1:n-Beziehung zu `ProcessingActivity` (mehrere DSFA pro Verarbeitungstätigkeit möglich)
+  - EF-Migration `AddDataProtectionImpactAssessments` – Tabelle `DataProtectionImpactAssessments`; `EvidenceDocuments.DataProtectionImpactAssessmentId`
+  - Blazor-Seiten: Liste (`/dsfa`), Detail (`/dsfa/{Id}`), Anlegen/Bearbeiten (`/dsfa/edit`, nur Admin/Auditor)
+  - Menüpunkt „DSFA“ in der Sidebar (nach Verarbeitungstätigkeiten)
+  - VVT-Detailseite: DSFA-Bereich mit Kennzahlen, neuester DSFA, Warnhinweise, Link „DSFA anlegen“
+  - Dashboard: DSFA gesamt, in Prüfung, hohes/kritisches Restrisiko, überfällige Prüfungen, VVT mit DSFA-Pflicht ohne DSFA
+  - Dokumentenmodul: optionale Zuordnung zu DSFA beim Upload
+  - Mandantenschutz beim Laden und Speichern (TenantId-Filter, Validierung der Verarbeitungstätigkeit)
+
+### Offene Punkte (DSFA)
+
+- `DpiaRequired` an Verarbeitungstätigkeiten ist ein bool (nur Ja/Nein); Wert „Zu prüfen“ ist im Datenmodell nicht abbildbar
+- Kein separater Workflow / Versionierung für DSFA-Freigaben
+- Kein Löschen von DSFA-Einträgen über die UI
+- Demo-Seed enthält keine Beispiel-DSFA
+
 - **Feature Verknüpfungen (Verarbeitungstätigkeit als zentrale Übersicht):**
   - Erweiterte VVT-Detailseite (`/processing-activities/{Id}`) mit Abschnitten: Grunddaten, Datenschutzbewertung, TOMs, Dienstleister, Dokumente, Maßnahmen, Audit-Antworten, DSFA, Warnhinweise
   - Bearbeitungsseite Verknüpfungen (`/processing-activities/links/{Id}`, nur Admin/Auditor)
@@ -21,7 +59,6 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Offene Punkte (Verknüpfungen)
 
-- Vollständiges DSFA-Modul und Verknüpfung zu DSFA-Datensätzen fehlen
 - Download von Nachweisdokumenten in der UI fehlt
 - Audit-Antworten können noch nicht direkt in der Antwortmaske (`/audit-runs/answers/{Id}`) VVT zugeordnet werden (nur über Verknüpfungsseite)
 - Rolle `RoleInProcessing` bei Dienstleister-Verknüpfung von der VVT-Seite aus nicht editierbar (Standard: Auftragsverarbeiter)
@@ -143,7 +180,7 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 ### Offene Punkte (VVT)
 
 - **Owner-Zuordnung:** Feld `Owner` ist Freitext; keine Auswahl aus Benutzern des Mandanten.
-- **DSFA-Workflow:** Flag `DpiaRequired` ohne Verknüpfung zu einem DSFA-Modul oder Maßnahmen.
+- **DSFA:** `DpiaRequired` ist bool (kein „Zu prüfen“); kein automatisierter Workflow bei Freigabe.
 - **Versionierung / Historie:** Keine Änderungshistorie oder Freigabe-Workflow für VVT-Einträge.
 - **Export:** Kein PDF/Excel-Export des Verzeichnisses.
 - **Löschen:** Keine Löschfunktion für Verarbeitungstätigkeiten in der UI.

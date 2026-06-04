@@ -1,0 +1,143 @@
+@* Listenansicht: DSFA des eigenen Mandanten. *@
+
+@page "/dsfa"
+
+@attribute [Authorize]
+
+@rendermode InteractiveServer
+
+<PageTitle>DSFA</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="DSFA" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <PageHeader Title="DSFA" Subtitle="Datenschutz-Folgenabschätzungen">
+        @if (_canEdit)
+        {
+            <a class="btn btn-primary" href="dsfa/edit">Neue DSFA</a>
+        }
+    </PageHeader>
+
+    @if (_items is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else if (_items.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">Noch keine DSFA erfasst.</div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Verarbeitungstätigkeit</th>
+                            <th>Status</th>
+                            <th>Restrisiko</th>
+                            <th>Ergebnis</th>
+                            <th>Verantwortlich</th>
+                            <th>Nächste Prüfung</th>
+                            <th>Letzte Änderung</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _items)
+                        {
+                            <tr>
+                                <td><strong>@item.Title</strong></td>
+                                <td>@item.ProcessingActivityName</td>
+                                <td>
+                                    <StatusBadge Text="@DsfaLabels.GetStatusLabel(item.Status)"
+                                                 Variant="@DsfaLabels.GetStatusVariant(item.Status)" />
+                                </td>
+                                <td>
+                                    <StatusBadge Text="@DsfaLabels.GetResidualRiskLabel(item.ResidualRisk)"
+                                                 Variant="@DsfaLabels.GetResidualRiskVariant(item.ResidualRisk)" />
+                                </td>
+                                <td>@DsfaLabels.GetOutcomeLabel(item.Outcome)</td>
+                                <td>@(string.IsNullOrWhiteSpace(item.ResponsiblePerson) ? "—" : item.ResponsiblePerson)</td>
+                                <td>@FormatNextReview(item.NextReviewAt)</td>
+                                <td>@FormatUpdated(item)</td>
+                                <td class="dsms-table-actions">
+                                    <a class="btn btn-sm btn-outline-primary" href="@($"dsfa/{item.Id}")">Details</a>
+                                    @if (_canEdit)
+                                    {
+                                        <a class="btn btn-sm btn-outline-secondary" href="@($"dsfa/edit/{item.Id}")">Bearbeiten</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canEdit;
+    private List<DsfaListRow>? _items;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
+            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+
+        _items = await Db.DataProtectionImpactAssessments
+            .Where(d => d.TenantId == _tenantId)
+            .OrderByDescending(d => d.UpdatedAt ?? d.CreatedAt)
+            .Select(d => new DsfaListRow
+            {
+                Id = d.Id,
+                Title = d.Title,
+                ProcessingActivityName = d.ProcessingActivity.Name,
+                Status = d.Status,
+                ResidualRisk = d.ResidualRisk,
+                Outcome = d.Outcome,
+                ResponsiblePerson = d.ResponsiblePerson,
+                NextReviewAt = d.NextReviewAt,
+                CreatedAt = d.CreatedAt,
+                UpdatedAt = d.UpdatedAt
+            })
+            .ToListAsync();
+    }
+
+    private static string FormatUpdated(DsfaListRow item) =>
+        (item.UpdatedAt ?? item.CreatedAt).ToLocalTime().ToString("g");
+
+    private static string FormatNextReview(DateOnly? date)
+    {
+        if (!date.HasValue) return "—";
+        var text = date.Value.ToString("d");
+        return DsfaLabels.IsReviewOverdue(date) ? $"{text} (überfällig)" : text;
+    }
+
+    private sealed class DsfaListRow
+    {
+        public int Id { get; init; }
+        public string Title { get; init; } = "";
+        public string ProcessingActivityName { get; init; } = "";
+        public DpiaStatus Status { get; init; }
+        public DpiaResidualRisk ResidualRisk { get; init; }
+        public DpiaOutcome Outcome { get; init; }
+        public string? ResponsiblePerson { get; init; }
+        public DateOnly? NextReviewAt { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime? UpdatedAt { get; init; }
+    }
+}

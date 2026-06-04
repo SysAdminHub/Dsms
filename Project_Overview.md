@@ -22,16 +22,17 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 
 | Bereich | Funktion |
 |--------|----------|
-| Dashboard | Kennzahlen zu Maßnahmen, Audits, TOMs, Dienstleistern und VVT-Verknüpfungen sowie Kurzlisten (mandantenbezogen) |
+| Dashboard | Kennzahlen zu Maßnahmen, Audits, TOMs, Dienstleistern, DSFA und VVT-Verknüpfungen sowie Kurzlisten (mandantenbezogen) |
 | Verarbeitungstätigkeiten | Verzeichnis von Verarbeitungstätigkeiten (VVT) – Listen, Detail als zentrale Verknüpfungsübersicht, Verknüpfungen pflegen, Stammdaten |
+| DSFA | Datenschutz-Folgenabschätzungen – Listen, Detail, Anlegen/Bearbeiten; Zuordnung zu Verarbeitungstätigkeiten |
 | TOM-Verzeichnis | Technische und organisatorische Maßnahmen – Listen, Detail, Anlegen/Bearbeiten; Verknüpfung mit Verarbeitungstätigkeiten |
 | Dienstleister | Auftragsverarbeiter und externe Dienstleister – AVV, Drittland, TOM-Prüfung; Verknüpfung mit VVT und TOMs |
 | Audit-Vorlagen | Listen, Anlegen und Bearbeiten von Vorlagen inkl. Fragen |
 | Audit-Durchläufe | Listen, Anlegen und Bearbeiten von Durchläufen; Beantwortung der Vorlagenfragen |
 | Maßnahmen | Listen, Anlegen und Bearbeiten von Maßnahmen mit Status und Fälligkeit |
 | Dokumente | Upload von Nachweisdateien (max. 10 MB), Zuordnung zu Audit, Maßnahme, Dienstleister oder Verarbeitungstätigkeit |
-| Mandanten | Verwaltung von Organisationseinheiten (nur Rolle Admin) |
-| Benutzer | Bearbeiten von Anzeigename, Mandant und Rolle (nur Rolle Admin) |
+| Mandanten | Verwaltung von Organisationseinheiten (**nur Superuser**, plattformweit) |
+| Benutzer | Anlegen und Bearbeiten von Konten, Rollen, Mandant, Aktiv-Status (**Superuser** mandantenübergreifend, **Admin** nur im eigenen Mandant) |
 | Konto | Standard-Identity-Funktionen (Profil, Passwort, optional 2FA usw.) |
 
 ## Module und Seiten
@@ -46,6 +47,10 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 | `/processing-activities/links/{Id}` | Verknüpfungen bearbeiten | Nur **Admin** und **Auditor** |
 | `/processing-activities/edit` | Verarbeitungstätigkeit anlegen | Nur **Admin** und **Auditor** |
 | `/processing-activities/edit/{Id}` | Verarbeitungstätigkeit bearbeiten (Stammdaten) | Nur **Admin** und **Auditor** |
+| `/dsfa` | DSFA (Liste) | Alle angemeldeten Benutzer mit Mandant |
+| `/dsfa/{Id}` | DSFA (Detail) | Alle angemeldeten Benutzer mit Mandant |
+| `/dsfa/edit` | DSFA anlegen | Nur **Admin** und **Auditor** |
+| `/dsfa/edit/{Id}` | DSFA bearbeiten | Nur **Admin** und **Auditor** |
 | `/toms` | TOM-Verzeichnis (Liste) | TOMs des eigenen Mandanten |
 | `/toms/{Id}` | TOM (Detail) | Inkl. verknüpfte Verarbeitungstätigkeiten; alle angemeldeten Benutzer mit Mandant |
 | `/toms/edit` | TOM anlegen | Nur **Admin** und **Auditor** |
@@ -66,15 +71,21 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 | `/measures/edit/{Id}` | Maßnahme bearbeiten | Alle angemeldeten Benutzer |
 | `/documents` | Dokumente | Upload und Liste, mandantenbezogen |
 
-### Verwaltung (nur Rolle **Admin**)
+### Plattformverwaltung (nur Rolle **Superuser**)
 
 | Route | Seite |
 |-------|-------|
 | `/tenants` | Mandanten (Liste) |
 | `/tenants/edit` | Mandant anlegen |
 | `/tenants/edit/{Id}` | Mandant bearbeiten |
-| `/users` | Benutzer (Liste) |
-| `/users/edit/{UserId}` | Benutzer bearbeiten |
+
+### Benutzerverwaltung (**Superuser** und **Admin**)
+
+| Route | Seite | Zugriff |
+|-------|-------|---------|
+| `/users` | Benutzer (Liste) | Superuser: alle Mandanten; Admin: nur eigener Mandant |
+| `/users/create` | Benutzer anlegen | Superuser: Rolle + Mandant; Admin: Rolle ohne Superuser, Mandant automatisch |
+| `/users/edit/{UserId}` | Benutzer bearbeiten | Wie Liste; Admin darf keine Superuser bearbeiten |
 
 ### Konto und Anmeldung
 
@@ -98,9 +109,12 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 | **Verarbeitungstätigkeit** | Eintrag im Verzeichnis von Verarbeitungstätigkeiten (VVT) zu einer konkreten Datenverarbeitung |
 | **TOM** | Technische oder organisatorische Maßnahme zum Schutz von Verarbeitungstätigkeiten |
 | **Dienstleister** | Externe Stelle (Auftragsverarbeiter oder sonstiger Dienstleister) mit AVV- und Risikodokumentation |
+| **DSFA** | Datenschutz-Folgenabschätzung zu einer Verarbeitungstätigkeit (Risiken, Maßnahmen, Restrisiko, Ergebnis) |
 | **Maßnahme** | Aufgabe zur Umsetzung (optional verknüpft mit einem Audit-Durchlauf) |
 | **Nachweisdokument** | Metadaten zu einer hochgeladenen Datei (Inhalt im Dateisystem) |
-| **Rollen** | **Admin**, **Auditor**, **User** – steuern Menü und Seitenzugriff |
+| **Rollen** | **Superuser** (plattformweit), **Admin** (Mandant), **Auditor**, **User** – steuern Menü und serverseitige Prüfungen |
+| **Superuser** | SaaS-Betreiber: alle Mandanten und Benutzer, keine Pflicht-Mandantenzuordnung (`TenantId` null) |
+| **Admin** | Mandanten-Administrator: nur eigener `TenantId`, Benutzerverwaltung ohne Superuser-Rolle |
 
 ### Statuswerte (im UI oft englische Enum-Namen)
 
@@ -145,14 +159,35 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 - Dokumente: `EvidenceDocument.ProcessingActivityId`
 - Maßnahmen: `ProcessingActivityMeasures`
 - Audit-Antworten: `ProcessingActivityAuditAnswers` (Many-to-Many)
-- DSFA: nur Feld `DpiaRequired` und Hinweisblock (Modul folgt später)
+- DSFA: 1:n über `DataProtectionImpactAssessment`; Übersicht und Warnhinweise auf der VVT-Detailseite
 
 **Bekannte Einschränkungen / offene Punkte:**
 
-- Kein vollständiges DSFA-Modul
 - Kein Dokumenten-Download
 - Audit-Antwort-Zuordnung nicht in der Antwortmaske, nur über Verknüpfungsseite
 - Dienstleister-Rolle in der Verarbeitung wird bei Zuordnung von der VVT-Seite nicht bearbeitet
+
+## Modul DSFA
+
+**Zweck:** Strukturierte Dokumentation von Datenschutz-Folgenabschätzungen (DSFA) zu Verarbeitungstätigkeiten – inkl. Risiken, Schutzmaßnahmen, Restrisiko, Ergebnis und Prüfstatus.
+
+**Benutzerfunktionen:**
+
+- Liste aller DSFAs des Mandanten mit Verarbeitungstätigkeit, Status, Restrisiko, Ergebnis und Prüfterminen
+- Detailansicht mit fachlichen Textfeldern, verknüpfter Verarbeitungstätigkeit und zugeordneten Nachweisdokumenten
+- Anlegen und Bearbeiten (Admin/Auditor) mit Auswahl der Verarbeitungstätigkeit (nur eigener Mandant)
+- VVT-Detailseite: DSFA-Kennzahlen, neueste DSFA, Warnhinweise, Schnellanlage mit vorausgefüllter Verarbeitungstätigkeit
+- Einfache Warnhinweise (z. B. DSFA-Pflicht ohne Eintrag, hohes Restrisiko, überfällige Prüfung, kritisches Ergebnis)
+
+**Verknüpfung:** Pflicht-FK `ProcessingActivityId` (1:n). Nachweisdokumente optional über `EvidenceDocument.DataProtectionImpactAssessmentId`.
+
+**Berechtigungen:** Alle angemeldeten Benutzer mit Mandant dürfen lesen; Admin und Auditor dürfen anlegen und bearbeiten.
+
+**Bekannte Einschränkungen / offene Punkte:**
+
+- `DpiaRequired` an der Verarbeitungstätigkeit ist nur Ja/Nein (kein „Zu prüfen“)
+- Kein Löschen von DSFA über die UI
+- Keine DSFA-Versionierung oder Freigabe-Workflow-Engine
 
 ## Modul Dienstleister / Auftragsverarbeiter
 
@@ -186,7 +221,7 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 - Mandantenbezogene Datenfilterung über `TenantId` des Benutzers
 - Demo-Daten und Demo-Benutzer beim ersten Start (leere Datenbank)
 - Automatische Datenbankmigration beim Start
-- CRUD-ähnliche Bearbeitung für Verarbeitungstätigkeiten (VVT), TOMs, Dienstleister, Vorlagen, Durchläufe, Maßnahmen, Mandanten (ohne Löschen in der UI)
+- CRUD-ähnliche Bearbeitung für Verarbeitungstätigkeiten (VVT), DSFA, TOMs, Dienstleister, Vorlagen, Durchläufe, Maßnahmen, Mandanten (ohne Löschen in der UI)
 - TOM-Verzeichnis mit Verknüpfung zu Verarbeitungstätigkeiten und Dashboard-Kennzahlen zu TOMs
 - Dienstleister-Verzeichnis mit AVV-/Drittland-Dokumentation, VVT- und TOM-Verknüpfung, Dashboard-Kennzahlen
 - Nachweisdokumente optional einem Dienstleister zuordenbar
@@ -198,12 +233,13 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 - Löschen von Fachdatensätzen über die UI (Mandanten, Vorlagen, Durchläufe, Maßnahmen, Verarbeitungstätigkeiten, TOMs, Dienstleister, Dokumente)
 - Upload von Nachweisdokumenten mit direkter Zuordnung zu TOMs
 - Herunterladen hochgeladener Nachweisdokumente über die Dokumenten-Seite
-- Anlegen neuer Benutzer über die Benutzerverwaltung (nur Bearbeiten bestehender Konten)
+- Mandantenwechsel im UI für Compliance-Daten (Superuser ohne `TenantId` sieht kein mandantenbezogenes Dashboard)
 - Bearbeiten oder Löschen einzelner Audit-Fragen nach dem Anlegen
 - Zuweisung von Verantwortlichen (`AssignedUserId`) in der UI – Feld existiert im Datenmodell
 - Echter E-Mail-Versand (Bestätigung, Passwort-Reset)
 - Öffentliche Selbstregistrierung als Standard-Workflow (Register-Seite existiert, ist aber nicht eingebunden)
-- Mehrmandanten-Übersicht für Compliance-Daten (Admin sieht in Compliance-Modulen nur den eigenen `TenantId`)
+- Mehrere Mandanten pro Benutzer (geplant; aktuell genau ein `TenantId` pro Konto, außer Superuser)
+- Rollen pro Mandant und Impersonation (geplant)
 
 ## Geplante oder offene Funktionen (aus Code/README)
 
@@ -234,7 +270,7 @@ flowchart TD
     B -->|Ja| E[Dashboard]
     D --> E
     E --> F[Compliance-Bereich wählen]
-    F --> G[VVT / TOMs / Dienstleister / Vorlagen / Durchläufe / Maßnahmen / Dokumente]
+    F --> G[VVT / DSFA / TOMs / Dienstleister / Vorlagen / Durchläufe / Maßnahmen / Dokumente]
     G --> H[Daten erfassen oder bearbeiten]
     H --> I[Speichern in MySQL]
 ```
@@ -245,13 +281,14 @@ flowchart TD
 4. Im Dashboard den Überblick nutzen und in die Module wechseln.
 5. **Auditor/Admin:** Verarbeitungstätigkeiten (VVT), Vorlagen und Durchläufe anlegen und pflegen.
 6. **Alle Rollen:** Audit-Fragen beantworten, Maßnahmen pflegen, Dokumente hochladen.
-7. **Admin:** Mandanten und Benutzer verwalten.
+7. **Superuser:** Mandanten und alle Benutzer verwalten; **Admin:** nur Benutzer des eigenen Mandanten.
 8. Abmelden über die Sidebar (POST an `/Account/Logout`).
 
 ### Demo-Zugänge (aus `DatabaseSeeder` / README)
 
 | E-Mail | Passwort | Rolle |
 |--------|----------|-------|
+| superuser@demo.local | Demo123! | Superuser |
 | admin@demo.local | Demo123! | Admin |
 | auditor@demo.local | Demo123! | Auditor |
 | user@demo.local | Demo123! | User |
@@ -259,7 +296,8 @@ flowchart TD
 ## Bekannte Einschränkungen und offene Punkte
 
 - **Mandantentrennung:** Filterung erfolgt in den Razor-Seiten per `ICurrentUserContext.GetTenantIdAsync()` – keine zentrale Datenzugriffsschicht; **Noch zu klären:** Schutz vor Manipulation von URLs/IDs über andere Mandanten (teilweise durch `TenantId`-Filter in Queries abgesichert).
-- **Admin und Compliance:** Admin-Benutzer aus dem Seed haben `TenantId` der Demo GmbH – globale Mandantenverwaltung, aber Compliance-Daten nur für diesen Mandanten.
+- **Superuser und Compliance:** Superuser haben keinen Mandanten – Compliance-Module nutzen weiterhin `TenantId` des Benutzers; Plattformverwaltung über eigene Menüpunkte.
+- **Ein Mandant pro Benutzer (V1):** `ApplicationUser.TenantId`; spätere Erweiterung über separate Zuordnungstabelle vorgesehen.
 - **UI-Sprache:** Fachseiten überwiegend deutsch; viele Identity-Standardseiten noch englisch.
 - **Enum-Anzeige:** Status und Compliance-Stufen erscheinen im UI als englische Enum-Namen.
 - **Dokumente:** Kein Download-Link in der Dokumentenliste.

@@ -1,0 +1,168 @@
+@*
+    Benutzer anlegen: Superuser wählt Mandant und Rolle; Admin nur Rollen im eigenen Mandant (ohne Superuser).
+*@
+@page "/users/create"
+@attribute [Authorize(Roles = DsmsRoles.UserManagement)]
+@rendermode InteractiveServer
+
+<PageTitle>Benutzer anlegen</PageTitle>
+
+<PageHeader Title="Benutzer anlegen" />
+
+@if (_assignableRoles is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else
+{
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+            }
+
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger dsms-alert" />
+
+                <div class="mb-3">
+                    <label class="form-label">E-Mail</label>
+                    <InputText class="form-control" @bind-Value="_model.Email" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Anzeigename</label>
+                    <InputText class="form-control" @bind-Value="_model.DisplayName" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Passwort</label>
+                    <InputText type="password" class="form-control" @bind-Value="_model.Password" />
+                    <div class="form-text">Mindestens 8 Zeichen, mit Ziffer und Kleinbuchstabe.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Rolle</label>
+                    <InputSelect class="form-select" @bind-Value="_model.Role" @bind-Value:after="OnRoleChanged">
+                        @foreach (var role in _assignableRoles)
+                        {
+                            <option value="@role">@role</option>
+                        }
+                    </InputSelect>
+                </div>
+                @if (_showTenantSelect)
+                {
+                    <div class="mb-4">
+                        <label class="form-label">Mandant</label>
+                        <InputSelect class="form-select" @bind-Value="_model.TenantId">
+                            @foreach (var tenant in _tenants)
+                            {
+                                <option value="@tenant.Id">@tenant.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                }
+
+                <div class="dsms-form-actions">
+                    <button type="submit" class="btn btn-primary">Anlegen</button>
+                    <a class="btn btn-outline-secondary" href="users">Abbrechen</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private IUserManagementService UserManagement { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private CreateFormModel _model = new();
+    private IReadOnlyList<string>? _assignableRoles;
+    private List<Tenant> _tenants = [];
+    private bool _showTenantSelect;
+    private bool _isSuperuser;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isSuperuser = await UserAccess.IsSuperuserAsync();
+        _assignableRoles = await UserAccess.GetAssignableRolesAsync();
+        if (_assignableRoles.Count == 0)
+        {
+            return;
+        }
+
+        _model.Role = _assignableRoles[0];
+
+        if (_isSuperuser)
+        {
+            _tenants = await Db.Tenants.OrderBy(t => t.Name).ToListAsync();
+            _showTenantSelect = !IUserAccessService.RoleRequiresNoTenant(_model.Role);
+            if (_showTenantSelect && _tenants.Count > 0)
+            {
+                _model.TenantId = _tenants[0].Id;
+            }
+        }
+        else
+        {
+            _model.TenantId = await UserAccess.GetCurrentTenantIdAsync();
+        }
+
+        OnRoleChanged();
+    }
+
+    private void OnRoleChanged()
+    {
+        if (!_isSuperuser)
+        {
+            return;
+        }
+
+        _showTenantSelect = !IUserAccessService.RoleRequiresNoTenant(_model.Role);
+        if (!_showTenantSelect)
+        {
+            _model.TenantId = null;
+        }
+        else if (_model.TenantId is null && _tenants.Count > 0)
+        {
+            _model.TenantId = _tenants[0].Id;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        var result = await UserManagement.CreateUserAsync(new UserCreateModel
+        {
+            Email = _model.Email,
+            DisplayName = _model.DisplayName,
+            Password = _model.Password,
+            Role = _model.Role,
+            TenantId = _model.TenantId
+        });
+
+        if (!result.Succeeded)
+        {
+            _errorMessage = result.ErrorMessage ?? string.Join(" ", result.IdentityErrors);
+            return;
+        }
+
+        Navigation.NavigateTo("users");
+    }
+
+    private sealed class CreateFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.EmailAddress]
+        public string Email { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string DisplayName { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.MinLength(8)]
+        public string Password { get; set; } = "";
+
+        public string Role { get; set; } = DsmsRoles.User;
+        public int? TenantId { get; set; }
+    }
+}

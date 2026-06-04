@@ -1,0 +1,226 @@
+@* Detailansicht einer DSFA – nur eigener Mandant. *@
+
+@page "/dsfa/{Id:int}"
+
+@attribute [Authorize]
+
+@rendermode InteractiveServer
+
+<PageTitle>DSFA</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="DSFA" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_dpia is null && _loaded)
+{
+    <PageHeader Title="DSFA" />
+    <div class="alert alert-warning dsms-alert">Eintrag nicht gefunden oder kein Zugriff.</div>
+}
+else if (_dpia is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else
+{
+    <PageHeader Title="@_dpia.Title" Subtitle="Datenschutz-Folgenabschätzung">
+        @if (_canEdit)
+        {
+            <a class="btn btn-primary" href="@($"dsfa/edit/{_dpia.Id}")">Bearbeiten</a>
+        }
+        <a class="btn btn-outline-secondary" href="dsfa">Zur Liste</a>
+    </PageHeader>
+
+    @if (_detailWarnings.Count > 0)
+    {
+        <div class="alert alert-warning dsms-alert mb-4">
+            <strong>Hinweise</strong>
+            <ul class="mb-0 mt-2">
+                @foreach (var warning in _detailWarnings)
+                {
+                    <li>@warning</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Grunddaten</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Verarbeitungstätigkeit</div>
+                    <div>
+                        <a href="@($"processing-activities/{_processingActivity?.Id}")">@(_processingActivity?.Name ?? "—")</a>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Status</div>
+                    <StatusBadge Text="@DsfaLabels.GetStatusLabel(_dpia.Status)"
+                                 Variant="@DsfaLabels.GetStatusVariant(_dpia.Status)" />
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Restrisiko</div>
+                    <StatusBadge Text="@DsfaLabels.GetResidualRiskLabel(_dpia.ResidualRisk)"
+                                 Variant="@DsfaLabels.GetResidualRiskVariant(_dpia.ResidualRisk)" />
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Ergebnis</div>
+                    <StatusBadge Text="@DsfaLabels.GetOutcomeLabel(_dpia.Outcome)"
+                                 Variant="@DsfaLabels.GetOutcomeVariant(_dpia.Outcome)" />
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Verantwortliche Person</div>
+                    <div>@(string.IsNullOrWhiteSpace(_dpia.ResponsiblePerson) ? "—" : _dpia.ResponsiblePerson)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Prüfung durch</div>
+                    <div>@(string.IsNullOrWhiteSpace(_dpia.ReviewedBy) ? "—" : _dpia.ReviewedBy)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Prüfdatum</div>
+                    <div>@(_dpia.ReviewedAt?.ToString("d") ?? "—")</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Nächste Prüfung</div>
+                    <div>
+                        @if (_dpia.NextReviewAt.HasValue)
+                        {
+                            @_dpia.NextReviewAt.Value.ToString("d")
+                            @if (DsfaLabels.IsReviewOverdue(_dpia.NextReviewAt))
+                            {
+                                <StatusBadge Text="Überfällig" Variant="danger" />
+                            }
+                        }
+                        else
+                        {
+                            <text>—</text>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Fachliche Inhalte</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="dsms-detail-label">Beschreibung der Verarbeitung</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_dpia.ProcessingDescription)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Grund für DSFA</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_dpia.ReasonForDpia)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Notwendigkeit und Verhältnismäßigkeit</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_dpia.NecessityAndProportionality)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Bewertung der Risiken</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_dpia.RiskAssessment)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Schutzmaßnahmen</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_dpia.ProtectiveMeasures)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Verknüpfte Dokumente</div>
+        <div class="dsms-card-body">
+            @if (_documents.Count == 0)
+            {
+                <div class="dsms-empty">Keine Dokumente dieser DSFA zugeordnet.</div>
+                <p class="form-text text-muted mb-0">Dokumente können unter „Dokumente“ hochgeladen und einer DSFA zugeordnet werden.</p>
+            }
+            else
+            {
+                <ul class="dsms-list">
+                    @foreach (var doc in _documents)
+                    {
+                        <li class="dsms-list-item">
+                            <strong>@doc.FileName</strong>
+                            <span class="text-muted">@FormatSize(doc.FileSizeBytes) · @doc.CreatedAt.ToLocalTime().ToString("g")</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+
+    <div class="dsms-card">
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Erstellt am</div>
+                    <div>@_dpia.CreatedAt.ToLocalTime().ToString("g")</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Letzte Änderung</div>
+                    <div>@((_dpia.UpdatedAt ?? _dpia.CreatedAt).ToLocalTime().ToString("g"))</div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canEdit;
+    private bool _loaded;
+    private DataProtectionImpactAssessment? _dpia;
+    private ProcessingActivity? _processingActivity;
+    private List<EvidenceDocument> _documents = [];
+    private IReadOnlyList<string> _detailWarnings = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null)
+        {
+            _loaded = true;
+            return;
+        }
+
+        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
+            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+
+        _dpia = await Db.DataProtectionImpactAssessments
+            .FirstOrDefaultAsync(d => d.Id == Id && d.TenantId == _tenantId);
+
+        if (_dpia is not null)
+        {
+            _processingActivity = await Db.ProcessingActivities
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == _dpia.ProcessingActivityId && p.TenantId == _tenantId);
+
+            _documents = await Db.EvidenceDocuments
+                .Where(d => d.TenantId == _tenantId && d.DataProtectionImpactAssessmentId == _dpia.Id)
+                .OrderByDescending(d => d.CreatedAt)
+                .ToListAsync();
+
+            _detailWarnings = DsfaLabels.BuildDetailWarnings(_dpia);
+        }
+
+        _loaded = true;
+    }
+
+    private static MarkupString DisplayMultiline(string? text) =>
+        string.IsNullOrWhiteSpace(text)
+            ? new MarkupString("—")
+            : new MarkupString(System.Net.WebUtility.HtmlEncode(text).Replace("\n", "<br />"));
+
+    private static string FormatSize(long bytes) =>
+        bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024.0:F1} KB";
+}

@@ -27,5 +27,9 @@ public class EvidenceDocument : EntityBase
     public int? ProcessingActivityId { get; set; }
     public ProcessingActivity? ProcessingActivity { get; set; }
 
+    /// <summary>Optionale Zuordnung zu einer DSFA (z. B. Risikobewertung, Freigabe).</summary>
+    public int? DataProtectionImpactAssessmentId { get; set; }
+    public DataProtectionImpactAssessment? DataProtectionImpactAssessment { get; set; }
+
     public string? UploadedByUserId { get; set; }
 }

@@ -1,0 +1,331 @@
+/* DSMS Komponenten – Karten, Tabellen, Formulare, Badges */
+
+/* ---- Seitenrahmen ---- */
+.dsms-page {
+    max-width: var(--dsms-content-max);
+}
+
+.dsms-page-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--dsms-space-4);
+    margin-bottom: var(--dsms-space-6);
+}
+
+.dsms-page-title {
+    font-size: var(--dsms-font-size-2xl);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: var(--dsms-line-height-tight);
+    color: var(--dsms-text);
+    margin: 0;
+}
+
+.dsms-page-subtitle {
+    margin: var(--dsms-space-2) 0 0;
+    color: var(--dsms-text-muted);
+    font-size: var(--dsms-font-size-sm);
+}
+
+.dsms-page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--dsms-space-2);
+    align-items: center;
+}
+
+/* ---- Karten ---- */
+.dsms-card {
+    background: var(--dsms-surface);
+    border: 1px solid var(--dsms-border);
+    border-radius: var(--dsms-radius-lg);
+    box-shadow: var(--dsms-shadow-sm);
+    overflow: hidden;
+}
+
+.dsms-card-body {
+    padding: var(--dsms-space-6);
+}
+
+.dsms-card-header {
+    padding: var(--dsms-space-4) var(--dsms-space-6);
+    border-bottom: 1px solid var(--dsms-border);
+    background: #fafbfc;
+    font-weight: 600;
+    font-size: var(--dsms-font-size-sm);
+    color: var(--dsms-text-secondary);
+}
+
+/* Stat-Karten (Dashboard) */
+.dsms-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--dsms-space-4);
+    margin-bottom: var(--dsms-space-8);
+}
+
+.dsms-stat-card {
+    background: var(--dsms-surface);
+    border: 1px solid var(--dsms-border);
+    border-radius: var(--dsms-radius-lg);
+    padding: var(--dsms-space-5) var(--dsms-space-6);
+    box-shadow: var(--dsms-shadow-sm);
+    transition: box-shadow 0.15s ease;
+}
+
+.dsms-stat-card:hover {
+    box-shadow: var(--dsms-shadow);
+}
+
+.dsms-stat-label {
+    font-size: var(--dsms-font-size-sm);
+    font-weight: 500;
+    color: var(--dsms-text-muted);
+    margin-bottom: var(--dsms-space-2);
+}
+
+.dsms-stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--dsms-text);
+}
+
+.dsms-stat-card--warning .dsms-stat-value { color: var(--dsms-warning); }
+.dsms-stat-card--primary .dsms-stat-value { color: var(--dsms-primary); }
+.dsms-stat-card--muted .dsms-stat-value { color: var(--dsms-text-secondary); }
+.dsms-stat-card--danger .dsms-stat-value { color: var(--dsms-danger, #dc3545); }
+
+/* ---- Tabellen ---- */
+.dsms-table-wrap {
+    overflow-x: auto;
+}
+
+.dsms-table {
+    margin-bottom: 0;
+    font-size: var(--dsms-font-size-sm);
+}
+
+.dsms-table thead th {
+    background: #f8fafc;
+    color: var(--dsms-text-secondary);
+    font-weight: 600;
+    font-size: var(--dsms-font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--dsms-border-strong);
+    padding: var(--dsms-space-3) var(--dsms-space-4);
+    white-space: nowrap;
+}
+
+.dsms-table tbody td {
+    padding: var(--dsms-space-4);
+    vertical-align: middle;
+    border-color: var(--dsms-border);
+    color: var(--dsms-text);
+}
+
+.dsms-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.dsms-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.dsms-table .dsms-table-actions {
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* ---- Formulare ---- */
+.dsms-form-card .dsms-card-body {
+    max-width: 42rem;
+}
+
+.dsms-form .form-label {
+    font-size: var(--dsms-font-size-sm);
+    font-weight: 500;
+    color: var(--dsms-text-secondary);
+    margin-bottom: var(--dsms-space-2);
+}
+
+.dsms-form .form-control,
+.dsms-form .form-select {
+    border-radius: var(--dsms-radius-sm);
+    border-color: var(--dsms-border-strong);
+    padding: 0.55rem 0.75rem;
+    font-size: var(--dsms-font-size-base);
+}
+
+.dsms-form .form-control:focus,
+.dsms-form .form-select:focus {
+    border-color: var(--dsms-primary);
+    box-shadow: 0 0 0 3px var(--dsms-primary-soft);
+}
+
+.dsms-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--dsms-space-3);
+    margin-top: var(--dsms-space-6);
+    padding-top: var(--dsms-space-5);
+    border-top: 1px solid var(--dsms-border);
+}
+
+/* ---- Listen (Dashboard) ---- */
+.dsms-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.dsms-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--dsms-space-4);
+    padding: var(--dsms-space-4) var(--dsms-space-5);
+    border-bottom: 1px solid var(--dsms-border);
+    font-size: var(--dsms-font-size-sm);
+}
+
+.dsms-list-item:last-child {
+    border-bottom: none;
+}
+
+.dsms-list-item a {
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.dsms-list-item a:hover {
+    text-decoration: underline;
+}
+
+/* ---- Badges ---- */
+.dsms-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2em 0.65em;
+    font-size: var(--dsms-font-size-xs);
+    font-weight: 600;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+    background: #f1f5f9;
+    color: var(--dsms-text-secondary);
+}
+
+.dsms-badge--primary { background: var(--dsms-primary-soft); color: var(--dsms-primary); }
+.dsms-badge--success { background: var(--dsms-success-bg); color: var(--dsms-success); }
+.dsms-badge--warning { background: var(--dsms-warning-bg); color: var(--dsms-warning); }
+.dsms-badge--danger { background: var(--dsms-danger-bg); color: var(--dsms-danger); }
+
+.dsms-table td .dsms-badge + .dsms-badge {
+    margin-left: 0.35rem;
+}
+
+/* ---- Alerts ---- */
+.dsms-alert {
+    border-radius: var(--dsms-radius);
+    border: 1px solid transparent;
+    font-size: var(--dsms-font-size-sm);
+}
+
+/* ---- Buttons ---- */
+.btn-primary {
+    background-color: var(--dsms-primary);
+    border-color: var(--dsms-primary);
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: var(--dsms-radius-sm);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--dsms-primary-hover);
+    border-color: var(--dsms-primary-hover);
+}
+
+.btn-outline-secondary {
+    border-color: var(--dsms-border-strong);
+    color: var(--dsms-text-secondary);
+    font-weight: 500;
+}
+
+.btn-outline-secondary:hover {
+    background: #f8fafc;
+    border-color: var(--dsms-border-strong);
+    color: var(--dsms-text);
+}
+
+/* ---- Leer-/Ladezustand ---- */
+.dsms-empty {
+    padding: var(--dsms-space-8);
+    text-align: center;
+    color: var(--dsms-text-muted);
+    font-size: var(--dsms-font-size-sm);
+}
+
+.dsms-loading {
+    padding: var(--dsms-space-8);
+    color: var(--dsms-text-muted);
+    font-size: var(--dsms-font-size-sm);
+}
+
+/* ---- Zwei-Spalten Dashboard ---- */
+.dsms-split-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--dsms-space-6);
+}
+
+.dsms-section-title {
+    font-size: var(--dsms-font-size-lg);
+    font-weight: 600;
+    margin: 0 0 var(--dsms-space-4);
+    color: var(--dsms-text);
+}
+
+/* ---- Audit-Antwort-Karten ---- */
+.dsms-answer-card {
+    background: var(--dsms-surface);
+    border: 1px solid var(--dsms-border);
+    border-radius: var(--dsms-radius-lg);
+    padding: var(--dsms-space-5) var(--dsms-space-6);
+    margin-bottom: var(--dsms-space-4);
+}
+
+.dsms-answer-card h5 {
+    font-size: var(--dsms-font-size-base);
+    font-weight: 600;
+    margin-bottom: var(--dsms-space-4);
+    color: var(--dsms-text);
+}
+
+/* ---- Upload-Bereich ---- */
+.dsms-upload-zone {
+    border: 1px dashed var(--dsms-border-strong);
+    border-radius: var(--dsms-radius);
+    padding: var(--dsms-space-5);
+    background: #fafbfc;
+}
+
+/* ---- Detailansicht (z. B. Verarbeitungstätigkeiten) ---- */
+.dsms-detail-label {
+    font-size: var(--dsms-font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--dsms-text-muted);
+    margin-bottom: var(--dsms-space-1);
+}
+
+.dsms-detail-value {
+    color: var(--dsms-text);
+    line-height: var(--dsms-line-height-relaxed);
+    white-space: pre-wrap;
+}

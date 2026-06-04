@@ -1,0 +1,187 @@
+@page "/measures/edit"
+@page "/measures/edit/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Maßnahme</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Maßnahme" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <PageHeader Title="@(_model.Id == 0 ? "Maßnahme anlegen" : "Maßnahme bearbeiten")" />
+
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+                <ValidationSummary class="alert alert-danger dsms-alert" />
+
+                <div class="mb-3">
+                    <label class="form-label">Titel</label>
+                    <InputText class="form-control" @bind-Value="_model.Title" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Beschreibung</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.Description" rows="3" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Status</label>
+                    <InputSelect class="form-select" @bind-Value="_model.Status">
+                        @foreach (var status in Enum.GetValues<MeasureStatus>())
+                        {
+                            <option value="@status">@MeasureLabels.GetStatusLabel(status)</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Fällig am</label>
+                    <InputDate class="form-control" @bind-Value="_dueDate" />
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Zugehöriger Audit-Durchlauf (optional)</label>
+                    <InputSelect class="form-select" @bind-Value="_model.AuditRunId">
+                        <option value="">— keiner —</option>
+                        @foreach (var run in _auditRuns)
+                        {
+                            <option value="@run.Id">@run.Title</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                @if (_canEditLinks && _model.Id > 0)
+                {
+                    <div class="mb-4">
+                        <label class="form-label">Verarbeitungstätigkeiten zuordnen</label>
+                        <p class="form-text text-muted">Nur Verarbeitungstätigkeiten des eigenen Mandanten.</p>
+                        @if (_processingActivities.Count == 0)
+                        {
+                            <div class="alert alert-info dsms-alert mb-0">Keine Verarbeitungstätigkeiten vorhanden.</div>
+                        }
+                        else
+                        {
+                            <div class="dsms-checkbox-list">
+                                @foreach (var pa in _processingActivities)
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="@($"pa-{pa.Id}")"
+                                               checked="@_selectedProcessingActivityIds.Contains(pa.Id)"
+                                               @onchange="e => TogglePa(pa.Id, (bool)e.Value!)" />
+                                        <label class="form-check-label" for="@($"pa-{pa.Id}")">@pa.Name</label>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_linkSaveError))
+                {
+                    <div class="alert alert-danger dsms-alert">@_linkSaveError</div>
+                }
+
+                <div class="dsms-form-actions">
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                    <a class="btn btn-outline-secondary" href="measures">Abbrechen</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private ProcessingActivityRelationsService Relations { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canEditLinks;
+    private string? _linkSaveError;
+    private Measure _model = new() { Status = MeasureStatus.Open };
+    private DateOnly? _dueDate;
+    private List<AuditRun> _auditRuns = [];
+    private List<ProcessingActivity> _processingActivities = [];
+    private HashSet<int> _selectedProcessingActivityIds = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canEditLinks = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
+            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+
+        _processingActivities = await Db.ProcessingActivities
+            .Where(p => p.TenantId == _tenantId)
+            .OrderBy(p => p.Name)
+            .ToListAsync();
+
+        _auditRuns = await Db.AuditRuns
+            .Where(r => r.TenantId == _tenantId)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+
+        if (Id is > 0)
+        {
+            _model = await Db.Measures
+                .Include(m => m.ProcessingActivityLinks)
+                .FirstAsync(m => m.Id == Id && m.TenantId == _tenantId);
+            _dueDate = _model.DueDate;
+            _selectedProcessingActivityIds = _model.ProcessingActivityLinks
+                .Select(l => l.ProcessingActivityId)
+                .ToHashSet();
+        }
+        else
+        {
+            _model.TenantId = _tenantId.Value;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _model.DueDate = _dueDate;
+
+        // Abschlussdatum einmalig setzen, wenn Status auf Done wechselt.
+        if (_model.Status == MeasureStatus.Done)
+        {
+            _model.CompletedAt ??= DateTime.UtcNow;
+        }
+
+        if (_model.Id == 0)
+        {
+            Db.Measures.Add(_model);
+        }
+        else
+        {
+            _model.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await Db.SaveChangesAsync();
+
+        if (_canEditLinks && _model.Id > 0 && _tenantId is int tenantId)
+        {
+            var linkResult = await Relations.SaveMeasureProcessingActivitiesAsync(
+                tenantId,
+                _model.Id,
+                _selectedProcessingActivityIds);
+
+            if (linkResult == SaveLinksResult.InvalidTenantReference)
+            {
+                _linkSaveError = "Eine oder mehrere Verarbeitungstätigkeiten gehören nicht zu Ihrem Mandanten.";
+                return;
+            }
+        }
+
+        Navigation.NavigateTo("measures");
+    }
+
+    private void TogglePa(int id, bool selected)
+    {
+        if (selected) _selectedProcessingActivityIds.Add(id);
+        else _selectedProcessingActivityIds.Remove(id);
+    }
+}

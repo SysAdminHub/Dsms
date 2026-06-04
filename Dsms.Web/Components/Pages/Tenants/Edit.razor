@@ -1,0 +1,67 @@
+@page "/tenants/edit"
+@page "/tenants/edit/{Id:int}"
+@attribute [Authorize(Roles = DsmsRoles.Admin)]
+@rendermode InteractiveServer
+
+<PageTitle>@(_model.Id == 0 ? "Mandant anlegen" : "Mandant bearbeiten")</PageTitle>
+
+<PageHeader Title="@(_model.Id == 0 ? "Mandant anlegen" : "Mandant bearbeiten")" />
+
+<div class="dsms-card dsms-form-card">
+    <div class="dsms-card-body">
+        <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="alert alert-danger dsms-alert" />
+
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <InputText class="form-control" @bind-Value="_model.Name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Rechtlicher Name</label>
+                <InputText class="form-control" @bind-Value="_model.LegalName" />
+            </div>
+            <div class="form-check mb-4">
+                <InputCheckbox class="form-check-input" @bind-Value="_model.IsActive" id="isActive" />
+                <label class="form-check-label" for="isActive">Aktiv</label>
+            </div>
+
+            <div class="dsms-form-actions">
+                <button type="submit" class="btn btn-primary">Speichern</button>
+                <a class="btn btn-outline-secondary" href="tenants">Abbrechen</a>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private Tenant _model = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id is > 0)
+        {
+            _model = await Db.Tenants.FindAsync(Id.Value) ?? new Tenant();
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_model.Id == 0)
+        {
+            Db.Tenants.Add(_model);
+        }
+        else
+        {
+            _model.UpdatedAt = DateTime.UtcNow;
+            Db.Tenants.Update(_model);
+        }
+
+        await Db.SaveChangesAsync();
+        Navigation.NavigateTo("tenants");
+    }
+}

@@ -1,0 +1,167 @@
+@*
+    Anlegen und Bearbeiten von Verarbeitungstätigkeiten.
+    Nur Admin und Auditor; Speichern und Laden immer mit TenantId-Filter.
+*@
+@page "/processing-activities/edit"
+@page "/processing-activities/edit/{Id:int}"
+@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+@rendermode InteractiveServer
+
+<PageTitle>Verarbeitungstätigkeit bearbeiten</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Verarbeitungstätigkeit" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_notFound)
+{
+    <PageHeader Title="Verarbeitungstätigkeit" />
+    <div class="alert alert-warning dsms-alert">Eintrag nicht gefunden oder kein Zugriff.</div>
+}
+else
+{
+    <PageHeader Title="@(_model.Id == 0 ? "Verarbeitungstätigkeit anlegen" : "Verarbeitungstätigkeit bearbeiten")" />
+
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+                <ValidationSummary class="alert alert-danger dsms-alert" />
+
+                <div class="mb-3">
+                    <label class="form-label">Bezeichnung der Verarbeitung *</label>
+                    <InputText class="form-control" @bind-Value="_model.Name" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Beschreibung</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.Description" rows="3" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Zweck der Verarbeitung</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.Purpose" rows="3" />
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Verantwortlicher Bereich / Abteilung</label>
+                        <InputText class="form-control" @bind-Value="_model.ResponsibleDepartment" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Verantwortliche Person (Owner)</label>
+                        <InputText class="form-control" @bind-Value="_model.Owner" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Rechtsgrundlage</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.LegalBasis" rows="2" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Kategorien betroffener Personen</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.DataSubjectCategories" rows="2" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Kategorien personenbezogener Daten</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.PersonalDataCategories" rows="2" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Empfänger / Empfängerkategorien</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.Recipients" rows="2" />
+                </div>
+                <div class="form-check mb-3">
+                    <InputCheckbox class="form-check-input" @bind-Value="_model.ThirdCountryTransfer" id="thirdCountry" />
+                    <label class="form-check-label" for="thirdCountry">Drittlandübermittlung</label>
+                </div>
+                @if (_model.ThirdCountryTransfer)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Beschreibung der Drittlandübermittlung</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.ThirdCountryTransferDescription" rows="2" />
+                    </div>
+                }
+                <div class="mb-3">
+                    <label class="form-label">Löschfrist / Aufbewahrungsfrist</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.RetentionPeriod" rows="2" />
+                </div>
+                <div class="form-check mb-3">
+                    <InputCheckbox class="form-check-input" @bind-Value="_model.DpiaRequired" id="dpiaRequired" />
+                    <label class="form-check-label" for="dpiaRequired">DSFA erforderlich</label>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Status</label>
+                    <InputSelect class="form-select" @bind-Value="_model.Status">
+                        @foreach (var status in Enum.GetValues<ProcessingActivityStatus>())
+                        {
+                            <option value="@status">@ProcessingActivityLabels.GetStatusLabel(status)</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="dsms-form-actions">
+                    <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                    <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"processing-activities/{_model.Id}" : "processing-activities")">Abbrechen</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _notFound;
+    private bool _saving;
+    private ProcessingActivity _model = new() { Status = ProcessingActivityStatus.Draft };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        if (Id is > 0)
+        {
+            var existing = await Db.ProcessingActivities
+                .FirstOrDefaultAsync(p => p.Id == Id && p.TenantId == _tenantId);
+
+            if (existing is null)
+            {
+                _notFound = true;
+                return;
+            }
+
+            _model = existing;
+        }
+        else
+        {
+            _model.TenantId = _tenantId.Value;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_tenantId is null || string.IsNullOrWhiteSpace(_model.Name))
+        {
+            return;
+        }
+
+        _saving = true;
+
+        // TenantId bei Updates nicht verändern lassen – Schutz vor Mandantenwechsel.
+        _model.TenantId = _tenantId.Value;
+
+        if (_model.Id == 0)
+        {
+            _model.CreatedAt = DateTime.UtcNow;
+            Db.ProcessingActivities.Add(_model);
+        }
+        else
+        {
+            _model.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await Db.SaveChangesAsync();
+        Navigation.NavigateTo(_model.Id > 0 ? $"processing-activities/{_model.Id}" : "processing-activities");
+    }
+}

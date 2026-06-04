@@ -1,0 +1,299 @@
+@*
+    Verknüpfungen einer Verarbeitungstätigkeit pflegen (TOMs, Dienstleister, Dokumente, Maßnahmen, Audit-Antworten).
+    Nur Admin und Auditor; alle IDs werden serverseitig gegen den Mandanten geprüft.
+*@
+@page "/processing-activities/links/{Id:int}"
+@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+@rendermode InteractiveServer
+
+<PageTitle>Verknüpfungen bearbeiten</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Verknüpfungen" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_notFound)
+{
+    <PageHeader Title="Verknüpfungen" />
+    <div class="alert alert-warning dsms-alert">Verarbeitungstätigkeit nicht gefunden oder kein Zugriff.</div>
+}
+else
+{
+    <PageHeader Title="Verknüpfungen bearbeiten" Subtitle="@_activityName">
+        <a class="btn btn-outline-secondary" href="@($"processing-activities/{Id}")">Zur Detailansicht</a>
+    </PageHeader>
+
+    @if (!string.IsNullOrEmpty(_saveError))
+    {
+        <div class="alert alert-danger dsms-alert">@_saveError</div>
+    }
+
+    <EditForm Model="_form" OnValidSubmit="SaveAsync" class="dsms-form">
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header">Zugeordnete TOMs</div>
+            <div class="dsms-card-body">
+                @if (_allToms.Count == 0)
+                {
+                    <div class="alert alert-info dsms-alert mb-0">Keine TOMs im Mandanten vorhanden.</div>
+                }
+                else
+                {
+                    <div class="dsms-checkbox-list">
+                        @foreach (var tom in _allToms)
+                        {
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="@($"tom-{tom.Id}")"
+                                       checked="@_selectedTomIds.Contains(tom.Id)"
+                                       @onchange="e => Toggle(_selectedTomIds, tom.Id, (bool)e.Value!)" />
+                                <label class="form-check-label" for="@($"tom-{tom.Id}")">@tom.Title</label>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header">Zugeordnete Dienstleister</div>
+            <div class="dsms-card-body">
+                @if (_allServiceProviders.Count == 0)
+                {
+                    <div class="alert alert-info dsms-alert mb-0">Keine Dienstleister im Mandanten vorhanden.</div>
+                }
+                else
+                {
+                    <div class="dsms-checkbox-list">
+                        @foreach (var sp in _allServiceProviders)
+                        {
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="@($"sp-{sp.Id}")"
+                                       checked="@_selectedServiceProviderIds.Contains(sp.Id)"
+                                       @onchange="e => Toggle(_selectedServiceProviderIds, sp.Id, (bool)e.Value!)" />
+                                <label class="form-check-label" for="@($"sp-{sp.Id}")">@sp.Name</label>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header">Zugeordnete Dokumente</div>
+            <div class="dsms-card-body">
+                <p class="form-text text-muted">Nachweise des Mandanten; bereits anderweitig verknüpfte Dateien können hier der Verarbeitungstätigkeit zugeordnet werden.</p>
+                @if (_allDocuments.Count == 0)
+                {
+                    <div class="alert alert-info dsms-alert mb-0">Keine Dokumente im Mandanten. Laden Sie Dateien unter „Dokumente“ hoch.</div>
+                }
+                else
+                {
+                    <div class="dsms-checkbox-list">
+                        @foreach (var doc in _allDocuments)
+                        {
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="@($"doc-{doc.Id}")"
+                                       checked="@_selectedDocumentIds.Contains(doc.Id)"
+                                       @onchange="e => Toggle(_selectedDocumentIds, doc.Id, (bool)e.Value!)" />
+                                <label class="form-check-label" for="@($"doc-{doc.Id}")">
+                                    @doc.FileName <span class="text-muted">(@doc.CreatedAt.ToLocalTime().ToString("g"))</span>
+                                </label>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header">Zugeordnete Maßnahmen</div>
+            <div class="dsms-card-body">
+                @if (_allMeasures.Count == 0)
+                {
+                    <div class="alert alert-info dsms-alert mb-0">Keine Maßnahmen im Mandanten vorhanden.</div>
+                }
+                else
+                {
+                    <div class="dsms-checkbox-list">
+                        @foreach (var measure in _allMeasures)
+                        {
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="@($"m-{measure.Id}")"
+                                       checked="@_selectedMeasureIds.Contains(measure.Id)"
+                                       @onchange="e => Toggle(_selectedMeasureIds, measure.Id, (bool)e.Value!)" />
+                                <label class="form-check-label" for="@($"m-{measure.Id}")">@measure.Title</label>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header">Zugeordnete Audit-Antworten</div>
+            <div class="dsms-card-body">
+                <p class="form-text text-muted">Antworten aus Audit-Durchläufen des eigenen Mandanten.</p>
+                @if (_allAuditAnswers.Count == 0)
+                {
+                    <div class="alert alert-info dsms-alert mb-0">Keine Audit-Antworten vorhanden.</div>
+                }
+                else
+                {
+                    <div class="dsms-checkbox-list">
+                        @foreach (var row in _allAuditAnswers)
+                        {
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="@($"aa-{row.Id}")"
+                                       checked="@_selectedAuditAnswerIds.Contains(row.Id)"
+                                       @onchange="e => Toggle(_selectedAuditAnswerIds, row.Id, (bool)e.Value!)" />
+                                <label class="form-check-label" for="@($"aa-{row.Id}")">
+                                    <strong>@row.RunTitle</strong> – Frage @row.SortOrder: @Truncate(row.QuestionText, 80)
+                                    <StatusBadge Text="@ComplianceLabels.GetLevelLabel(row.ComplianceLevel)"
+                                                 Variant="@ComplianceLabels.GetLevelVariant(row.ComplianceLevel)" />
+                                </label>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="dsms-form-actions">
+            <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+            <a class="btn btn-outline-secondary" href="@($"processing-activities/{Id}")">Abbrechen</a>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private ProcessingActivityRelationsService Relations { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _notFound;
+    private bool _saving;
+    private string? _saveError;
+    private string _activityName = "";
+    private readonly object _form = new();
+
+    private List<Tom> _allToms = [];
+    private List<DsmsServiceProvider> _allServiceProviders = [];
+    private List<EvidenceDocument> _allDocuments = [];
+    private List<Measure> _allMeasures = [];
+    private List<AuditAnswerListItem> _allAuditAnswers = [];
+
+    private HashSet<int> _selectedTomIds = [];
+    private HashSet<int> _selectedServiceProviderIds = [];
+    private HashSet<int> _selectedDocumentIds = [];
+    private HashSet<int> _selectedMeasureIds = [];
+    private HashSet<int> _selectedAuditAnswerIds = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        var activity = await Db.ProcessingActivities
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == Id && p.TenantId == _tenantId);
+
+        if (activity is null)
+        {
+            _notFound = true;
+            return;
+        }
+
+        _activityName = activity.Name;
+
+        _allToms = await Db.Toms.Where(t => t.TenantId == _tenantId).OrderBy(t => t.Title).ToListAsync();
+        _allServiceProviders = await Db.ServiceProviders.Where(s => s.TenantId == _tenantId).OrderBy(s => s.Name).ToListAsync();
+        _allDocuments = await Db.EvidenceDocuments.Where(d => d.TenantId == _tenantId).OrderByDescending(d => d.CreatedAt).ToListAsync();
+        _allMeasures = await Db.Measures.Where(m => m.TenantId == _tenantId).OrderBy(m => m.Title).ToListAsync();
+
+        _allAuditAnswers = await Db.AuditAnswers
+            .AsNoTracking()
+            .Where(a => a.AuditRun.TenantId == _tenantId)
+            .Include(a => a.AuditQuestion)
+            .Include(a => a.AuditRun)
+            .OrderBy(a => a.AuditRun.Title)
+            .ThenBy(a => a.AuditQuestion.SortOrder)
+            .Select(a => new AuditAnswerListItem(
+                a.Id,
+                a.AuditRun.Title,
+                a.AuditQuestion.SortOrder,
+                a.AuditQuestion.Text,
+                a.ComplianceLevel))
+            .ToListAsync();
+
+        _selectedTomIds = (await Db.ProcessingActivityToms
+            .Where(l => l.ProcessingActivityId == Id && l.TenantId == _tenantId)
+            .Select(l => l.TomId)
+            .ToListAsync()).ToHashSet();
+
+        _selectedServiceProviderIds = (await Db.ProcessingActivityServiceProviders
+            .Where(l => l.ProcessingActivityId == Id && l.TenantId == _tenantId)
+            .Select(l => l.ServiceProviderId)
+            .ToListAsync()).ToHashSet();
+
+        _selectedDocumentIds = (await Db.EvidenceDocuments
+            .Where(d => d.TenantId == _tenantId && d.ProcessingActivityId == Id)
+            .Select(d => d.Id)
+            .ToListAsync()).ToHashSet();
+
+        _selectedMeasureIds = (await Db.ProcessingActivityMeasures
+            .Where(l => l.ProcessingActivityId == Id && l.TenantId == _tenantId)
+            .Select(l => l.MeasureId)
+            .ToListAsync()).ToHashSet();
+
+        _selectedAuditAnswerIds = (await Db.ProcessingActivityAuditAnswers
+            .Where(l => l.ProcessingActivityId == Id && l.TenantId == _tenantId)
+            .Select(l => l.AuditAnswerId)
+            .ToListAsync()).ToHashSet();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_tenantId is null) return;
+
+        _saving = true;
+        _saveError = null;
+
+        var result = await Relations.SaveLinksAsync(
+            _tenantId.Value,
+            Id,
+            _selectedTomIds,
+            _selectedServiceProviderIds,
+            _selectedDocumentIds,
+            _selectedMeasureIds,
+            _selectedAuditAnswerIds);
+
+        _saving = false;
+
+        if (result == SaveLinksResult.Success)
+        {
+            Navigation.NavigateTo($"processing-activities/{Id}");
+            return;
+        }
+
+        _saveError = result switch
+        {
+            SaveLinksResult.InvalidTenantReference => "Eine oder mehrere Auswahlen gehören nicht zu Ihrem Mandanten.",
+            SaveLinksResult.NotFound => "Verarbeitungstätigkeit nicht gefunden.",
+            _ => "Speichern fehlgeschlagen."
+        };
+    }
+
+    private static void Toggle(HashSet<int> set, int id, bool selected)
+    {
+        if (selected) set.Add(id);
+        else set.Remove(id);
+    }
+
+    private static string Truncate(string text, int max) =>
+        text.Length <= max ? text : text[..max] + "…";
+
+    private record AuditAnswerListItem(int Id, string RunTitle, int SortOrder, string QuestionText, ComplianceLevel ComplianceLevel);
+}

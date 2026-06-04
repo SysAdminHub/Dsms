@@ -1,0 +1,538 @@
+@*
+
+    Anlegen und Bearbeiten von TOMs inkl. Zuordnung zu Verarbeitungstätigkeiten.
+
+    Nur Admin und Auditor; Speichern und Laden immer mit TenantId-Filter.
+
+*@
+
+@page "/toms/edit"
+
+@page "/toms/edit/{Id:int}"
+
+@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+
+@rendermode InteractiveServer
+
+
+
+<PageTitle>TOM bearbeiten</PageTitle>
+
+
+
+@if (_tenantId is null)
+
+{
+
+    <PageHeader Title="TOM" />
+
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+
+}
+
+else if (_notFound)
+
+{
+
+    <PageHeader Title="TOM" />
+
+    <div class="alert alert-warning dsms-alert">Eintrag nicht gefunden oder kein Zugriff.</div>
+
+}
+
+else
+
+{
+
+    <PageHeader Title="@(_model.Id == 0 ? "TOM anlegen" : "TOM bearbeiten")" />
+
+
+
+    <div class="dsms-card dsms-form-card">
+
+        <div class="dsms-card-body">
+
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+
+                <ValidationSummary class="alert alert-danger dsms-alert" />
+
+
+
+                <div class="mb-3">
+
+                    <label class="form-label">Bezeichnung der Maßnahme *</label>
+
+                    <InputText class="form-control" @bind-Value="_model.Title" />
+
+                </div>
+
+                <div class="mb-3">
+
+                    <label class="form-label">Beschreibung</label>
+
+                    <InputTextArea class="form-control" @bind-Value="_model.Description" rows="3" />
+
+                </div>
+
+                <div class="row">
+
+                    <div class="col-md-4 mb-3">
+
+                        <label class="form-label">Kategorie</label>
+
+                        <InputSelect class="form-select" @bind-Value="_model.Category">
+
+                            @foreach (var category in Enum.GetValues<TomCategory>())
+
+                            {
+
+                                <option value="@category">@TomLabels.GetCategoryLabel(category)</option>
+
+                            }
+
+                        </InputSelect>
+
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+
+                        <label class="form-label">Schutzziel</label>
+
+                        <InputSelect class="form-select" @bind-Value="_model.ProtectionGoal">
+
+                            @foreach (var goal in Enum.GetValues<TomProtectionGoal>())
+
+                            {
+
+                                <option value="@goal">@TomLabels.GetProtectionGoalLabel(goal)</option>
+
+                            }
+
+                        </InputSelect>
+
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+
+                        <label class="form-label">Umsetzungsstatus</label>
+
+                        <InputSelect class="form-select" @bind-Value="_model.ImplementationStatus">
+
+                            @foreach (var status in Enum.GetValues<TomImplementationStatus>())
+
+                            {
+
+                                <option value="@status">@TomLabels.GetImplementationStatusLabel(status)</option>
+
+                            }
+
+                        </InputSelect>
+
+                    </div>
+
+                </div>
+
+                <div class="row">
+
+                    <div class="col-md-4 mb-3">
+
+                        <label class="form-label">Verantwortliche Person (Owner)</label>
+
+                        <InputText class="form-control" @bind-Value="_model.Owner" />
+
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+
+                        <label class="form-label">Gültig ab</label>
+
+                        <InputDate class="form-control" @bind-Value="_validFrom" />
+
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+
+                        <label class="form-label">Nächste Überprüfung am</label>
+
+                        <InputDate class="form-control" @bind-Value="_nextReviewAt" />
+
+                    </div>
+
+                </div>
+
+                <div class="mb-3">
+
+                    <label class="form-label">Nachweis / Referenz</label>
+
+                    <InputTextArea class="form-control" @bind-Value="_model.EvidenceReference" rows="2" />
+
+                </div>
+
+                <div class="mb-3">
+
+                    <label class="form-label">Bemerkungen</label>
+
+                    <InputTextArea class="form-control" @bind-Value="_model.Notes" rows="2" />
+
+                </div>
+
+
+
+                <div class="mb-4">
+
+                    <label class="form-label">Verarbeitungstätigkeiten zuordnen</label>
+
+                    <p class="form-text text-muted">Nur Verarbeitungstätigkeiten des eigenen Mandanten können verknüpft werden.</p>
+
+                    @if (_availableActivities.Count == 0)
+
+                    {
+
+                        <div class="alert alert-info dsms-alert mb-0">Keine Verarbeitungstätigkeiten im Mandanten vorhanden.</div>
+
+                    }
+
+                    else
+
+                    {
+
+                        <div class="dsms-checkbox-list">
+
+                            @foreach (var activity in _availableActivities)
+
+                            {
+
+                                <div class="form-check">
+
+                                    <input type="checkbox"
+
+                                           class="form-check-input"
+
+                                           id="@($"pa-{activity.Id}")"
+
+                                           checked="@_selectedActivityIds.Contains(activity.Id)"
+
+                                           @onchange="e => ToggleActivity(activity.Id, (bool)e.Value!)" />
+
+                                    <label class="form-check-label" for="@($"pa-{activity.Id}")">@activity.Name</label>
+
+                                </div>
+
+                            }
+
+                        </div>
+
+                    }
+
+                </div>
+
+
+
+                @if (!string.IsNullOrEmpty(_saveError))
+
+                {
+
+                    <div class="alert alert-danger dsms-alert">@_saveError</div>
+
+                }
+
+
+
+                <div class="dsms-form-actions">
+
+                    <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+
+                    <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"toms/{_model.Id}" : "toms")">Abbrechen</a>
+
+                </div>
+
+            </EditForm>
+
+        </div>
+
+    </div>
+
+}
+
+
+
+@code {
+
+    [Parameter] public int? Id { get; set; }
+
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+
+
+    private int? _tenantId;
+
+    private bool _notFound;
+
+    private bool _saving;
+
+    private string? _saveError;
+
+    private Tom _model = new() { ImplementationStatus = TomImplementationStatus.Planned };
+
+    private DateTime? _validFrom;
+
+    private DateTime? _nextReviewAt;
+
+    private List<ProcessingActivity> _availableActivities = [];
+
+    private HashSet<int> _selectedActivityIds = [];
+
+
+
+    protected override async Task OnInitializedAsync()
+
+    {
+
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+
+        if (_tenantId is null) return;
+
+
+
+        _availableActivities = await Db.ProcessingActivities
+
+            .Where(p => p.TenantId == _tenantId)
+
+            .OrderBy(p => p.Name)
+
+            .ToListAsync();
+
+
+
+        if (Id is > 0)
+
+        {
+
+            var existing = await Db.Toms
+
+                .Include(t => t.ProcessingActivityLinks)
+
+                .FirstOrDefaultAsync(t => t.Id == Id && t.TenantId == _tenantId);
+
+
+
+            if (existing is null)
+
+            {
+
+                _notFound = true;
+
+                return;
+
+            }
+
+
+
+            _model = existing;
+
+            _validFrom = existing.ValidFrom?.ToDateTime(TimeOnly.MinValue);
+
+            _nextReviewAt = existing.NextReviewAt?.ToDateTime(TimeOnly.MinValue);
+
+            _selectedActivityIds = existing.ProcessingActivityLinks
+
+                .Select(l => l.ProcessingActivityId)
+
+                .ToHashSet();
+
+        }
+
+        else
+
+        {
+
+            _model.TenantId = _tenantId.Value;
+
+        }
+
+    }
+
+
+
+    private void ToggleActivity(int activityId, bool selected)
+
+    {
+
+        if (selected)
+
+        {
+
+            _selectedActivityIds.Add(activityId);
+
+        }
+
+        else
+
+        {
+
+            _selectedActivityIds.Remove(activityId);
+
+        }
+
+    }
+
+
+
+    private async Task SaveAsync()
+
+    {
+
+        if (_tenantId is null || string.IsNullOrWhiteSpace(_model.Title))
+
+        {
+
+            return;
+
+        }
+
+
+
+        _saving = true;
+
+        _saveError = null;
+
+
+
+        _model.TenantId = _tenantId.Value;
+
+        _model.ValidFrom = _validFrom.HasValue ? DateOnly.FromDateTime(_validFrom.Value) : null;
+
+        _model.NextReviewAt = _nextReviewAt.HasValue ? DateOnly.FromDateTime(_nextReviewAt.Value) : null;
+
+
+
+        // Nur Verarbeitungstätigkeiten des eigenen Mandanten verknüpfen (Schutz vor ID-Manipulation).
+
+        var validActivityIds = await Db.ProcessingActivities
+
+            .Where(p => p.TenantId == _tenantId && _selectedActivityIds.Contains(p.Id))
+
+            .Select(p => p.Id)
+
+            .ToListAsync();
+
+
+
+        if (validActivityIds.Count != _selectedActivityIds.Count)
+
+        {
+
+            _saveError = "Eine oder mehrere ausgewählte Verarbeitungstätigkeiten gehören nicht zu Ihrem Mandanten.";
+
+            _saving = false;
+
+            return;
+
+        }
+
+
+
+        if (_model.Id == 0)
+
+        {
+
+            _model.CreatedAt = DateTime.UtcNow;
+
+            Db.Toms.Add(_model);
+
+            await Db.SaveChangesAsync();
+
+
+
+            foreach (var activityId in validActivityIds)
+
+            {
+
+                Db.ProcessingActivityToms.Add(new ProcessingActivityTom
+
+                {
+
+                    TenantId = _tenantId.Value,
+
+                    TomId = _model.Id,
+
+                    ProcessingActivityId = activityId,
+
+                    CreatedAt = DateTime.UtcNow
+
+                });
+
+            }
+
+
+
+            await Db.SaveChangesAsync();
+
+            Navigation.NavigateTo($"toms/{_model.Id}");
+
+            return;
+
+        }
+
+
+
+        _model.UpdatedAt = DateTime.UtcNow;
+
+
+
+        var existingLinks = await Db.ProcessingActivityToms
+
+            .Where(l => l.TomId == _model.Id && l.TenantId == _tenantId)
+
+            .ToListAsync();
+
+
+
+        var toRemove = existingLinks.Where(l => !validActivityIds.Contains(l.ProcessingActivityId)).ToList();
+
+        if (toRemove.Count > 0)
+
+        {
+
+            Db.ProcessingActivityToms.RemoveRange(toRemove);
+
+        }
+
+
+
+        var existingIds = existingLinks.Select(l => l.ProcessingActivityId).ToHashSet();
+
+        foreach (var activityId in validActivityIds.Where(id => !existingIds.Contains(id)))
+
+        {
+
+            Db.ProcessingActivityToms.Add(new ProcessingActivityTom
+
+            {
+
+                TenantId = _tenantId.Value,
+
+                TomId = _model.Id,
+
+                ProcessingActivityId = activityId,
+
+                CreatedAt = DateTime.UtcNow
+
+            });
+
+        }
+
+
+
+        await Db.SaveChangesAsync();
+
+        Navigation.NavigateTo($"toms/{_model.Id}");
+
+    }
+
+}
+

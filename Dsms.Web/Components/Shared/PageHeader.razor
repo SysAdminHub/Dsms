@@ -1,0 +1,22 @@
+@* Einheitliche Seitenüberschrift mit optionalem Untertitel und Aktions-Slot (ChildContent). *@
+<div class="dsms-page-header">
+    <div>
+        <h1 class="dsms-page-title">@Title</h1>
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p class="dsms-page-subtitle">@Subtitle</p>
+        }
+    </div>
+    @if (ChildContent is not null)
+    {
+        <div class="dsms-page-actions">
+            @ChildContent
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

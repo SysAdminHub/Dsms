@@ -1,0 +1,274 @@
+@* Listenansicht: TOMs des eigenen Mandanten (technische und organisatorische Maßnahmen). *@
+
+@page "/toms"
+
+@attribute [Authorize]
+
+@rendermode InteractiveServer
+
+
+
+<PageTitle>TOM-Verzeichnis</PageTitle>
+
+
+
+@if (_tenantId is null)
+
+{
+
+    <PageHeader Title="TOM-Verzeichnis" />
+
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+
+}
+
+else
+
+{
+
+    <PageHeader Title="TOM-Verzeichnis" Subtitle="Technische und organisatorische Maßnahmen">
+
+        @if (_canEdit)
+
+        {
+
+            <a class="btn btn-primary" href="toms/edit">Neue TOM</a>
+
+        }
+
+    </PageHeader>
+
+
+
+    @if (_items is null)
+
+    {
+
+        <div class="dsms-loading">Lade …</div>
+
+    }
+
+    else if (_items.Count == 0)
+
+    {
+
+        <div class="alert alert-info dsms-alert">Noch keine TOMs erfasst.</div>
+
+    }
+
+    else
+
+    {
+
+        <div class="dsms-card">
+
+            <div class="dsms-table-wrap">
+
+                <table class="table dsms-table">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Bezeichnung</th>
+
+                            <th>Kategorie</th>
+
+                            <th>Schutzziel</th>
+
+                            <th>Umsetzungsstatus</th>
+
+                            <th>Verantwortlich</th>
+
+                            <th>Nächste Prüfung</th>
+
+                            <th>Verarbeitungstätigkeiten</th>
+
+                            <th>Letzte Änderung</th>
+
+                            <th class="dsms-table-actions"></th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        @foreach (var item in _items)
+
+                        {
+
+                            <tr>
+
+                                <td><strong>@item.Title</strong></td>
+
+                                <td>@TomLabels.GetCategoryLabel(item.Category)</td>
+
+                                <td>@TomLabels.GetProtectionGoalLabel(item.ProtectionGoal)</td>
+
+                                <td>
+
+                                    <StatusBadge Text="@TomLabels.GetImplementationStatusLabel(item.ImplementationStatus)"
+
+                                                 Variant="@TomLabels.GetImplementationStatusVariant(item.ImplementationStatus)" />
+
+                                </td>
+
+                                <td>@(string.IsNullOrWhiteSpace(item.Owner) ? "—" : item.Owner)</td>
+
+                                <td>@FormatNextReview(item.NextReviewAt)</td>
+
+                                <td>@item.LinkedActivityCount</td>
+
+                                <td>@FormatUpdated(item)</td>
+
+                                <td class="dsms-table-actions">
+
+                                    <a class="btn btn-sm btn-outline-primary" href="@($"toms/{item.Id}")">Details</a>
+
+                                    @if (_canEdit)
+
+                                    {
+
+                                        <a class="btn btn-sm btn-outline-secondary" href="@($"toms/edit/{item.Id}")">Bearbeiten</a>
+
+                                    }
+
+                                </td>
+
+                            </tr>
+
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    }
+
+}
+
+
+
+@code {
+
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+
+
+    private int? _tenantId;
+
+    private bool _canEdit;
+
+    private List<TomListRow>? _items;
+
+
+
+    protected override async Task OnInitializedAsync()
+
+    {
+
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+
+        if (_tenantId is null) return;
+
+
+
+        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
+
+            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+
+
+
+        _items = await Db.Toms
+
+            .Where(t => t.TenantId == _tenantId)
+
+            .OrderByDescending(t => t.UpdatedAt ?? t.CreatedAt)
+
+            .Select(t => new TomListRow
+
+            {
+
+                Id = t.Id,
+
+                Title = t.Title,
+
+                Category = t.Category,
+
+                ProtectionGoal = t.ProtectionGoal,
+
+                ImplementationStatus = t.ImplementationStatus,
+
+                Owner = t.Owner,
+
+                NextReviewAt = t.NextReviewAt,
+
+                CreatedAt = t.CreatedAt,
+
+                UpdatedAt = t.UpdatedAt,
+
+                LinkedActivityCount = t.ProcessingActivityLinks.Count
+
+            })
+
+            .ToListAsync();
+
+    }
+
+
+
+    private static string FormatUpdated(TomListRow item) =>
+
+        (item.UpdatedAt ?? item.CreatedAt).ToLocalTime().ToString("g");
+
+
+
+    private static string FormatNextReview(DateOnly? date)
+
+    {
+
+        if (!date.HasValue) return "—";
+
+        var text = date.Value.ToString("d");
+
+        return TomLabels.IsReviewOverdue(date) ? $"{text} (überfällig)" : text;
+
+    }
+
+
+
+    private sealed class TomListRow
+
+    {
+
+        public int Id { get; init; }
+
+        public string Title { get; init; } = "";
+
+        public TomCategory Category { get; init; }
+
+        public TomProtectionGoal ProtectionGoal { get; init; }
+
+        public TomImplementationStatus ImplementationStatus { get; init; }
+
+        public string? Owner { get; init; }
+
+        public DateOnly? NextReviewAt { get; init; }
+
+        public DateTime CreatedAt { get; init; }
+
+        public DateTime? UpdatedAt { get; init; }
+
+        public int LinkedActivityCount { get; init; }
+
+    }
+
+}
+

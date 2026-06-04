@@ -1,0 +1,76 @@
+@* Listenansicht: Audit-Durchläufe mandantenbezogen gefiltert. *@
+@page "/audit-runs"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Audit-Durchläufe</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Audit-Durchläufe" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <PageHeader Title="Audit-Durchläufe" Subtitle="Laufende und abgeschlossene Datenschutz-Audits">
+        <a class="btn btn-primary" href="audit-runs/edit">Neuer Durchlauf</a>
+    </PageHeader>
+
+    @if (_runs is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Vorlage</th>
+                            <th>Status</th>
+                            <th>Gestartet</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var run in _runs)
+                        {
+                            <tr>
+                                <td><strong>@run.Title</strong></td>
+                                <td>@run.AuditTemplate.Title</td>
+                                <td><StatusBadge Text="@run.Status.ToString()" Variant="primary" /></td>
+                                <td>@(run.StartedAt?.ToLocalTime().ToString("d") ?? "—")</td>
+                                <td class="dsms-table-actions">
+                                    <a class="btn btn-sm btn-outline-secondary" href="@($"audit-runs/edit/{run.Id}")">Bearbeiten</a>
+                                    <a class="btn btn-sm btn-primary" href="@($"audit-runs/answers/{run.Id}")">Fragen</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private List<AuditRun>? _runs;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _runs = await Db.AuditRuns
+            .Include(r => r.AuditTemplate)
+            .Where(r => r.TenantId == _tenantId)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+    }
+}

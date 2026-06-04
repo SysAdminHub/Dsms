@@ -1,0 +1,86 @@
+@*
+    Beantwortung aller Fragen eines Durchlaufs. Jede Antwort hat ein eigenes EditForm (eigenes FormName)
+    für unabhängiges Speichern per Blazor Form-Handler.
+*@
+@page "/audit-runs/answers/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Audit-Fragen</PageTitle>
+
+@if (_run is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else
+{
+    <PageHeader Title="@_run.Title" Subtitle="@($"Vorlage: {_run.AuditTemplate.Title} · Status: {_run.Status}")">
+        <a class="btn btn-outline-secondary" href="audit-runs">Zurück</a>
+    </PageHeader>
+
+    @foreach (var answer in _answers)
+    {
+        <div class="dsms-answer-card">
+            <h5>@answer.AuditQuestion.SortOrder. @answer.AuditQuestion.Text</h5>
+            <EditForm Model="answer" OnValidSubmit="() => SaveAnswerAsync(answer)" FormName="@($"answer-{answer.Id}")" class="dsms-form">
+                <div class="mb-3">
+                    <label class="form-label">Antwort</label>
+                    <InputTextArea class="form-control" @bind-Value="answer.AnswerText" rows="2" />
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Bewertung</label>
+                        <InputSelect class="form-select" @bind-Value="answer.ComplianceLevel">
+                            @foreach (var level in Enum.GetValues<ComplianceLevel>())
+                            {
+                                <option value="@level">@ComplianceLabels.GetLevelLabel(level)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Notizen</label>
+                        <InputTextArea class="form-control" @bind-Value="answer.Notes" rows="2" />
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
+                </div>
+            </EditForm>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private AuditRun? _run;
+    private List<AuditAnswer> _answers = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _run = await Db.AuditRuns
+            .Include(r => r.AuditTemplate)
+            .FirstOrDefaultAsync(r => r.Id == Id && r.TenantId == _tenantId);
+
+        if (_run is null) return;
+
+        _answers = await Db.AuditAnswers
+            .Include(a => a.AuditQuestion)
+            .Where(a => a.AuditRunId == Id)
+            .OrderBy(a => a.AuditQuestion.SortOrder)
+            .ToListAsync();
+    }
+
+    private async Task SaveAnswerAsync(AuditAnswer answer)
+    {
+        answer.AnsweredAt = DateTime.UtcNow;
+        answer.UpdatedAt = DateTime.UtcNow;
+        await Db.SaveChangesAsync();
+    }
+}

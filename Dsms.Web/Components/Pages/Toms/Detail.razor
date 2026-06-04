@@ -1,0 +1,326 @@
+@* Detailansicht einer TOM – nur eigener Mandant; verknüpfte Verarbeitungstätigkeiten. *@
+
+@page "/toms/{Id:int}"
+
+@attribute [Authorize]
+
+@rendermode InteractiveServer
+
+
+
+<PageTitle>TOM</PageTitle>
+
+
+
+@if (_tenantId is null)
+
+{
+
+    <PageHeader Title="TOM" />
+
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+
+}
+
+else if (_tom is null && _loaded)
+
+{
+
+    <PageHeader Title="TOM" />
+
+    <div class="alert alert-warning dsms-alert">Eintrag nicht gefunden oder kein Zugriff.</div>
+
+}
+
+else if (_tom is null)
+
+{
+
+    <div class="dsms-loading">Lade …</div>
+
+}
+
+else
+
+{
+
+    <PageHeader Title="@_tom.Title" Subtitle="Technische und organisatorische Maßnahme">
+
+        @if (_canEdit)
+
+        {
+
+            <a class="btn btn-primary" href="@($"toms/edit/{_tom.Id}")">Bearbeiten</a>
+
+        }
+
+        <a class="btn btn-outline-secondary" href="toms">Zur Liste</a>
+
+    </PageHeader>
+
+
+
+    <div class="dsms-card mb-4">
+
+        <div class="dsms-card-body">
+
+            <div class="row g-3">
+
+                <div class="col-md-6">
+
+                    <div class="dsms-detail-label">Kategorie</div>
+
+                    <div>@TomLabels.GetCategoryLabel(_tom.Category)</div>
+
+                </div>
+
+                <div class="col-md-6">
+
+                    <div class="dsms-detail-label">Schutzziel</div>
+
+                    <div>@TomLabels.GetProtectionGoalLabel(_tom.ProtectionGoal)</div>
+
+                </div>
+
+                <div class="col-md-6">
+
+                    <div class="dsms-detail-label">Umsetzungsstatus</div>
+
+                    <StatusBadge Text="@TomLabels.GetImplementationStatusLabel(_tom.ImplementationStatus)"
+
+                                 Variant="@TomLabels.GetImplementationStatusVariant(_tom.ImplementationStatus)" />
+
+                </div>
+
+                <div class="col-md-6">
+
+                    <div class="dsms-detail-label">Verantwortliche Person</div>
+
+                    <div>@(string.IsNullOrWhiteSpace(_tom.Owner) ? "—" : _tom.Owner)</div>
+
+                </div>
+
+                <div class="col-md-6">
+
+                    <div class="dsms-detail-label">Gültig ab</div>
+
+                    <div>@(_tom.ValidFrom?.ToString("d") ?? "—")</div>
+
+                </div>
+
+                <div class="col-md-6">
+
+                    <div class="dsms-detail-label">Nächste Überprüfung</div>
+
+                    <div>
+
+                        @if (_tom.NextReviewAt.HasValue)
+
+                        {
+
+                            @_tom.NextReviewAt.Value.ToString("d")
+
+                            @if (TomLabels.IsReviewOverdue(_tom.NextReviewAt))
+
+                            {
+
+                                <StatusBadge Text="Überfällig" Variant="danger" />
+
+                            }
+
+                        }
+
+                        else
+
+                        {
+
+                            <text>—</text>
+
+                        }
+
+                    </div>
+
+                </div>
+
+                <div class="col-12">
+
+                    <div class="dsms-detail-label">Beschreibung</div>
+
+                    <div class="dsms-detail-value">@DisplayMultiline(_tom.Description)</div>
+
+                </div>
+
+                <div class="col-12">
+
+                    <div class="dsms-detail-label">Nachweis / Referenz</div>
+
+                    <div class="dsms-detail-value">@DisplayMultiline(_tom.EvidenceReference)</div>
+
+                </div>
+
+                <div class="col-12">
+
+                    <div class="dsms-detail-label">Bemerkungen</div>
+
+                    <div class="dsms-detail-value">@DisplayMultiline(_tom.Notes)</div>
+
+                </div>
+
+                <div class="col-md-6">
+
+                    <div class="dsms-detail-label">Erstellt am</div>
+
+                    <div>@_tom.CreatedAt.ToLocalTime().ToString("g")</div>
+
+                </div>
+
+                <div class="col-md-6">
+
+                    <div class="dsms-detail-label">Letzte Änderung</div>
+
+                    <div>@((_tom.UpdatedAt ?? _tom.CreatedAt).ToLocalTime().ToString("g"))</div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="dsms-card">
+
+        <div class="dsms-card-header">Verknüpfte Verarbeitungstätigkeiten</div>
+
+        <div class="dsms-card-body">
+
+            @if (_linkedActivities.Count == 0)
+
+            {
+
+                <div class="dsms-empty">Keine Verarbeitungstätigkeiten zugeordnet.</div>
+
+            }
+
+            else
+
+            {
+
+                <ul class="dsms-list">
+
+                    @foreach (var activity in _linkedActivities)
+
+                    {
+
+                        <li class="dsms-list-item">
+
+                            <a href="@($"processing-activities/{activity.Id}")">@activity.Name</a>
+
+                            <StatusBadge Text="@ProcessingActivityLabels.GetStatusLabel(activity.Status)"
+
+                                         Variant="@ProcessingActivityLabels.GetStatusVariant(activity.Status)" />
+
+                        </li>
+
+                    }
+
+                </ul>
+
+            }
+
+        </div>
+
+    </div>
+
+}
+
+
+
+@code {
+
+    [Parameter] public int Id { get; set; }
+
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+
+
+    private int? _tenantId;
+
+    private bool _canEdit;
+
+    private bool _loaded;
+
+    private Tom? _tom;
+
+    private List<ProcessingActivity> _linkedActivities = [];
+
+
+
+    protected override async Task OnInitializedAsync()
+
+    {
+
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+
+        if (_tenantId is null)
+
+        {
+
+            _loaded = true;
+
+            return;
+
+        }
+
+
+
+        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
+
+            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+
+
+
+        _tom = await Db.Toms
+
+            .FirstOrDefaultAsync(t => t.Id == Id && t.TenantId == _tenantId);
+
+
+
+        if (_tom is not null)
+
+        {
+
+            _linkedActivities = await Db.ProcessingActivityToms
+
+                .Where(l => l.TomId == _tom.Id && l.TenantId == _tenantId)
+
+                .Select(l => l.ProcessingActivity)
+
+                .OrderBy(p => p.Name)
+
+                .ToListAsync();
+
+        }
+
+
+
+        _loaded = true;
+
+    }
+
+
+
+    private static MarkupString DisplayMultiline(string? text) =>
+
+        string.IsNullOrWhiteSpace(text)
+
+            ? new MarkupString("—")
+
+            : new MarkupString(System.Net.WebUtility.HtmlEncode(text).Replace("\n", "<br />"));
+
+}
+

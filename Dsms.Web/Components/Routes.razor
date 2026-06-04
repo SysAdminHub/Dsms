@@ -1,0 +1,23 @@
+﻿@*
+    Zentraler Router: alle Seiten erhalten MainLayout und AuthorizeRouteView.
+    Nicht angemeldete Benutzer werden per RedirectToLogin zur Login-Seite geleitet.
+*@
+@using Dsms.Web.Components.Account.Shared
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                <RedirectToLogin />
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(Layout.MainLayout)">
+            <div class="dsms-page">
+                <PageHeader Title="Seite nicht gefunden" Subtitle="Die angeforderte Adresse existiert nicht." />
+                <a class="btn btn-primary" href="">Zum Dashboard</a>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router>

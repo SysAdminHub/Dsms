@@ -1,0 +1,15 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+
+## Datenbank / Uploads (lokal)
+Dsms.Web/Data/app.db*
+Dsms.Web/Data/Uploads/
+
+## Secrets
+appsettings.*.local.json
+secrets.json

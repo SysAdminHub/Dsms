@@ -1,0 +1,161 @@
+@*
+    Vorlage inkl. Fragenverwaltung. Fragen-Block nur sichtbar nach erstem Speichern (Id > 0).
+*@
+@page "/audit-templates/edit"
+@page "/audit-templates/edit/{Id:int}"
+@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+@rendermode InteractiveServer
+
+<PageTitle>Vorlage bearbeiten</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Audit-Vorlage" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <PageHeader Title="@(_model.Id == 0 ? "Audit-Vorlage anlegen" : "Audit-Vorlage bearbeiten")" />
+
+    <div class="dsms-card dsms-form-card mb-4">
+        <div class="dsms-card-body">
+            <EditForm Model="_model" OnValidSubmit="SaveTemplateAsync" class="dsms-form">
+                <ValidationSummary class="alert alert-danger dsms-alert" />
+
+                <div class="mb-3">
+                    <label class="form-label">Titel</label>
+                    <InputText class="form-control" @bind-Value="_model.Title" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Beschreibung</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.Description" rows="3" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Version</label>
+                    <InputText class="form-control" @bind-Value="_model.Version" />
+                </div>
+                <div class="form-check mb-4">
+                    <InputCheckbox class="form-check-input" @bind-Value="_model.IsActive" id="templateActive" />
+                    <label class="form-check-label" for="templateActive">Aktiv</label>
+                </div>
+
+                <div class="dsms-form-actions">
+                    <button type="submit" class="btn btn-primary">Vorlage speichern</button>
+                    <a class="btn btn-outline-secondary" href="audit-templates">Zurück</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+
+    @if (_model.Id > 0)
+    {
+        <div class="dsms-card">
+            <div class="dsms-card-header">Fragen (@_questions.Count)</div>
+            <div class="dsms-card-body">
+                <EditForm Model="_newQuestion" OnValidSubmit="AddQuestionAsync" class="dsms-form dsms-upload-zone mb-4">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-6 col-md-1">
+                            <label class="form-label">Nr.</label>
+                            <InputNumber class="form-control" @bind-Value="_newQuestion.SortOrder" />
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label">Kategorie</label>
+                            <InputText class="form-control" @bind-Value="_newQuestion.Category" placeholder="z. B. Technik" />
+                        </div>
+                        <div class="col-12 col-md-7">
+                            <label class="form-label">Fragentext</label>
+                            <InputText class="form-control" @bind-Value="_newQuestion.Text" />
+                        </div>
+                        <div class="col-12 col-md-2">
+                            <button type="submit" class="btn btn-outline-primary w-100">Hinzufügen</button>
+                        </div>
+                    </div>
+                </EditForm>
+
+                @if (_questions.Count == 0)
+                {
+                    <div class="dsms-empty">Noch keine Fragen vorhanden.</div>
+                }
+                else
+                {
+                    <ul class="dsms-list">
+                        @foreach (var question in _questions.OrderBy(q => q.SortOrder))
+                        {
+                            <li class="dsms-list-item">
+                                <span>
+                                    <strong>@question.SortOrder.</strong>
+                                    @if (!string.IsNullOrEmpty(question.Category))
+                                    {
+                                        <StatusBadge Text="@question.Category" Variant="primary" />
+                                    }
+                                    @question.Text
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private int? _tenantId;
+    private AuditTemplate _model = new();
+    private List<AuditQuestion> _questions = [];
+    private AuditQuestion _newQuestion = new() { SortOrder = 1, IsRequired = true };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        if (Id is > 0)
+        {
+            _model = await Db.AuditTemplates
+                .Include(t => t.Questions)
+                .FirstAsync(t => t.Id == Id && t.TenantId == _tenantId);
+            _questions = _model.Questions.ToList();
+            _newQuestion.SortOrder = (_questions.Count == 0 ? 0 : _questions.Max(q => q.SortOrder)) + 1;
+        }
+        else
+        {
+            _model.TenantId = _tenantId.Value;
+        }
+    }
+
+    private async Task SaveTemplateAsync()
+    {
+        if (_model.Id == 0)
+        {
+            Db.AuditTemplates.Add(_model);
+        }
+        else
+        {
+            _model.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await Db.SaveChangesAsync();
+        // Nach Anlage zur Bearbeitungs-URL mit Id wechseln, damit Fragen hinzugefügt werden können.
+        Navigation.NavigateTo($"audit-templates/edit/{_model.Id}");
+    }
+
+    private async Task AddQuestionAsync()
+    {
+        _newQuestion.AuditTemplateId = _model.Id;
+        Db.AuditQuestions.Add(_newQuestion);
+        await Db.SaveChangesAsync();
+        _questions = await Db.AuditQuestions.Where(q => q.AuditTemplateId == _model.Id).ToListAsync();
+        _newQuestion = new AuditQuestion
+        {
+            AuditTemplateId = _model.Id,
+            SortOrder = _questions.Max(q => q.SortOrder) + 1,
+            IsRequired = true
+        };
+    }
+}

@@ -1,0 +1,520 @@
+@*
+    Anlegen und Bearbeiten von Dienstleistern inkl. Verarbeitungstätigkeiten und TOMs.
+    Nur Admin und Auditor; Speichern und Laden immer mit TenantId-Filter.
+*@
+
+@page "/service-providers/edit"
+@page "/service-providers/edit/{Id:int}"
+
+@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+
+@rendermode InteractiveServer
+
+<PageTitle>Dienstleister bearbeiten</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Dienstleister" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_notFound)
+{
+    <PageHeader Title="Dienstleister" />
+    <div class="alert alert-warning dsms-alert">Eintrag nicht gefunden oder kein Zugriff.</div>
+}
+else
+{
+    <PageHeader Title="@(_model.Id == 0 ? "Dienstleister anlegen" : "Dienstleister bearbeiten")" />
+
+    @if (!string.IsNullOrEmpty(_validationWarning))
+    {
+        <div class="alert alert-warning dsms-alert">@_validationWarning</div>
+    }
+
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+                <div class="mb-3">
+                    <label class="form-label">Name des Dienstleisters *</label>
+                    <InputText class="form-control" @bind-Value="_model.Name" />
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Art des Dienstleisters *</label>
+                        <InputSelect class="form-select" @bind-Value="_model.ProviderType">
+                            @foreach (var type in Enum.GetValues<ServiceProviderType>())
+                            {
+                                <option value="@type">@ServiceProviderLabels.GetProviderTypeLabel(type)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Status *</label>
+                        <InputSelect class="form-select" @bind-Value="_model.Status">
+                            @foreach (var status in Enum.GetValues<ServiceProviderStatus>())
+                            {
+                                <option value="@status">@ServiceProviderLabels.GetStatusLabel(status)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Risikobewertung</label>
+                        <InputSelect class="form-select" @bind-Value="_model.RiskAssessment">
+                            @foreach (var risk in Enum.GetValues<ServiceProviderRiskAssessment>())
+                            {
+                                <option value="@risk">@ServiceProviderLabels.GetRiskLabel(risk)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Beschreibung</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.Description" rows="2" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Dienstleistung / Zweck</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.ServicePurpose" rows="2" />
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Verantwortliche Person</label>
+                        <InputText class="form-control" @bind-Value="_model.ResponsiblePerson" />
+                    </div>
+                    <div class="col-md-6 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.IsDataProcessor" id="is-processor" />
+                            <label class="form-check-label" for="is-processor">Ist Auftragsverarbeiter</label>
+                        </div>
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Kontakt &amp; Anschrift</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Kontaktperson</label>
+                        <InputText class="form-control" @bind-Value="_model.ContactPerson" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">E-Mail</label>
+                        <InputText class="form-control" @bind-Value="_model.Email" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Telefon</label>
+                        <InputText class="form-control" @bind-Value="_model.Phone" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Webseite</label>
+                        <InputText class="form-control" @bind-Value="_model.Website" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Land</label>
+                        <InputText class="form-control" @bind-Value="_model.Country" />
+                    </div>
+                    <div class="col-12 mb-3">
+                        <label class="form-label">Anschrift</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.Address" rows="2" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">AVV</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.DataProcessingAgreementExists" id="avv-exists" />
+                            <label class="form-check-label" for="avv-exists">AVV vorhanden</label>
+                        </div>
+                    </div>
+                    @if (_model.DataProcessingAgreementExists)
+                    {
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">AVV-Datum</label>
+                            <InputDate class="form-control" @bind-Value="_avvDate" />
+                        </div>
+                    }
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">AVV-Prüfung am</label>
+                        <InputDate class="form-control" @bind-Value="_avvReviewDate" />
+                    </div>
+                    <div class="col-12 mb-3">
+                        <label class="form-label">AVV-Prüfung Ergebnis</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.DataProcessingAgreementReviewResult" rows="2" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">TOM-Prüfung</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.TomsReviewed" id="toms-reviewed" />
+                            <label class="form-check-label" for="toms-reviewed">TOMs geprüft</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">TOM-Prüfung am</label>
+                        <InputDate class="form-control" @bind-Value="_tomsReviewDate" />
+                    </div>
+                    <div class="col-12 mb-3">
+                        <label class="form-label">TOM-Prüfung Ergebnis</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.TomsReviewResult" rows="2" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Drittland &amp; Unterauftragsverarbeiter</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.ThirdCountryInvolvement" id="third-country" />
+                            <label class="form-check-label" for="third-country">Drittlandbezug</label>
+                        </div>
+                    </div>
+                    @if (_model.ThirdCountryInvolvement)
+                    {
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Drittland</label>
+                            <InputText class="form-control" @bind-Value="_model.ThirdCountry" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Rechtsgrundlage Drittlandtransfer</label>
+                            <InputSelect class="form-select" @bind-Value="_model.ThirdCountryLegalBasis">
+                                @foreach (var basis in Enum.GetValues<ThirdCountryTransferLegalBasis>())
+                                {
+                                    <option value="@basis">@ServiceProviderLabels.GetThirdCountryLegalBasisLabel(basis)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Garantien Drittlandtransfer</label>
+                            <InputTextArea class="form-control" @bind-Value="_model.ThirdCountryTransferGuarantees" rows="2" />
+                        </div>
+                    }
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.SubProcessorsAllowed" id="sub-processors" />
+                            <label class="form-check-label" for="sub-processors">Unterauftragsverarbeiter erlaubt</label>
+                        </div>
+                    </div>
+                    <div class="col-12 mb-3">
+                        <label class="form-label">Unterauftragsverarbeiter (Beschreibung)</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.SubProcessorsDescription" rows="2" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Bemerkungen</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.Notes" rows="2" />
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Verarbeitungstätigkeiten zuordnen</label>
+                    <p class="form-text text-muted">Nur Verarbeitungstätigkeiten des eigenen Mandanten.</p>
+                    @if (_availableActivities.Count == 0)
+                    {
+                        <div class="alert alert-info dsms-alert mb-0">Keine Verarbeitungstätigkeiten vorhanden.</div>
+                    }
+                    else
+                    {
+                        <div class="mb-2">
+                            <label class="form-label">Rolle bei neuen Zuordnungen</label>
+                            <InputSelect class="form-select" @bind-Value="_defaultRole" style="max-width: 320px;">
+                                @foreach (var role in Enum.GetValues<ProcessingRole>())
+                                {
+                                    <option value="@role">@ServiceProviderLabels.GetProcessingRoleLabel(role)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="dsms-checkbox-list">
+                            @foreach (var activity in _availableActivities)
+                            {
+                                var selected = _activityRoles.ContainsKey(activity.Id);
+                                <div class="border rounded p-2 mb-2">
+                                    <div class="form-check">
+                                        <input type="checkbox"
+                                               class="form-check-input"
+                                               id="@($"pa-{activity.Id}")"
+                                               checked="@selected"
+                                               @onchange="e => ToggleActivity(activity.Id, (bool)e.Value!)" />
+                                        <label class="form-check-label" for="@($"pa-{activity.Id}")">@activity.Name</label>
+                                    </div>
+                                    @if (selected)
+                                    {
+                                        <div class="ms-4 mt-1">
+                                            <label class="form-label small">Rolle in der Verarbeitung</label>
+                                            <InputSelect class="form-select form-select-sm"
+                                                         TValue="ProcessingRole"
+                                                         Value="_activityRoles[activity.Id]"
+                                                         ValueChanged="role => SetActivityRole(activity.Id, role)"
+                                                         ValueExpression="() => _activityRoles[activity.Id]">
+                                                @foreach (var role in Enum.GetValues<ProcessingRole>())
+                                                {
+                                                    <option value="@role">@ServiceProviderLabels.GetProcessingRoleLabel(role)</option>
+                                                }
+                                            </InputSelect>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">TOMs zuordnen</label>
+                    <p class="form-text text-muted">TOMs, die beim Dienstleister geprüft oder vereinbart wurden.</p>
+                    @if (_availableToms.Count == 0)
+                    {
+                        <div class="alert alert-info dsms-alert mb-0">Keine TOMs im Mandanten vorhanden.</div>
+                    }
+                    else
+                    {
+                        <div class="dsms-checkbox-list">
+                            @foreach (var tom in _availableToms)
+                            {
+                                <div class="form-check">
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           id="@($"tom-{tom.Id}")"
+                                           checked="@_selectedTomIds.Contains(tom.Id)"
+                                           @onchange="e => ToggleTom(tom.Id, (bool)e.Value!)" />
+                                    <label class="form-check-label" for="@($"tom-{tom.Id}")">@tom.Title</label>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(_saveError))
+                {
+                    <div class="alert alert-danger dsms-alert">@_saveError</div>
+                }
+
+                <div class="dsms-form-actions">
+                    <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                    <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"service-providers/{_model.Id}" : "service-providers")">Abbrechen</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _notFound;
+    private bool _saving;
+    private string? _saveError;
+    private string? _validationWarning;
+    private DsmsServiceProvider _model = new() { Status = ServiceProviderStatus.InReview };
+    private DateTime? _avvDate;
+    private DateTime? _avvReviewDate;
+    private DateTime? _tomsReviewDate;
+    private List<ProcessingActivity> _availableActivities = [];
+    private List<Tom> _availableToms = [];
+    private Dictionary<int, ProcessingRole> _activityRoles = [];
+    private HashSet<int> _selectedTomIds = [];
+    private ProcessingRole _defaultRole = ProcessingRole.DataProcessor;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _availableActivities = await Db.ProcessingActivities
+            .Where(p => p.TenantId == _tenantId)
+            .OrderBy(p => p.Name)
+            .ToListAsync();
+
+        _availableToms = await Db.Toms
+            .Where(t => t.TenantId == _tenantId)
+            .OrderBy(t => t.Title)
+            .ToListAsync();
+
+        if (Id is > 0)
+        {
+            var existing = await Db.ServiceProviders
+                .Include(s => s.ProcessingActivityLinks)
+                .Include(s => s.TomLinks)
+                .FirstOrDefaultAsync(s => s.Id == Id && s.TenantId == _tenantId);
+
+            if (existing is null)
+            {
+                _notFound = true;
+                return;
+            }
+
+            _model = existing;
+            _avvDate = existing.DataProcessingAgreementDate?.ToDateTime(TimeOnly.MinValue);
+            _avvReviewDate = existing.DataProcessingAgreementReviewedAt?.ToDateTime(TimeOnly.MinValue);
+            _tomsReviewDate = existing.TomsReviewedAt?.ToDateTime(TimeOnly.MinValue);
+            _activityRoles = existing.ProcessingActivityLinks.ToDictionary(
+                l => l.ProcessingActivityId,
+                l => l.RoleInProcessing);
+            _selectedTomIds = existing.TomLinks.Select(l => l.TomId).ToHashSet();
+        }
+        else
+        {
+            _model.TenantId = _tenantId.Value;
+        }
+
+        UpdateValidationWarning();
+    }
+
+    private void ToggleActivity(int activityId, bool selected)
+    {
+        if (selected)
+        {
+            _activityRoles.TryAdd(activityId, _defaultRole);
+        }
+        else
+        {
+            _activityRoles.Remove(activityId);
+        }
+    }
+
+    private void SetActivityRole(int activityId, ProcessingRole role) =>
+        _activityRoles[activityId] = role;
+
+    private void ToggleTom(int tomId, bool selected)
+    {
+        if (selected) _selectedTomIds.Add(tomId);
+        else _selectedTomIds.Remove(tomId);
+    }
+
+    private void UpdateValidationWarning()
+    {
+        _validationWarning = null;
+        if (ServiceProviderLabels.ShouldWarnMissingAvv(_model))
+        {
+            _validationWarning = "Hinweis: Als Auftragsverarbeiter mit aktivem Status sollte ein AVV dokumentiert werden.";
+        }
+        else if (_model.IsDataProcessor && !_model.DataProcessingAgreementExists)
+        {
+            _validationWarning = "Hinweis: Auftragsverarbeiter ohne dokumentierten AVV.";
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_tenantId is null || string.IsNullOrWhiteSpace(_model.Name))
+        {
+            _saveError = "Name ist ein Pflichtfeld.";
+            return;
+        }
+
+        _saving = true;
+        _saveError = null;
+
+        _model.TenantId = _tenantId.Value;
+        _model.DataProcessingAgreementDate = _avvDate.HasValue ? DateOnly.FromDateTime(_avvDate.Value) : null;
+        _model.DataProcessingAgreementReviewedAt = _avvReviewDate.HasValue ? DateOnly.FromDateTime(_avvReviewDate.Value) : null;
+        _model.TomsReviewedAt = _tomsReviewDate.HasValue ? DateOnly.FromDateTime(_tomsReviewDate.Value) : null;
+
+        if (!_model.ThirdCountryInvolvement)
+        {
+            _model.ThirdCountryLegalBasis = ThirdCountryTransferLegalBasis.NoThirdCountryTransfer;
+        }
+
+        var selectedActivityIds = _activityRoles.Keys.ToHashSet();
+        var validActivityIds = await Db.ProcessingActivities
+            .Where(p => p.TenantId == _tenantId && selectedActivityIds.Contains(p.Id))
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        if (validActivityIds.Count != selectedActivityIds.Count)
+        {
+            _saveError = "Eine oder mehrere Verarbeitungstätigkeiten gehören nicht zu Ihrem Mandanten.";
+            _saving = false;
+            return;
+        }
+
+        var validTomIds = await Db.Toms
+            .Where(t => t.TenantId == _tenantId && _selectedTomIds.Contains(t.Id))
+            .Select(t => t.Id)
+            .ToListAsync();
+
+        if (validTomIds.Count != _selectedTomIds.Count)
+        {
+            _saveError = "Eine oder mehrere TOMs gehören nicht zu Ihrem Mandanten.";
+            _saving = false;
+            return;
+        }
+
+        if (_model.Id == 0)
+        {
+            _model.CreatedAt = DateTime.UtcNow;
+            Db.ServiceProviders.Add(_model);
+            await Db.SaveChangesAsync();
+            await SaveLinksAsync(validActivityIds, validTomIds);
+            await Db.SaveChangesAsync();
+            Navigation.NavigateTo($"service-providers/{_model.Id}");
+            return;
+        }
+
+        _model.UpdatedAt = DateTime.UtcNow;
+        await SaveLinksAsync(validActivityIds, validTomIds);
+        await Db.SaveChangesAsync();
+        Navigation.NavigateTo($"service-providers/{_model.Id}");
+    }
+
+    /// <summary>
+    /// Aktualisiert Verknüpfungen zu Verarbeitungstätigkeiten und TOMs mandantensicher.
+    /// </summary>
+    private async Task SaveLinksAsync(List<int> validActivityIds, List<int> validTomIds)
+    {
+        var existingPaLinks = await Db.ProcessingActivityServiceProviders
+            .Where(l => l.ServiceProviderId == _model.Id && l.TenantId == _tenantId)
+            .ToListAsync();
+
+        var toRemovePa = existingPaLinks.Where(l => !validActivityIds.Contains(l.ProcessingActivityId)).ToList();
+        if (toRemovePa.Count > 0)
+        {
+            Db.ProcessingActivityServiceProviders.RemoveRange(toRemovePa);
+        }
+
+        foreach (var activityId in validActivityIds)
+        {
+            var role = _activityRoles[activityId];
+            var existing = existingPaLinks.FirstOrDefault(l => l.ProcessingActivityId == activityId);
+            if (existing is null)
+            {
+                Db.ProcessingActivityServiceProviders.Add(new ProcessingActivityServiceProvider
+                {
+                    TenantId = _tenantId!.Value,
+                    ServiceProviderId = _model.Id,
+                    ProcessingActivityId = activityId,
+                    RoleInProcessing = role,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                existing.RoleInProcessing = role;
+            }
+        }
+
+        var existingTomLinks = await Db.ServiceProviderToms
+            .Where(l => l.ServiceProviderId == _model.Id && l.TenantId == _tenantId)
+            .ToListAsync();
+
+        var toRemoveTom = existingTomLinks.Where(l => !validTomIds.Contains(l.TomId)).ToList();
+        if (toRemoveTom.Count > 0)
+        {
+            Db.ServiceProviderToms.RemoveRange(toRemoveTom);
+        }
+
+        var existingTomIds = existingTomLinks.Select(l => l.TomId).ToHashSet();
+        foreach (var tomId in validTomIds.Where(id => !existingTomIds.Contains(id)))
+        {
+            Db.ServiceProviderToms.Add(new ServiceProviderTom
+            {
+                TenantId = _tenantId!.Value,
+                ServiceProviderId = _model.Id,
+                TomId = tomId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+    }
+}

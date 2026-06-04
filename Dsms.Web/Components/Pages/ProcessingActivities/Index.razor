@@ -1,0 +1,105 @@
+@* Listenansicht: Verarbeitungstätigkeiten des eigenen Mandanten (VVT). *@
+@page "/processing-activities"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Verarbeitungstätigkeiten</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Verarbeitungstätigkeiten" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <PageHeader Title="Verarbeitungstätigkeiten" Subtitle="Verzeichnis von Verarbeitungstätigkeiten (Art. 30 DSGVO)">
+        @if (_canEdit)
+        {
+            <a class="btn btn-primary" href="processing-activities/edit">Neue Verarbeitungstätigkeit</a>
+        }
+    </PageHeader>
+
+    @if (_activities is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else if (_activities.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">Noch keine Verarbeitungstätigkeiten erfasst.</div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Bezeichnung</th>
+                            <th>Zweck</th>
+                            <th>Status</th>
+                            <th>DSFA</th>
+                            <th>Verantwortlich</th>
+                            <th>Letzte Änderung</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var activity in _activities)
+                        {
+                            <tr>
+                                <td><strong>@activity.Name</strong></td>
+                                <td>@(Truncate(activity.Purpose, 80))</td>
+                                <td>
+                                    <StatusBadge Text="@ProcessingActivityLabels.GetStatusLabel(activity.Status)"
+                                                 Variant="@ProcessingActivityLabels.GetStatusVariant(activity.Status)" />
+                                </td>
+                                <td>@ProcessingActivityLabels.FormatDpiaRequired(activity.DpiaRequired)</td>
+                                <td>@(string.IsNullOrWhiteSpace(activity.Owner) ? "—" : activity.Owner)</td>
+                                <td>@FormatUpdated(activity)</td>
+                                <td class="dsms-table-actions">
+                                    <a class="btn btn-sm btn-outline-primary" href="@($"processing-activities/{activity.Id}")">Details</a>
+                                    @if (_canEdit)
+                                    {
+                                        <a class="btn btn-sm btn-outline-secondary" href="@($"processing-activities/edit/{activity.Id}")">Bearbeiten</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canEdit;
+    private List<ProcessingActivity>? _activities;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
+            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+
+        _activities = await Db.ProcessingActivities
+            .Where(p => p.TenantId == _tenantId)
+            .OrderByDescending(p => p.UpdatedAt ?? p.CreatedAt)
+            .ToListAsync();
+    }
+
+    private static string? Truncate(string? text, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "—";
+        return text.Length <= maxLength ? text : text[..maxLength] + "…";
+    }
+
+    private static string FormatUpdated(ProcessingActivity activity) =>
+        (activity.UpdatedAt ?? activity.CreatedAt).ToLocalTime().ToString("g");
+}

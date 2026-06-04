@@ -1,0 +1,452 @@
+@* Detailansicht einer Verarbeitungstätigkeit als zentrale Übersicht mit Verknüpfungen und Warnhinweisen. *@
+@page "/processing-activities/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Verarbeitungstätigkeit</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Verarbeitungstätigkeit" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_snapshot is null && _loaded)
+{
+    <PageHeader Title="Verarbeitungstätigkeit" />
+    <div class="alert alert-warning dsms-alert">Eintrag nicht gefunden oder kein Zugriff.</div>
+}
+else if (_snapshot is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else
+{
+    var activity = _snapshot.Activity;
+
+    <PageHeader Title="@activity.Name" Subtitle="Verarbeitungstätigkeit · Verknüpfungen und Übersicht">
+        @if (_canEdit)
+        {
+            <a class="btn btn-primary" href="@($"processing-activities/edit/{activity.Id}")">Stammdaten bearbeiten</a>
+            <a class="btn btn-outline-primary" href="@($"processing-activities/links/{activity.Id}")">Verknüpfungen bearbeiten</a>
+        }
+        <a class="btn btn-outline-secondary" href="processing-activities">Zur Liste</a>
+    </PageHeader>
+
+    @if (_snapshot.Warnings.Count > 0)
+    {
+        <div class="dsms-card mb-4 dsms-card--warning">
+            <div class="dsms-card-header">Warnhinweise / offene Punkte</div>
+            <div class="dsms-card-body">
+                <ul class="mb-0">
+                    @foreach (var warning in _snapshot.Warnings)
+                    {
+                        <li>@warning</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Grunddaten</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Status</div>
+                    <StatusBadge Text="@ProcessingActivityLabels.GetStatusLabel(activity.Status)"
+                                 Variant="@ProcessingActivityLabels.GetStatusVariant(activity.Status)" />
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Verantwortliche Person</div>
+                    <div>@(string.IsNullOrWhiteSpace(activity.Owner) ? "—" : activity.Owner)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Verantwortlicher Bereich</div>
+                    <div>@(string.IsNullOrWhiteSpace(activity.ResponsibleDepartment) ? "—" : activity.ResponsibleDepartment)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Beschreibung</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(activity.Description)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Zweck der Verarbeitung</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(activity.Purpose)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Datenschutzbewertung</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">DSFA erforderlich</div>
+                    <div>@ProcessingActivityLabels.FormatDpiaRequired(activity.DpiaRequired)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Drittlandübermittlung</div>
+                    <div>@(activity.ThirdCountryTransfer ? "Ja" : "Nein")</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Rechtsgrundlage</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(activity.LegalBasis)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Kategorien betroffener Personen</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(activity.DataSubjectCategories)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Kategorien personenbezogener Daten</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(activity.PersonalDataCategories)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Empfänger / Empfängerkategorien</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(activity.Recipients)</div>
+                </div>
+                @if (activity.ThirdCountryTransfer)
+                {
+                    <div class="col-12">
+                        <div class="dsms-detail-label">Beschreibung Drittlandübermittlung</div>
+                        <div class="dsms-detail-value">@DisplayMultiline(activity.ThirdCountryTransferDescription)</div>
+                    </div>
+                }
+                <div class="col-12">
+                    <div class="dsms-detail-label">Löschfrist / Aufbewahrungsfrist</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(activity.RetentionPeriod)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>Zugeordnete TOMs (@_snapshot.Toms.Count)</span>
+            @if (_canEdit)
+            {
+                <a class="btn btn-sm btn-outline-primary" href="@($"processing-activities/links/{activity.Id}")">Zuordnung bearbeiten</a>
+            }
+        </div>
+        @if (_snapshot.Toms.Count == 0)
+        {
+            <div class="dsms-empty">Keine TOMs zugeordnet.</div>
+        }
+        else
+        {
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Kategorie</th>
+                            <th>Schutzziel</th>
+                            <th>Status</th>
+                            <th>Nächste Prüfung</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var tom in _snapshot.Toms)
+                        {
+                            <tr>
+                                <td><strong>@tom.Title</strong></td>
+                                <td>@TomLabels.GetCategoryLabel(tom.Category)</td>
+                                <td>@TomLabels.GetProtectionGoalLabel(tom.ProtectionGoal)</td>
+                                <td>
+                                    <StatusBadge Text="@TomLabels.GetImplementationStatusLabel(tom.ImplementationStatus)"
+                                                 Variant="@TomLabels.GetImplementationStatusVariant(tom.ImplementationStatus)" />
+                                </td>
+                                <td>
+                                    @if (tom.NextReviewAt.HasValue)
+                                    {
+                                        @tom.NextReviewAt.Value.ToString("d")
+                                        @if (TomLabels.IsReviewOverdue(tom.NextReviewAt))
+                                        {
+                                            <StatusBadge Text="Überfällig" Variant="danger" />
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <text>—</text>
+                                    }
+                                </td>
+                                <td><a href="@($"toms/{tom.Id}")">Details</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>Zugeordnete Dienstleister (@_snapshot.ServiceProviderLinks.Count)</span>
+            @if (_canEdit)
+            {
+                <a class="btn btn-sm btn-outline-primary" href="@($"processing-activities/links/{activity.Id}")">Zuordnung bearbeiten</a>
+            }
+        </div>
+        @if (_snapshot.ServiceProviderLinks.Count == 0)
+        {
+            <div class="dsms-empty">Keine Dienstleister zugeordnet.</div>
+        }
+        else
+        {
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Art</th>
+                            <th>Auftragsverarbeiter</th>
+                            <th>AVV</th>
+                            <th>Drittland</th>
+                            <th>Risiko</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var link in _snapshot.ServiceProviderLinks)
+                        {
+                            var sp = link.ServiceProvider;
+                            <tr>
+                                <td><strong>@sp.Name</strong></td>
+                                <td>@ServiceProviderLabels.GetProviderTypeLabel(sp.ProviderType)</td>
+                                <td>@(sp.IsDataProcessor ? "Ja" : "Nein")</td>
+                                <td>@(sp.DataProcessingAgreementExists ? "Ja" : "Nein")</td>
+                                <td>@(sp.ThirdCountryInvolvement ? "Ja" : "Nein")</td>
+                                <td>
+                                    <StatusBadge Text="@ServiceProviderLabels.GetRiskLabel(sp.RiskAssessment)"
+                                                 Variant="@ServiceProviderLabels.GetRiskVariant(sp.RiskAssessment)" />
+                                </td>
+                                <td>
+                                    <StatusBadge Text="@ServiceProviderLabels.GetStatusLabel(sp.Status)"
+                                                 Variant="@ServiceProviderLabels.GetStatusVariant(sp.Status)" />
+                                </td>
+                                <td><a href="@($"service-providers/{sp.Id}")">Details</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>Zugeordnete Dokumente (@_snapshot.Documents.Count)</span>
+            @if (_canEdit)
+            {
+                <a class="btn btn-sm btn-outline-primary" href="@($"processing-activities/links/{activity.Id}")">Zuordnung bearbeiten</a>
+            }
+        </div>
+        @if (_snapshot.Documents.Count == 0)
+        {
+            <div class="dsms-empty">Keine Dokumente zugeordnet.</div>
+        }
+        else
+        {
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Dateiname</th>
+                            <th>Hochgeladen</th>
+                            <th>Größe</th>
+                            <th>Aktion</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var doc in _snapshot.Documents)
+                        {
+                            <tr>
+                                <td><strong>@doc.FileName</strong></td>
+                                <td>@doc.CreatedAt.ToLocalTime().ToString("g")</td>
+                                <td>@FormatSize(doc.FileSizeBytes)</td>
+                                <td><span class="text-muted">Download noch nicht implementiert</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>Zugeordnete Maßnahmen (@_snapshot.Measures.Count)</span>
+            @if (_canEdit)
+            {
+                <a class="btn btn-sm btn-outline-primary" href="@($"processing-activities/links/{activity.Id}")">Zuordnung bearbeiten</a>
+            }
+        </div>
+        @if (_snapshot.Measures.Count == 0)
+        {
+            <div class="dsms-empty">Keine Maßnahmen zugeordnet.</div>
+        }
+        else
+        {
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Status</th>
+                            <th>Fälligkeit</th>
+                            <th>Verantwortlich</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var measure in _snapshot.Measures)
+                        {
+                            var overdue = MeasureLabels.IsOpen(measure.Status)
+                                && measure.DueDate.HasValue
+                                && measure.DueDate.Value < DateOnly.FromDateTime(DateTime.Today);
+                            <tr>
+                                <td><strong>@measure.Title</strong></td>
+                                <td>
+                                    <StatusBadge Text="@MeasureLabels.GetStatusLabel(measure.Status)"
+                                                 Variant="@MeasureLabels.GetStatusVariant(measure.Status)" />
+                                </td>
+                                <td>
+                                    @(measure.DueDate?.ToString("d") ?? "—")
+                                    @if (overdue)
+                                    {
+                                        <StatusBadge Text="Überfällig" Variant="danger" />
+                                    }
+                                </td>
+                                <td>@(string.IsNullOrWhiteSpace(measure.AssignedUserId) ? "—" : measure.AssignedUserId)</td>
+                                <td><a href="@($"measures/edit/{measure.Id}")">Details</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>Zugeordnete Audit-Antworten (@_snapshot.AuditAnswers.Count)</span>
+            @if (_canEdit)
+            {
+                <a class="btn btn-sm btn-outline-primary" href="@($"processing-activities/links/{activity.Id}")">Zuordnung bearbeiten</a>
+            }
+        </div>
+        @if (_snapshot.AuditAnswers.Count == 0)
+        {
+            <div class="dsms-empty">Keine Audit-Antworten verknüpft. Zuordnung über „Verknüpfungen bearbeiten“ oder künftig direkt in der Antwortmaske.</div>
+        }
+        else
+        {
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Audit-Durchlauf</th>
+                            <th>Frage</th>
+                            <th>Antwort</th>
+                            <th>Bewertung</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in _snapshot.AuditAnswers)
+                        {
+                            <tr>
+                                <td>@row.AuditRunTitle</td>
+                                <td>@row.QuestionSortOrder. @Truncate(row.QuestionText, 60)</td>
+                                <td>@(string.IsNullOrWhiteSpace(row.AnswerText) ? "—" : Truncate(row.AnswerText, 80))</td>
+                                <td>
+                                    <StatusBadge Text="@ComplianceLabels.GetLevelLabel(row.ComplianceLevel)"
+                                                 Variant="@ComplianceLabels.GetLevelVariant(row.ComplianceLevel)" />
+                                </td>
+                                <td><a href="@($"audit-runs/answers/{row.AuditRunId}")">Zum Audit</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">DSFA</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">DSFA erforderlich</div>
+                    <div>@ProcessingActivityLabels.FormatDpiaRequired(activity.DpiaRequired)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">DSFA-Modul</div>
+                    <div class="text-muted">Noch nicht implementiert – vollständiges DSFA-Modul folgt in einem späteren Feature.</div>
+                </div>
+                @if (activity.DpiaRequired)
+                {
+                    <div class="col-12">
+                        <div class="alert alert-warning dsms-alert mb-0">
+                            Für diese Verarbeitungstätigkeit ist eine DSFA erforderlich. Es ist noch keine verknüpfte DSFA hinterlegt.
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Erstellt am</div>
+                    <div>@activity.CreatedAt.ToLocalTime().ToString("g")</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Letzte Änderung</div>
+                    <div>@((activity.UpdatedAt ?? activity.CreatedAt).ToLocalTime().ToString("g"))</div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private ProcessingActivityRelationsService Relations { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canEdit;
+    private bool _loaded;
+    private ProcessingActivityRelationsSnapshot? _snapshot;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null)
+        {
+            _loaded = true;
+            return;
+        }
+
+        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
+            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+
+        _snapshot = await Relations.GetSnapshotAsync(_tenantId.Value, Id);
+        _loaded = true;
+    }
+
+    private static MarkupString DisplayMultiline(string? text) =>
+        string.IsNullOrWhiteSpace(text)
+            ? new MarkupString("—")
+            : new MarkupString(System.Net.WebUtility.HtmlEncode(text).Replace("\n", "<br />"));
+
+    private static string Truncate(string text, int max) =>
+        text.Length <= max ? text : text[..max] + "…";
+
+    private static string FormatSize(long bytes) =>
+        bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024.0:F1} KB";
+}

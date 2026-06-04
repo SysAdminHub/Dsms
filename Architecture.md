@@ -1,0 +1,361 @@
+# DSMS – Technische Architektur
+
+Diese Dokumentation beschreibt den **aktuellen** technischen Aufbau des Projekts auf Basis des vorhandenen Codes. Sie richtet sich an Entwickler, die am DSMS weiterarbeiten.
+
+## Überblick
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Browser (Blazor Server – SignalR, InteractiveServer)      │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│  Dsms.Web                                                    │
+│  ├─ Components/     Razor UI, Layout, Identity-Seiten       │
+│  ├─ Services/       Dashboard, Dateispeicher, User-Kontext   │
+│  ├─ Data/           DbContext, Identity-User, Seed           │
+│  └─ Domain/         Entities, Enums, Rollen                  │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ EF Core (Pomelo)
+┌───────────────────────────▼─────────────────────────────────┐
+│  MySQL 8                                                     │
+└─────────────────────────────────────────────────────────────┘
+         │ Dateisystem: Dsms.Web/Data/Uploads/{tenantId}/
+         └──────────────────────────────────────────────────
+```
+
+Es gibt **keine** weiteren Projekte in der Solution (kein separates Domain-, API- oder Test-Projekt).
+
+## Projektstruktur und wichtige Ordner
+
+```
+c:\code\DS\
+├── Dsms.sln
+├── docker-compose.yml
+├── README.md
+├── Project_Overview.md
+├── Architecture.md
+├── Changelog.md
+└── Dsms.Web/
+    ├── Program.cs                 # Start, DI, Pipeline
+    ├── appsettings.json
+    ├── appsettings.Development.json
+    ├── Dsms.Web.csproj
+    ├── Domain/
+    │   ├── Entities/              # Fach-Entities (inkl. ProcessingActivity, Tom, ServiceProvider)
+    │   ├── Enums/                 # u. a. ProcessingActivityStatus, Tom*, ServiceProvider*
+    │   ├── ProcessingActivityLabels.cs
+    │   ├── TomLabels.cs
+    │   ├── ServiceProviderLabels.cs
+    │   └── DsmsRoles.cs
+    ├── Data/
+    │   ├── ApplicationDbContext.cs
+    │   ├── ApplicationUser.cs
+    │   └── Seed/DatabaseSeeder.cs
+    ├── Services/
+    │   ├── ICurrentUserContext.cs / CurrentUserContext.cs
+    │   ├── DashboardService.cs
+    │   ├── ProcessingActivityRelationsService.cs
+    │   └── DocumentStorageService.cs
+    ├── Migrations/                # EF Core InitialCreate
+    ├── Components/
+    │   ├── App.razor, Routes.razor
+    │   ├── Layout/                # MainLayout, NavMenu, LoginLayout
+    │   ├── Pages/                 # Fachseiten (inkl. ProcessingActivities/, Toms/, ServiceProviders/)
+    │   ├── Shared/                # PageHeader, StatusBadge
+    │   └── Account/               # Identity UI + Endpunkte
+    ├── wwwroot/                   # CSS, Bootstrap, favicon
+    ├── Properties/launchSettings.json
+    └── Data/Uploads/              # Laufzeit-Uploads (gitignored)
+```
+
+## Technologien und Frameworks
+
+| Komponente | Version / Paket |
+|------------|-----------------|
+| Target Framework | `net9.0` |
+| Blazor | Server, `AddInteractiveServerComponents()` |
+| EF Core | 9.0.8 (`Microsoft.EntityFrameworkCore.*`) |
+| Identity | `Microsoft.AspNetCore.Identity.EntityFrameworkCore` 9.0.8 |
+| MySQL Provider | `Pomelo.EntityFrameworkCore.MySql` 9.0.0 |
+| MySQL Server-Version (konfiguriert) | `8.0.36` in `Program.cs` |
+| Diagnostik (Dev) | `Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore` |
+
+## Aufbau der Blazor-Server-Anwendung
+
+### Einstieg und Routing
+
+- **`Components/App.razor`:** HTML-Gerüst, Bootstrap, DSMS-CSS, `<Routes />`, Reconnect-Modal.
+- **`Components/Routes.razor`:** Zentraler `Router` mit `AuthorizeRouteView` und `MainLayout`; nicht autorisierte Nutzer → `RedirectToLogin`.
+- **Rendermodus:** Fachseiten nutzen `@rendermode InteractiveServer` für interaktive Formulare und Event-Handler.
+
+### Layouts
+
+| Layout | Verwendung |
+|--------|------------|
+| `MainLayout` | Standard-App mit Sidebar (`NavMenu`) |
+| `LoginLayout` | Login ohne Sidebar |
+| `ManageLayout` | Identity-Kontoverwaltung |
+
+### Shared-Komponenten
+
+- `PageHeader` – Titel und Aktionen
+- `StatusBadge` – farbige Status-Anzeige
+
+### Datenzugriff in der UI
+
+Fachseiten injizieren häufig **`ApplicationDbContext`** direkt (`[Inject]`). Es gibt **keine** separaten Repository- oder Application-Service-Layer für CRUD – außer `DashboardService` und `DocumentStorageService`.
+
+## Datenbankanbindung (MySQL)
+
+### Konfiguration
+
+Connection String-Schlüssel: **`DefaultConnection`**
+
+| Datei | Datenbankname (Beispiel) |
+|-------|--------------------------|
+| `appsettings.json` | `dsms` |
+| `appsettings.Development.json` | `dsms_dev` |
+
+Docker Compose (`docker-compose.yml`) legt `dsms_dev` mit Root-Passwort `changeme` an – muss mit dem Connection String übereinstimmen.
+
+### DbContext
+
+`ApplicationDbContext` erbt von `IdentityDbContext<ApplicationUser>` und registriert:
+
+| DbSet | Entity |
+|-------|--------|
+| `Tenants` | `Tenant` |
+| `AuditTemplates` | `AuditTemplate` |
+| `AuditQuestions` | `AuditQuestion` |
+| `AuditRuns` | `AuditRun` |
+| `AuditAnswers` | `AuditAnswer` |
+| `Measures` | `Measure` |
+| `EvidenceDocuments` | `EvidenceDocument` |
+| `ProcessingActivities` | `ProcessingActivity` |
+| `Toms` | `Tom` |
+| `ProcessingActivityToms` | `ProcessingActivityTom` |
+| `ServiceProviders` | `ServiceProvider` (Entity; DbSet-Alias wegen DI-Namenskollision) |
+| `ProcessingActivityServiceProviders` | `ProcessingActivityServiceProvider` |
+| `ServiceProviderToms` | `ServiceProviderTom` |
+| `ProcessingActivityMeasures` | `ProcessingActivityMeasure` |
+| `ProcessingActivityAuditAnswers` | `ProcessingActivityAuditAnswer` |
+
+Zusätzlich alle **ASP.NET Identity**-Standardtabellen (`AspNetUsers`, `AspNetRoles`, …).
+
+### Wichtige Modellregeln (`OnModelCreating`)
+
+- **Restrict** beim Löschen von Mandanten, wenn abhängige Fachdaten existieren.
+- **Cascade** von Vorlage → Fragen; von Durchlauf → Antworten.
+- **Unique Index** auf `(AuditRunId, AuditQuestionId)` für Antworten.
+- **SetNull** bei Löschen eines Audit-Durchlaufs für verknüpfte Maßnahmen und Dokumente.
+
+### Datenmodell (Fach-Entities)
+
+Alle Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `UpdatedAt`).
+
+```
+Tenant
+ ├── AuditTemplate ── AuditQuestion
+ │        └── AuditRun ── AuditAnswer (→ AuditQuestion)
+ │              ├── Measure
+ │              └── EvidenceDocument
+ ├── Measure (optional AuditRun)
+ ├── EvidenceDocument
+ ├── ProcessingActivity (VVT) ←──→ Tom (ProcessingActivityTom)
+ │        ←──→ ServiceProvider (ProcessingActivityServiceProvider, Rolle)
+ │        ←──→ Measure (ProcessingActivityMeasure)
+ │        ←──→ AuditAnswer (ProcessingActivityAuditAnswer)
+ │        ── EvidenceDocument (ProcessingActivityId, optional)
+ ├── Tom ←──→ ServiceProvider (ServiceProviderTom)
+ ├── ServiceProvider ── EvidenceDocument (optional)
+ └── Tom
+
+ApplicationUser.TenantId → logische Zuordnung (kein EF-FK auf Tenants)
+```
+
+**`ApplicationUser`** (Identity):
+
+- `DisplayName`
+- `TenantId` (nullable `int`) – Mandantenzuordnung im Profil, nicht als Claim
+
+Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in der UI **nicht** gesetzt.
+
+## Services und Aufgaben
+
+| Service | Registrierung | Aufgabe |
+|---------|---------------|---------|
+| `ICurrentUserContext` / `CurrentUserContext` | Scoped | User-ID, TenantId, Rollenprüfung via `AuthenticationStateProvider` + `UserManager` |
+| `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, VVT-Verknüpfungen) |
+| `ProcessingActivityRelationsService` | Scoped | Laden/Speichern von VVT-Verknüpfungen, Warnhinweise, Mandantenvalidierung |
+| `DocumentStorageService` | Scoped | Speichern/Lesen von Upload-Dateien unter `Data/Uploads/{tenantId}/` |
+| `IdentityRedirectManager` | Scoped | Weiterleitungen nach Login/Logout |
+| `IdentityRevalidatingAuthenticationStateProvider` | Scoped | Auth-State-Revalidierung für Blazor |
+| `IdentityNoOpEmailSender` | Singleton | Kein echter E-Mail-Versand |
+
+## Authentifizierung und Berechtigungen
+
+### Identity-Konfiguration (`Program.cs`)
+
+- `AddIdentityCore<ApplicationUser>` mit Rollen (`IdentityRole`)
+- Passwort: min. 8 Zeichen, Ziffer + Kleinbuchstabe erforderlich
+- `RequireConfirmedAccount = false` (Demo/Intern)
+- Cookies: `AddIdentityCookies()`
+- Kein E-Mail-Versand: `IdentityNoOpEmailSender`
+
+### Rollen (`DsmsRoles`)
+
+| Rolle | Typische Rechte (aus `[Authorize]` und NavMenu) |
+|-------|--------------------------------------------------|
+| **Admin** | + Mandanten, Benutzer; Menüpunkt „Verwaltung“ |
+| **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, TOMs und Dienstleister anlegen/bearbeiten |
+| **User** | Listen lesen, VVT/TOM/Dienstleister-Detailansicht, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von VVT, TOMs, Dienstleistern, Vorlagen/Durchläufen |
+
+### Mandantenfilter
+
+- Implementierung: `ICurrentUserContext.GetTenantIdAsync()` in Razor-`OnInitializedAsync`
+- **Kein** globaler EF-Query-Filter auf `DbContext`
+- Admin-Seiten `/tenants`, `/users` ohne Mandantenfilter (globale Liste)
+
+### Identity-Endpunkte
+
+`MapAdditionalIdentityEndpoints()` in `IdentityComponentsEndpointRouteBuilderExtensions.cs` – u. a. Logout, externe Logins, Download persönlicher Daten.
+
+## Konfigurationsdateien
+
+| Datei | Inhalt |
+|-------|--------|
+| `appsettings.json` | Connection String Produktion/Default, Logging |
+| `appsettings.Development.json` | `dsms_dev`, detaillierter EF-Logging |
+| `Properties/launchSettings.json` | `https://localhost:7245`, `http://localhost:5295` |
+| `Dsms.Web.csproj` | `UserSecretsId` für lokale Secrets |
+
+## Startlogik der Anwendung
+
+Reihenfolge in `Program.cs`:
+
+1. Services registrieren (Blazor, Identity, DbContext, Anwendungsservices)
+2. `WebApplication` bauen
+3. Pipeline: Exception Handler, Statuscode `/not-found`, HTTPS, Static Files, Antiforgery
+4. `MapRazorComponents<App>()` mit Interactive Server
+5. `MapAdditionalIdentityEndpoints()`
+6. **`await DatabaseSeeder.SeedAsync(app.Services)`** vor `app.Run()`
+
+### Entwicklung vs. Produktion
+
+- **Development:** `UseMigrationsEndPoint()` (EF-Migrations-Seite bei Fehlern)
+- **Production:** `UseExceptionHandler("/Error")`, HSTS
+
+## Datenbankinitialisierung und Migrationen
+
+### Migrationen
+
+- Migrationen: **`InitialCreate`**, **`AddProcessingActivities`**, **`AddToms`**, **`AddServiceProviders`**, **`AddProcessingActivityRelations`** (Tabellen `ProcessingActivityMeasures`, `ProcessingActivityAuditAnswers`; Spalte `EvidenceDocuments.ProcessingActivityId`)
+- Snapshot: `Migrations/ApplicationDbContextModelSnapshot.cs`
+
+### Seed (`DatabaseSeeder.SeedAsync`)
+
+1. **`await db.Database.MigrateAsync()`** – wendet ausstehende Migrationen an (Startzeit)
+2. Rollen anlegen, falls fehlend (`Admin`, `Auditor`, `User`)
+3. Wenn **kein** Mandant existiert: Demo-Mandant, Vorlage, Durchlauf, Antworten, Maßnahmen, drei Benutzer
+
+**Hinweis:** Es gibt **keine** separate Prüfung einzelner Tabellen/Spalten außerhalb von EF-Migrationen. Schema-Änderungen erfolgen über neue EF-Migrationen.
+
+### Manuelle Migration (README)
+
+```bash
+cd Dsms.Web
+dotnet ef migrations add <Name>
+dotnet ef database update
+```
+
+## Verknüpfungen (Verarbeitungstätigkeit)
+
+| Verknüpfung | Modell | Entscheidung |
+|-------------|--------|--------------|
+| TOMs | `ProcessingActivityTom` (bestehend) | Many-to-Many, `TenantId` auf Join |
+| Dienstleister | `ProcessingActivityServiceProvider` (bestehend) | Many-to-Many; Rolle nur bei Bearbeitung am Dienstleister, VVT-Verknüpfungsseite setzt Standard `DataProcessor` |
+| Dokumente | `EvidenceDocument.ProcessingActivityId` | 1:n (optionaler FK), analog zu Audit/Maßnahme/Dienstleister |
+| Maßnahmen | `ProcessingActivityMeasure` | Many-to-Many – Maßnahme kann mehreren VVT-Einträgen zugeordnet sein |
+| Audit-Antworten | `ProcessingActivityAuditAnswer` | Many-to-Many – keine `ProcessingActivityId` auf `AuditAnswer`, da Antworten über Durchlauf mandantenbezogen bleiben |
+| DSFA | `ProcessingActivity.DpiaRequired` | Vorbereitung; kein DSFA-Entity |
+
+**Seiten:** `ProcessingActivities/Detail.razor`, `ProcessingActivities/Links.razor` (`[Authorize(Roles = Admin,Auditor)]`).
+
+**Mandantenschutz:** Alle Lade- und Speicheroperationen in `ProcessingActivityRelationsService` prüfen `TenantId` der Hauptentität und jeder referenzierten ID.
+
+## Wichtige technische Entscheidungen
+
+| Entscheidung | Begründung (aus Code/Kommentaren) |
+|--------------|-----------------------------------|
+| Blazor Server | Interaktive UI ohne separates SPA-Frontend |
+| Monolith `Dsms.Web` | Einfaches Grundgerüst, eine deploybare Einheit |
+| `TenantId` am User | „Einfache Mandantentrennung in Version 1“, kein Claim |
+| Dateien im Dateisystem | DB nur Metadaten (`StoragePath`) |
+| Seed beim Start | Demo/Entwicklung ohne separates Setup-Skript |
+| Direkter DbContext in Razor | Schnelle Umsetzung, weniger Schichten |
+| Eine Rolle pro User (Admin-UI) | Kommentar „Version 1“ in `Users/Edit.razor` |
+| Identity-Standardvorlagen | Viele Account-Seiten unverändert aus Template |
+
+## Abhängigkeiten (NuGet)
+
+Aus `Dsms.Web.csproj`:
+
+- `Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore` 9.0.8
+- `Microsoft.AspNetCore.Identity.EntityFrameworkCore` 9.0.8
+- `Microsoft.EntityFrameworkCore.Design` 9.0.8 (Design-Time)
+- `Microsoft.EntityFrameworkCore.Tools` 9.0.8
+- `Pomelo.EntityFrameworkCore.MySql` 9.0.0
+
+Weitere Abhängigkeiten kommen transitiv über das ASP.NET Core Web SDK.
+
+## Identity- und Account-Komponenten
+
+Unter `Components/Account/`:
+
+- **Pages:** Login, Register, ForgotPassword, Manage/*, 2FA, …
+- **Shared:** RedirectToLogin, ManageNavMenu, StatusMessage, …
+- **C#-Hilfen:** `IdentityRedirectManager`, `IdentityRevalidatingAuthenticationStateProvider`, `IdentityNoOpEmailSender`, `IdentityComponentsEndpointRouteBuilderExtensions`
+
+Die Login-Seite ist an das DSMS-Design angepasst; viele Manage-/Register-Seiten nutzen noch **englische Standardtexte**.
+
+## Styling
+
+- Bootstrap (unter `wwwroot/lib/bootstrap/`)
+- `wwwroot/css/dsms-tokens.css`, `dsms-layout.css`, `dsms-components.css`
+- `wwwroot/app.css`
+- Scoped CSS für Layout-Komponenten
+
+## Bekannte technische Schulden und Verbesserungsmöglichkeiten
+
+| Thema | Beschreibung |
+|-------|----------------|
+| Keine Service-Schicht für CRUD | Logik in Razor-Komponenten; schwerer testbar |
+| Kein globaler Mandanten-Query-Filter | Risiko bei neuen Queries ohne `TenantId`-Filter (VVT-Seiten filtern explizit nach `TenantId`) |
+| VVT: Owner als Freitext | Keine Verknüpfung zu `ApplicationUser`; keine Benutzerauswahl in der UI |
+| VVT: Kein Löschen in der UI | Analog zu anderen Fachmodulen |
+| DSFA-Modul fehlt | Nur `DpiaRequired` und UI-Hinweis auf der VVT-Detailseite |
+| Audit-Antwort ↔ VVT nur über Links-Seite | Direkte Zuordnung in `Answers.razor` bewusst zurückgestellt |
+| Kein FK `ApplicationUser` → `Tenant` | Referenzielle Integrität nur über Anwendungslogik |
+| UI/API für `AssignedUserId` fehlt | Datenmodell vorbereitet, nicht genutzt |
+| Kein Dokument-Download-Endpunkt | Upload ohne Abruf in der Fach-UI |
+| TOMs ohne direkte Dokumenten-Zuordnung | `EvidenceDocument` hat `AuditRunId`/`MeasureId`/`ServiceProviderId`; TOM nutzt Freitext `EvidenceReference` oder Verknüpfung über Dienstleister |
+| Keine Lösch-UI | Nur DB-Löschregeln definiert |
+| Register nicht verlinkt | Identity-Seite existiert, Produktfluss unklar |
+| Englische Enum-Labels | UX-Verbesserung durch Display-Namen |
+| `DatabaseSeeder` in Produktion | **Noch zu klären:** Seed nur für Dev oder abschaltbar machen |
+| Identity-Seiten nicht lokalisiert | Inkonsistente Sprache |
+| Keine automatisierten Tests im Repo | **Noch zu klären:** Teststrategie |
+
+## Deployment-Hinweise (aus Code)
+
+- MySQL 8 erforderlich
+- Connection String und Upload-Ordner `Data/Uploads` beschreibbar
+- HTTPS empfohlen (`UseHttpsRedirection`, HSTS in Production)
+- **Annahme:** Einzelinstanz-Deployment; Blazor Server und SignalR erfordern Sticky Sessions bei Skalierung – im Code nicht dokumentiert
+
+## Verwandte Dokumentation
+
+- [Project_Overview.md](./Project_Overview.md) – fachliche Gesamtübersicht
+- [README.md](./README.md) – Schnellstart für Entwickler
+- [Changelog.md](./Changelog.md) – Änderungshistorie

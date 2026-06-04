@@ -1,0 +1,209 @@
+@*
+    Datei-Upload (max. 10 MB) und Metadatenliste. Speicherung über DocumentStorageService.
+*@
+@page "/documents"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Dokumente</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Dokumente" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <PageHeader Title="Dokumente" Subtitle="Nachweise zu Audits, Maßnahmen, Dienstleistern und Verarbeitungstätigkeiten" />
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Datei hochladen</div>
+        <div class="dsms-card-body dsms-upload-zone">
+            <InputFile OnChange="OnFileSelected" class="form-control mb-3" />
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Audit-Durchlauf (optional)</label>
+                    <InputSelect class="form-select" @bind-Value="_selectedAuditRunId">
+                        <option value="">— keiner —</option>
+                        @foreach (var run in _auditRuns)
+                        {
+                            <option value="@run.Id">@run.Title</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Maßnahme (optional)</label>
+                    <InputSelect class="form-select" @bind-Value="_selectedMeasureId">
+                        <option value="">— keine —</option>
+                        @foreach (var measure in _measures)
+                        {
+                            <option value="@measure.Id">@measure.Title</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Dienstleister (optional)</label>
+                    <InputSelect class="form-select" @bind-Value="_selectedServiceProviderId">
+                        <option value="">— keiner —</option>
+                        @foreach (var provider in _serviceProviders)
+                        {
+                            <option value="@provider.Id">@provider.Name</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Verarbeitungstätigkeit (optional)</label>
+                    <InputSelect class="form-select" @bind-Value="_selectedProcessingActivityId">
+                        <option value="">— keine —</option>
+                        @foreach (var pa in _processingActivities)
+                        {
+                            <option value="@pa.Id">@pa.Name</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(_uploadMessage))
+            {
+                <div class="alert alert-info dsms-alert mt-3 mb-0">@_uploadMessage</div>
+            }
+        </div>
+    </div>
+
+    @if (_documents is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Dateiname</th>
+                            <th>Größe</th>
+                            <th>Hochgeladen</th>
+                            <th>Bezug</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var doc in _documents)
+                        {
+                            <tr>
+                                <td><strong>@doc.FileName</strong></td>
+                                <td>@FormatSize(doc.FileSizeBytes)</td>
+                                <td>@doc.CreatedAt.ToLocalTime().ToString("g")</td>
+                                <td>
+                                    @if (doc.AuditRunId.HasValue) { <StatusBadge Text="@($"Audit #{doc.AuditRunId}")" Variant="primary" /> }
+                                    @if (doc.MeasureId.HasValue) { <StatusBadge Text="@($"Maßnahme #{doc.MeasureId}")" /> }
+                                    @if (doc.ServiceProviderId.HasValue) { <StatusBadge Text="@($"Dienstleister #{doc.ServiceProviderId}")" Variant="warning" /> }
+                                    @if (doc.ProcessingActivityId.HasValue) { <StatusBadge Text="@($"VVT #{doc.ProcessingActivityId}")" Variant="primary" /> }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private DocumentStorageService Storage { get; set; } = null!;
+
+    private int? _tenantId;
+    private List<EvidenceDocument>? _documents;
+    private List<AuditRun> _auditRuns = [];
+    private List<Measure> _measures = [];
+    private List<DsmsServiceProvider> _serviceProviders = [];
+    private List<ProcessingActivity> _processingActivities = [];
+    private int? _selectedAuditRunId;
+    private int? _selectedMeasureId;
+    private int? _selectedServiceProviderId;
+    private int? _selectedProcessingActivityId;
+    private string? _uploadMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _documents = await Db.EvidenceDocuments
+            .Where(d => d.TenantId == _tenantId)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync();
+
+        _auditRuns = await Db.AuditRuns.Where(r => r.TenantId == _tenantId).ToListAsync();
+        _measures = await Db.Measures.Where(m => m.TenantId == _tenantId).ToListAsync();
+        _serviceProviders = await Db.ServiceProviders.Where(s => s.TenantId == _tenantId).OrderBy(s => s.Name).ToListAsync();
+        _processingActivities = await Db.ProcessingActivities.Where(p => p.TenantId == _tenantId).OrderBy(p => p.Name).ToListAsync();
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        if (_tenantId is null) return;
+
+        var file = e.File;
+        // Größenlimit vor dem Lesen in den Speicher (Blazor InputFile).
+        if (file.Size > 10 * 1024 * 1024)
+        {
+            _uploadMessage = "Datei ist zu groß (max. 10 MB).";
+            return;
+        }
+
+        if (_selectedServiceProviderId.HasValue)
+        {
+            var providerOk = await Db.ServiceProviders.AnyAsync(s =>
+                s.Id == _selectedServiceProviderId && s.TenantId == _tenantId);
+            if (!providerOk)
+            {
+                _uploadMessage = "Der gewählte Dienstleister gehört nicht zu Ihrem Mandanten.";
+                return;
+            }
+        }
+
+        if (_selectedProcessingActivityId.HasValue)
+        {
+            var paOk = await Db.ProcessingActivities.AnyAsync(p =>
+                p.Id == _selectedProcessingActivityId && p.TenantId == _tenantId);
+            if (!paOk)
+            {
+                _uploadMessage = "Die gewählte Verarbeitungstätigkeit gehört nicht zu Ihrem Mandanten.";
+                return;
+            }
+        }
+
+        await using var stream = file.OpenReadStream(10 * 1024 * 1024);
+        var path = await Storage.SaveAsync(_tenantId.Value, file.Name, stream);
+
+        var document = new EvidenceDocument
+        {
+            TenantId = _tenantId.Value,
+            FileName = file.Name,
+            ContentType = file.ContentType,
+            StoragePath = path,
+            FileSizeBytes = file.Size,
+            AuditRunId = _selectedAuditRunId,
+            MeasureId = _selectedMeasureId,
+            ServiceProviderId = _selectedServiceProviderId,
+            ProcessingActivityId = _selectedProcessingActivityId,
+            UploadedByUserId = await CurrentUser.GetUserIdAsync()
+        };
+
+        Db.EvidenceDocuments.Add(document);
+        await Db.SaveChangesAsync();
+
+        _uploadMessage = $"Datei \"{file.Name}\" wurde gespeichert.";
+        await LoadDataAsync();
+    }
+
+    private static string FormatSize(long bytes) =>
+        bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024.0:F1} KB";
+}

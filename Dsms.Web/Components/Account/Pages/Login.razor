@@ -1,0 +1,102 @@
+﻿@*
+    Login ohne App-Sidebar (LoginLayout). Formular-POST mit EditContext-Validierung vor SignIn.
+*@
+@page "/Account/Login"
+@layout LoginLayout
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Identity
+@using Dsms.Web.Data
+
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Anmelden</PageTitle>
+
+<div class="dsms-login-card">
+    <div class="dsms-login-brand">
+        <div class="dsms-login-logo">DS</div>
+        <h1>Willkommen bei DSMS</h1>
+        <p>Datenschutz-Management für Ihr Unternehmen</p>
+    </div>
+
+    <StatusMessage Message="@errorMessage" />
+
+    <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login" class="dsms-form">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger dsms-alert alert alert-danger" role="alert" />
+
+        <div class="mb-3">
+            <label for="Input.Email" class="form-label">E-Mail</label>
+            <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@beispiel.de" />
+            <ValidationMessage For="() => Input.Email" class="validation-message" />
+        </div>
+        <div class="mb-3">
+            <label for="Input.Password" class="form-label">Passwort</label>
+            <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" />
+            <ValidationMessage For="() => Input.Password" class="validation-message" />
+        </div>
+        <div class="form-check mb-4">
+            <InputCheckbox @bind-Value="Input.RememberMe" class="form-check-input" id="rememberMe" />
+            <label class="form-check-label" for="rememberMe">Angemeldet bleiben</label>
+        </div>
+        <button type="submit" class="w-100 btn btn-primary btn-lg">Anmelden</button>
+    </EditForm>
+</div>
+
+@code {
+    private string? errorMessage;
+    private EditContext editContext = default!;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+        editContext = new EditContext(Input);
+
+        // Externes Auth-Cookie leeren, damit kein halbfertiger OAuth-Zustand stört.
+        if (HttpMethods.IsGet(HttpContext.Request.Method))
+        {
+            await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
+        }
+    }
+
+    public async Task LoginUser()
+    {
+        if (!editContext.Validate())
+        {
+            return;
+        }
+
+        var result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+        if (result.Succeeded)
+        {
+            RedirectManager.RedirectTo(ReturnUrl);
+            return;
+        }
+
+        errorMessage = "Anmeldung fehlgeschlagen. E-Mail oder Passwort prüfen.";
+    }
+
+    private sealed class InputModel
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = "";
+
+        [Required]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = "";
+
+        public bool RememberMe { get; set; }
+    }
+}

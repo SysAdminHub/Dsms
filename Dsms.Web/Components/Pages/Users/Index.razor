@@ -1,0 +1,73 @@
+@* Nur Admin: alle Identity-Benutzer inkl. Mandant und Rollen. *@
+@page "/users"
+@attribute [Authorize(Roles = DsmsRoles.Admin)]
+@rendermode InteractiveServer
+
+<PageTitle>Benutzer</PageTitle>
+
+<PageHeader Title="Benutzer" Subtitle="Konten, Mandanten und Rollen verwalten" />
+
+@if (_users is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else
+{
+    <div class="dsms-card">
+        <div class="dsms-table-wrap">
+            <table class="table dsms-table">
+                <thead>
+                    <tr>
+                        <th>E-Mail</th>
+                        <th>Anzeigename</th>
+                        <th>Mandant</th>
+                        <th>Rollen</th>
+                        <th class="dsms-table-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in _users)
+                    {
+                        <tr>
+                            <td>@entry.User.Email</td>
+                            <td><strong>@entry.User.DisplayName</strong></td>
+                            <td>@entry.TenantName</td>
+                            <td>
+                                @foreach (var role in entry.Roles)
+                                {
+                                    <StatusBadge Text="@role" Variant="primary" />
+                                }
+                            </td>
+                            <td class="dsms-table-actions">
+                                <a class="btn btn-sm btn-outline-secondary" href="@($"users/edit/{entry.User.Id}")">Bearbeiten</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private UserManager<ApplicationUser> UserManager { get; set; } = null!;
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+
+    private List<UserRow>? _users;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tenants = await Db.Tenants.ToDictionaryAsync(t => t.Id, t => t.Name);
+        var users = await UserManager.Users.OrderBy(u => u.Email).ToListAsync();
+        _users = [];
+
+        foreach (var user in users)
+        {
+            var roles = await UserManager.GetRolesAsync(user);
+            var tenantName = user.TenantId is int tid && tenants.TryGetValue(tid, out var name) ? name : "—";
+            _users.Add(new UserRow(user, tenantName, roles));
+        }
+    }
+
+    private record UserRow(ApplicationUser User, string TenantName, IList<string> Roles);
+}

@@ -1,0 +1,170 @@
+﻿@*
+    Startseite nach Login: Kennzahlen und Kurzlisten aus DashboardService (mandantenbezogen).
+*@
+@page "/"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Dashboard</PageTitle>
+
+<PageHeader Title="Dashboard" Subtitle="Überblick über Maßnahmen, Audits, TOMs und Dienstleister" />
+
+@if (_loading)
+{
+    <div class="dsms-loading">Lade Übersicht …</div>
+}
+else if (_tenantId is null)
+{
+    <div class="alert alert-warning dsms-alert">Ihrem Benutzerkonto ist kein Mandant zugeordnet.</div>
+}
+else if (_summary is not null)
+{
+    <div class="dsms-stat-grid">
+        <div class="dsms-stat-card dsms-stat-card--warning">
+            <div class="dsms-stat-label">Offene Maßnahmen</div>
+            <div class="dsms-stat-value">@_summary.OpenMeasuresCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--primary">
+            <div class="dsms-stat-label">Laufende Audits</div>
+            <div class="dsms-stat-value">@_summary.ActiveAuditsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--muted">
+            <div class="dsms-stat-label">Audit-Entwürfe</div>
+            <div class="dsms-stat-value">@_summary.DraftAuditsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--primary">
+            <div class="dsms-stat-label">TOMs gesamt</div>
+            <div class="dsms-stat-value">@_summary.TotalTomsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--warning">
+            <div class="dsms-stat-label">TOMs geplant</div>
+            <div class="dsms-stat-value">@_summary.PlannedTomsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">TOMs nicht umgesetzt</div>
+            <div class="dsms-stat-value">@_summary.NotImplementedTomsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">TOM-Prüfungen überfällig</div>
+            <div class="dsms-stat-value">@_summary.OverdueTomReviewsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--primary">
+            <div class="dsms-stat-label">Dienstleister gesamt</div>
+            <div class="dsms-stat-value">@_summary.TotalServiceProvidersCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--primary">
+            <div class="dsms-stat-label">Aktive Auftragsverarbeiter</div>
+            <div class="dsms-stat-value">@_summary.ActiveDataProcessorsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">Auftragsverarbeiter ohne AVV</div>
+            <div class="dsms-stat-value">@_summary.ProcessorsWithoutAvvCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--warning">
+            <div class="dsms-stat-label">Drittlandbezug</div>
+            <div class="dsms-stat-value">@_summary.ThirdCountryProvidersCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">Risiko hoch/kritisch</div>
+            <div class="dsms-stat-value">@_summary.HighRiskProvidersCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">AVV-Prüfungen überfällig</div>
+            <div class="dsms-stat-value">@_summary.OverdueAvvReviewsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--primary">
+            <div class="dsms-stat-label">Verarbeitungstätigkeiten</div>
+            <div class="dsms-stat-value">@_summary.TotalProcessingActivitiesCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--warning">
+            <div class="dsms-stat-label">VVT ohne TOMs</div>
+            <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithoutTomsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--warning">
+            <div class="dsms-stat-label">VVT ohne Dokumente</div>
+            <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithoutDocumentsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--warning">
+            <div class="dsms-stat-label">VVT mit offenen Maßnahmen</div>
+            <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithOpenMeasuresCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">DSFA erforderlich (VVT)</div>
+            <div class="dsms-stat-value">@_summary.ProcessingActivitiesDpiaRequiredCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">VVT mit Risiko-Dienstleister</div>
+            <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithHighRiskProvidersCount</div>
+        </div>
+    </div>
+
+    <div class="dsms-split-grid">
+        <div class="dsms-card">
+            <div class="dsms-card-header">Offene Maßnahmen</div>
+            @if (_summary.RecentMeasures.Count == 0)
+            {
+                <div class="dsms-empty">Keine offenen Maßnahmen.</div>
+            }
+            else
+            {
+                <ul class="dsms-list">
+                    @foreach (var measure in _summary.RecentMeasures)
+                    {
+                        <li class="dsms-list-item">
+                            <a href="@($"measures/edit/{measure.Id}")">@measure.Title</a>
+                            <StatusBadge Text="@measure.Status.ToString()" Variant="@GetMeasureVariant(measure.Status)" />
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+        <div class="dsms-card">
+            <div class="dsms-card-header">Aktive Audits</div>
+            @if (_summary.RecentAudits.Count == 0)
+            {
+                <div class="dsms-empty">Keine laufenden Audits.</div>
+            }
+            else
+            {
+                <ul class="dsms-list">
+                    @foreach (var audit in _summary.RecentAudits)
+                    {
+                        <li class="dsms-list-item">
+                            <a href="@($"audit-runs/answers/{audit.Id}")">@audit.Title</a>
+                            <StatusBadge Text="@audit.Status.ToString()" Variant="primary" />
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private DashboardService DashboardService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private bool _loading = true;
+    private int? _tenantId;
+    private DashboardSummary? _summary;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId.HasValue)
+        {
+            _summary = await DashboardService.GetSummaryAsync(_tenantId.Value);
+        }
+
+        _loading = false;
+    }
+
+    // Badge-Farben für Dashboard-Liste – rein visuell, keine Fachlogik.
+    private static string GetMeasureVariant(MeasureStatus status) => status switch
+    {
+        MeasureStatus.Done => "success",
+        MeasureStatus.InProgress => "primary",
+        MeasureStatus.Cancelled => "danger",
+        _ => "warning"
+    };
+}

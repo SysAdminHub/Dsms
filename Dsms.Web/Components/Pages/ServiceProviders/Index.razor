@@ -1,0 +1,124 @@
+@* Listenansicht: Dienstleister und Auftragsverarbeiter des eigenen Mandanten. *@
+
+@page "/service-providers"
+
+@attribute [Authorize]
+
+@rendermode InteractiveServer
+
+<PageTitle>Dienstleister</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Dienstleister" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <PageHeader Title="Dienstleister" Subtitle="Auftragsverarbeiter und externe Dienstleister">
+        @if (_canEdit)
+        {
+            <a class="btn btn-primary" href="service-providers/edit">Neuer Dienstleister</a>
+        }
+    </PageHeader>
+
+    @if (_items is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else if (_items.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">Noch keine Dienstleister erfasst.</div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Art</th>
+                            <th>Status</th>
+                            <th>Auftragsverarbeiter</th>
+                            <th>AVV</th>
+                            <th>Drittland</th>
+                            <th>Risiko</th>
+                            <th>Verantwortlich</th>
+                            <th>Letzte Änderung</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _items)
+                        {
+                            <tr>
+                                <td><strong>@item.Name</strong></td>
+                                <td>@ServiceProviderLabels.GetProviderTypeLabel(item.ProviderType)</td>
+                                <td>
+                                    <StatusBadge Text="@ServiceProviderLabels.GetStatusLabel(item.Status)"
+                                                 Variant="@ServiceProviderLabels.GetStatusVariant(item.Status)" />
+                                </td>
+                                <td>@(item.IsDataProcessor ? "Ja" : "Nein")</td>
+                                <td>
+                                    @if (item.DataProcessingAgreementExists)
+                                    {
+                                        <text>Ja</text>
+                                    }
+                                    else if (ServiceProviderLabels.ShouldWarnMissingAvv(item))
+                                    {
+                                        <StatusBadge Text="Fehlt" Variant="danger" />
+                                    }
+                                    else
+                                    {
+                                        <text>Nein</text>
+                                    }
+                                </td>
+                                <td>@(item.ThirdCountryInvolvement ? "Ja" : "Nein")</td>
+                                <td>
+                                    <StatusBadge Text="@ServiceProviderLabels.GetRiskLabel(item.RiskAssessment)"
+                                                 Variant="@ServiceProviderLabels.GetRiskVariant(item.RiskAssessment)" />
+                                </td>
+                                <td>@(string.IsNullOrWhiteSpace(item.ResponsiblePerson) ? "—" : item.ResponsiblePerson)</td>
+                                <td>@FormatUpdated(item)</td>
+                                <td class="dsms-table-actions">
+                                    <a class="btn btn-sm btn-outline-primary" href="@($"service-providers/{item.Id}")">Details</a>
+                                    @if (_canEdit)
+                                    {
+                                        <a class="btn btn-sm btn-outline-secondary" href="@($"service-providers/edit/{item.Id}")">Bearbeiten</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canEdit;
+    private List<DsmsServiceProvider>? _items;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
+            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+
+        _items = await Db.ServiceProviders
+            .Where(s => s.TenantId == _tenantId)
+            .OrderByDescending(s => s.UpdatedAt ?? s.CreatedAt)
+            .ToListAsync();
+    }
+
+    private static string FormatUpdated(DsmsServiceProvider item) =>
+        (item.UpdatedAt ?? item.CreatedAt).ToLocalTime().ToString("g");
+}

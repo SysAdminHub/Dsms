@@ -1,0 +1,144 @@
+/* App-Shell: Sidebar + Hauptbereich */
+
+.page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--dsms-bg);
+}
+
+.sidebar {
+    background: var(--dsms-sidebar);
+    box-shadow: var(--dsms-shadow-lg);
+}
+
+.dsms-topbar {
+    background: var(--dsms-surface);
+    border-bottom: 1px solid var(--dsms-border);
+    min-height: var(--dsms-header-height);
+    display: flex;
+    align-items: center;
+    padding: 0 var(--dsms-space-6);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.dsms-topbar-title {
+    font-size: var(--dsms-font-size-sm);
+    color: var(--dsms-text-muted);
+    font-weight: 500;
+}
+
+.dsms-topbar-title strong {
+    color: var(--dsms-text-secondary);
+    font-weight: 600;
+}
+
+article.content {
+    flex: 1;
+    padding-left: var(--dsms-space-6);
+    padding-right: var(--dsms-space-6);
+}
+
+@media (min-width: 641px) {
+    .page {
+        flex-direction: row;
+    }
+
+    .sidebar {
+        width: var(--dsms-sidebar-width);
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        flex-shrink: 0;
+    }
+
+    article.content {
+        padding-left: var(--dsms-space-8);
+        padding-right: var(--dsms-space-8);
+    }
+}
+
+#blazor-error-ui {
+    color-scheme: light only;
+    background: var(--dsms-warning-bg);
+    border-top: 1px solid #fde68a;
+    bottom: 0;
+    box-shadow: var(--dsms-shadow);
+    display: none;
+    left: 0;
+    padding: 0.75rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+    font-size: var(--dsms-font-size-sm);
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+
+/* Login-Layout (ohne Sidebar) */
+.dsms-login-layout {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--dsms-space-6);
+    background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 45%, #f4f6f9 45%);
+}
+
+.dsms-login-panel {
+    width: 100%;
+    max-width: 420px;
+}
+
+.dsms-login-card {
+    background: var(--dsms-surface);
+    border-radius: var(--dsms-radius-lg);
+    box-shadow: var(--dsms-shadow-lg);
+    padding: var(--dsms-space-8);
+    border: 1px solid var(--dsms-border);
+}
+
+.dsms-login-brand {
+    text-align: center;
+    margin-bottom: var(--dsms-space-6);
+}
+
+.dsms-login-brand h1 {
+    font-size: var(--dsms-font-size-xl);
+    margin: 0 0 var(--dsms-space-2);
+}
+
+.dsms-login-brand p {
+    margin: 0;
+    font-size: var(--dsms-font-size-sm);
+    color: var(--dsms-text-muted);
+}
+
+.dsms-login-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: var(--dsms-radius);
+    background: var(--dsms-primary-soft);
+    color: var(--dsms-primary);
+    font-weight: 700;
+    font-size: var(--dsms-font-size-lg);
+    margin-bottom: var(--dsms-space-4);
+}

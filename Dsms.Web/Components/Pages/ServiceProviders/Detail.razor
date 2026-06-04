@@ -1,0 +1,354 @@
+@* Detailansicht eines Dienstleisters – nur eigener Mandant. *@
+
+@page "/service-providers/{Id:int}"
+
+@attribute [Authorize]
+
+@rendermode InteractiveServer
+
+<PageTitle>Dienstleister</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Dienstleister" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_provider is null && _loaded)
+{
+    <PageHeader Title="Dienstleister" />
+    <div class="alert alert-warning dsms-alert">Eintrag nicht gefunden oder kein Zugriff.</div>
+}
+else if (_provider is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else
+{
+    <PageHeader Title="@_provider.Name" Subtitle="Dienstleister / Auftragsverarbeiter">
+        @if (_canEdit)
+        {
+            <a class="btn btn-primary" href="@($"service-providers/edit/{_provider.Id}")">Bearbeiten</a>
+        }
+        <a class="btn btn-outline-secondary" href="service-providers">Zur Liste</a>
+    </PageHeader>
+
+    @if (ServiceProviderLabels.ShouldWarnMissingAvv(_provider))
+    {
+        <div class="alert alert-warning dsms-alert">
+            Auftragsverarbeiter mit Status „@ServiceProviderLabels.GetStatusLabel(_provider.Status)“ – es liegt kein AVV vor.
+        </div>
+    }
+
+    @if (_provider.IsDataProcessor && _provider.DataProcessingAgreementExists
+         && ServiceProviderLabels.IsAvvReviewOverdue(_provider.DataProcessingAgreementReviewedAt))
+    {
+        <div class="alert alert-warning dsms-alert">AVV-Prüfung ist überfällig oder noch nicht dokumentiert.</div>
+    }
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Stammdaten</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Art des Dienstleisters</div>
+                    <div>@ServiceProviderLabels.GetProviderTypeLabel(_provider.ProviderType)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Status</div>
+                    <StatusBadge Text="@ServiceProviderLabels.GetStatusLabel(_provider.Status)"
+                                 Variant="@ServiceProviderLabels.GetStatusVariant(_provider.Status)" />
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Auftragsverarbeiter</div>
+                    <div>@(_provider.IsDataProcessor ? "Ja" : "Nein")</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Risikobewertung</div>
+                    <StatusBadge Text="@ServiceProviderLabels.GetRiskLabel(_provider.RiskAssessment)"
+                                 Variant="@ServiceProviderLabels.GetRiskVariant(_provider.RiskAssessment)" />
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Verantwortliche Person</div>
+                    <div>@(string.IsNullOrWhiteSpace(_provider.ResponsiblePerson) ? "—" : _provider.ResponsiblePerson)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Dienstleistung / Zweck</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_provider.ServicePurpose)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Beschreibung</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_provider.Description)</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Kontaktperson</div>
+                    <div>@(string.IsNullOrWhiteSpace(_provider.ContactPerson) ? "—" : _provider.ContactPerson)</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">E-Mail</div>
+                    <div>@(string.IsNullOrWhiteSpace(_provider.Email) ? "—" : _provider.Email)</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Telefon</div>
+                    <div>@(string.IsNullOrWhiteSpace(_provider.Phone) ? "—" : _provider.Phone)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Webseite</div>
+                    <div>@(string.IsNullOrWhiteSpace(_provider.Website) ? "—" : _provider.Website)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Land</div>
+                    <div>@(string.IsNullOrWhiteSpace(_provider.Country) ? "—" : _provider.Country)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Anschrift</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_provider.Address)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">AVV (Auftragsverarbeitung)</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">AVV vorhanden</div>
+                    <div>@(_provider.DataProcessingAgreementExists ? "Ja" : "Nein")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">AVV-Datum</div>
+                    <div>@(_provider.DataProcessingAgreementDate?.ToString("d") ?? "—")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">AVV-Prüfung am</div>
+                    <div>
+                        @if (_provider.DataProcessingAgreementReviewedAt.HasValue)
+                        {
+                            @_provider.DataProcessingAgreementReviewedAt.Value.ToString("d")
+                            @if (ServiceProviderLabels.IsAvvReviewOverdue(_provider.DataProcessingAgreementReviewedAt))
+                            {
+                                <StatusBadge Text="Überfällig" Variant="danger" />
+                            }
+                        }
+                        else
+                        {
+                            <text>—</text>
+                        }
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">AVV-Prüfung Ergebnis</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_provider.DataProcessingAgreementReviewResult)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">TOM-Prüfung</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">TOMs geprüft</div>
+                    <div>@(_provider.TomsReviewed ? "Ja" : "Nein")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">TOM-Prüfung am</div>
+                    <div>@(_provider.TomsReviewedAt?.ToString("d") ?? "—")</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">TOM-Prüfung Ergebnis</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_provider.TomsReviewResult)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Drittland &amp; Unterauftragsverarbeiter</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Drittlandbezug</div>
+                    <div>@(_provider.ThirdCountryInvolvement ? "Ja" : "Nein")</div>
+                </div>
+                @if (_provider.ThirdCountryInvolvement)
+                {
+                    <div class="col-md-4">
+                        <div class="dsms-detail-label">Drittland</div>
+                        <div>@(string.IsNullOrWhiteSpace(_provider.ThirdCountry) ? "—" : _provider.ThirdCountry)</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="dsms-detail-label">Rechtsgrundlage Transfer</div>
+                        <div>@ServiceProviderLabels.GetThirdCountryLegalBasisLabel(_provider.ThirdCountryLegalBasis)</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="dsms-detail-label">Garantien Drittlandtransfer</div>
+                        <div class="dsms-detail-value">@DisplayMultiline(_provider.ThirdCountryTransferGuarantees)</div>
+                    </div>
+                }
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Unterauftragsverarbeiter erlaubt</div>
+                    <div>@(_provider.SubProcessorsAllowed ? "Ja" : "Nein")</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Unterauftragsverarbeiter (Beschreibung)</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_provider.SubProcessorsDescription)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Verknüpfte Verarbeitungstätigkeiten</div>
+        <div class="dsms-card-body">
+            @if (_linkedActivities.Count == 0)
+            {
+                <div class="dsms-empty">Keine Verarbeitungstätigkeiten zugeordnet.</div>
+            }
+            else
+            {
+                <ul class="dsms-list">
+                    @foreach (var link in _linkedActivities)
+                    {
+                        <li class="dsms-list-item">
+                            <a href="@($"processing-activities/{link.Activity.Id}")">@link.Activity.Name</a>
+                            <StatusBadge Text="@ServiceProviderLabels.GetProcessingRoleLabel(link.Role)" Variant="default" />
+                            <StatusBadge Text="@ProcessingActivityLabels.GetStatusLabel(link.Activity.Status)"
+                                         Variant="@ProcessingActivityLabels.GetStatusVariant(link.Activity.Status)" />
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Verknüpfte TOMs</div>
+        <div class="dsms-card-body">
+            @if (_linkedToms.Count == 0)
+            {
+                <div class="dsms-empty">Keine TOMs zugeordnet.</div>
+            }
+            else
+            {
+                <ul class="dsms-list">
+                    @foreach (var tom in _linkedToms)
+                    {
+                        <li class="dsms-list-item">
+                            <a href="@($"toms/{tom.Id}")">@tom.Title</a>
+                            <StatusBadge Text="@TomLabels.GetImplementationStatusLabel(tom.ImplementationStatus)"
+                                         Variant="@TomLabels.GetImplementationStatusVariant(tom.ImplementationStatus)" />
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Nachweisdokumente</div>
+        <div class="dsms-card-body">
+            @if (_documents.Count == 0)
+            {
+                <div class="dsms-empty">Keine Dokumente zugeordnet. Upload über <a href="documents">Dokumente</a>.</div>
+            }
+            else
+            {
+                <ul class="dsms-list">
+                    @foreach (var doc in _documents)
+                    {
+                        <li class="dsms-list-item">
+                            <strong>@doc.FileName</strong>
+                            <span class="text-muted">@doc.CreatedAt.ToLocalTime().ToString("g")</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+
+    <div class="dsms-card">
+        <div class="dsms-card-header">Bemerkungen</div>
+        <div class="dsms-card-body">
+            <div class="dsms-detail-value">@DisplayMultiline(_provider.Notes)</div>
+            <div class="row g-3 mt-2">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Erstellt am</div>
+                    <div>@_provider.CreatedAt.ToLocalTime().ToString("g")</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Letzte Änderung</div>
+                    <div>@((_provider.UpdatedAt ?? _provider.CreatedAt).ToLocalTime().ToString("g"))</div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canEdit;
+    private bool _loaded;
+    private DsmsServiceProvider? _provider;
+    private List<ActivityLinkRow> _linkedActivities = [];
+    private List<Tom> _linkedToms = [];
+    private List<EvidenceDocument> _documents = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null)
+        {
+            _loaded = true;
+            return;
+        }
+
+        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
+            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+
+        _provider = await Db.ServiceProviders
+            .FirstOrDefaultAsync(s => s.Id == Id && s.TenantId == _tenantId);
+
+        if (_provider is not null)
+        {
+            _linkedActivities = await Db.ProcessingActivityServiceProviders
+                .Where(l => l.ServiceProviderId == _provider.Id && l.TenantId == _tenantId)
+                .Select(l => new ActivityLinkRow
+                {
+                    Activity = l.ProcessingActivity,
+                    Role = l.RoleInProcessing
+                })
+                .OrderBy(x => x.Activity.Name)
+                .ToListAsync();
+
+            _linkedToms = await Db.ServiceProviderToms
+                .Where(l => l.ServiceProviderId == _provider.Id && l.TenantId == _tenantId)
+                .Select(l => l.Tom)
+                .OrderBy(t => t.Title)
+                .ToListAsync();
+
+            _documents = await Db.EvidenceDocuments
+                .Where(d => d.TenantId == _tenantId && d.ServiceProviderId == _provider.Id)
+                .OrderByDescending(d => d.CreatedAt)
+                .ToListAsync();
+        }
+
+        _loaded = true;
+    }
+
+    private static MarkupString DisplayMultiline(string? text) =>
+        string.IsNullOrWhiteSpace(text)
+            ? new MarkupString("—")
+            : new MarkupString(System.Net.WebUtility.HtmlEncode(text).Replace("\n", "<br />"));
+
+    private sealed class ActivityLinkRow
+    {
+        public ProcessingActivity Activity { get; init; } = null!;
+        public ProcessingRole Role { get; init; }
+    }
+}

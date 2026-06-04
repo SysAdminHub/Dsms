@@ -1,0 +1,77 @@
+@* Listenansicht: nur Vorlagen des Mandanten des angemeldeten Benutzers. *@
+@page "/audit-templates"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Audit-Vorlagen</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Audit-Vorlagen" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <PageHeader Title="Audit-Vorlagen" Subtitle="Wiederverwendbare Fragenkataloge für Audits">
+        <a class="btn btn-primary" href="audit-templates/edit">Neue Vorlage</a>
+    </PageHeader>
+
+    @if (_templates is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Version</th>
+                            <th>Fragen</th>
+                            <th>Status</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var template in _templates)
+                        {
+                            <tr>
+                                <td><strong>@template.Title</strong></td>
+                                <td>@template.Version</td>
+                                <td>@template.Questions.Count</td>
+                                <td>
+                                    <StatusBadge Text="@(template.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(template.IsActive ? "success" : "default")" />
+                                </td>
+                                <td class="dsms-table-actions">
+                                    <a class="btn btn-sm btn-outline-secondary" href="@($"audit-templates/edit/{template.Id}")">Bearbeiten</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private List<AuditTemplate>? _templates;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _templates = await Db.AuditTemplates
+            .Include(t => t.Questions)
+            .Where(t => t.TenantId == _tenantId)
+            .OrderBy(t => t.Title)
+            .ToListAsync();
+    }
+}

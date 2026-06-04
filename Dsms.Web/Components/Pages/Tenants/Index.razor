@@ -1,0 +1,55 @@
+@* Nur Admin: alle Mandanten (keine Mandantenfilterung – globale Verwaltung). *@
+@page "/tenants"
+@attribute [Authorize(Roles = DsmsRoles.Admin)]
+@rendermode InteractiveServer
+
+<PageTitle>Mandanten</PageTitle>
+
+<PageHeader Title="Mandanten" Subtitle="Unternehmen und Organisationseinheiten verwalten">
+    <a class="btn btn-primary" href="tenants/edit">Neuer Mandant</a>
+</PageHeader>
+
+@if (_tenants is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else
+{
+    <div class="dsms-card">
+        <div class="dsms-table-wrap">
+            <table class="table dsms-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Rechtlicher Name</th>
+                        <th>Status</th>
+                        <th class="dsms-table-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var tenant in _tenants)
+                    {
+                        <tr>
+                            <td><strong>@tenant.Name</strong></td>
+                            <td>@(tenant.LegalName ?? "—")</td>
+                            <td>
+                                <StatusBadge Text="@(tenant.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(tenant.IsActive ? "success" : "default")" />
+                            </td>
+                            <td class="dsms-table-actions">
+                                <a class="btn btn-sm btn-outline-secondary" href="@($"tenants/edit/{tenant.Id}")">Bearbeiten</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    private List<Tenant>? _tenants;
+
+    protected override async Task OnInitializedAsync() =>
+        _tenants = await Db.Tenants.OrderBy(t => t.Name).ToListAsync();
+}

@@ -1,0 +1,274 @@
+# DSMS – Projektübersicht
+
+## Zweck des Projekts
+
+**DSMS** (Datenschutz-Management-System) ist eine webbasierte Anwendung zur Unterstützung von Datenschutz-Compliance-Arbeit in Organisationen. Das System hilft dabei,
+
+- **Audit-Vorlagen** mit Prüffragen zu pflegen,
+- **Audit-Durchläufe** durchzuführen und Antworten zu dokumentieren,
+- **Maßnahmen** aus Audits oder eigenständig zu verfolgen,
+- **Nachweisdokumente** hochzuladen und zuzuordnen,
+- einen **Überblick** über offene Maßnahmen und laufende Audits zu erhalten.
+
+Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** beschrieben – kein vollständiges Enterprise-Datenschutzmanagementsystem.
+
+## Zielgruppe
+
+**Annahme:** Das System richtet sich an Organisationen (z. B. KMU), die Datenschutz-Audits und Nachverfolgung von Maßnahmen digital unterstützen wollen – typischerweise Datenschutzbeauftragte, Auditoren und beteiligte Fachnutzer.
+
+**Noch zu klären:** Ob das System intern, als Produkt für Kunden oder nur als Entwicklungs-/Demo-Basis genutzt werden soll (im Code nicht festgelegt).
+
+## Hauptfunktionen (aktueller Stand)
+
+| Bereich | Funktion |
+|--------|----------|
+| Dashboard | Kennzahlen zu Maßnahmen, Audits, TOMs, Dienstleistern und VVT-Verknüpfungen sowie Kurzlisten (mandantenbezogen) |
+| Verarbeitungstätigkeiten | Verzeichnis von Verarbeitungstätigkeiten (VVT) – Listen, Detail als zentrale Verknüpfungsübersicht, Verknüpfungen pflegen, Stammdaten |
+| TOM-Verzeichnis | Technische und organisatorische Maßnahmen – Listen, Detail, Anlegen/Bearbeiten; Verknüpfung mit Verarbeitungstätigkeiten |
+| Dienstleister | Auftragsverarbeiter und externe Dienstleister – AVV, Drittland, TOM-Prüfung; Verknüpfung mit VVT und TOMs |
+| Audit-Vorlagen | Listen, Anlegen und Bearbeiten von Vorlagen inkl. Fragen |
+| Audit-Durchläufe | Listen, Anlegen und Bearbeiten von Durchläufen; Beantwortung der Vorlagenfragen |
+| Maßnahmen | Listen, Anlegen und Bearbeiten von Maßnahmen mit Status und Fälligkeit |
+| Dokumente | Upload von Nachweisdateien (max. 10 MB), Zuordnung zu Audit, Maßnahme, Dienstleister oder Verarbeitungstätigkeit |
+| Mandanten | Verwaltung von Organisationseinheiten (nur Rolle Admin) |
+| Benutzer | Bearbeiten von Anzeigename, Mandant und Rolle (nur Rolle Admin) |
+| Konto | Standard-Identity-Funktionen (Profil, Passwort, optional 2FA usw.) |
+
+## Module und Seiten
+
+### Compliance (alle angemeldeten Benutzer mit zugeordnetem Mandanten)
+
+| Route | Seite | Kurzbeschreibung |
+|-------|-------|------------------|
+| `/` | Dashboard | Übersicht Kennzahlen und Listen |
+| `/processing-activities` | Verarbeitungstätigkeiten (Liste) | VVT-Einträge des eigenen Mandanten |
+| `/processing-activities/{Id}` | Verarbeitungstätigkeit (Detail) | Zentrale Übersicht inkl. Verknüpfungen und Warnhinweise; alle angemeldeten Benutzer mit Mandant |
+| `/processing-activities/links/{Id}` | Verknüpfungen bearbeiten | Nur **Admin** und **Auditor** |
+| `/processing-activities/edit` | Verarbeitungstätigkeit anlegen | Nur **Admin** und **Auditor** |
+| `/processing-activities/edit/{Id}` | Verarbeitungstätigkeit bearbeiten (Stammdaten) | Nur **Admin** und **Auditor** |
+| `/toms` | TOM-Verzeichnis (Liste) | TOMs des eigenen Mandanten |
+| `/toms/{Id}` | TOM (Detail) | Inkl. verknüpfte Verarbeitungstätigkeiten; alle angemeldeten Benutzer mit Mandant |
+| `/toms/edit` | TOM anlegen | Nur **Admin** und **Auditor** |
+| `/toms/edit/{Id}` | TOM bearbeiten | Nur **Admin** und **Auditor**; Zuordnung zu Verarbeitungstätigkeiten |
+| `/service-providers` | Dienstleister (Liste) | Dienstleister des eigenen Mandanten |
+| `/service-providers/{Id}` | Dienstleister (Detail) | Alle angemeldeten Benutzer mit Mandant |
+| `/service-providers/edit` | Dienstleister anlegen | Nur **Admin** und **Auditor** |
+| `/service-providers/edit/{Id}` | Dienstleister bearbeiten | Nur **Admin** und **Auditor**; Zuordnung zu VVT und TOMs |
+| `/audit-templates` | Audit-Vorlagen (Liste) | Vorlagen des eigenen Mandanten |
+| `/audit-templates/edit` | Vorlage anlegen | Nur Rollen **Admin** und **Auditor** |
+| `/audit-templates/edit/{Id}` | Vorlage bearbeiten + Fragen hinzufügen | Nur **Admin** und **Auditor** |
+| `/audit-runs` | Audit-Durchläufe (Liste) | Durchläufe des eigenen Mandanten |
+| `/audit-runs/edit` | Durchlauf anlegen | Nur **Admin** und **Auditor** |
+| `/audit-runs/edit/{Id}` | Durchlauf bearbeiten (Status, Vorlage) | Nur **Admin** und **Auditor** |
+| `/audit-runs/answers/{Id}` | Fragen beantworten | Alle angemeldeten Benutzer |
+| `/measures` | Maßnahmen (Liste) | Mandantenbezogen |
+| `/measures/edit` | Maßnahme anlegen | Alle angemeldeten Benutzer |
+| `/measures/edit/{Id}` | Maßnahme bearbeiten | Alle angemeldeten Benutzer |
+| `/documents` | Dokumente | Upload und Liste, mandantenbezogen |
+
+### Verwaltung (nur Rolle **Admin**)
+
+| Route | Seite |
+|-------|-------|
+| `/tenants` | Mandanten (Liste) |
+| `/tenants/edit` | Mandant anlegen |
+| `/tenants/edit/{Id}` | Mandant bearbeiten |
+| `/users` | Benutzer (Liste) |
+| `/users/edit/{UserId}` | Benutzer bearbeiten |
+
+### Konto und Anmeldung
+
+| Route | Hinweis |
+|-------|---------|
+| `/Account/Login` | Anmeldung (eigenes Layout ohne Sidebar) |
+| `/Account/Manage` und Unterseiten | Profil, Passwort, 2FA, persönliche Daten (Standard-Identity-Vorlagen, teils englische UI-Texte) |
+| `/Account/Register` | Registrierung vorhanden, aber **nicht** in der Login-Seite verlinkt |
+| `/not-found` | Seite nicht gefunden |
+
+## Wichtige fachliche Begriffe
+
+| Begriff | Bedeutung im System |
+|--------|---------------------|
+| **Mandant (Tenant)** | Organisationseinheit; Daten werden primär nach `TenantId` getrennt |
+| **Audit-Vorlage** | Wiederverwendbarer Fragenkatalog (Titel, Version, aktiv/inaktiv) |
+| **Audit-Frage** | Einzelne Prüffrage in einer Vorlage (Sortierung, Kategorie, Pflichtfeld) |
+| **Audit-Durchlauf** | Konkretes Audit auf Basis einer Vorlage mit Lebenszyklus-Status |
+| **Audit-Antwort** | Antwort zu einer Frage innerhalb eines Durchlaufs inkl. Compliance-Bewertung |
+| **Compliance-Bewertung** | Einschätzung: Offen, Compliant, Partial, NonCompliant, NotApplicable |
+| **Verarbeitungstätigkeit** | Eintrag im Verzeichnis von Verarbeitungstätigkeiten (VVT) zu einer konkreten Datenverarbeitung |
+| **TOM** | Technische oder organisatorische Maßnahme zum Schutz von Verarbeitungstätigkeiten |
+| **Dienstleister** | Externe Stelle (Auftragsverarbeiter oder sonstiger Dienstleister) mit AVV- und Risikodokumentation |
+| **Maßnahme** | Aufgabe zur Umsetzung (optional verknüpft mit einem Audit-Durchlauf) |
+| **Nachweisdokument** | Metadaten zu einer hochgeladenen Datei (Inhalt im Dateisystem) |
+| **Rollen** | **Admin**, **Auditor**, **User** – steuern Menü und Seitenzugriff |
+
+### Statuswerte (im UI oft englische Enum-Namen)
+
+- **Audit-Durchlauf:** Draft, InProgress, Completed  
+- **Maßnahme:** Open, InProgress, Done, Cancelled  
+- **Verarbeitungstätigkeit:** Entwurf, Aktiv, In Prüfung, Archiviert (im Code `ProcessingActivityStatus`)  
+- **TOM-Umsetzungsstatus:** Geplant, In Umsetzung, Umgesetzt, In Prüfung, Nicht umgesetzt, Nicht anwendbar (im Code `TomImplementationStatus`, Labels via `TomLabels`)
+
+## Modul TOM-Verzeichnis
+
+**Zweck:** Dokumentation technischer und organisatorischer Maßnahmen (TOMs), mit denen Verarbeitungstätigkeiten abgesichert werden – mandantenbezogen im DSMS.
+
+**Benutzerfunktionen:**
+
+- Liste aller TOMs mit Kategorie, Schutzziel, Umsetzungsstatus, Verantwortlichem, nächster Prüfung und Anzahl verknüpfter Verarbeitungstätigkeiten
+- Detailansicht inkl. verknüpfter Verarbeitungstätigkeiten (Links ins VVT)
+- Anlegen und Bearbeiten (Admin/Auditor) inkl. Checkbox-Zuordnung zu Verarbeitungstätigkeiten des eigenen Mandanten
+- Freitextfeld „Nachweis / Referenz“ für manuelle Nachweisdokumentation
+
+**Verknüpfung:** Many-to-Many über `ProcessingActivityToms` – eine TOM kann mehreren Verarbeitungstätigkeiten zugeordnet sein und umgekehrt. Verknüpfungen sind mandantengebunden (`TenantId` auf der Zwischentabelle).
+
+**Bekannte Einschränkungen / offene Punkte:**
+
+- Kein Löschen von TOMs über die UI
+- Nachweisdokumente können noch **nicht** direkt an TOMs angehängt werden (Dokumentenmodul unterstützt nur Audit-Durchlauf und Maßnahme)
+- Nachweisdokumente können noch **nicht** direkt an TOMs angehängt werden
+
+## Modul Verknüpfungen (Verarbeitungstätigkeit)
+
+**Zweck:** Die Verarbeitungstätigkeit ist der zentrale Einstiegspunkt für zugehörige Datenschutzinformationen (TOMs, Dienstleister, Dokumente, Maßnahmen, Audit-Antworten, DSFA-Status).
+
+**Benutzerfunktionen:**
+
+- Detailseite mit Abschnitten und kompakten Tabellen inkl. Links zu Detailobjekten
+- Warnhinweise (z. B. keine TOMs, fehlender AVV, offene/überfällige Maßnahmen, problematische Audit-Bewertungen, DSFA erforderlich)
+- Seite „Verknüpfungen bearbeiten“ für Admin/Auditor (Checkbox-Zuordnungen)
+- Anzeige für alle angemeldeten Benutzer mit Mandant; Bearbeitung nur Admin/Auditor
+
+**Verknüpfungen:**
+
+- TOMs und Dienstleister: bestehende Many-to-Many-Tabellen
+- Dokumente: `EvidenceDocument.ProcessingActivityId`
+- Maßnahmen: `ProcessingActivityMeasures`
+- Audit-Antworten: `ProcessingActivityAuditAnswers` (Many-to-Many)
+- DSFA: nur Feld `DpiaRequired` und Hinweisblock (Modul folgt später)
+
+**Bekannte Einschränkungen / offene Punkte:**
+
+- Kein vollständiges DSFA-Modul
+- Kein Dokumenten-Download
+- Audit-Antwort-Zuordnung nicht in der Antwortmaske, nur über Verknüpfungsseite
+- Dienstleister-Rolle in der Verarbeitung wird bei Zuordnung von der VVT-Seite nicht bearbeitet
+
+## Modul Dienstleister / Auftragsverarbeiter
+
+**Zweck:** Mandantenbezogene Dokumentation externer Dienstleister und Auftragsverarbeiter – inkl. AVV, TOM-Prüfung, Drittlandbezug, Unterauftragsverarbeiter und Verknüpfung zu Verarbeitungstätigkeiten.
+
+**Benutzerfunktionen:**
+
+- Liste mit Name, Art, Status, Auftragsverarbeiter-Kennzeichen, AVV, Drittland, Risiko, Verantwortlichem
+- Detailansicht: Stammdaten, AVV, TOM-Prüfung, Drittland, Unterauftragsverarbeiter, verknüpfte VVT-Einträge (mit Rolle), verknüpfte TOMs, zugeordnete Nachweisdokumente
+- Anlegen/Bearbeiten (Admin/Auditor) mit Zuordnung zu Verarbeitungstätigkeiten (Rolle pro Verknüpfung) und TOMs
+- Einfache Plausibilitätshinweise (z. B. fehlender AVV bei aktivem Auftragsverarbeiter, überfällige AVV-Prüfung)
+- Dashboard-Kennzahlen zu Dienstleistern
+
+**Verknüpfungen:**
+
+- Many-to-Many zu Verarbeitungstätigkeiten über `ProcessingActivityServiceProviders` (inkl. `RoleInProcessing`, `TenantId`)
+- Many-to-Many zu TOMs über `ServiceProviderToms`
+- Nachweisdokumente optional über `EvidenceDocument.ServiceProviderId` (Upload auf Seite Dokumente)
+
+**Bekannte Einschränkungen / offene Punkte:**
+
+- Kein Löschen von Dienstleistern über die UI
+- Kein Download von Nachweisdokumenten in der UI
+- TOMs können weiterhin nicht direkt im Dokumentenmodul verknüpft werden (nur über Dienstleister oder Freitext)
+
+## Aktueller Funktionsumfang
+
+### Was das System kann
+
+- Anmeldung per E-Mail und Passwort (ASP.NET Core Identity)
+- Mandantenbezogene Datenfilterung über `TenantId` des Benutzers
+- Demo-Daten und Demo-Benutzer beim ersten Start (leere Datenbank)
+- Automatische Datenbankmigration beim Start
+- CRUD-ähnliche Bearbeitung für Verarbeitungstätigkeiten (VVT), TOMs, Dienstleister, Vorlagen, Durchläufe, Maßnahmen, Mandanten (ohne Löschen in der UI)
+- TOM-Verzeichnis mit Verknüpfung zu Verarbeitungstätigkeiten und Dashboard-Kennzahlen zu TOMs
+- Dienstleister-Verzeichnis mit AVV-/Drittland-Dokumentation, VVT- und TOM-Verknüpfung, Dashboard-Kennzahlen
+- Nachweisdokumente optional einem Dienstleister zuordenbar
+- Datei-Upload mit Mandantenordner unter `Data/Uploads/`
+- Rollenbasierte Navigation und Seitenautorisierung
+
+### Was das System (noch) nicht kann
+
+- Löschen von Fachdatensätzen über die UI (Mandanten, Vorlagen, Durchläufe, Maßnahmen, Verarbeitungstätigkeiten, TOMs, Dienstleister, Dokumente)
+- Upload von Nachweisdokumenten mit direkter Zuordnung zu TOMs
+- Herunterladen hochgeladener Nachweisdokumente über die Dokumenten-Seite
+- Anlegen neuer Benutzer über die Benutzerverwaltung (nur Bearbeiten bestehender Konten)
+- Bearbeiten oder Löschen einzelner Audit-Fragen nach dem Anlegen
+- Zuweisung von Verantwortlichen (`AssignedUserId`) in der UI – Feld existiert im Datenmodell
+- Echter E-Mail-Versand (Bestätigung, Passwort-Reset)
+- Öffentliche Selbstregistrierung als Standard-Workflow (Register-Seite existiert, ist aber nicht eingebunden)
+- Mehrmandanten-Übersicht für Compliance-Daten (Admin sieht in Compliance-Modulen nur den eigenen `TenantId`)
+
+## Geplante oder offene Funktionen (aus Code/README)
+
+- README: **„Keine Enterprise-Mandantenisolation“** – einfache Zuordnung per `TenantId`, keine Claims-basierte Mandantenlogik
+- README: **„Version 1“** – impliziert Weiterentwicklung, ohne konkrete Roadmap im Code
+- Kommentar in `Program.cs`: Demo/Intern – sofortiger Login ohne E-Mail-Bestätigung
+- Kommentar in `Users/Edit.razor`: **eine Rolle pro Benutzer** in Version 1
+
+## Verwendete Technologien
+
+| Technologie | Verwendung |
+|-------------|------------|
+| **C# / .NET 9** | Laufzeit und Web-Framework |
+| **Blazor Server** | UI mit interaktivem Server-Rendermodus (`InteractiveServer`) |
+| **ASP.NET Core Identity** | Benutzer, Rollen, Anmeldung |
+| **Entity Framework Core 9** | Datenbankzugriff und Migrationen |
+| **Pomelo.EntityFrameworkCore.MySql** | MySQL-Anbindung |
+| **MySQL 8** | Datenbank (lokal oder per Docker Compose) |
+| **Bootstrap** | Basis-Styling; zusätzlich eigenes DSMS-CSS |
+
+## Grundlegender Ablauf für Benutzer
+
+```mermaid
+flowchart TD
+    A[Browser öffnen] --> B{Angemeldet?}
+    B -->|Nein| C[Login /Account/Login]
+    C --> D[Anmeldung mit E-Mail und Passwort]
+    B -->|Ja| E[Dashboard]
+    D --> E
+    E --> F[Compliance-Bereich wählen]
+    F --> G[VVT / TOMs / Dienstleister / Vorlagen / Durchläufe / Maßnahmen / Dokumente]
+    G --> H[Daten erfassen oder bearbeiten]
+    H --> I[Speichern in MySQL]
+```
+
+1. Anwendung starten (`dotnet run` in `Dsms.Web` oder Visual Studio).
+2. Beim ersten Start: Migrationen und optional Demo-Daten (Mandant „Demo GmbH“, Beispiel-Audit, drei Benutzer).
+3. Mit Demo-Zugangsdaten anmelden (siehe README).
+4. Im Dashboard den Überblick nutzen und in die Module wechseln.
+5. **Auditor/Admin:** Verarbeitungstätigkeiten (VVT), Vorlagen und Durchläufe anlegen und pflegen.
+6. **Alle Rollen:** Audit-Fragen beantworten, Maßnahmen pflegen, Dokumente hochladen.
+7. **Admin:** Mandanten und Benutzer verwalten.
+8. Abmelden über die Sidebar (POST an `/Account/Logout`).
+
+### Demo-Zugänge (aus `DatabaseSeeder` / README)
+
+| E-Mail | Passwort | Rolle |
+|--------|----------|-------|
+| admin@demo.local | Demo123! | Admin |
+| auditor@demo.local | Demo123! | Auditor |
+| user@demo.local | Demo123! | User |
+
+## Bekannte Einschränkungen und offene Punkte
+
+- **Mandantentrennung:** Filterung erfolgt in den Razor-Seiten per `ICurrentUserContext.GetTenantIdAsync()` – keine zentrale Datenzugriffsschicht; **Noch zu klären:** Schutz vor Manipulation von URLs/IDs über andere Mandanten (teilweise durch `TenantId`-Filter in Queries abgesichert).
+- **Admin und Compliance:** Admin-Benutzer aus dem Seed haben `TenantId` der Demo GmbH – globale Mandantenverwaltung, aber Compliance-Daten nur für diesen Mandanten.
+- **UI-Sprache:** Fachseiten überwiegend deutsch; viele Identity-Standardseiten noch englisch.
+- **Enum-Anzeige:** Status und Compliance-Stufen erscheinen im UI als englische Enum-Namen.
+- **Dokumente:** Kein Download-Link in der Dokumentenliste.
+- **Hochladen:** Maximale Dateigröße 10 MB.
+- **Lizenz:** README verweist auf „internes Projekt“ – **Noch zu klären:** formale Lizenzierung.
+
+## Projektbestandteile im Repository
+
+- `Dsms.sln` – Visual-Studio-Lösung mit einem Projekt
+- `Dsms.Web/` – Blazor-Server-Webanwendung
+- `docker-compose.yml` – optionaler MySQL-8-Container
+- `README.md` – Schnellstart und Entwicklerhinweise (bestehend, unverändert durch diese Dokumentation)

@@ -1,0 +1,83 @@
+@* Listenansicht: Maßnahmen des eigenen Mandanten, sortiert nach Fälligkeit. *@
+@page "/measures"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Maßnahmen</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Maßnahmen" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <PageHeader Title="Maßnahmen" Subtitle="Offene und abgeschlossene Datenschutz-Maßnahmen">
+        <a class="btn btn-primary" href="measures/edit">Neue Maßnahme</a>
+    </PageHeader>
+
+    @if (_measures is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Status</th>
+                            <th>Fällig</th>
+                            <th>Audit</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var measure in _measures)
+                        {
+                            <tr>
+                                <td><strong>@measure.Title</strong></td>
+                                <td><StatusBadge Text="@measure.Status.ToString()" Variant="@GetMeasureVariant(measure.Status)" /></td>
+                                <td>@(measure.DueDate?.ToString("d") ?? "—")</td>
+                                <td>@(measure.AuditRun?.Title ?? "—")</td>
+                                <td class="dsms-table-actions">
+                                    <a class="btn btn-sm btn-outline-secondary" href="@($"measures/edit/{measure.Id}")">Bearbeiten</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private List<Measure>? _measures;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _measures = await Db.Measures
+            .Include(m => m.AuditRun)
+            .Where(m => m.TenantId == _tenantId)
+            .OrderBy(m => m.DueDate)
+            .ToListAsync();
+    }
+
+    private static string GetMeasureVariant(MeasureStatus status) => status switch
+    {
+        MeasureStatus.Done => "success",
+        MeasureStatus.InProgress => "primary",
+        MeasureStatus.Cancelled => "danger",
+        _ => "warning"
+    };
+}

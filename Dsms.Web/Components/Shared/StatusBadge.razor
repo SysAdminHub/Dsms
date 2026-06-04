@@ -1,0 +1,16 @@
+@* Status-/Rollen-Badge; Variant steuert nur CSS-Klasse (primary, success, warning, danger). *@
+<span class="dsms-badge @CssClass">@Text</span>
+
+@code {
+    [Parameter] public string Text { get; set; } = "";
+    [Parameter] public string Variant { get; set; } = "default";
+
+    private string CssClass => Variant switch
+    {
+        "primary" => "dsms-badge--primary",
+        "success" => "dsms-badge--success",
+        "warning" => "dsms-badge--warning",
+        "danger" => "dsms-badge--danger",
+        _ => ""
+    };
+}

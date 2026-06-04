@@ -1,0 +1,10 @@
+﻿@* Wird von AuthorizeRouteView bei fehlender Anmeldung gerendert; returnUrl für Redirect nach Login. *@
+@inject NavigationManager NavigationManager
+
+@code {
+    protected override void OnInitialized()
+    {
+        // forceLoad: vollständiger Request, damit Login-Layout und Cookies korrekt geladen werden.
+        NavigationManager.NavigateTo($"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}", forceLoad: true);
+    }
+}

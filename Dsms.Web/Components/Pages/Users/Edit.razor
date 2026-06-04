@@ -1,0 +1,104 @@
+@*
+    Admin: Anzeigename, Mandant und genau eine Rolle (bestehende Rollen werden ersetzt).
+*@
+@page "/users/edit/{UserId}"
+@attribute [Authorize(Roles = DsmsRoles.Admin)]
+@rendermode InteractiveServer
+
+<PageTitle>Benutzer bearbeiten</PageTitle>
+
+@if (_user is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else
+{
+    <PageHeader Title="Benutzer bearbeiten" Subtitle="@_user.Email" />
+
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            <EditForm Model="_editModel" OnValidSubmit="SaveAsync" class="dsms-form">
+                <div class="mb-3">
+                    <label class="form-label">E-Mail</label>
+                    <input class="form-control" value="@_user.Email" disabled />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Anzeigename</label>
+                    <InputText class="form-control" @bind-Value="_editModel.DisplayName" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mandant</label>
+                    <InputSelect class="form-select" @bind-Value="_editModel.TenantId">
+                        @foreach (var tenant in _tenants)
+                        {
+                            <option value="@tenant.Id">@tenant.Name</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Rolle</label>
+                    <InputSelect class="form-select" @bind-Value="_editModel.Role">
+                        @foreach (var role in DsmsRoles.All)
+                        {
+                            <option value="@role">@role</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="dsms-form-actions">
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                    <a class="btn btn-outline-secondary" href="users">Abbrechen</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string UserId { get; set; } = "";
+    [Inject] private UserManager<ApplicationUser> UserManager { get; set; } = null!;
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private ApplicationUser? _user;
+    private List<Tenant> _tenants = [];
+    private EditModel _editModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenants = await Db.Tenants.OrderBy(t => t.Name).ToListAsync();
+        _user = await UserManager.FindByIdAsync(UserId);
+        if (_user is null) return;
+
+        var roles = await UserManager.GetRolesAsync(_user);
+        _editModel = new EditModel
+        {
+            DisplayName = _user.DisplayName,
+            TenantId = _user.TenantId ?? _tenants.First().Id,
+            Role = roles.FirstOrDefault() ?? DsmsRoles.User
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_user is null) return;
+
+        _user.DisplayName = _editModel.DisplayName;
+        _user.TenantId = _editModel.TenantId;
+        await UserManager.UpdateAsync(_user);
+
+        // Version 1: eine Rolle pro Benutzer – alte Rollen vollständig entfernen.
+        var currentRoles = await UserManager.GetRolesAsync(_user);
+        await UserManager.RemoveFromRolesAsync(_user, currentRoles);
+        await UserManager.AddToRoleAsync(_user, _editModel.Role);
+
+        Navigation.NavigateTo("users");
+    }
+
+    private sealed class EditModel
+    {
+        public string DisplayName { get; set; } = "";
+        public int TenantId { get; set; }
+        public string Role { get; set; } = DsmsRoles.User;
+    }
+}

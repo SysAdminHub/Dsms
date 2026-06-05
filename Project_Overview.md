@@ -14,9 +14,28 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 
 ## Zielgruppe
 
-**Annahme:** Das System richtet sich an Organisationen (z. B. KMU), die Datenschutz-Audits und Nachverfolgung von Maßnahmen digital unterstützen wollen – typischerweise Datenschutzbeauftragte, Auditoren und beteiligte Fachnutzer.
+**Primäre Zielgruppen:**
+- Managed Service Provider (MSP), die Datenschutz als Service anbieten
+- Kleine und mittlere Unternehmen (KMU), die ihre Datenschutzpflichten strukturiert umsetzen möchten
+- Vereine und Organisationen mit einfachen, aber dennoch DSGVO-relevanten Anforderungen
+- Externe und interne Datenschutzbeauftragte zur Verwaltung mehrerer Mandanten und Audits
 
-**Noch zu klären:** Ob das System intern, als Produkt für Kunden oder nur als Entwicklungs-/Demo-Basis genutzt werden soll (im Code nicht festgelegt).
+**Ziel des Systems:**
+Das System dient als zentrales Datenschutzmanagementsystem (DSMS), mit dem gesetzliche Anforderungen (z. B. DSGVO) effizient dokumentiert, verwaltet und nachverfolgt werden können.
+
+**Kernnutzen:**
+- Strukturierte Dokumentation (z. B. Verarbeitungsverzeichnis, TOMs, Dienstleister)
+- Unterstützung bei Audits und Nachweisen
+- Zentrale Verwaltung mehrerer Mandanten (besonders relevant für MSP und Datenschutzbeauftragte)
+- Selfhosting-fähig sowie perspektivisch als SaaS verfügbar
+
+**Positionierung:**
+Das System ist als Open Source Lösung (AGPL v3) konzipiert und soll sowohl:
+- frei selbst betrieben (Selfhosted via Docker)
+- als auch als kommerzielle SaaS-Lösung angeboten werden
+
+**Abgrenzung:**
+Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterprise-Compliance-Plattformen, sondern an pragmatische, umsetzungsorientierte Anwender.
 
 ## Hauptfunktionen (aktueller Stand)
 
@@ -140,7 +159,6 @@ Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** 
 
 - Kein Löschen von TOMs über die UI
 - Nachweisdokumente können noch **nicht** direkt an TOMs angehängt werden (Dokumentenmodul unterstützt nur Audit-Durchlauf und Maßnahme)
-- Nachweisdokumente können noch **nicht** direkt an TOMs angehängt werden
 
 ## Modul Verknüpfungen (Verarbeitungstätigkeit)
 

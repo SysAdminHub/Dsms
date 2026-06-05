@@ -6,6 +6,15 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **QR-Code für Zwei-Faktor-Authentifizierung:**
+  - EnableAuthenticator: QR-Code-Anzeige (QRCoder) unter dem Secret Key, otpauth-URI mit App-Name „DSMS“
+  - Fallback: Secret Key bleibt sichtbar, wenn QR-Generierung fehlschlägt
+
+### Behoben
+
+- **Login mit aktivierter 2FA:** `RequiresTwoFactor` wird korrekt erkannt und leitet zu `/Account/LoginWith2fa` weiter (mit `ReturnUrl` und `RememberMe`); kein falscher Passwort-Fehler mehr
+- **IdentityRedirectManager:** `NavigationException` wird nicht mehr abgefangen (Redirect nach Form-POST funktioniert); `forceLoad` für 2FA-Weiterleitung
+
 - **Dokumenten-Anzeige in allen Modulen vereinheitlicht:**
   - Wiederverwendbare Komponente `LinkedDocumentsSection` für konsistentes Laden und Anzeige
   - Dokumente sichtbar in DSFA (Detail + Bearbeiten), Audit-Durchläufe (Bearbeiten + Fragen), Maßnahmen (Bearbeiten)

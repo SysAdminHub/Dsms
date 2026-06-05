@@ -1,0 +1,94 @@
+@*
+    Mandantenauswahl: wird angezeigt, wenn der Benutzer noch keinen aktiven Mandanten gewählt hat.
+    Superuser und Benutzer mit mehreren Mandanten müssen hier explizit wählen.
+*@
+@page "/select-tenant"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Mandant wählen</PageTitle>
+
+<PageHeader Title="Mandant wählen"
+            Subtitle="Wählen Sie den Mandanten, in dessen Kontext Sie arbeiten möchten." />
+
+@if (_loading)
+{
+    <div class="dsms-loading">Lade verfügbare Mandanten …</div>
+}
+else if (_tenants.Count == 0)
+{
+    <div class="alert alert-warning dsms-alert">
+        Ihrem Benutzerkonto sind keine Mandanten zugeordnet. Bitte wenden Sie sich an einen Administrator.
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+    }
+
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            <div class="list-group">
+                @foreach (var tenant in _tenants)
+                {
+                    <button type="button"
+                            class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                            @onclick="() => SelectTenantAsync(tenant.Id)"
+                            disabled="@_selecting">
+                        <span>
+                            <strong>@tenant.Name</strong>
+                            @if (!string.IsNullOrWhiteSpace(tenant.LegalName) && tenant.LegalName != tenant.Name)
+                            {
+                                <span class="text-muted ms-2">@tenant.LegalName</span>
+                            }
+                        </span>
+                        <span class="btn btn-sm btn-primary">Auswählen</span>
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private ITenantService TenantService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private List<Tenant> _tenants = [];
+    private bool _loading = true;
+    private bool _selecting;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await TenantService.InitializeContextAsync();
+        _tenants = (await TenantService.GetAccessibleTenantsAsync()).ToList();
+
+        if (_tenants.Count == 1)
+        {
+            await SelectTenantAsync(_tenants[0].Id);
+            return;
+        }
+
+        _loading = false;
+    }
+
+    private async Task SelectTenantAsync(int tenantId)
+    {
+        _selecting = true;
+        _errorMessage = null;
+
+        var result = await TenantService.SwitchTenantAsync(tenantId);
+        if (!result.Succeeded)
+        {
+            _errorMessage = result.ErrorMessage;
+            _selecting = false;
+            _loading = false;
+            return;
+        }
+
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+}

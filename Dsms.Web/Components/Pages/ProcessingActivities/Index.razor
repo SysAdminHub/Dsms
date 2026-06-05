@@ -1,4 +1,5 @@
-@* Listenansicht: Verarbeitungstätigkeiten des eigenen Mandanten (VVT). *@
+@* Listenansicht: Verarbeitungstätigkeiten des aktiven Mandanten (VVT).
+   Datenisolation über EF Global Query Filter – kein manueller TenantId-Filter nötig. *@
 @page "/processing-activities"
 @attribute [Authorize]
 @rendermode InteractiveServer
@@ -88,8 +89,8 @@ else
         _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
             || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
 
+        // Global Query Filter liefert automatisch nur Datensätze des aktiven Mandanten.
         _activities = await Db.ProcessingActivities
-            .Where(p => p.TenantId == _tenantId)
             .OrderByDescending(p => p.UpdatedAt ?? p.CreatedAt)
             .ToListAsync();
     }

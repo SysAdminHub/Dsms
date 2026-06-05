@@ -6,45 +6,39 @@ using Microsoft.AspNetCore.Identity;
 namespace Dsms.Web.Services;
 
 /// <summary>
-/// Ermittelt Benutzerkontext aus dem Blazor-AuthenticationState und lädt Profildaten per UserManager nach.
-/// Pro Request/SignalR-Circuit scoped registriert.
+/// Ermittelt Identität und Mandant des angemeldeten Benutzers.
+/// Nutzt <see cref="IHttpContextAccessor"/> in Middleware und HTTP-Pipeline;
+/// fällt in Blazor-Circuits ohne HttpContext auf <see cref="AuthenticationStateProvider"/> zurück.
 /// </summary>
 public class CurrentUserContext(
+    IHttpContextAccessor httpContextAccessor,
     AuthenticationStateProvider authenticationStateProvider,
-    UserManager<ApplicationUser> userManager) : ICurrentUserContext
+    UserManager<ApplicationUser> userManager,
+    ITenantContextService tenantContext) : ICurrentUserContext
 {
     /// <inheritdoc />
     public async Task<string?> GetUserIdAsync()
     {
-        var state = await authenticationStateProvider.GetAuthenticationStateAsync();
-        return state.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var principal = await GetPrincipalAsync();
+        return principal?.FindFirstValue(ClaimTypes.NameIdentifier);
     }
 
     /// <inheritdoc />
     public async Task<int?> GetTenantIdAsync()
     {
-        var userId = await GetUserIdAsync();
-        if (userId is null)
+        if (await GetUserIdAsync() is null)
         {
             return null;
         }
 
-        // TenantId liegt nicht im Claim, sondern im erweiterten Benutzerprofil – daher DB-Lookup.
-        var user = await userManager.FindByIdAsync(userId);
-        return user?.TenantId;
+        return await tenantContext.GetCurrentTenantIdAsync();
     }
 
     /// <inheritdoc />
     public async Task<bool> IsInRoleAsync(string role)
     {
-        var userId = await GetUserIdAsync();
-        if (userId is null)
-        {
-            return false;
-        }
-
-        var user = await userManager.FindByIdAsync(userId);
-        return user is not null && await userManager.IsInRoleAsync(user, role);
+        var principal = await GetPrincipalAsync();
+        return principal?.Identity?.IsAuthenticated == true && principal.IsInRole(role);
     }
 
     /// <inheritdoc />
@@ -52,5 +46,36 @@ public class CurrentUserContext(
     {
         var userId = await GetUserIdAsync();
         return userId is null ? null : await userManager.FindByIdAsync(userId);
+    }
+
+    /// <summary>
+    /// HttpContext.User in Middleware; im Blazor-Circuit oft ohne Rollen-Claims – dann AuthState nutzen.
+    /// </summary>
+    private async Task<ClaimsPrincipal?> GetPrincipalAsync()
+    {
+        var httpUser = httpContextAccessor.HttpContext?.User;
+
+        // Pipeline/Middleware: HttpContext.User enthält typischerweise alle Claims inkl. Rollen.
+        if (httpUser?.Identity?.IsAuthenticated == true
+            && httpUser.Claims.Any(c => c.Type == ClaimTypes.Role))
+        {
+            return httpUser;
+        }
+
+        // Blazor Interactive: AuthenticationStateProvider liefert vollständige Rollen-Claims.
+        try
+        {
+            var state = await authenticationStateProvider.GetAuthenticationStateAsync();
+            if (state.User.Identity?.IsAuthenticated == true)
+            {
+                return state.User;
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Außerhalb des Blazor-Komponenten-Scopes (z. B. Middleware ohne Rollen im HttpContext).
+        }
+
+        return httpUser;
     }
 }

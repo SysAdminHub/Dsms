@@ -7,7 +7,7 @@ namespace Dsms.Web.Services;
 /// <summary>
 /// Aggregiert Kennzahlen und Listen für die Dashboard-Startseite – ausschließlich mandantenbezogen.
 /// </summary>
-public class DashboardService(ApplicationDbContext db)
+public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
 {
     /// <summary>
     /// Liefert Zähler und Vorschau-Listen für einen Mandanten.
@@ -15,6 +15,9 @@ public class DashboardService(ApplicationDbContext db)
     /// </summary>
     public async Task<DashboardSummary> GetSummaryAsync(int tenantId, CancellationToken ct = default)
     {
+        // Eigener DbContext pro Aufruf – parallel zur Tenant-Initialisierung (F5) sicher.
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+
         var openMeasures = await db.Measures
             .Where(m => m.TenantId == tenantId && m.Status != MeasureStatus.Done && m.Status != MeasureStatus.Cancelled)
             .CountAsync(ct);

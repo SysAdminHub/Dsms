@@ -13,7 +13,7 @@ public interface IUserAccessService
     Task<bool> CanManageUsersAsync();
     Task<bool> CanManageTenantsAsync();
 
-    /// <summary>Mandanten-ID des angemeldeten Benutzers (null bei Superuser oder fehlender Zuordnung).</summary>
+    /// <summary>Aktive Mandanten-ID aus dem Mandantenkontext (Session); null wenn keiner gewählt.</summary>
     Task<int?> GetCurrentTenantIdAsync();
 
     /// <summary>Prüft, ob der aktuelle Benutzer den angegebenen Mandanten sehen/bearbeiten darf.</summary>

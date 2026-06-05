@@ -1,4 +1,5 @@
 using Dsms.Web.Domain.Entities;
+using Dsms.Web.Services;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using ServiceProviderEntity = Dsms.Web.Domain.Entities.ServiceProvider;
@@ -7,12 +8,16 @@ namespace Dsms.Web.Data;
 
 /// <summary>
 /// EF-Core-Kontext für Identity und DSMS-Fachdaten.
+/// Global Query Filters isolieren Fachdaten nach <see cref="TenantContextAccessor.CurrentTenantId"/>.
 /// Löschverhalten in <see cref="OnModelCreating"/> schützt referenzielle Integrität (kein Kaskaden-Löschen von Mandanten).
 /// </summary>
-public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+public class ApplicationDbContext(
+    DbContextOptions<ApplicationDbContext> options,
+    TenantContextAccessor tenantContextAccessor)
     : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<UserTenant> UserTenants => Set<UserTenant>();
     public DbSet<AuditTemplate> AuditTemplates => Set<AuditTemplate>();
     public DbSet<AuditQuestion> AuditQuestions => Set<AuditQuestion>();
     public DbSet<AuditRun> AuditRuns => Set<AuditRun>();
@@ -33,11 +38,28 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     {
         base.OnModelCreating(builder);
 
+        builder.Entity<UserTenant>(e =>
+        {
+            e.ToTable("UserTenants");
+            e.HasKey(ut => new { ut.UserId, ut.TenantId });
+            e.HasOne(ut => ut.User)
+                .WithMany(u => u.UserTenants)
+                .HasForeignKey(ut => ut.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(ut => ut.Tenant)
+                .WithMany(t => t.UserTenants)
+                .HasForeignKey(ut => ut.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(ut => ut.TenantId);
+        });
+
         builder.Entity<Tenant>(e =>
         {
             e.Property(t => t.Name).HasMaxLength(200).IsRequired();
             e.Property(t => t.LegalName).HasMaxLength(300);
         });
+
+        ApplyTenantQueryFilters(builder);
 
         builder.Entity<AuditTemplate>(e =>
         {
@@ -259,5 +281,65 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasIndex(d => d.ProcessingActivityId);
             e.HasIndex(d => new { d.TenantId, d.ProcessingActivityId });
         });
+    }
+
+    /// <summary>
+    /// Filtert alle mandantenbezogenen Fach-Entities nach dem aktiven Mandantenkontext.
+    /// Ohne gesetzten Kontext werden keine Datensätze zurückgegeben (Datenisolation).
+    /// Verwaltungsabfragen nutzen <see cref="EntityFrameworkQueryableExtensions.IgnoreQueryFilters{TEntity}"/>.
+    /// </summary>
+    private void ApplyTenantQueryFilters(ModelBuilder builder)
+    {
+        builder.Entity<AuditTemplate>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<AuditRun>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<Measure>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<EvidenceDocument>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<ProcessingActivity>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<Tom>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<ProcessingActivityTom>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<ServiceProviderEntity>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<ProcessingActivityServiceProvider>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<ServiceProviderTom>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<ProcessingActivityMeasure>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<ProcessingActivityAuditAnswer>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<DataProtectionImpactAssessment>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
     }
 }

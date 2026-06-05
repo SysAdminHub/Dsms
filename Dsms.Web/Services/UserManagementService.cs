@@ -1,5 +1,6 @@
 using Dsms.Web.Data;
 using Dsms.Web.Domain;
+using Dsms.Web.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,7 +8,7 @@ namespace Dsms.Web.Services;
 
 /// <inheritdoc />
 public class UserManagementService(
-    ApplicationDbContext db,
+    IDbContextFactory<ApplicationDbContext> dbFactory,
     UserManager<ApplicationUser> userManager,
     IUserAccessService access,
     ICurrentUserContext currentUser) : IUserManagementService
@@ -20,7 +21,9 @@ public class UserManagementService(
             return [];
         }
 
-        var tenants = await db.Tenants.ToDictionaryAsync(t => t.Id, t => t.Name);
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var tenants = await db.Tenants.IgnoreQueryFilters().ToDictionaryAsync(t => t.Id, t => t.Name);
         IQueryable<ApplicationUser> query = userManager.Users;
 
         if (!await access.IsSuperuserAsync())
@@ -31,7 +34,13 @@ public class UserManagementService(
                 return [];
             }
 
-            query = query.Where(u => u.TenantId == tenantId);
+            var userIdsInTenant = await db.UserTenants
+                .IgnoreQueryFilters()
+                .Where(ut => ut.TenantId == tenantId.Value)
+                .Select(ut => ut.UserId)
+                .ToListAsync();
+
+            query = query.Where(u => u.TenantId == tenantId || userIdsInTenant.Contains(u.Id));
         }
 
         if (!includeInactive)
@@ -45,8 +54,23 @@ public class UserManagementService(
         foreach (var user in users)
         {
             var roles = await userManager.GetRolesAsync(user);
-            var tenantName = user.TenantId is int tid && tenants.TryGetValue(tid, out var name) ? name : "—";
-            result.Add(new UserListItem(user, tenantName, roles.ToList(), user.IsActive));
+            var userTenantIds = await db.UserTenants
+                .IgnoreQueryFilters()
+                .Where(ut => ut.UserId == user.Id)
+                .Select(ut => ut.TenantId)
+                .ToListAsync();
+
+            if (userTenantIds.Count == 0 && user.TenantId is int legacyTenantId)
+            {
+                userTenantIds.Add(legacyTenantId);
+            }
+
+            var tenantNames = userTenantIds
+                .Select(id => tenants.TryGetValue(id, out var name) ? name : "?")
+                .Distinct()
+                .OrderBy(n => n);
+
+            result.Add(new UserListItem(user, string.Join(", ", tenantNames), roles.ToList(), user.IsActive));
         }
 
         return result;
@@ -65,6 +89,28 @@ public class UserManagementService(
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<int>> GetUserTenantIdsAsync(string userId)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var ids = await db.UserTenants
+            .IgnoreQueryFilters()
+            .Where(ut => ut.UserId == userId)
+            .Select(ut => ut.TenantId)
+            .ToListAsync();
+
+        if (ids.Count == 0)
+        {
+            var user = await userManager.FindByIdAsync(userId);
+            if (user?.TenantId is int legacyId)
+            {
+                ids.Add(legacyId);
+            }
+        }
+
+        return ids;
+    }
+
+    /// <inheritdoc />
     public async Task<UserOperationResult> CreateUserAsync(UserCreateModel model)
     {
         if (!await access.CanManageUsersAsync())
@@ -72,16 +118,16 @@ public class UserManagementService(
             return UserOperationResult.Fail("Keine Berechtigung zur Benutzerverwaltung.");
         }
 
-        var validation = await ValidateRoleAndTenantAsync(model.Role, model.TenantId, isNewUser: true);
+        var tenantIds = await ResolveTenantIdsForSaveAsync(model.Role, model.TenantIds, model.TenantId);
+        var validation = await ValidateRoleAndTenantsAsync(model.Role, tenantIds, isNewUser: true);
         if (!validation.Succeeded)
         {
             return validation;
         }
 
-        var tenantId = await ResolveTenantIdForSaveAsync(model.Role, model.TenantId);
-        if (tenantId is null && !IUserAccessService.RoleRequiresNoTenant(model.Role))
+        if (tenantIds.Count == 0 && !IUserAccessService.RoleRequiresNoTenant(model.Role))
         {
-            return UserOperationResult.Fail("Für diese Rolle ist ein Mandant erforderlich.");
+            return UserOperationResult.Fail("Für diese Rolle ist mindestens ein Mandant erforderlich.");
         }
 
         var creatorId = await currentUser.GetUserIdAsync();
@@ -91,7 +137,7 @@ public class UserManagementService(
             Email = model.Email.Trim(),
             EmailConfirmed = true,
             DisplayName = model.DisplayName.Trim(),
-            TenantId = tenantId,
+            TenantId = tenantIds.FirstOrDefault(),
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             CreatedByUserId = creatorId
@@ -104,6 +150,8 @@ public class UserManagementService(
         }
 
         await userManager.AddToRoleAsync(user, model.Role);
+        await SyncUserTenantsAsync(user.Id, tenantIds);
+
         return UserOperationResult.Ok();
     }
 
@@ -121,20 +169,20 @@ public class UserManagementService(
             return UserOperationResult.Fail("Keine Berechtigung, diesen Benutzer zu bearbeiten.");
         }
 
-        var validation = await ValidateRoleAndTenantAsync(model.Role, model.TenantId, isNewUser: false);
+        var tenantIds = await ResolveTenantIdsForSaveAsync(model.Role, model.TenantIds, model.TenantId);
+        var validation = await ValidateRoleAndTenantsAsync(model.Role, tenantIds, isNewUser: false);
         if (!validation.Succeeded)
         {
             return validation;
         }
 
-        var tenantId = await ResolveTenantIdForSaveAsync(model.Role, model.TenantId);
-        if (tenantId is null && !IUserAccessService.RoleRequiresNoTenant(model.Role))
+        if (tenantIds.Count == 0 && !IUserAccessService.RoleRequiresNoTenant(model.Role))
         {
-            return UserOperationResult.Fail("Für diese Rolle ist ein Mandant erforderlich.");
+            return UserOperationResult.Fail("Für diese Rolle ist mindestens ein Mandant erforderlich.");
         }
 
         user.DisplayName = model.DisplayName.Trim();
-        user.TenantId = tenantId;
+        user.TenantId = tenantIds.FirstOrDefault();
         user.IsActive = model.IsActive;
 
         var updateResult = await userManager.UpdateAsync(user);
@@ -143,7 +191,8 @@ public class UserManagementService(
             return UserOperationResult.FromIdentity(updateResult);
         }
 
-        // Version 1: genau eine Rolle pro Benutzer (später: Rollen pro Mandant).
+        await SyncUserTenantsAsync(user.Id, tenantIds);
+
         var currentRoles = await userManager.GetRolesAsync(user);
         await userManager.RemoveFromRolesAsync(user, currentRoles);
         await userManager.AddToRoleAsync(user, model.Role);
@@ -170,7 +219,33 @@ public class UserManagementService(
         return result.Succeeded ? UserOperationResult.Ok() : UserOperationResult.FromIdentity(result);
     }
 
-    private async Task<UserOperationResult> ValidateRoleAndTenantAsync(string role, int? tenantId, bool isNewUser)
+    private async Task SyncUserTenantsAsync(string userId, IReadOnlyList<int> tenantIds)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var existing = await db.UserTenants
+            .IgnoreQueryFilters()
+            .Where(ut => ut.UserId == userId)
+            .ToListAsync();
+
+        db.UserTenants.RemoveRange(existing);
+
+        foreach (var tenantId in tenantIds.Distinct())
+        {
+            db.UserTenants.Add(new UserTenant
+            {
+                UserId = userId,
+                TenantId = tenantId,
+                AssignedAt = DateTime.UtcNow
+            });
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private async Task<UserOperationResult> ValidateRoleAndTenantsAsync(
+        string role,
+        IReadOnlyList<int> tenantIds,
+        bool isNewUser)
     {
         var assignable = await access.GetAssignableRolesAsync();
         if (!assignable.Contains(role))
@@ -180,7 +255,7 @@ public class UserManagementService(
 
         if (IUserAccessService.RoleRequiresNoTenant(role))
         {
-            if (tenantId.HasValue)
+            if (tenantIds.Count > 0)
             {
                 return UserOperationResult.Fail("Superuser sind keinem Mandanten zugeordnet.");
             }
@@ -188,38 +263,57 @@ public class UserManagementService(
             return UserOperationResult.Ok();
         }
 
-        if (!tenantId.HasValue)
+        if (tenantIds.Count == 0)
         {
-            return UserOperationResult.Fail("Bitte einen Mandanten auswählen.");
+            return UserOperationResult.Fail(
+                "Kein Mandant zugeordnet. Bitte wählen Sie oben im Header einen aktiven Mandanten aus.");
         }
 
-        if (!await access.CanAccessTenantAsync(tenantId.Value))
+        foreach (var tenantId in tenantIds)
         {
-            return UserOperationResult.Fail("Mandant ist nicht zugänglich.");
-        }
+            if (!await access.CanAccessTenantAsync(tenantId))
+            {
+                return UserOperationResult.Fail("Ein ausgewählter Mandant ist nicht zugänglich.");
+            }
 
-        var tenantExists = await db.Tenants.AnyAsync(t => t.Id == tenantId.Value);
-        if (!tenantExists)
-        {
-            return UserOperationResult.Fail("Mandant existiert nicht.");
+            await using var db = await dbFactory.CreateDbContextAsync();
+            var tenantExists = await db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Id == tenantId);
+            if (!tenantExists)
+            {
+                return UserOperationResult.Fail("Ein ausgewählter Mandant existiert nicht.");
+            }
         }
 
         return UserOperationResult.Ok();
     }
 
-    private async Task<int?> ResolveTenantIdForSaveAsync(string role, int? requestedTenantId)
+    private async Task<IReadOnlyList<int>> ResolveTenantIdsForSaveAsync(
+        string role,
+        IList<int> requestedTenantIds,
+        int? legacyTenantId)
     {
         if (IUserAccessService.RoleRequiresNoTenant(role))
         {
-            return null;
+            return [];
         }
+
+        var ids = requestedTenantIds.Count > 0
+            ? requestedTenantIds.ToList()
+            : legacyTenantId is int tid ? [tid] : [];
 
         if (await access.IsSuperuserAsync())
         {
-            return requestedTenantId;
+            return ids;
         }
 
-        // Mandanten-Admin: immer eigener Mandant, unabhängig von manipulierten Formularwerten.
-        return await access.GetCurrentTenantIdAsync();
+        // Mandanten-Admin: aktiver Mandant aus TenantContextService (zentrale Wahrheit).
+        var ownTenant = await access.GetCurrentTenantIdAsync();
+        if (ownTenant.HasValue)
+        {
+            return [ownTenant.Value];
+        }
+
+        // Fallback: beim Formular-Init aus dem Mandantenkontext befüllte IDs.
+        return ids;
     }
 }

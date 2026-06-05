@@ -1,3 +1,4 @@
+using Dsms.Web.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 
 namespace Dsms.Web.Data;
@@ -13,10 +14,13 @@ public class ApplicationUser : IdentityUser
     public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Zugehöriger Mandant. Pflicht für Admin, Auditor und User; bei Superuser in der Regel null.
-    /// Später erweiterbar auf mehrere Mandanten (eigene Zuordnungstabelle).
+    /// Primärer Mandant (Legacy-Kompatibilität). Die autoritative Zuordnung erfolgt über <see cref="UserTenants"/>.
+    /// Bei Superuser in der Regel null.
     /// </summary>
     public int? TenantId { get; set; }
+
+    /// <summary>Many-to-Many-Zuordnung zu Mandanten – ein Benutzer kann mehreren Mandanten zugeordnet sein.</summary>
+    public ICollection<UserTenant> UserTenants { get; set; } = [];
 
     /// <summary>Inaktive Konten können sich nicht anmelden und werden in Listen weiterhin angezeigt.</summary>
     public bool IsActive { get; set; } = true;

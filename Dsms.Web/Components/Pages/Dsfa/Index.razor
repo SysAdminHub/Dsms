@@ -16,10 +16,13 @@
 else
 {
     <PageHeader Title="DSFA" Subtitle="Datenschutz-Folgenabschätzungen">
-        @if (_canEdit)
-        {
-            <a class="btn btn-primary" href="dsfa/edit">Neue DSFA</a>
-        }
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
+            @if (_canEdit && !_showArchived)
+            {
+                <a class="btn btn-primary" href="dsfa/edit">Neue DSFA</a>
+            }
+        </div>
     </PageHeader>
 
     @if (_items is null)
@@ -28,7 +31,9 @@ else
     }
     else if (_items.Count == 0)
     {
-        <div class="alert alert-info dsms-alert">Noch keine DSFA erfasst.</div>
+        <div class="alert alert-info dsms-alert">
+            @(_showArchived ? "Keine archivierten DSFA-Einträge." : "Noch keine DSFA erfasst.")
+        </div>
     }
     else
     {
@@ -44,15 +49,28 @@ else
                             <th>Ergebnis</th>
                             <th>Verantwortlich</th>
                             <th>Nächste Prüfung</th>
-                            <th>Letzte Änderung</th>
+                            @if (_showArchived)
+                            {
+                                <th>Archiviert am</th>
+                            }
+                            else
+                            {
+                                <th>Letzte Änderung</th>
+                            }
                             <th class="dsms-table-actions"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var item in _items)
                         {
-                            <tr>
-                                <td><strong>@item.Title</strong></td>
+                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
+                                <td>
+                                    <strong>@item.Title</strong>
+                                    @if (_showArchived)
+                                    {
+                                        <span class="ms-2"><ArchivedBadge /></span>
+                                    }
+                                </td>
                                 <td>@item.ProcessingActivityName</td>
                                 <td>
                                     <StatusBadge Text="@DsfaLabels.GetStatusLabel(item.Status)"
@@ -65,13 +83,22 @@ else
                                 <td>@DsfaLabels.GetOutcomeLabel(item.Outcome)</td>
                                 <td>@(string.IsNullOrWhiteSpace(item.ResponsiblePerson) ? "—" : item.ResponsiblePerson)</td>
                                 <td>@FormatNextReview(item.NextReviewAt)</td>
-                                <td>@FormatUpdated(item)</td>
+                                <td>@FormatDateColumn(item)</td>
                                 <td class="dsms-table-actions">
-                                    <a class="btn btn-sm btn-outline-primary" href="@($"dsfa/{item.Id}")">Details</a>
-                                    @if (_canEdit)
+                                    @if (!_showArchived)
                                     {
-                                        <a class="btn btn-sm btn-outline-secondary" href="@($"dsfa/edit/{item.Id}")">Bearbeiten</a>
+                                        <a class="btn btn-sm btn-outline-primary" href="@($"dsfa/{item.Id}")">Details</a>
+                                        @if (_canEdit)
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary" href="@($"dsfa/edit/{item.Id}")">Bearbeiten</a>
+                                        }
                                     }
+                                    <ArchiveListActions TEntity="DataProtectionImpactAssessment"
+                                                        EntityId="@item.Id"
+                                                        ItemName="@item.Title"
+                                                        EntityLabel="DSFA"
+                                                        CanEdit="@_canEdit"
+                                                        OnChanged="LoadDataAsync" />
                                 </td>
                             </tr>
                         }
@@ -85,9 +112,11 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
 
     private int? _tenantId;
     private bool _canEdit;
+    private bool _showArchived;
     private List<DsfaListRow>? _items;
 
     protected override async Task OnInitializedAsync()
@@ -98,9 +127,14 @@ else
         _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
             || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
 
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _showArchived = ArchiveView.ShowArchivedOnly;
         _items = await Db.DataProtectionImpactAssessments
-            .Where(d => d.TenantId == _tenantId)
-            .OrderByDescending(d => d.UpdatedAt ?? d.CreatedAt)
+            .OrderByDescending(d => _showArchived ? d.ArchivedAt : (d.UpdatedAt ?? d.CreatedAt))
             .Select(d => new DsfaListRow
             {
                 Id = d.Id,
@@ -112,13 +146,16 @@ else
                 ResponsiblePerson = d.ResponsiblePerson,
                 NextReviewAt = d.NextReviewAt,
                 CreatedAt = d.CreatedAt,
-                UpdatedAt = d.UpdatedAt
+                UpdatedAt = d.UpdatedAt,
+                ArchivedAt = d.ArchivedAt
             })
             .ToListAsync();
     }
 
-    private static string FormatUpdated(DsfaListRow item) =>
-        (item.UpdatedAt ?? item.CreatedAt).ToLocalTime().ToString("g");
+    private string FormatDateColumn(DsfaListRow item) =>
+        _showArchived
+            ? item.ArchivedAt?.ToLocalTime().ToString("g") ?? "—"
+            : (item.UpdatedAt ?? item.CreatedAt).ToLocalTime().ToString("g");
 
     private static string FormatNextReview(DateOnly? date)
     {
@@ -139,5 +176,6 @@ else
         public DateOnly? NextReviewAt { get; init; }
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
+        public DateTime? ArchivedAt { get; init; }
     }
 }

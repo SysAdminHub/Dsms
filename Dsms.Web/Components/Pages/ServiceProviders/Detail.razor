@@ -246,27 +246,10 @@ else
         </div>
     </div>
 
-    <div class="dsms-card mb-4">
-        <div class="dsms-card-header">Nachweisdokumente</div>
-        <div class="dsms-card-body">
-            @if (_documents.Count == 0)
-            {
-                <div class="dsms-empty">Keine Dokumente zugeordnet. Upload über <a href="documents">Dokumente</a>.</div>
-            }
-            else
-            {
-                <ul class="dsms-list">
-                    @foreach (var doc in _documents)
-                    {
-                        <li class="dsms-list-item">
-                            <strong>@doc.FileName</strong>
-                            <span class="text-muted">@doc.CreatedAt.ToLocalTime().ToString("g")</span>
-                        </li>
-                    }
-                </ul>
-            }
-        </div>
-    </div>
+    <LinkedDocumentsSection ServiceProviderId="_provider.Id"
+                            Title="Nachweisdokumente"
+                            EmptyMessage="Keine Dokumente zugeordnet."
+                            EmptyHint="Upload und Zuordnung über „Dokumente“." />
 
     <div class="dsms-card">
         <div class="dsms-card-header">Bemerkungen</div>
@@ -297,7 +280,6 @@ else
     private DsmsServiceProvider? _provider;
     private List<ActivityLinkRow> _linkedActivities = [];
     private List<Tom> _linkedToms = [];
-    private List<EvidenceDocument> _documents = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -312,6 +294,7 @@ else
             || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
 
         _provider = await Db.ServiceProviders
+            .Include(s => s.Documents)
             .FirstOrDefaultAsync(s => s.Id == Id && s.TenantId == _tenantId);
 
         if (_provider is not null)
@@ -330,11 +313,6 @@ else
                 .Where(l => l.ServiceProviderId == _provider.Id && l.TenantId == _tenantId)
                 .Select(l => l.Tom)
                 .OrderBy(t => t.Title)
-                .ToListAsync();
-
-            _documents = await Db.EvidenceDocuments
-                .Where(d => d.TenantId == _tenantId && d.ServiceProviderId == _provider.Id)
-                .OrderByDescending(d => d.CreatedAt)
                 .ToListAsync();
         }
 

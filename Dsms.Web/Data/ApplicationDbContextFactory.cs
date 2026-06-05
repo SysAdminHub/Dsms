@@ -23,6 +23,6 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
         optionsBuilder.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 36)));
 
-        return new ApplicationDbContext(optionsBuilder.Options, new TenantContextAccessor());
+        return new ApplicationDbContext(optionsBuilder.Options, new TenantContextAccessor(), new ArchiveViewContextAccessor());
     }
 }

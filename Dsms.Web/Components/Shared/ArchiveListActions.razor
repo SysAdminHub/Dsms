@@ -1,0 +1,72 @@
+@typeparam TEntity where TEntity : ArchivableEntityBase, ITenantEntity
+
+@if (ShowArchivedView)
+{
+    <button type="button" class="btn btn-sm btn-outline-success" disabled="@_busy" @onclick="RestoreAsync">
+        Wiederherstellen
+    </button>
+}
+else if (CanEdit)
+{
+    <button type="button" class="btn btn-sm btn-outline-warning" disabled="@_busy" @onclick="PrepareArchiveAsync">
+        Archivieren
+    </button>
+}
+
+<ArchiveConfirmModal @ref="_modal" Title="@EntityLabel" OnConfirmed="ExecuteArchiveAsync" />
+
+@code {
+    [Inject] private IArchivingService Archiving { get; set; } = null!;
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
+
+    [Parameter, EditorRequired] public int EntityId { get; set; }
+    [Parameter, EditorRequired] public string ItemName { get; set; } = "";
+    [Parameter] public string EntityLabel { get; set; } = "Eintrag";
+    [Parameter] public bool CanEdit { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private ArchiveConfirmModal? _modal;
+    private bool _busy;
+
+    private bool ShowArchivedView => ArchiveView.ShowArchivedOnly;
+
+    private async Task PrepareArchiveAsync()
+    {
+        var warnings = await Archiving.GetDependencyWarningsAsync<TEntity>(EntityId);
+        _modal?.Show(ItemName, warnings);
+    }
+
+    private async Task ExecuteArchiveAsync()
+    {
+        _busy = true;
+        try
+        {
+            var result = await Archiving.ArchiveAsync<TEntity>(EntityId);
+            if (result.Succeeded)
+            {
+                await OnChanged.InvokeAsync();
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RestoreAsync()
+    {
+        _busy = true;
+        try
+        {
+            var result = await Archiving.RestoreAsync<TEntity>(EntityId);
+            if (result.Succeeded)
+            {
+                await OnChanged.InvokeAsync();
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

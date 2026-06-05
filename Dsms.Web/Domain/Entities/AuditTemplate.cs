@@ -1,7 +1,7 @@
 namespace Dsms.Web.Domain.Entities;
 
 /// <summary>Wiederverwendbarer Fragenkatalog für Audits (pro Mandant, versioniert).</summary>
-public class AuditTemplate : EntityBase
+public class AuditTemplate : ArchivableEntityBase, ITenantEntity
 {
     public int TenantId { get; set; }
     public Tenant Tenant { get; set; } = null!;

@@ -13,12 +13,24 @@
 else
 {
     <PageHeader Title="Audit-Durchläufe" Subtitle="Laufende und abgeschlossene Datenschutz-Audits">
-        <a class="btn btn-primary" href="audit-runs/edit">Neuer Durchlauf</a>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
+            @if (!_showArchived)
+            {
+                <a class="btn btn-primary" href="audit-runs/edit">Neuer Durchlauf</a>
+            }
+        </div>
     </PageHeader>
 
     @if (_runs is null)
     {
         <div class="dsms-loading">Lade …</div>
+    }
+    else if (_runs.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">
+            @(_showArchived ? "Keine archivierten Audit-Durchläufe." : "Noch keine Audit-Durchläufe erfasst.")
+        </div>
     }
     else
     {
@@ -31,20 +43,43 @@ else
                             <th>Vorlage</th>
                             <th>Status</th>
                             <th>Gestartet</th>
+                            @if (_showArchived)
+                            {
+                                <th>Archiviert am</th>
+                            }
                             <th class="dsms-table-actions"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var run in _runs)
                         {
-                            <tr>
-                                <td><strong>@run.Title</strong></td>
+                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
+                                <td>
+                                    <strong>@run.Title</strong>
+                                    @if (_showArchived)
+                                    {
+                                        <span class="ms-2"><ArchivedBadge /></span>
+                                    }
+                                </td>
                                 <td>@run.AuditTemplate.Title</td>
                                 <td><StatusBadge Text="@run.Status.ToString()" Variant="primary" /></td>
                                 <td>@(run.StartedAt?.ToLocalTime().ToString("d") ?? "—")</td>
+                                @if (_showArchived)
+                                {
+                                    <td>@(run.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
+                                }
                                 <td class="dsms-table-actions">
-                                    <a class="btn btn-sm btn-outline-secondary" href="@($"audit-runs/edit/{run.Id}")">Bearbeiten</a>
-                                    <a class="btn btn-sm btn-primary" href="@($"audit-runs/answers/{run.Id}")">Fragen</a>
+                                    @if (!_showArchived)
+                                    {
+                                        <a class="btn btn-sm btn-outline-secondary" href="@($"audit-runs/edit/{run.Id}")">Bearbeiten</a>
+                                        <a class="btn btn-sm btn-primary" href="@($"audit-runs/answers/{run.Id}")">Fragen</a>
+                                    }
+                                    <ArchiveListActions TEntity="AuditRun"
+                                                        EntityId="@run.Id"
+                                                        ItemName="@run.Title"
+                                                        EntityLabel="Audit-Durchlauf"
+                                                        CanEdit="true"
+                                                        OnChanged="LoadDataAsync" />
                                 </td>
                             </tr>
                         }
@@ -58,8 +93,10 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _showArchived;
     private List<AuditRun>? _runs;
 
     protected override async Task OnInitializedAsync()
@@ -67,10 +104,15 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _showArchived = ArchiveView.ShowArchivedOnly;
         _runs = await Db.AuditRuns
             .Include(r => r.AuditTemplate)
-            .Where(r => r.TenantId == _tenantId)
-            .OrderByDescending(r => r.CreatedAt)
+            .OrderByDescending(r => _showArchived ? r.ArchivedAt : r.CreatedAt)
             .ToListAsync();
     }
 }

@@ -32,14 +32,17 @@ builder.Services.AddSession(options =>
 });
 
 builder.Services.AddScoped<TenantContextAccessor>();
+builder.Services.AddScoped<ArchiveViewContextAccessor>();
 builder.Services.AddScoped<ITenantContextService, TenantContextService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<IUserAccessService, UserAccessService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+builder.Services.AddScoped<IArchivingService, ArchivingService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ProcessingActivityRelationsService>();
 builder.Services.AddScoped<DocumentStorageService>();
+builder.Services.AddScoped<DocumentLinksService>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -129,6 +132,7 @@ app.MapPost("/tenant/switch", async (
 
 // Minimal-API-Endpunkte für Identity-Formulare (Logout, externe Logins, …).
 app.MapAdditionalIdentityEndpoints();
+app.MapDocumentFileEndpoints();
 
 await DatabaseSeeder.SeedAsync(app.Services);
 

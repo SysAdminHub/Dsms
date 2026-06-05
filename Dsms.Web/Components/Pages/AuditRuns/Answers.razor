@@ -18,6 +18,8 @@ else
         <a class="btn btn-outline-secondary" href="audit-runs">Zurück</a>
     </PageHeader>
 
+    <LinkedDocumentsSection AuditRunId="_run.Id" />
+
     @foreach (var answer in _answers)
     {
         <div class="dsms-answer-card">
@@ -66,6 +68,7 @@ else
 
         _run = await Db.AuditRuns
             .Include(r => r.AuditTemplate)
+            .Include(r => r.Documents)
             .FirstOrDefaultAsync(r => r.Id == Id && r.TenantId == _tenantId);
 
         if (_run is null) return;

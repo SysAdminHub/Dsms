@@ -6,7 +6,7 @@ namespace Dsms.Web.Domain.Entities;
 /// Umsetzungsmaßnahme aus einem Audit oder freistehend im Mandanten.
 /// Optional verknüpft mit <see cref="AuditRun"/>.
 /// </summary>
-public class Measure : EntityBase
+public class Measure : ArchivableEntityBase, ITenantEntity
 {
     public int TenantId { get; set; }
     public Tenant Tenant { get; set; } = null!;

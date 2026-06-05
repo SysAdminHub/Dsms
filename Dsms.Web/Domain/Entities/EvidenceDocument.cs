@@ -4,7 +4,7 @@ namespace Dsms.Web.Domain.Entities;
 /// Metadaten zu einer hochgeladenen Nachweisdatei.
 /// Binärdaten liegen im Dateisystem (<see cref="StoragePath"/>), nicht in der DB.
 /// </summary>
-public class EvidenceDocument : EntityBase
+public class EvidenceDocument : ArchivableEntityBase, ITenantEntity
 {
     public int TenantId { get; set; }
     public Tenant Tenant { get; set; } = null!;

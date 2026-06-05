@@ -89,6 +89,11 @@ else
             </EditForm>
         </div>
     </div>
+
+    @if (_model.Id > 0)
+    {
+        <LinkedDocumentsSection MeasureId="_model.Id" />
+    }
 }
 
 @code {
@@ -129,6 +134,7 @@ else
         {
             _model = await Db.Measures
                 .Include(m => m.ProcessingActivityLinks)
+                .Include(m => m.Documents)
                 .FirstAsync(m => m.Id == Id && m.TenantId == _tenantId);
             _dueDate = _model.DueDate;
             _selectedProcessingActivityIds = _model.ProcessingActivityLinks

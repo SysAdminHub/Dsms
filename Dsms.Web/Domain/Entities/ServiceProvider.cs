@@ -14,7 +14,7 @@ namespace Dsms.Web.Domain.Entities;
 
 /// </summary>
 
-public class ServiceProvider : EntityBase
+public class ServiceProvider : ArchivableEntityBase, ITenantEntity
 
 {
 

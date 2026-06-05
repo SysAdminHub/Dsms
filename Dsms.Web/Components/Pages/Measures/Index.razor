@@ -13,12 +13,24 @@
 else
 {
     <PageHeader Title="Maßnahmen" Subtitle="Offene und abgeschlossene Datenschutz-Maßnahmen">
-        <a class="btn btn-primary" href="measures/edit">Neue Maßnahme</a>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
+            @if (!_showArchived)
+            {
+                <a class="btn btn-primary" href="measures/edit">Neue Maßnahme</a>
+            }
+        </div>
     </PageHeader>
 
     @if (_measures is null)
     {
         <div class="dsms-loading">Lade …</div>
+    }
+    else if (_measures.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">
+            @(_showArchived ? "Keine archivierten Maßnahmen." : "Noch keine Maßnahmen erfasst.")
+        </div>
     }
     else
     {
@@ -31,19 +43,42 @@ else
                             <th>Status</th>
                             <th>Fällig</th>
                             <th>Audit</th>
+                            @if (_showArchived)
+                            {
+                                <th>Archiviert am</th>
+                            }
                             <th class="dsms-table-actions"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var measure in _measures)
                         {
-                            <tr>
-                                <td><strong>@measure.Title</strong></td>
+                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
+                                <td>
+                                    <strong>@measure.Title</strong>
+                                    @if (_showArchived)
+                                    {
+                                        <span class="ms-2"><ArchivedBadge /></span>
+                                    }
+                                </td>
                                 <td><StatusBadge Text="@measure.Status.ToString()" Variant="@GetMeasureVariant(measure.Status)" /></td>
                                 <td>@(measure.DueDate?.ToString("d") ?? "—")</td>
                                 <td>@(measure.AuditRun?.Title ?? "—")</td>
+                                @if (_showArchived)
+                                {
+                                    <td>@(measure.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
+                                }
                                 <td class="dsms-table-actions">
-                                    <a class="btn btn-sm btn-outline-secondary" href="@($"measures/edit/{measure.Id}")">Bearbeiten</a>
+                                    @if (!_showArchived)
+                                    {
+                                        <a class="btn btn-sm btn-outline-secondary" href="@($"measures/edit/{measure.Id}")">Bearbeiten</a>
+                                    }
+                                    <ArchiveListActions TEntity="Measure"
+                                                        EntityId="@measure.Id"
+                                                        ItemName="@measure.Title"
+                                                        EntityLabel="Maßnahme"
+                                                        CanEdit="true"
+                                                        OnChanged="LoadDataAsync" />
                                 </td>
                             </tr>
                         }
@@ -57,8 +92,10 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _showArchived;
     private List<Measure>? _measures;
 
     protected override async Task OnInitializedAsync()
@@ -66,11 +103,15 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
-        _measures = await Db.Measures
-            .Include(m => m.AuditRun)
-            .Where(m => m.TenantId == _tenantId)
-            .OrderBy(m => m.DueDate)
-            .ToListAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _showArchived = ArchiveView.ShowArchivedOnly;
+        _measures = _showArchived
+            ? await Db.Measures.Include(m => m.AuditRun).OrderByDescending(m => m.ArchivedAt).ToListAsync()
+            : await Db.Measures.Include(m => m.AuditRun).OrderBy(m => m.DueDate).ToListAsync();
     }
 
     private static string GetMeasureVariant(MeasureStatus status) => status switch

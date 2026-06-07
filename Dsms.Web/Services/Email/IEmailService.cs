@@ -42,5 +42,6 @@ public interface IEmailService
         string reminderText,
         string dueDate,
         string actionLink,
-        int? tenantId = null);
+        int? tenantId = null,
+        string? supportEmail = null);
 }

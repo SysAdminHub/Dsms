@@ -6,6 +6,15 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Zentrale Erinnerungsfunktion (Version 1 – manueller Versandassistent):**
+  - Seite `/admin/erinnerungen` für Superuser und Mandanten-Admins (Verwaltung → Erinnerungen)
+  - `IReminderService` / `ReminderService`: Vorschau und manueller Versand, keine History, kein Background-Job
+  - Pro Mandant eine Sammelmail an alle aktiven Admins (Rolle `Admin`, keine normalen Benutzer)
+  - Reminder-Typen: DSFA `NextReviewAt`, TOM `NextReviewAt`, Dienstleister `DataProcessingAgreementReviewedAt`, Maßnahmen `DueDate`, Audit-Inaktivität (>14 Tage)
+  - TemplateKey `Reminder` über bestehenden `IEmailService`
+  - Audit-Letztaktivität aus Antworten (`AnsweredAt`/`UpdatedAt`/`CreatedAt`) – keine `LastActivityAt`-Migration
+  - Kein EmailLog, keine Reminder-History-Tabelle
+
 - **Benutzeranlage ohne initiales Passwort mit Willkommensmail:**
   - Passwortfeld aus `/users/create` entfernt; `UserManager.CreateAsync(user)` ohne Passwort
   - Automatische Willkommensmail nach Anlage (TemplateKey `WelcomeSetPassword`)

@@ -220,6 +220,7 @@ public class TenantService(
             || path == "select-tenant"
             || path.StartsWith("tenants", StringComparison.Ordinal)
             || path.StartsWith("users", StringComparison.Ordinal)
+            || path.StartsWith("admin/erinnerungen", StringComparison.Ordinal)
             || path.StartsWith("platform/email", StringComparison.Ordinal)
             || path == "passwort-vergessen"
             || path == "passwort-zuruecksetzen"

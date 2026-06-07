@@ -5,6 +5,7 @@ using Dsms.Web.Data.Seed;
 using Dsms.Web.Services;
 using Dsms.Web.Services.Email;
 using Dsms.Web.Services.PasswordReset;
+using Dsms.Web.Services.Reminders;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -52,6 +53,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IEmailSettingsService, EmailSettingsService>();
 builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+builder.Services.AddScoped<IReminderService, ReminderService>();
 
 builder.Services.AddAuthentication(options =>
     {

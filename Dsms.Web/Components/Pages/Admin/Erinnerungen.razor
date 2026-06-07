@@ -1,0 +1,220 @@
+@* Superuser und Mandanten-Admin: manueller Erinnerungsversand mit Vorschau. *@
+@page "/admin/erinnerungen"
+@attribute [Authorize(Roles = DsmsRoles.UserManagement)]
+@rendermode InteractiveServer
+
+<PageTitle>Erinnerungen</PageTitle>
+
+<PageHeader Title="Erinnerungen"
+            Subtitle="Prüfen Sie fällige Datenschutz-Themen und senden Sie eine Sammelmail an die Admins des jeweiligen Mandanten." />
+
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <div class="alert alert-success dsms-alert">@_successMessage</div>
+}
+@if (!string.IsNullOrEmpty(_warningMessage))
+{
+    <div class="alert alert-warning dsms-alert">@_warningMessage</div>
+}
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+}
+
+<div class="dsms-card dsms-form-card mb-4">
+    <div class="dsms-card-body">
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-primary" disabled="@_loading" @onclick="LoadPreviewAsync">
+                Erinnerungen prüfen
+            </button>
+            <button type="button" class="btn btn-outline-primary" disabled="@(!_hasPreview || _sending)" @onclick="SendRemindersAsync">
+                Erinnerungen senden
+            </button>
+        </div>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <p class="dsms-loading">Lade …</p>
+}
+else if (_previewLoaded && !_hasPreview)
+{
+    <div class="alert alert-info dsms-alert">Es wurden keine fälligen Erinnerungen gefunden.</div>
+}
+else if (_preview is not null)
+{
+    @foreach (var tenant in _preview.Tenants)
+    {
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header">
+                <strong>Mandant: @tenant.TenantName</strong>
+            </div>
+            <div class="dsms-card-body">
+                @if (!string.IsNullOrEmpty(tenant.WarningMessage))
+                {
+                    <div class="alert alert-warning dsms-alert">@tenant.WarningMessage</div>
+                }
+
+                <p class="mb-2"><strong>Empfänger:</strong></p>
+                @if (tenant.AdminRecipients.Count == 0)
+                {
+                    <p class="text-muted">—</p>
+                }
+                else
+                {
+                    <ul class="mb-3">
+                        @foreach (var recipient in tenant.AdminRecipients)
+                        {
+                            <li>@recipient.DisplayName &lt;@recipient.Email&gt;</li>
+                        }
+                    </ul>
+                }
+
+                @RenderSection("Maßnahmen", tenant.Items.Where(i => i.ReminderType == ReminderType.Measure))
+                @RenderSection("DSFA", tenant.Items.Where(i => i.ReminderType == ReminderType.Dsfa))
+                @RenderSection("TOM", tenant.Items.Where(i => i.ReminderType == ReminderType.Tom))
+                @RenderSection("Dienstleister / AVV", tenant.Items.Where(i => i.ReminderType == ReminderType.ServiceProviderAvv))
+                @RenderSection("Audit-Durchläufe", tenant.Items.Where(i => i.ReminderType == ReminderType.AuditRun))
+            </div>
+        </div>
+    }
+
+    @if (_sendResults is not null && _sendResults.Count > 0)
+    {
+        <div class="dsms-card">
+            <div class="dsms-card-header">Versandergebnis</div>
+            <div class="dsms-card-body">
+                <ul class="mb-0">
+                    @foreach (var result in _sendResults)
+                    {
+                        <li>
+                            <strong>@result.TenantName:</strong>
+                            @if (result.Skipped)
+                            {
+                                <text>keine Admin-Empfänger gefunden, nicht versendet</text>
+                            }
+                            else if (result.Success)
+                            {
+                                <text>@result.RecipientCount Empfänger, @result.ItemCount Erinnerungen, erfolgreich</text>
+                            }
+                            else
+                            {
+                                <text>@(result.Message ?? "Versand fehlgeschlagen, bitte Email-Einstellungen prüfen.")</text>
+                            }
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private IReminderService ReminderService { get; set; } = null!;
+
+    private ReminderPreviewResult? _preview;
+    private IReadOnlyList<ReminderTenantSendResultDto>? _sendResults;
+    private bool _loading;
+    private bool _sending;
+    private bool _previewLoaded;
+    private bool _hasPreview;
+    private string? _successMessage;
+    private string? _warningMessage;
+    private string? _errorMessage;
+
+    private async Task LoadPreviewAsync()
+    {
+        _loading = true;
+        ClearMessages();
+        _sendResults = null;
+
+        try
+        {
+            _preview = await ReminderService.GetReminderPreviewAsync();
+            _previewLoaded = true;
+            _hasPreview = _preview.HasAnyItems;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _errorMessage = "Keine Berechtigung für Erinnerungen.";
+            _preview = null;
+            _hasPreview = false;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SendRemindersAsync()
+    {
+        if (!_hasPreview)
+        {
+            return;
+        }
+
+        _sending = true;
+        ClearMessages();
+
+        try
+        {
+            var result = await ReminderService.SendRemindersAsync();
+            _sendResults = result.TenantResults;
+
+            if (result.Succeeded)
+            {
+                _successMessage = result.Message;
+            }
+            else if (result.TenantResults.Any(r => r.Success))
+            {
+                _warningMessage = result.Message;
+            }
+            else
+            {
+                _errorMessage = result.Message;
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _errorMessage = "Keine Berechtigung für Erinnerungen.";
+        }
+        finally
+        {
+            _sending = false;
+        }
+    }
+
+    private void ClearMessages()
+    {
+        _successMessage = null;
+        _warningMessage = null;
+        _errorMessage = null;
+    }
+
+    private RenderFragment RenderSection(string title, IEnumerable<ReminderItemDto> items) => builder =>
+    {
+        var list = items.ToList();
+        if (list.Count == 0)
+        {
+            return;
+        }
+
+        var seq = 0;
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "mb-3");
+        builder.OpenElement(seq++, "p");
+        builder.AddAttribute(seq++, "class", "mb-1");
+        builder.AddContent(seq++, title + ":");
+        builder.CloseElement();
+        builder.OpenElement(seq++, "ul");
+        foreach (var item in list)
+        {
+            builder.OpenElement(seq++, "li");
+            builder.AddContent(seq++, item.Description);
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+}

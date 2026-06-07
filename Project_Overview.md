@@ -53,6 +53,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | Mandanten | Verwaltung von Organisationseinheiten (**nur Superuser**, plattformweit) |
 | Email | Zentrale SMTP-Einstellungen und Email-Vorlagen (**nur Superuser**); Testmail und Vorschau |
 | Benutzer | Anlegen (ohne Passwort, mit Willkommensmail) und Bearbeiten von Konten, Rollen, Mandant, Aktiv-Status (**Superuser** mandantenübergreifend, **Admin** nur im eigenen Mandant) |
+| Erinnerungen | Fällige Datenschutz-Themen prüfen und Sammelmail an Mandanten-Admins senden (**Superuser** + **Admin**) |
 | Konto | Standard-Identity-Funktionen (Profil, Passwort, optional 2FA usw.) |
 
 ## Module und Seiten
@@ -109,6 +110,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | `/users` | Benutzer (Liste) | Superuser: alle Mandanten; Admin: nur eigener Mandant |
 | `/users/create` | Benutzer anlegen | Superuser: Rolle + Mandant; Admin: Rolle ohne Superuser, Mandant automatisch |
 | `/users/edit/{UserId}` | Benutzer bearbeiten | Wie Liste; Admin darf keine Superuser bearbeiten |
+| `/admin/erinnerungen` | Erinnerungen | Superuser: alle Mandanten; Admin: nur eigener Mandant; manueller Versand mit Vorschau |
 
 ### Konto und Anmeldung
 
@@ -254,6 +256,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 - Zentraler Emailservice (Superuser): globale SMTP-Einstellungen, Email-Vorlagen mit Platzhaltern `{{VariableName}}`, Vorschau und Testmail
 - Passwortreset (ASP.NET Identity): Self-Service über „Passwort vergessen?“; Admin/Superuser können Reset-Mails aus der Benutzerverwaltung auslösen
 - Benutzeranlage ohne Passwort: Willkommensmail mit Einladungslink (Identity-Token, 60 Min.); Passwort festlegen über `/passwort-zuruecksetzen?mode=invite`
+- Erinnerungen (manuell): DSFA/TOM/AVV/Maßnahmen/Audit-Inaktivität; Sammelmail pro Mandant an Admins
 
 ### Was das System (noch) nicht kann
 

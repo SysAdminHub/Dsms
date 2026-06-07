@@ -147,13 +147,18 @@ public sealed class EmailService(
         string reminderText,
         string dueDate,
         string actionLink,
-        int? tenantId = null)
+        int? tenantId = null,
+        string? supportEmail = null)
     {
         var variables = BuildCommonVariables(userName, toEmail);
         variables["ReminderTitle"] = reminderTitle;
         variables["ReminderText"] = reminderText;
         variables["DueDate"] = dueDate;
         variables["ActionLink"] = actionLink;
+        if (!string.IsNullOrWhiteSpace(supportEmail))
+        {
+            variables["SupportEmail"] = supportEmail;
+        }
         return SendTemplateEmailAsync(toEmail, EmailTemplateKeys.Reminder, variables);
     }
 

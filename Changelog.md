@@ -6,6 +6,37 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Audit-Vorlagen: Fragen bearbeiten und löschen:**
+  - Bestehende Fragen in bearbeitbaren Vorlagen können inline bearbeitet (Nr., Kategorie, Text) und gelöscht werden
+  - Serverseitige Prüfung über `CanEditAsync` / `AddQuestionAsync`, `UpdateQuestionAsync`, `DeleteQuestionAsync`
+  - Löschen blockiert, wenn Frage in Audit-Durchläufen referenziert ist (`DeleteBehavior.Restrict`); Snapshots schützen laufende Audits
+  - Änderungen an Vorlagenfragen wirken nur auf neue Auditdurchläufe
+
+- **Audit-Vorlagen: Community-Einreichungen (Teil 2):**
+  - `AuditTemplateType.Community` und `CommunityStatus` (None, Submitted, Approved, Rejected)
+  - Mandanten-Admins/Auditoren können eigene aktive Vorlagen zur Community-Prüfung einreichen
+  - Eingereichte Vorlagen (`Submitted`) sind nur für den einreichenden Mandanten sichtbar und während der Prüfung schreibgeschützt
+  - Superuser-Prüfbereich unter `/platform/audit-templates/community` (Navigation: Plattform → Community-Prüfung)
+  - Freigabe erstellt globale Community-Kopie (`TemplateType = Community`, `TenantId = null`); Ursprungsvorlage bleibt im Mandanten erhalten
+  - Ablehnung lässt Vorlage privat; Mandant kann bearbeiten und erneut einreichen
+  - Badge „Community“ sowie Status-Hinweise „Zur Prüfung eingereicht“ / „Community abgelehnt“
+  - Optional: „Kopie erstellen“ für offizielle und Community-Vorlagen im eigenen Mandanten
+  - EF-Migration `AddAuditTemplateCommunityFields`
+  - Snapshot-Logik beim Auditstart unverändert – laufende Durchläufe bleiben bei Vorlagenänderungen geschützt
+
+- **Audit-Vorlagen: Eigene und offizielle Vorlagen (Teil 1):**
+  - `AuditTemplateType` Enum: `Tenant` (eigene Mandantenvorlage) und `Official` (Plattformvorlage)
+  - Eigene Vorlagen: `TenantId` gesetzt, nur im eigenen Mandanten sichtbar, bearbeitbar durch **Admin**/**Auditor** (und Superuser)
+  - Offizielle Vorlagen: `TenantId` null, für alle Mandanten sichtbar, nur **Superuser** darf erstellen/bearbeiten/archivieren
+  - Button „Neue Vorlage“ erstellt weiterhin Mandantenvorlagen im aktuell ausgewählten Mandanten (auch für Superuser)
+  - Zusätzlicher Button „Neue globale Vorlage“ nur für **Superuser** → `/audit-templates/edit?type=official` (ohne `TenantId` des Mandantenkontexts)
+  - Mandanten sehen offizielle Vorlagen schreibgeschützt („Ansehen“ statt „Bearbeiten“)
+  - Badges in der Liste: „Eigene Vorlage“ / „Offiziell“
+  - `IAuditTemplateService` / `AuditTemplateService`: serverseitige Sichtbarkeits- und Berechtigungsprüfungen
+  - Snapshot beim Auditstart: Fragentext/-metadaten in `AuditAnswer`, Vorlagentitel/-version in `AuditRun` – laufende Durchläufe bleiben bei Vorlagenänderungen unverändert
+  - EF-Migration `AddAuditTemplateTypeAndSnapshots` inkl. Backfill bestehender Daten
+  - Community-Vorlagen bewusst **nicht** enthalten (geplant für späteren Schritt)
+
 - **Zentrale Erinnerungsfunktion (Version 1 – manueller Versandassistent):**
   - Seite `/admin/erinnerungen` für Superuser und Mandanten-Admins (Verwaltung → Erinnerungen)
   - `IReminderService` / `ReminderService`: Vorschau und manueller Versand, keine History, kein Background-Job

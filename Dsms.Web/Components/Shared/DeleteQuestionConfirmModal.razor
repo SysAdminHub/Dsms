@@ -1,0 +1,61 @@
+@* Bestätigungsdialog zum Löschen einer Audit-Vorlagenfrage. *@
+@if (_visible)
+{
+    <div class="modal fade show d-block dsms-archive-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Frage löschen?</h5>
+                    <button type="button" class="btn-close" @onclick="Cancel"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Möchten Sie diese Frage wirklich löschen?</p>
+                    @if (!string.IsNullOrEmpty(_preview))
+                    {
+                        <p class="text-muted small mb-0">@_preview</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel">Abbrechen</button>
+                    <button type="button" class="btn btn-danger" disabled="@_busy" @onclick="Confirm">Löschen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter] public EventCallback<int> OnConfirmed { get; set; }
+
+    private bool _visible;
+    private bool _busy;
+    private int _questionId;
+    private string? _preview;
+
+    public void Show(int questionId, string? preview)
+    {
+        _questionId = questionId;
+        _preview = preview;
+        _visible = true;
+        StateHasChanged();
+    }
+
+    public void Hide() => _visible = false;
+
+    private async Task Confirm()
+    {
+        _busy = true;
+        try
+        {
+            _visible = false;
+            await OnConfirmed.InvokeAsync(_questionId);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void Cancel() => _visible = false;
+}

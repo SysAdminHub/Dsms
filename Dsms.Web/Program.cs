@@ -42,6 +42,7 @@ builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<IUserAccessService, UserAccessService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddScoped<IArchivingService, ArchivingService>();
+builder.Services.AddScoped<IAuditTemplateService, AuditTemplateService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ProcessingActivityRelationsService>();
 builder.Services.AddScoped<DocumentStorageService>();

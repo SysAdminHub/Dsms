@@ -32,7 +32,9 @@ else
                     <InputSelect class="form-select" @bind-Value="_model.AuditTemplateId">
                         @foreach (var template in _templates)
                         {
-                            <option value="@template.Id">@template.Title (@template.Version)</option>
+                            <option value="@template.Id">
+                                @template.Title (@template.Version) – @AuditTemplateLabels.GetTypeBadge(template.TemplateType)
+                            </option>
                         }
                     </InputSelect>
                 </div>
@@ -67,6 +69,7 @@ else
 @code {
     [Parameter] public int? Id { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private IAuditTemplateService TemplateService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
@@ -79,10 +82,7 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
-        _templates = await Db.AuditTemplates
-            .Where(t => t.TenantId == _tenantId && t.IsActive)
-            .OrderBy(t => t.Title)
-            .ToListAsync();
+        _templates = (await TemplateService.ListActiveForAuditStartAsync()).ToList();
 
         if (Id is > 0)
         {
@@ -106,28 +106,21 @@ else
 
         if (isNew)
         {
+            var template = await TemplateService.GetByIdAsync(_model.AuditTemplateId);
+            if (template is null || !template.IsActive || template.IsArchived)
+            {
+                return;
+            }
+
             if (_model.Status == AuditRunStatus.InProgress)
             {
                 _model.StartedAt = DateTime.UtcNow;
             }
 
             Db.AuditRuns.Add(_model);
-            await Db.SaveChangesAsync(); // Id wird für AuditAnswers benötigt
+            await Db.SaveChangesAsync();
 
-            // Antwort-Platzhalter je Vorlagenfrage – ein Durchlauf, eine Zeile pro Frage.
-            var questions = await Db.AuditQuestions
-                .Where(q => q.AuditTemplateId == _model.AuditTemplateId)
-                .ToListAsync();
-
-            foreach (var question in questions)
-            {
-                Db.AuditAnswers.Add(new AuditAnswer
-                {
-                    AuditRunId = _model.Id,
-                    AuditQuestionId = question.Id
-                });
-            }
-
+            await TemplateService.CreateAnswerSnapshotsAsync(_model, template);
             await Db.SaveChangesAsync();
         }
         else

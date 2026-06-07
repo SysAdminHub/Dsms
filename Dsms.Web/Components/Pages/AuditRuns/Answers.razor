@@ -14,7 +14,7 @@
 }
 else
 {
-    <PageHeader Title="@_run.Title" Subtitle="@($"Vorlage: {_run.AuditTemplate.Title} · Status: {_run.Status}")">
+    <PageHeader Title="@_run.Title" Subtitle="@($"Vorlage: {GetTemplateDisplayTitle()} · Status: {_run.Status}")">
         <a class="btn btn-outline-secondary" href="audit-runs">Zurück</a>
     </PageHeader>
 
@@ -23,7 +23,7 @@ else
     @foreach (var answer in _answers)
     {
         <div class="dsms-answer-card">
-            <h5>@answer.AuditQuestion.SortOrder. @answer.AuditQuestion.Text</h5>
+            <h5>@AuditAnswerDisplay.GetSortOrder(answer). @AuditAnswerDisplay.GetQuestionText(answer)</h5>
             <EditForm Model="answer" OnValidSubmit="() => SaveAnswerAsync(answer)" FormName="@($"answer-{answer.Id}")" class="dsms-form">
                 <div class="mb-3">
                     <label class="form-label">Antwort</label>
@@ -90,8 +90,8 @@ else
         _answers = await Db.AuditAnswers
             .Include(a => a.AuditQuestion)
             .Where(a => a.AuditRunId == Id)
-            .OrderBy(a => a.AuditQuestion.SortOrder)
             .ToListAsync();
+        _answers = _answers.OrderBy(AuditAnswerDisplay.GetSortOrder).ToList();
 
         await LoadMeasureCountsAsync();
     }
@@ -117,5 +117,19 @@ else
         answer.AnsweredAt = DateTime.UtcNow;
         answer.UpdatedAt = DateTime.UtcNow;
         await Db.SaveChangesAsync();
+    }
+
+    private string GetTemplateDisplayTitle()
+    {
+        if (_run is null) return "";
+        if (!string.IsNullOrEmpty(_run.TemplateTitleSnapshot))
+        {
+            var version = _run.TemplateVersionSnapshot;
+            return string.IsNullOrEmpty(version)
+                ? _run.TemplateTitleSnapshot
+                : $"{_run.TemplateTitleSnapshot} ({version})";
+        }
+
+        return _run.AuditTemplate?.Title ?? "—";
     }
 }

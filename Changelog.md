@@ -6,6 +6,17 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Maßnahmen direkt aus Auditfragen erstellen:**
+  - Button „+ Maßnahme anlegen“ in `/audit-runs/answers/{Id}` neben „Speichern“
+  - Sichtbar nur bei Bewertungen mit Handlungsbedarf (Offen, Teilweise, Nicht konform) über `ComplianceLabels.ShouldShowCreateMeasureButton`
+  - Kein Button bei Konform oder Nicht anwendbar
+  - Vorausgefüllte Maßnahme über `/measures/edit?auditRunId=…&auditAnswerId=…` (Titel, Beschreibung, Audit-Durchlauf)
+  - Optionale Verknüpfung `Measure.AuditAnswerId` (EF-Migration `AddMeasureAuditAnswerLink`)
+  - Hinweis „X Maßnahme(n) vorhanden“ pro Auditfrage, verlinkt auf gefilterte Maßnahmenliste (`/measures?auditAnswerId=…`)
+  - Tenant-Prüfung beim Prefill und Speichern (Audit-Antwort muss zum Mandanten gehören)
+
+### Hinzugefügt (früher)
+
 - **QR-Code für Zwei-Faktor-Authentifizierung:**
   - EnableAuthenticator: QR-Code-Anzeige (QRCoder) unter dem Secret Key, otpauth-URI mit App-Name „DSMS“
   - Fallback: Secret Key bleibt sichtbar, wenn QR-Generierung fehlschlägt

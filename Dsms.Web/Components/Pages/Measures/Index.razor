@@ -12,7 +12,7 @@
 }
 else
 {
-    <PageHeader Title="Maßnahmen" Subtitle="Offene und abgeschlossene Datenschutz-Maßnahmen">
+    <PageHeader Title="Maßnahmen" Subtitle="@GetSubtitle()">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (!_showArchived)
@@ -90,6 +90,8 @@ else
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "auditAnswerId")]
+    public int? AuditAnswerId { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
@@ -97,21 +99,46 @@ else
     private int? _tenantId;
     private bool _showArchived;
     private List<Measure>? _measures;
+    private string? _filterQuestionText;
 
     protected override async Task OnInitializedAsync()
     {
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
+        if (AuditAnswerId is int answerId)
+        {
+            var answer = await Db.AuditAnswers
+                .Include(a => a.AuditQuestion)
+                .Include(a => a.AuditRun)
+                .FirstOrDefaultAsync(a => a.Id == answerId && a.AuditRun.TenantId == _tenantId);
+
+            if (answer is not null)
+                _filterQuestionText = answer.AuditQuestion.Text;
+        }
+
         await LoadDataAsync();
+    }
+
+    private string GetSubtitle()
+    {
+        if (_filterQuestionText is not null)
+            return $"Maßnahmen zur Auditfrage: {_filterQuestionText}";
+
+        return "Offene und abgeschlossene Datenschutz-Maßnahmen";
     }
 
     private async Task LoadDataAsync()
     {
         _showArchived = ArchiveView.ShowArchivedOnly;
+        var query = Db.Measures.Include(m => m.AuditRun).AsQueryable();
+
+        if (AuditAnswerId is int answerId)
+            query = query.Where(m => m.AuditAnswerId == answerId);
+
         _measures = _showArchived
-            ? await Db.Measures.Include(m => m.AuditRun).OrderByDescending(m => m.ArchivedAt).ToListAsync()
-            : await Db.Measures.Include(m => m.AuditRun).OrderBy(m => m.DueDate).ToListAsync();
+            ? await query.OrderByDescending(m => m.ArchivedAt).ToListAsync()
+            : await query.OrderBy(m => m.DueDate).ToListAsync();
     }
 
     private static string GetMeasureVariant(MeasureStatus status) => status switch

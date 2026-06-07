@@ -103,6 +103,8 @@ public class ApplicationDbContext(
             e.HasOne(m => m.Tenant).WithMany(t => t.Measures).OnDelete(DeleteBehavior.Restrict);
             // Maßnahme bleibt erhalten, Verknüpfung zum Audit wird aufgehoben.
             e.HasOne(m => m.AuditRun).WithMany(r => r.Measures).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(m => m.AuditAnswer).WithMany(a => a.Measures).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(m => m.AuditAnswerId);
         });
 
         builder.Entity<EvidenceDocument>(e =>

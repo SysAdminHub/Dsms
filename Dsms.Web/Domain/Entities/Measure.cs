@@ -4,7 +4,7 @@ namespace Dsms.Web.Domain.Entities;
 
 /// <summary>
 /// Umsetzungsmaßnahme aus einem Audit oder freistehend im Mandanten.
-/// Optional verknüpft mit <see cref="AuditRun"/>.
+/// Optional verknüpft mit <see cref="AuditRun"/> und/oder <see cref="AuditAnswer"/>.
 /// </summary>
 public class Measure : ArchivableEntityBase, ITenantEntity
 {
@@ -13,6 +13,10 @@ public class Measure : ArchivableEntityBase, ITenantEntity
 
     public int? AuditRunId { get; set; }
     public AuditRun? AuditRun { get; set; }
+
+    /// <summary>Konkrete Audit-Antwort, aus der die Maßnahme entstanden ist (optional).</summary>
+    public int? AuditAnswerId { get; set; }
+    public AuditAnswer? AuditAnswer { get; set; }
 
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }

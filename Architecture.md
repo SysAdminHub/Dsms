@@ -154,7 +154,7 @@ Zusätzlich alle **ASP.NET Identity**-Standardtabellen (`AspNetUsers`, `AspNetRo
 - **Restrict** beim Löschen von Mandanten, wenn abhängige Fachdaten existieren.
 - **Cascade** von Vorlage → Fragen; von Durchlauf → Antworten.
 - **Unique Index** auf `(AuditRunId, AuditQuestionId)` für Antworten.
-- **SetNull** bei Löschen eines Audit-Durchlaufs für verknüpfte Maßnahmen und Dokumente.
+- **SetNull** bei Löschen eines Audit-Durchlaufs für verknüpfte Maßnahmen und Dokumente; **SetNull** bei Löschen einer Audit-Antwort für `Measure.AuditAnswerId`.
 
 ### Datenmodell (Fach-Entities)
 
@@ -174,9 +174,9 @@ Alle anderen Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `Updat
 Tenant
  ├── AuditTemplate ── AuditQuestion
  │        └── AuditRun ── AuditAnswer (→ AuditQuestion)
- │              ├── Measure
+ │              ├── Measure (optional AuditAnswerId)
  │              └── EvidenceDocument
- ├── Measure (optional AuditRun)
+ ├── Measure (optional AuditRun, optional AuditAnswerId)
  ├── EvidenceDocument
  ├── ProcessingActivity (VVT) ←──→ Tom (ProcessingActivityTom)
  │        ←──→ ServiceProvider (ProcessingActivityServiceProvider, Rolle)
@@ -288,7 +288,7 @@ Reihenfolge in `Program.cs`:
 
 ### Migrationen
 
-- Migrationen: **`InitialCreate`**, **`AddProcessingActivities`**, **`AddToms`**, **`AddServiceProviders`**, **`AddProcessingActivityRelations`**, **`AddDataProtectionImpactAssessments`** (Tabelle `DataProtectionImpactAssessments`; Spalte `EvidenceDocuments.DataProtectionImpactAssessmentId`)
+- Migrationen: **`InitialCreate`**, **`AddProcessingActivities`**, **`AddToms`**, **`AddServiceProviders`**, **`AddProcessingActivityRelations`**, **`AddDataProtectionImpactAssessments`**, **`AddArchivingSoftDelete`**, **`AddMeasureAuditAnswerLink`** (optionale Spalte `Measures.AuditAnswerId`)
 - Snapshot: `Migrations/ApplicationDbContextModelSnapshot.cs`
 
 ### Seed (`DatabaseSeeder.SeedAsync`)

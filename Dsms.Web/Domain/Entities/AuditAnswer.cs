@@ -21,4 +21,7 @@ public class AuditAnswer : EntityBase
 
     /// <summary>Verarbeitungstätigkeiten, denen diese Audit-Antwort zugeordnet ist.</summary>
     public ICollection<ProcessingActivityAuditAnswer> ProcessingActivityLinks { get; set; } = [];
+
+    /// <summary>Maßnahmen, die aus dieser Audit-Antwort entstanden sind.</summary>
+    public ICollection<Measure> Measures { get; set; } = [];
 }

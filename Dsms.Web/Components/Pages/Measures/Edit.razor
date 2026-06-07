@@ -10,6 +10,12 @@
     <PageHeader Title="Maßnahme" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
+else if (!string.IsNullOrEmpty(_prefillError))
+{
+    <PageHeader Title="Maßnahme anlegen" />
+    <div class="alert alert-warning dsms-alert">@_prefillError</div>
+    <a class="btn btn-outline-secondary" href="measures">Zurück zur Übersicht</a>
+}
 else
 {
     <PageHeader Title="@(_model.Id == 0 ? "Maßnahme anlegen" : "Maßnahme bearbeiten")" />
@@ -98,6 +104,10 @@ else
 
 @code {
     [Parameter] public int? Id { get; set; }
+    [SupplyParameterFromQuery(Name = "auditRunId")]
+    public int? AuditRunId { get; set; }
+    [SupplyParameterFromQuery(Name = "auditAnswerId")]
+    public int? AuditAnswerId { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
@@ -106,6 +116,7 @@ else
     private int? _tenantId;
     private bool _canEditLinks;
     private string? _linkSaveError;
+    private string? _prefillError;
     private Measure _model = new() { Status = MeasureStatus.Open };
     private DateOnly? _dueDate;
     private List<AuditRun> _auditRuns = [];
@@ -144,12 +155,91 @@ else
         else
         {
             _model.TenantId = _tenantId.Value;
+            await TryPrefillFromAuditAnswerAsync();
         }
+    }
+
+    private async Task TryPrefillFromAuditAnswerAsync()
+    {
+        if (AuditAnswerId is not int answerId || _tenantId is not int tenantId)
+            return;
+
+        var answer = await Db.AuditAnswers
+            .Include(a => a.AuditQuestion)
+            .Include(a => a.AuditRun)
+            .FirstOrDefaultAsync(a => a.Id == answerId);
+
+        if (answer is null
+            || answer.AuditRun.TenantId != tenantId
+            || (AuditRunId is int runId && answer.AuditRunId != runId))
+        {
+            _prefillError = "Die angegebene Audit-Antwort ist ungültig oder gehört nicht zu Ihrem Mandanten.";
+            return;
+        }
+
+        _model.AuditRunId = answer.AuditRunId;
+        _model.AuditAnswerId = answer.Id;
+        _model.Status = MeasureStatus.Open;
+        _model.Title = BuildMeasureTitle(answer.AuditQuestion.Text);
+        _model.Description = BuildMeasureDescription(answer);
+    }
+
+    private static string BuildMeasureTitle(string questionText)
+    {
+        const string prefix = "Maßnahme zu Auditfrage: ";
+        var title = prefix + questionText.Trim();
+        return title.Length <= 200 ? title : title[..197] + "...";
+    }
+
+    private static string BuildMeasureDescription(AuditAnswer answer)
+    {
+        var question = answer.AuditQuestion.Text.Trim();
+        var answerText = string.IsNullOrWhiteSpace(answer.AnswerText) ? "—" : answer.AnswerText.Trim();
+        var rating = ComplianceLabels.GetLevelLabel(answer.ComplianceLevel);
+        var notes = string.IsNullOrWhiteSpace(answer.Notes) ? "—" : answer.Notes.Trim();
+
+        return string.Join(Environment.NewLine, new[]
+        {
+            "Diese Maßnahme wurde aus einem Auditdurchlauf heraus erstellt.",
+            "",
+            "Auditfrage:",
+            question,
+            "",
+            "Antwort:",
+            answerText,
+            "",
+            "Bewertung:",
+            rating,
+            "",
+            "Notizen:",
+            notes,
+            "",
+            "Bitte prüfen und geeignete Korrekturmaßnahmen umsetzen."
+        });
     }
 
     private async Task SaveAsync()
     {
+        if (string.IsNullOrWhiteSpace(_model.Title))
+        {
+            _linkSaveError = "Bitte geben Sie einen Titel ein.";
+            return;
+        }
+
         _model.DueDate = _dueDate;
+
+        if (_model.AuditAnswerId is int answerId && _tenantId is int tenantId)
+        {
+            var answerValid = await Db.AuditAnswers
+                .AnyAsync(a => a.Id == answerId
+                    && a.AuditRun.TenantId == tenantId
+                    && (!_model.AuditRunId.HasValue || a.AuditRunId == _model.AuditRunId));
+            if (!answerValid)
+            {
+                _linkSaveError = "Die Audit-Antwort ist ungültig oder gehört nicht zu Ihrem Mandanten.";
+                return;
+            }
+        }
 
         // Abschlussdatum einmalig setzen, wenn Status auf Done wechselt.
         if (_model.Status == MeasureStatus.Done)
@@ -168,10 +258,10 @@ else
 
         await Db.SaveChangesAsync();
 
-        if (_canEditLinks && _model.Id > 0 && _tenantId is int tenantId)
+        if (_canEditLinks && _model.Id > 0 && _tenantId is int linkTenantId)
         {
             var linkResult = await Relations.SaveMeasureProcessingActivitiesAsync(
-                tenantId,
+                linkTenantId,
                 _model.Id,
                 _selectedProcessingActivityIds);
 

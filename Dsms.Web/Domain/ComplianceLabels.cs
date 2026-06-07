@@ -27,4 +27,7 @@ public static class ComplianceLabels
     /// <summary>Bewertungen, die auf der VVT-Detailseite als Warnhinweis gelten.</summary>
     public static bool IsProblematic(ComplianceLevel level) =>
         level is ComplianceLevel.Open or ComplianceLevel.Partial or ComplianceLevel.NonCompliant;
+
+    /// <summary>Handlungsbedarf: Button „Maßnahme anlegen“ im Auditdurchlauf anzeigen.</summary>
+    public static bool ShouldShowCreateMeasureButton(ComplianceLevel level) => IsProblematic(level);
 }

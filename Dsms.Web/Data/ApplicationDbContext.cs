@@ -1,4 +1,5 @@
 using Dsms.Web.Domain.Entities;
+using Dsms.Web.Domain.Enums;
 using Dsms.Web.Services;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -69,7 +70,9 @@ public class ApplicationDbContext(
             e.Property(t => t.Title).HasMaxLength(200).IsRequired();
             e.Property(t => t.Version).HasMaxLength(20);
             e.Property(t => t.ArchivedByUserId).HasMaxLength(450);
-            // Mandant darf nicht gelöscht werden, solange Vorlagen existieren.
+            e.Property(t => t.SubmittedByUserId).HasMaxLength(450);
+            e.Property(t => t.ReviewedByUserId).HasMaxLength(450);
+            e.Property(t => t.ReviewComment).HasMaxLength(2000);
             e.HasOne(t => t.Tenant).WithMany(t => t.AuditTemplates).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -84,6 +87,8 @@ public class ApplicationDbContext(
         builder.Entity<AuditRun>(e =>
         {
             e.Property(r => r.Title).HasMaxLength(200).IsRequired();
+            e.Property(r => r.TemplateTitleSnapshot).HasMaxLength(200);
+            e.Property(r => r.TemplateVersionSnapshot).HasMaxLength(20);
             e.Property(r => r.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(r => r.Tenant).WithMany(t => t.AuditRuns).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(r => r.AuditTemplate).WithMany(t => t.AuditRuns).OnDelete(DeleteBehavior.Restrict);
@@ -91,10 +96,10 @@ public class ApplicationDbContext(
 
         builder.Entity<AuditAnswer>(e =>
         {
+            e.Property(a => a.QuestionText).HasMaxLength(2000);
+            e.Property(a => a.QuestionCategory).HasMaxLength(100);
             e.HasOne(a => a.AuditRun).WithMany(r => r.Answers).OnDelete(DeleteBehavior.Cascade);
-            // Frage bleibt in der Vorlage, auch wenn ein Durchlauf gelöscht wird – daher Restrict auf Question.
             e.HasOne(a => a.AuditQuestion).WithMany(q => q.Answers).OnDelete(DeleteBehavior.Restrict);
-            // Pro Durchlauf höchstens eine Antwort je Vorlagenfrage.
             e.HasIndex(a => new { a.AuditRunId, a.AuditQuestionId }).IsUnique();
         });
 
@@ -327,7 +332,14 @@ public class ApplicationDbContext(
     /// </summary>
     private void ApplyTenantQueryFilters(ModelBuilder builder)
     {
-        ApplyArchivableTenantFilter<AuditTemplate>(builder);
+        builder.Entity<AuditTemplate>()
+            .HasQueryFilter(t => tenantContextAccessor.CurrentTenantId.HasValue
+                && t.IsArchived == archiveViewContextAccessor.ShowArchivedOnly
+                && (t.TemplateType == AuditTemplateType.Official
+                    || t.TemplateType == AuditTemplateType.Community
+                    || (t.TemplateType == AuditTemplateType.Tenant
+                        && t.TenantId == tenantContextAccessor.CurrentTenantId)));
+
         ApplyArchivableTenantFilter<AuditRun>(builder);
         ApplyArchivableTenantFilter<Measure>(builder);
         ApplyArchivableTenantFilter<EvidenceDocument>(builder);

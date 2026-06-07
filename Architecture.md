@@ -169,14 +169,16 @@ Archivierbare Module erben von **`ArchivableEntityBase`** (`EntityBase` + `IArch
 
 Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `Tom`, `ServiceProvider`, `AuditTemplate`, `AuditRun`, `Measure`, `EvidenceDocument`.
 
+**`AuditTemplate`** erbt nur von `ArchivableEntityBase` (nicht `ITenantEntity`): `TenantId` bei eigenen Vorlagen gesetzt, bei globalen Vorlagen (`Official`, `Community`) `null`. Zusätzlich `CommunityStatus` und Prüffelder für Einreichungen. Sichtbarkeit: eigene Mandantenvorlagen + globale `Official`/`Community` über Query Filter. Community-Freigabe erstellt separate globale Kopie; Ursprungsvorlage bleibt beim Mandanten (`CommunityStatus = Approved`).
+
 Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen.
 
 Alle anderen Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `UpdatedAt`).
 
 ```
 Tenant
- ├── AuditTemplate ── AuditQuestion
- │        └── AuditRun ── AuditAnswer (→ AuditQuestion)
+ ├── AuditTemplate (Tenant | Official | Community) ── AuditQuestion
+ │        └── AuditRun ── AuditAnswer (Snapshot + FK AuditQuestion)
  │              ├── Measure (optional AuditAnswerId)
  │              └── EvidenceDocument
  ├── Measure (optional AuditRun, optional AuditAnswerId)
@@ -219,6 +221,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `DocumentFileEndpoints` | Minimal API | `GET /documents/{id}/download` und `/view` – mandantengebunden via EF-Filter |
 | `ArchiveViewContextAccessor` | Scoped | Aktiv-/Archivansicht für EF Global Query Filter (`ShowArchivedOnly`) |
 | `IArchivingService` / `ArchivingService` | Scoped | Soft Delete: Archivieren, Wiederherstellen, Abhängigkeitswarnungen |
+| `IAuditTemplateService` / `AuditTemplateService` | Scoped | Mandantensichere Sichtbarkeit, Bearbeitungsrechte, Archivierung, Community-Workflow und Fragen-CRUD; Frage-Snapshots beim Auditstart |
 | `IdentityRedirectManager` | Scoped | Weiterleitungen nach Login/Logout |
 | `IdentityRevalidatingAuthenticationStateProvider` | Scoped | Auth-State-Revalidierung für Blazor |
 | `IdentityNoOpEmailSender` | Singleton | Identity-Stub (Passwort-Reset etc. noch ohne Workflow-Anbindung) |
@@ -305,7 +308,7 @@ Reihenfolge in `Program.cs`:
 
 ### Migrationen
 
-- Migrationen: **`InitialCreate`**, **`AddProcessingActivities`**, **`AddToms`**, **`AddServiceProviders`**, **`AddProcessingActivityRelations`**, **`AddDataProtectionImpactAssessments`**, **`AddArchivingSoftDelete`**, **`AddMeasureAuditAnswerLink`** (optionale Spalte `Measures.AuditAnswerId`)
+- Migrationen: **`InitialCreate`**, **`AddProcessingActivities`**, **`AddToms`**, **`AddServiceProviders`**, **`AddProcessingActivityRelations`**, **`AddDataProtectionImpactAssessments`**, **`AddArchivingSoftDelete`**, **`AddMeasureAuditAnswerLink`** (optionale Spalte `Measures.AuditAnswerId`), **`AddAuditTemplateTypeAndSnapshots`** (`AuditTemplates.TemplateType`, nullable `TenantId`, Snapshot-Felder auf `AuditAnswers` und `AuditRuns`), **`AddAuditTemplateCommunityFields`** (`CommunityStatus`, Einreichungs- und Prüffelder)
 - Snapshot: `Migrations/ApplicationDbContextModelSnapshot.cs`
 
 ### Seed (`DatabaseSeeder.SeedAsync`)

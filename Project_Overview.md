@@ -46,7 +46,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | DSFA | Datenschutz-Folgenabschätzungen – Listen, Detail, Anlegen/Bearbeiten; Zuordnung zu Verarbeitungstätigkeiten |
 | TOM-Verzeichnis | Technische und organisatorische Maßnahmen – Listen, Detail, Anlegen/Bearbeiten; Verknüpfung mit Verarbeitungstätigkeiten |
 | Dienstleister | Auftragsverarbeiter und externe Dienstleister – AVV, Drittland, TOM-Prüfung; Verknüpfung mit VVT und TOMs |
-| Audit-Vorlagen | Listen, Anlegen und Bearbeiten von Vorlagen inkl. Fragen |
+| Audit-Vorlagen | Eigene, offizielle und Community-Vorlagen; Einreichung zur Community-Prüfung; Listen, Anlegen, Bearbeiten/Ansehen inkl. Fragen |
 | Audit-Durchläufe | Listen, Anlegen und Bearbeiten von Durchläufen; Beantwortung der Vorlagenfragen |
 | Maßnahmen | Listen, Anlegen und Bearbeiten von Maßnahmen mit Status und Fälligkeit; direkt aus Auditfragen bei Handlungsbedarf |
 | Dokumente | Upload von Nachweisdateien (max. 10 MB), Zuordnung zu Audit, Maßnahme, Dienstleister oder Verarbeitungstätigkeit |
@@ -80,9 +80,12 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | `/service-providers/{Id}` | Dienstleister (Detail) | Alle angemeldeten Benutzer mit Mandant |
 | `/service-providers/edit` | Dienstleister anlegen | Nur **Admin** und **Auditor** |
 | `/service-providers/edit/{Id}` | Dienstleister bearbeiten | Nur **Admin** und **Auditor**; Zuordnung zu VVT und TOMs |
-| `/audit-templates` | Audit-Vorlagen (Liste) | Vorlagen des eigenen Mandanten |
-| `/audit-templates/edit` | Vorlage anlegen | Nur Rollen **Admin** und **Auditor** |
-| `/audit-templates/edit/{Id}` | Vorlage bearbeiten + Fragen hinzufügen | Nur **Admin** und **Auditor** |
+| `/audit-templates` | Audit-Vorlagen (Liste) | Eigene Vorlagen des Mandanten + offizielle Vorlagen; Badge „Eigene Vorlage“ / „Offiziell“; Superuser sieht zusätzlich „Neue globale Vorlage“ |
+| `/audit-templates/edit` | Mandantenvorlage anlegen | **Admin**/**Auditor** und **Superuser** (Vorlage im aktuell ausgewählten Mandanten) |
+| `/audit-templates/edit?type=official` | Globale/offizielle Vorlage anlegen | Nur **Superuser**; `TenantId` bleibt null trotz Mandantenkontext |
+| `/audit-templates/edit/{Id}` | Vorlage bearbeiten oder ansehen + Fragen | Fragen hinzufügen/bearbeiten/löschen nur bei bearbeitbarer Vorlage; offizielle/Community nur **Superuser** |
+| `/platform/audit-templates/community` | Community-Einreichungen prüfen (Liste) | Nur **Superuser** |
+| `/platform/audit-templates/community/{Id}` | Einreichung freigeben oder ablehnen | Nur **Superuser** |
 | `/audit-runs` | Audit-Durchläufe (Liste) | Durchläufe des eigenen Mandanten |
 | `/audit-runs/edit` | Durchlauf anlegen | Nur **Admin** und **Auditor** |
 | `/audit-runs/edit/{Id}` | Durchlauf bearbeiten (Status, Vorlage) | Nur **Admin** und **Auditor** |
@@ -128,7 +131,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | Begriff | Bedeutung im System |
 |--------|---------------------|
 | **Mandant (Tenant)** | Organisationseinheit; Daten werden primär nach `TenantId` getrennt |
-| **Audit-Vorlage** | Wiederverwendbarer Fragenkatalog (Titel, Version, aktiv/inaktiv) |
+| **Audit-Vorlage** | Wiederverwendbarer Fragenkatalog; **Eigene Vorlage**, **Offiziell** (Plattform) oder **Community** (vom Mandanten eingereicht und freigegeben) |
 | **Audit-Frage** | Einzelne Prüffrage in einer Vorlage (Sortierung, Kategorie, Pflichtfeld) |
 | **Audit-Durchlauf** | Konkretes Audit auf Basis einer Vorlage mit Lebenszyklus-Status |
 | **Audit-Antwort** | Antwort zu einer Frage innerhalb eines Durchlaufs inkl. Compliance-Bewertung |

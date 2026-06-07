@@ -15,12 +15,17 @@ public interface IPasswordResetService
     /// <summary>Admin/Superuser: konkrete Erfolgs- oder Fehlermeldung.</summary>
     Task<PasswordResetAdminResult> SendAdminResetAsync(string userId);
 
-    /// <summary>Neues Passwort setzen via Identity ResetPasswordAsync.</summary>
+    /// <summary>Willkommensmail mit Einladungslink (Identity-Passwortreset-Token, mode=invite).</summary>
+    Task<PasswordResetAdminResult> SendWelcomeInvitationAsync(string userId);
+
+    /// <summary>Neues Passwort setzen via Identity ResetPasswordAsync (email oder userId).</summary>
     Task<PasswordResetChangeResult> ChangePasswordAsync(
-        string email,
+        string? email,
+        string? userId,
         string encodedToken,
         string newPassword,
-        string confirmPassword);
+        string confirmPassword,
+        bool isInviteMode = false);
 }
 
 public sealed class PasswordResetSelfServiceResult

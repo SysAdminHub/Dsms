@@ -32,7 +32,8 @@ public interface IEmailService
         string tenantName,
         string inviteLink,
         int expiresInMinutes,
-        int? tenantId = null);
+        int? tenantId = null,
+        string? supportEmail = null);
 
     Task<EmailOperationResult> SendReminderEmailAsync(
         string toEmail,

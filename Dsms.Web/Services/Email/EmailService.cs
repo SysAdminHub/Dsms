@@ -126,12 +126,17 @@ public sealed class EmailService(
         string tenantName,
         string inviteLink,
         int expiresInMinutes,
-        int? tenantId = null)
+        int? tenantId = null,
+        string? supportEmail = null)
     {
         var variables = BuildCommonVariables(userName, toEmail);
         variables["TenantName"] = tenantName;
         variables["InviteLink"] = inviteLink;
         variables["ExpiresInMinutes"] = expiresInMinutes.ToString();
+        if (!string.IsNullOrWhiteSpace(supportEmail))
+        {
+            variables["SupportEmail"] = supportEmail;
+        }
         return SendTemplateEmailAsync(toEmail, EmailTemplateKeys.WelcomeSetPassword, variables);
     }
 

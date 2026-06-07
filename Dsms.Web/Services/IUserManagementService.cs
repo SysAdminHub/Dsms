@@ -30,7 +30,6 @@ public sealed class UserCreateModel
 {
     public string Email { get; set; } = "";
     public string DisplayName { get; set; } = "";
-    public string Password { get; set; } = "";
     public string Role { get; set; } = "";
     /// <summary>Legacy: einzelner Mandant (wird in <see cref="TenantIds"/> überführt).</summary>
     public int? TenantId { get; set; }
@@ -53,7 +52,12 @@ public sealed class UserOperationResult
     public string? ErrorMessage { get; init; }
     public IEnumerable<string> IdentityErrors { get; init; } = [];
 
+    public string? InfoMessage { get; init; }
+
     public static UserOperationResult Ok() => new() { Succeeded = true };
+
+    public static UserOperationResult OkWithInfo(string infoMessage) =>
+        new() { Succeeded = true, InfoMessage = infoMessage };
 
     public static UserOperationResult Fail(string message) =>
         new() { Succeeded = false, ErrorMessage = message };

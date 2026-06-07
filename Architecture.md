@@ -227,7 +227,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IEmailTemplateService` / `EmailTemplateService` | Scoped | Vorlagen CRUD, Vorschau, Testmail aus Vorlage (nur Superuser) |
 | `IEmailTemplateRenderer` / `EmailTemplateRenderer` | Scoped | Platzhalterersetzung `{{VariableName}}` |
 | `IEmailSecretProtector` / `EmailSecretProtector` | Scoped | SMTP-Passwort-Schutz via ASP.NET Data Protection |
-| `IPasswordResetService` / `PasswordResetService` | Scoped | Passwortreset via Identity-Token + `IEmailService`; Rate Limit über `IDistributedCache` |
+| `IPasswordResetService` / `PasswordResetService` | Scoped | Passwortreset und Willkommens-Einladungen via Identity-Token + `IEmailService`; Rate Limit über `IDistributedCache` |
 
 ## Authentifizierung und Berechtigungen
 
@@ -239,8 +239,9 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 - Cookies: `AddIdentityCookies()`
 - Zentraler Emailversand: `EmailService` (MailKit); Passwortreset nutzt `PasswordResetService` + Vorlage `PasswordReset`
 - Identity-Stub `IdentityNoOpEmailSender` bleibt für übrige Identity-UI (Registrierung etc.)
-- Passwortreset-Token: `UserManager.GeneratePasswordResetTokenAsync` / `ResetPasswordAsync`; Lebensdauer 60 Min. (`DataProtectionTokenProviderOptions`)
-- Keine eigene `PasswordResetTokens`-Tabelle
+- Passwortreset- und Einladungs-Token: `UserManager.GeneratePasswordResetTokenAsync` / `ResetPasswordAsync`; Lebensdauer 60 Min. (`DataProtectionTokenProviderOptions`)
+- Keine eigene `PasswordResetTokens`- oder `UserInvitationTokens`-Tabelle
+- Benutzeranlage: `CreateAsync(user)` ohne Passwort, danach `SendWelcomeInvitationAsync` mit Template `WelcomeSetPassword`
 
 ### Rollen (`DsmsRoles`)
 

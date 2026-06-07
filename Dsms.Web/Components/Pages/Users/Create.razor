@@ -18,6 +18,14 @@ else
 {
     <div class="dsms-card dsms-form-card">
         <div class="dsms-card-body">
+            @if (!string.IsNullOrEmpty(_successMessage))
+            {
+                <div class="alert alert-success dsms-alert">@_successMessage</div>
+            }
+            @if (!string.IsNullOrEmpty(_warningMessage))
+            {
+                <div class="alert alert-warning dsms-alert">@_warningMessage</div>
+            }
             @if (!string.IsNullOrEmpty(_errorMessage))
             {
                 <div class="alert alert-danger dsms-alert">@_errorMessage</div>
@@ -35,6 +43,12 @@ else
                 </div>
             }
 
+            @if (_created)
+            {
+                <p class="text-muted">Der Benutzer wurde angelegt. Über den Link in der Willkommensmail kann das Passwort festgelegt werden.</p>
+            }
+            else
+            {
             <EditForm Model="_model" FormName="user-create" OnValidSubmit="SaveAsync" class="dsms-form">
                 <DataAnnotationsValidator />
                 <ValidationSummary class="alert alert-danger dsms-alert" />
@@ -46,11 +60,6 @@ else
                 <div class="mb-3">
                     <label class="form-label">Anzeigename</label>
                     <InputText class="form-control" @bind-Value="_model.DisplayName" />
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Passwort</label>
-                    <InputText type="password" class="form-control" @bind-Value="_model.Password" />
-                    <div class="form-text">Mindestens 8 Zeichen, mit Ziffer und Kleinbuchstabe.</div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Rolle</label>
@@ -106,6 +115,14 @@ else
                     <a class="btn btn-outline-secondary" href="users">Abbrechen</a>
                 </div>
             </EditForm>
+            }
+
+            @if (_created)
+            {
+                <div class="dsms-form-actions mt-3">
+                    <a class="btn btn-outline-secondary" href="users">Zur Benutzerliste</a>
+                </div>
+            }
         </div>
     </div>
 }
@@ -124,6 +141,9 @@ else
     private bool _showTenantSection;
     private bool _isSuperuser;
     private string? _errorMessage;
+    private string? _successMessage;
+    private string? _warningMessage;
+    private bool _created;
 
     private bool CanSubmit =>
         IUserAccessService.RoleRequiresNoTenant(_model.Role) || _model.TenantIds.Count > 0;
@@ -218,6 +238,8 @@ else
     private async Task SaveAsync()
     {
         _errorMessage = null;
+        _successMessage = null;
+        _warningMessage = null;
 
         // Vor dem Speichern erneut mit TenantContextService synchronisieren (zentrale Wahrheit).
         await SyncTenantsFromContextAsync();
@@ -232,7 +254,6 @@ else
         {
             Email = _model.Email,
             DisplayName = _model.DisplayName,
-            Password = _model.Password,
             Role = _model.Role,
             TenantId = _model.TenantId,
             TenantIds = _model.TenantIds
@@ -244,7 +265,16 @@ else
             return;
         }
 
-        Navigation.NavigateTo("users");
+        _created = true;
+        if (!string.IsNullOrEmpty(result.InfoMessage)
+            && result.InfoMessage.Contains("konnte nicht gesendet", StringComparison.OrdinalIgnoreCase))
+        {
+            _warningMessage = result.InfoMessage;
+        }
+        else
+        {
+            _successMessage = result.InfoMessage ?? "Benutzer wurde angelegt und die Willkommensmail wurde versendet.";
+        }
     }
 
     private sealed class CreateFormModel
@@ -255,10 +285,6 @@ else
 
         [System.ComponentModel.DataAnnotations.Required]
         public string DisplayName { get; set; } = "";
-
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.MinLength(8)]
-        public string Password { get; set; } = "";
 
         public string Role { get; set; } = DsmsRoles.User;
         public int? TenantId { get; set; }

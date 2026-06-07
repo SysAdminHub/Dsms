@@ -6,13 +6,22 @@
 
 @inject IPasswordResetService PasswordReset
 
-<PageTitle>Passwort zurücksetzen</PageTitle>
+<PageTitle>@(_isInviteMode ? "Passwort festlegen" : "Passwort zurücksetzen")</PageTitle>
 
 <div class="dsms-login-card">
     <div class="dsms-login-brand">
         <div class="dsms-login-logo">DS</div>
-        <h1>Passwort zurücksetzen</h1>
-        <p>Legen Sie ein neues Passwort für Ihr Konto fest.</p>
+        <h1>@(_isInviteMode ? "Passwort festlegen" : "Passwort zurücksetzen")</h1>
+        <p>
+            @if (_isInviteMode)
+            {
+                <text>Willkommen! Legen Sie Ihr Passwort fest, um sich anzumelden.</text>
+            }
+            else
+            {
+                <text>Legen Sie ein neues Passwort für Ihr Konto fest.</text>
+            }
+        </p>
     </div>
 
     @if (_completed)
@@ -23,7 +32,14 @@
     else if (_linkInvalid)
     {
         <div class="alert alert-danger dsms-alert" role="alert">@_errorMessage</div>
-        <a class="btn btn-outline-secondary w-100 mt-2" href="passwort-vergessen">Neuen Passwortreset anfordern</a>
+        @if (_isInviteMode)
+        {
+            <p class="text-muted small">Bitte wende dich an deinen Administrator, um eine neue Einladung zu erhalten.</p>
+        }
+        else
+        {
+            <a class="btn btn-outline-secondary w-100 mt-2" href="passwort-vergessen">Neuen Passwortreset anfordern</a>
+        }
     }
     else
     {
@@ -37,10 +53,11 @@
             <ValidationSummary class="text-danger dsms-alert alert alert-danger" role="alert" />
 
             <input type="hidden" name="Input.Email" value="@Input.Email" />
+            <input type="hidden" name="Input.UserId" value="@Input.UserId" />
             <input type="hidden" name="Input.Token" value="@Input.Token" />
 
             <div class="mb-3">
-                <label for="Input.Password" class="form-label">Neues Passwort</label>
+                <label for="Input.Password" class="form-label">@(_isInviteMode ? "Neues Passwort" : "Neues Passwort")</label>
                 <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" />
                 <ValidationMessage For="() => Input.Password" class="validation-message" />
             </div>
@@ -49,7 +66,9 @@
                 <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" />
                 <ValidationMessage For="() => Input.ConfirmPassword" class="validation-message" />
             </div>
-            <button type="submit" class="w-100 btn btn-primary btn-lg" disabled="@_submitting">Passwort ändern</button>
+            <button type="submit" class="w-100 btn btn-primary btn-lg" disabled="@_submitting">
+                @(_isInviteMode ? "Passwort festlegen" : "Passwort ändern")
+            </button>
         </EditForm>
     }
 </div>
@@ -62,8 +81,15 @@
     private string? Email { get; set; }
 
     [SupplyParameterFromQuery]
+    private string? UserId { get; set; }
+
+    [SupplyParameterFromQuery]
     private string? Token { get; set; }
 
+    [SupplyParameterFromQuery]
+    private string? Mode { get; set; }
+
+    private bool _isInviteMode;
     private bool _completed;
     private bool _linkInvalid;
     private bool _submitting;
@@ -74,15 +100,37 @@
     {
         Input ??= new();
 
-        if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Token))
+        // Query-Parameter beim ersten Aufruf; versteckte Felder nach Form-POST
+        if (string.IsNullOrWhiteSpace(Input.Email) && !string.IsNullOrWhiteSpace(Email))
         {
-            _linkInvalid = true;
-            _errorMessage = "Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Passwortreset an.";
-            return;
+            Input.Email = Email;
         }
 
-        Input.Email = Email;
-        Input.Token = Token;
+        if (string.IsNullOrWhiteSpace(Input.UserId) && !string.IsNullOrWhiteSpace(UserId))
+        {
+            Input.UserId = UserId;
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.Token) && !string.IsNullOrWhiteSpace(Token))
+        {
+            Input.Token = Token;
+        }
+
+        _isInviteMode = string.Equals(Mode, "invite", StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrWhiteSpace(Input.UserId) && string.IsNullOrWhiteSpace(Input.Email));
+
+        var hasEmail = !string.IsNullOrWhiteSpace(Input.Email);
+        var hasUserId = !string.IsNullOrWhiteSpace(Input.UserId);
+        var hasToken = !string.IsNullOrWhiteSpace(Input.Token);
+
+        if ((!hasEmail && !hasUserId) || !hasToken)
+        {
+            _linkInvalid = true;
+            _errorMessage = _isInviteMode
+                ? "Der Link ist ungültig oder abgelaufen. Bitte wende dich an deinen Administrator, um eine neue Einladung zu erhalten."
+                : "Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Passwortreset an.";
+            return;
+        }
     }
 
     private async Task OnValidSubmitAsync()
@@ -91,10 +139,12 @@
         _errorMessage = null;
 
         var result = await PasswordReset.ChangePasswordAsync(
-            Input.Email,
+            string.IsNullOrWhiteSpace(Input.Email) ? null : Input.Email,
+            string.IsNullOrWhiteSpace(Input.UserId) ? null : Input.UserId,
             Input.Token,
             Input.Password,
-            Input.ConfirmPassword);
+            Input.ConfirmPassword,
+            _isInviteMode);
 
         if (result.Succeeded)
         {
@@ -119,6 +169,7 @@
     private sealed class InputModel
     {
         public string Email { get; set; } = "";
+        public string UserId { get; set; } = "";
         public string Token { get; set; } = "";
 
         [Required(ErrorMessage = "Passwort ist erforderlich.")]

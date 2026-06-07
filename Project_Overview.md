@@ -52,7 +52,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | Dokumente | Upload von Nachweisdateien (max. 10 MB), Zuordnung zu Audit, Maßnahme, Dienstleister oder Verarbeitungstätigkeit |
 | Mandanten | Verwaltung von Organisationseinheiten (**nur Superuser**, plattformweit) |
 | Email | Zentrale SMTP-Einstellungen und Email-Vorlagen (**nur Superuser**); Testmail und Vorschau |
-| Benutzer | Anlegen und Bearbeiten von Konten, Rollen, Mandant, Aktiv-Status (**Superuser** mandantenübergreifend, **Admin** nur im eigenen Mandant) |
+| Benutzer | Anlegen (ohne Passwort, mit Willkommensmail) und Bearbeiten von Konten, Rollen, Mandant, Aktiv-Status (**Superuser** mandantenübergreifend, **Admin** nur im eigenen Mandant) |
 | Konto | Standard-Identity-Funktionen (Profil, Passwort, optional 2FA usw.) |
 
 ## Module und Seiten
@@ -253,6 +253,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 - Rollenbasierte Navigation und Seitenautorisierung
 - Zentraler Emailservice (Superuser): globale SMTP-Einstellungen, Email-Vorlagen mit Platzhaltern `{{VariableName}}`, Vorschau und Testmail
 - Passwortreset (ASP.NET Identity): Self-Service über „Passwort vergessen?“; Admin/Superuser können Reset-Mails aus der Benutzerverwaltung auslösen
+- Benutzeranlage ohne Passwort: Willkommensmail mit Einladungslink (Identity-Token, 60 Min.); Passwort festlegen über `/passwort-zuruecksetzen?mode=invite`
 
 ### Was das System (noch) nicht kann
 

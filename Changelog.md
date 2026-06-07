@@ -6,6 +6,15 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Benutzeranlage ohne initiales Passwort mit Willkommensmail:**
+  - Passwortfeld aus `/users/create` entfernt; `UserManager.CreateAsync(user)` ohne Passwort
+  - Automatische Willkommensmail nach Anlage (TemplateKey `WelcomeSetPassword`)
+  - Einladungslink nutzt Identity-Passwortreset-Token (`userId` + `token` + `mode=invite`) auf `/passwort-zuruecksetzen`
+  - Passwortreset- und Einladungslinks: beide 60 Minuten gültig (gleiche Identity-Token-Lebensdauer)
+  - Keine eigene `UserInvitationTokens`-Tabelle
+  - „Einladung erneut senden“ in Benutzerverwaltung (Superuser/Admin, mandantensicher)
+  - `PasswordResetService` wiederverwendet für Token-Erzeugung, Link-Bau und Emailversand
+
 - **Passwortreset mit ASP.NET Identity:**
   - Self-Service über Login-Link „Passwort vergessen?“ → `/passwort-vergessen`
   - Reset-Seite `/passwort-zuruecksetzen` mit URL-sicher codiertem Identity-Token (`UserManager.GeneratePasswordResetTokenAsync` / `ResetPasswordAsync`)

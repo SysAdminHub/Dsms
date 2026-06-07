@@ -61,6 +61,12 @@ else
                                         @onclick="() => SendPasswordResetAsync(entry.User.Id)">
                                     Passwortreset-Mail senden
                                 </button>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary ms-1"
+                                        disabled="@(_sendingInviteUserId == entry.User.Id)"
+                                        @onclick="() => SendInvitationAsync(entry.User.Id)">
+                                    Einladung erneut senden
+                                </button>
                             </td>
                         </tr>
                     }
@@ -76,6 +82,7 @@ else
 
     private IReadOnlyList<UserListItem>? _users;
     private string? _sendingUserId;
+    private string? _sendingInviteUserId;
     private string? _successMessage;
     private string? _errorMessage;
 
@@ -99,5 +106,24 @@ else
         }
 
         _sendingUserId = null;
+    }
+
+    private async Task SendInvitationAsync(string userId)
+    {
+        _sendingInviteUserId = userId;
+        _successMessage = null;
+        _errorMessage = null;
+
+        var result = await PasswordReset.SendWelcomeInvitationAsync(userId);
+        if (result.Succeeded)
+        {
+            _successMessage = result.Message;
+        }
+        else
+        {
+            _errorMessage = result.Message;
+        }
+
+        _sendingInviteUserId = null;
     }
 }

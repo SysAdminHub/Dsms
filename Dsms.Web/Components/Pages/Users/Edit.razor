@@ -98,6 +98,9 @@ else
                     <button type="button" class="btn btn-outline-primary" disabled="@_sendingReset" @onclick="SendPasswordResetAsync">
                         Passwortreset-Mail senden
                     </button>
+                    <button type="button" class="btn btn-outline-secondary" disabled="@_sendingInvite" @onclick="SendInvitationAsync">
+                        Einladung erneut senden
+                    </button>
                     <a class="btn btn-outline-secondary" href="users">Abbrechen</a>
                 </div>
             </EditForm>
@@ -125,6 +128,7 @@ else
     private string? _errorMessage;
     private string? _successMessage;
     private bool _sendingReset;
+    private bool _sendingInvite;
     private EditFormModel _editModel = new();
 
     protected override async Task OnInitializedAsync()
@@ -275,6 +279,27 @@ else
         }
 
         _sendingReset = false;
+    }
+
+    private async Task SendInvitationAsync()
+    {
+        if (_user is null) return;
+
+        _sendingInvite = true;
+        _successMessage = null;
+        _errorMessage = null;
+
+        var result = await PasswordReset.SendWelcomeInvitationAsync(_user.Id);
+        if (result.Succeeded)
+        {
+            _successMessage = result.Message;
+        }
+        else
+        {
+            _errorMessage = result.Message;
+        }
+
+        _sendingInvite = false;
     }
 
     private sealed class EditFormModel

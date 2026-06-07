@@ -46,13 +46,13 @@ public sealed class PasswordResetService(
             return new PasswordResetSelfServiceResult { Message = NeutralSelfServiceMessage };
         }
 
-        if (await IsRateLimitedAsync(normalizedEmail))
+        if (await IsRateLimitedAsync("pwd-reset", normalizedEmail))
         {
             return new PasswordResetSelfServiceResult { Message = NeutralSelfServiceMessage };
         }
 
         var sendResult = await SendResetEmailAsync(user);
-        await MarkRateLimitedAsync(normalizedEmail);
+        await MarkRateLimitedAsync("pwd-reset", normalizedEmail);
 
         if (!sendResult.Succeeded)
         {
@@ -67,45 +67,25 @@ public sealed class PasswordResetService(
 
     public async Task<PasswordResetAdminResult> SendAdminResetAsync(string userId)
     {
-        if (!await access.CanManageUsersAsync())
+        var user = await FindManagedUserAsync(userId);
+        if (user.Error is not null)
         {
-            return new PasswordResetAdminResult
-            {
-                Succeeded = false,
-                Message = "Keine Berechtigung zur Benutzerverwaltung."
-            };
+            return user.Error;
         }
 
-        var user = await userManager.FindByIdAsync(userId);
-        if (user is null || !await access.CanManageUserAsync(user))
+        if (user.User!.Email is null)
         {
-            return new PasswordResetAdminResult
-            {
-                Succeeded = false,
-                Message = "Benutzer nicht gefunden oder kein Zugriff."
-            };
+            return FailAdmin("Passwortreset-Mail konnte nicht gesendet werden. Bitte Email-Einstellungen prüfen.");
         }
 
-        if (user.Email is null)
+        if (await IsRateLimitedAsync("pwd-reset", user.User.Email))
         {
-            return new PasswordResetAdminResult
-            {
-                Succeeded = false,
-                Message = "Passwortreset-Mail konnte nicht gesendet werden. Bitte Email-Einstellungen prüfen."
-            };
+            return FailAdmin(
+                $"Für diesen Benutzer wurde kürzlich bereits eine Passwortreset-Mail versendet. Bitte {SelfServiceCooldownMinutes} Minuten warten.");
         }
 
-        if (await IsRateLimitedAsync(user.Email))
-        {
-            return new PasswordResetAdminResult
-            {
-                Succeeded = false,
-                Message = $"Für diesen Benutzer wurde kürzlich bereits eine Passwortreset-Mail versendet. Bitte {SelfServiceCooldownMinutes} Minuten warten."
-            };
-        }
-
-        var sendResult = await SendResetEmailAsync(user);
-        await MarkRateLimitedAsync(user.Email);
+        var sendResult = await SendResetEmailAsync(user.User);
+        await MarkRateLimitedAsync("pwd-reset", user.User.Email);
 
         if (!sendResult.Succeeded)
         {
@@ -114,11 +94,7 @@ public sealed class PasswordResetService(
                 userId,
                 sendResult.DetailMessage ?? sendResult.Message);
 
-            return new PasswordResetAdminResult
-            {
-                Succeeded = false,
-                Message = "Passwortreset-Mail konnte nicht gesendet werden. Bitte Email-Einstellungen prüfen."
-            };
+            return FailAdmin("Passwortreset-Mail konnte nicht gesendet werden. Bitte Email-Einstellungen prüfen.");
         }
 
         return new PasswordResetAdminResult
@@ -128,15 +104,57 @@ public sealed class PasswordResetService(
         };
     }
 
+    public async Task<PasswordResetAdminResult> SendWelcomeInvitationAsync(string userId)
+    {
+        var user = await FindManagedUserAsync(userId);
+        if (user.Error is not null)
+        {
+            return user.Error;
+        }
+
+        if (user.User!.Email is null)
+        {
+            return FailAdmin("Willkommensmail konnte nicht gesendet werden. Bitte Email-Einstellungen prüfen.");
+        }
+
+        if (await IsRateLimitedAsync("invite", user.User.Email))
+        {
+            return FailAdmin(
+                $"Für diesen Benutzer wurde kürzlich bereits eine Willkommensmail versendet. Bitte {SelfServiceCooldownMinutes} Minuten warten.");
+        }
+
+        var tenantName = await ResolveTenantNameAsync(user.User);
+        var sendResult = await SendWelcomeEmailAsync(user.User, tenantName);
+        await MarkRateLimitedAsync("invite", user.User.Email);
+
+        if (!sendResult.Succeeded)
+        {
+            logger.LogWarning(
+                "Willkommensmail für Benutzer {UserId} fehlgeschlagen: {Detail}",
+                userId,
+                sendResult.DetailMessage ?? sendResult.Message);
+
+            return FailAdmin("Willkommensmail konnte nicht gesendet werden. Bitte Email-Einstellungen prüfen.");
+        }
+
+        return new PasswordResetAdminResult
+        {
+            Succeeded = true,
+            Message = "Willkommensmail wurde erneut gesendet."
+        };
+    }
+
     public async Task<PasswordResetChangeResult> ChangePasswordAsync(
-        string email,
+        string? email,
+        string? userId,
         string encodedToken,
         string newPassword,
-        string confirmPassword)
+        string confirmPassword,
+        bool isInviteMode = false)
     {
         if (string.IsNullOrWhiteSpace(encodedToken))
         {
-            return InvalidLinkResult();
+            return InvalidLinkResult(isInviteMode);
         }
 
         if (string.IsNullOrWhiteSpace(newPassword) || string.IsNullOrWhiteSpace(confirmPassword))
@@ -166,13 +184,13 @@ public sealed class PasswordResetService(
         }
         catch (FormatException)
         {
-            return InvalidLinkResult();
+            return InvalidLinkResult(isInviteMode);
         }
 
-        var user = await userManager.FindByEmailAsync(email.Trim());
+        var user = await ResolveUserAsync(email, userId);
         if (user is null)
         {
-            return InvalidLinkResult();
+            return InvalidLinkResult(isInviteMode);
         }
 
         var result = await userManager.ResetPasswordAsync(user, decodedToken, newPassword);
@@ -181,13 +199,15 @@ public sealed class PasswordResetService(
             return new PasswordResetChangeResult
             {
                 Succeeded = true,
-                Message = "Dein Passwort wurde geändert. Du kannst dich jetzt anmelden."
+                Message = isInviteMode
+                    ? "Dein Passwort wurde festgelegt. Du kannst dich jetzt anmelden."
+                    : "Dein Passwort wurde geändert. Du kannst dich jetzt anmelden."
             };
         }
 
         if (result.Errors.Any(e => e.Code is "InvalidToken" or "ExpiredToken"))
         {
-            return InvalidLinkResult();
+            return InvalidLinkResult(isInviteMode);
         }
 
         return new PasswordResetChangeResult
@@ -198,6 +218,37 @@ public sealed class PasswordResetService(
         };
     }
 
+    private async Task<(ApplicationUser? User, PasswordResetAdminResult? Error)> FindManagedUserAsync(string userId)
+    {
+        if (!await access.CanManageUsersAsync())
+        {
+            return (null, FailAdmin("Keine Berechtigung zur Benutzerverwaltung."));
+        }
+
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null || !await access.CanManageUserAsync(user))
+        {
+            return (null, FailAdmin("Benutzer nicht gefunden oder kein Zugriff."));
+        }
+
+        return (user, null);
+    }
+
+    private async Task<ApplicationUser?> ResolveUserAsync(string? email, string? userId)
+    {
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            return await userManager.FindByIdAsync(userId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            return await userManager.FindByEmailAsync(email.Trim());
+        }
+
+        return null;
+    }
+
     private async Task<EmailOperationResult> SendResetEmailAsync(ApplicationUser user)
     {
         if (user.Email is null)
@@ -205,19 +256,9 @@ public sealed class PasswordResetService(
             return EmailOperationResult.Fail("Benutzer hat keine Emailadresse.");
         }
 
-        var token = await userManager.GeneratePasswordResetTokenAsync(user);
-        var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-
-        var resetLink = navigationManager.GetUriWithQueryParameters(
-            navigationManager.ToAbsoluteUri("passwort-zuruecksetzen").AbsoluteUri,
-            new Dictionary<string, object?>
-            {
-                ["email"] = user.Email,
-                ["token"] = encodedToken
-            });
-
-        var displayName = string.IsNullOrWhiteSpace(user.DisplayName) ? user.Email : user.DisplayName;
-        var expiresMinutes = (int)Math.Round(tokenOptions.Value.TokenLifespan.TotalMinutes);
+        var (encodedToken, expiresMinutes) = await GenerateEncodedTokenAsync(user);
+        var resetLink = BuildPasswordResetLink(user, encodedToken);
+        var displayName = GetDisplayName(user);
         var supportEmail = await GetSupportEmailAsync();
 
         return await emailService.SendPasswordResetEmailAsync(
@@ -229,6 +270,88 @@ public sealed class PasswordResetService(
             supportEmail);
     }
 
+    private async Task<EmailOperationResult> SendWelcomeEmailAsync(ApplicationUser user, string tenantName)
+    {
+        if (user.Email is null)
+        {
+            return EmailOperationResult.Fail("Benutzer hat keine Emailadresse.");
+        }
+
+        var (encodedToken, expiresMinutes) = await GenerateEncodedTokenAsync(user);
+        var inviteLink = BuildInviteLink(user, encodedToken);
+        var displayName = GetDisplayName(user);
+        var supportEmail = await GetSupportEmailAsync();
+
+        return await emailService.SendWelcomeSetPasswordEmailAsync(
+            user.Email,
+            displayName,
+            tenantName,
+            inviteLink,
+            expiresMinutes,
+            user.TenantId,
+            supportEmail);
+    }
+
+    private async Task<(string EncodedToken, int ExpiresMinutes)> GenerateEncodedTokenAsync(ApplicationUser user)
+    {
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+        var expiresMinutes = (int)Math.Round(tokenOptions.Value.TokenLifespan.TotalMinutes);
+        return (encodedToken, expiresMinutes);
+    }
+
+    private string BuildPasswordResetLink(ApplicationUser user, string encodedToken) =>
+        navigationManager.GetUriWithQueryParameters(
+            navigationManager.ToAbsoluteUri("passwort-zuruecksetzen").AbsoluteUri,
+            new Dictionary<string, object?>
+            {
+                ["email"] = user.Email,
+                ["token"] = encodedToken
+            });
+
+    private string BuildInviteLink(ApplicationUser user, string encodedToken) =>
+        navigationManager.GetUriWithQueryParameters(
+            navigationManager.ToAbsoluteUri("passwort-zuruecksetzen").AbsoluteUri,
+            new Dictionary<string, object?>
+            {
+                ["userId"] = user.Id,
+                ["token"] = encodedToken,
+                ["mode"] = "invite"
+            });
+
+    private async Task<string> ResolveTenantNameAsync(ApplicationUser user)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var tenantIds = await db.UserTenants
+            .IgnoreQueryFilters()
+            .Where(ut => ut.UserId == user.Id)
+            .Select(ut => ut.TenantId)
+            .ToListAsync();
+
+        if (tenantIds.Count == 0 && user.TenantId is int legacyId)
+        {
+            tenantIds.Add(legacyId);
+        }
+
+        if (tenantIds.Count == 0)
+        {
+            return "Ihr Mandant";
+        }
+
+        var names = await db.Tenants
+            .IgnoreQueryFilters()
+            .Where(t => tenantIds.Contains(t.Id))
+            .OrderBy(t => t.Name)
+            .Select(t => t.Name)
+            .ToListAsync();
+
+        return names.FirstOrDefault() ?? "Ihr Mandant";
+    }
+
+    private static string GetDisplayName(ApplicationUser user) =>
+        string.IsNullOrWhiteSpace(user.DisplayName) ? user.Email ?? "" : user.DisplayName;
+
     private async Task<string> GetSupportEmailAsync()
     {
         await using var db = await dbFactory.CreateDbContextAsync();
@@ -236,32 +359,37 @@ public sealed class PasswordResetService(
         return settings?.SenderEmail ?? string.Empty;
     }
 
-    private async Task<bool> IsRateLimitedAsync(string email)
+    private async Task<bool> IsRateLimitedAsync(string purpose, string email)
     {
-        var key = CacheKey(email);
+        var key = CacheKey(purpose, email);
         var value = await cache.GetStringAsync(key);
         return value is not null;
     }
 
-    private Task MarkRateLimitedAsync(string email) =>
+    private Task MarkRateLimitedAsync(string purpose, string email) =>
         cache.SetStringAsync(
-            CacheKey(email),
+            CacheKey(purpose, email),
             DateTime.UtcNow.ToString("O"),
             new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = SelfServiceCooldown });
 
-    private static string CacheKey(string email) =>
-        $"dsms:pwd-reset:{email.Trim().ToLowerInvariant()}";
+    private static string CacheKey(string purpose, string email) =>
+        $"dsms:{purpose}:{email.Trim().ToLowerInvariant()}";
 
-    private static PasswordResetChangeResult InvalidLinkResult() =>
+    private static PasswordResetAdminResult FailAdmin(string message) =>
+        new() { Succeeded = false, Message = message };
+
+    private static PasswordResetChangeResult InvalidLinkResult(bool isInviteMode) =>
         new()
         {
             Succeeded = false,
-            Message = "Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Passwortreset an."
+            Message = isInviteMode
+                ? "Der Link ist ungültig oder abgelaufen. Bitte wende dich an deinen Administrator, um eine neue Einladung zu erhalten."
+                : "Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Passwortreset an."
         };
 
     private static string MapIdentityError(IdentityError error) => error.Code switch
     {
-        "PasswordTooShort" => $"Das Passwort muss mindestens 8 Zeichen lang sein.",
+        "PasswordTooShort" => "Das Passwort muss mindestens 8 Zeichen lang sein.",
         "PasswordRequiresDigit" => "Das Passwort muss mindestens eine Ziffer enthalten.",
         "PasswordRequiresLower" => "Das Passwort muss mindestens einen Kleinbuchstaben enthalten.",
         _ => error.Description

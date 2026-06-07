@@ -146,7 +146,7 @@
 
     private void CloseMenu() => _isOpen = false;
 
-    private async Task SelectTenantAsync(int tenantId)
+    private void SelectTenantAsync(int tenantId)
     {
         if (_switching || _selectedTenantId == tenantId)
         {
@@ -158,27 +158,8 @@
         _isOpen = false;
         _errorMessage = null;
 
-        try
-        {
-            var result = await TenantService.SwitchTenantAsync(tenantId);
-            if (!result.Succeeded)
-            {
-                _errorMessage = result.ErrorMessage;
-                return;
-            }
-
-            _selectedTenantId = tenantId;
-            _currentTenant = _tenants.FirstOrDefault(t => t.Id == tenantId);
-            Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "TenantSwitcher: Wechsel zu {TenantId} fehlgeschlagen", tenantId);
-            _errorMessage = "Mandantenwechsel fehlgeschlagen.";
-        }
-        finally
-        {
-            _switching = false;
-        }
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var returnUrl = string.IsNullOrEmpty(relativePath) ? "/" : $"/{relativePath}";
+        Navigation.NavigateTo(TenantSwitchEndpoints.BuildSwitchUrl(tenantId, returnUrl), forceLoad: true);
     }
 }

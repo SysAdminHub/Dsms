@@ -12,6 +12,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Behoben
 
+- **Mandanten-Switcher:** Wechsel läuft über GET `/tenant/switch/{tenantId}` statt direkt aus dem Blazor-Circuit – Session-Persistenz funktioniert wieder (Fehler „session cannot be established after the response has started“)
+
 - **Login mit aktivierter 2FA:** `RequiresTwoFactor` wird korrekt erkannt und leitet zu `/Account/LoginWith2fa` weiter (mit `ReturnUrl` und `RememberMe`); kein falscher Passwort-Fehler mehr
 - **IdentityRedirectManager:** `NavigationException` wird nicht mehr abgefangen (Redirect nach Form-POST funktioniert); `forceLoad` für 2FA-Weiterleitung
 

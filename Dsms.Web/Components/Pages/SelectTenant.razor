@@ -68,27 +68,17 @@ else
 
         if (_tenants.Count == 1)
         {
-            await SelectTenantAsync(_tenants[0].Id);
+            SelectTenantAsync(_tenants[0].Id);
             return;
         }
 
         _loading = false;
     }
 
-    private async Task SelectTenantAsync(int tenantId)
+    private void SelectTenantAsync(int tenantId)
     {
         _selecting = true;
         _errorMessage = null;
-
-        var result = await TenantService.SwitchTenantAsync(tenantId);
-        if (!result.Succeeded)
-        {
-            _errorMessage = result.ErrorMessage;
-            _selecting = false;
-            _loading = false;
-            return;
-        }
-
-        Navigation.NavigateTo("/", forceLoad: true);
+        Navigation.NavigateTo(TenantSwitchEndpoints.BuildSwitchUrl(tenantId, "/"), forceLoad: true);
     }
 }

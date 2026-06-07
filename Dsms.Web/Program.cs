@@ -106,7 +106,10 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// Mandantenwechsel per Form-POST (kein paralleler DbContext-Zugriff in Blazor-Komponenten).
+// Mandantenwechsel per HTTP-Request (Session vor Response-Start). Blazor-Komponenten leiten hierher um.
+app.MapGet("/tenant/switch/{tenantId:int}", TenantSwitchEndpoints.SwitchTenantAsync)
+    .RequireAuthorization();
+
 app.MapPost("/tenant/switch", async (
     HttpContext context,
     ITenantService tenantService,
@@ -119,14 +122,11 @@ app.MapPost("/tenant/switch", async (
         return Results.Redirect("/select-tenant");
     }
 
-    var result = await tenantService.SwitchTenantAsync(tenantId);
-    if (!result.Succeeded)
-    {
-        return Results.Redirect("/select-tenant");
-    }
-
-    var returnUrl = context.Request.Headers.Referer.FirstOrDefault();
-    return Results.Redirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
+    return await TenantSwitchEndpoints.SwitchTenantAsync(
+        tenantId,
+        tenantService,
+        context,
+        context.Request.Form["returnUrl"].FirstOrDefault());
 })
 .RequireAuthorization();
 

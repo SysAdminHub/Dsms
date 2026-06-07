@@ -12,7 +12,8 @@ public interface ICurrentUserContext
     Task<string?> GetUserIdAsync();
 
     /// <summary>
-    /// Mandanten-ID aus dem Benutzerprofil. Null bei Superuser, fehlender Anmeldung oder nicht zugeordnetem Mandanten.
+    /// Aktive Mandanten-ID aus <see cref="ITenantContextService"/> (Session).
+    /// Null bei fehlender Anmeldung oder wenn kein Mandant gewählt wurde.
     /// </summary>
     Task<int?> GetTenantIdAsync();
 

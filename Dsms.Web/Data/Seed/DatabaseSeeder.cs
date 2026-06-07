@@ -187,16 +187,17 @@ public static class DatabaseSeeder
 
         await db.SaveChangesAsync();
 
-        await CreateUserAsync(userManager, "superuser@demo.local", "Superuser Demo", "Demo123!", tenantId: null, DsmsRoles.Superuser);
-        await CreateUserAsync(userManager, "admin@demo.local", "Admin Demo", "Demo123!", tenant.Id, DsmsRoles.Admin);
-        await CreateUserAsync(userManager, "auditor@demo.local", "Auditor Demo", "Demo123!", tenant.Id, DsmsRoles.Auditor);
-        await CreateUserAsync(userManager, "user@demo.local", "Benutzer Demo", "Demo123!", tenant.Id, DsmsRoles.User);
+        await CreateUserAsync(db, userManager, "superuser@demo.local", "Superuser Demo", "Demo123!", tenantId: null, DsmsRoles.Superuser);
+        await CreateUserAsync(db, userManager, "admin@demo.local", "Admin Demo", "Demo123!", tenant.Id, DsmsRoles.Admin);
+        await CreateUserAsync(db, userManager, "auditor@demo.local", "Auditor Demo", "Demo123!", tenant.Id, DsmsRoles.Auditor);
+        await CreateUserAsync(db, userManager, "user@demo.local", "Benutzer Demo", "Demo123!", tenant.Id, DsmsRoles.User);
 
         auditRun.AssignedUserId = (await userManager.FindByEmailAsync("auditor@demo.local"))!.Id;
         await db.SaveChangesAsync();
     }
 
     private static async Task CreateUserAsync(
+        ApplicationDbContext db,
         UserManager<ApplicationUser> userManager,
         string email,
         string displayName,
@@ -222,5 +223,16 @@ public static class DatabaseSeeder
         }
 
         await userManager.AddToRoleAsync(user, role);
+
+        if (tenantId is int tid)
+        {
+            db.UserTenants.Add(new UserTenant
+            {
+                UserId = user.Id,
+                TenantId = tid,
+                AssignedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
     }
 }

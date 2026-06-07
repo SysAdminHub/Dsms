@@ -10,11 +10,16 @@
             <span class="dsms-topbar-title">
                 <strong>DSMS</strong> · Datenschutz-Management
             </span>
+            <div class="dsms-topbar-actions">
+                <TenantSwitcher />
+            </div>
         </div>
 
         <article class="content px-0">
             <div class="dsms-page">
-                @Body
+                <TenantContextGate>
+                    @Body
+                </TenantContextGate>
             </div>
         </article>
     </main>

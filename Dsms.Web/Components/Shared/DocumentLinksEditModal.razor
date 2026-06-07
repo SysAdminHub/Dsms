@@ -1,0 +1,221 @@
+@* Dialog zum nachträglichen Bearbeiten der Verknüpfungen eines Nachweisdokuments. *@
+@if (_visible)
+{
+    <div class="modal fade show d-block dsms-document-links-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Verknüpfungen bearbeiten</h5>
+                    <button type="button" class="btn-close" @onclick="Cancel" disabled="@_saving"></button>
+                </div>
+                <div class="modal-body">
+                    @if (_loading)
+                    {
+                        <div class="dsms-loading">Lade …</div>
+                    }
+                    else if (_document is not null)
+                    {
+                        <p class="mb-3">
+                            <span class="text-muted">Dokument:</span> <strong>@_document.FileName</strong>
+                        </p>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Audit-Durchlauf (optional)</label>
+                                <InputSelect class="form-select" @bind-Value="_auditRunId">
+                                    <option value="">— keiner —</option>
+                                    @foreach (var run in _auditRuns)
+                                    {
+                                        <option value="@run.Id">@run.Title</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Maßnahme (optional)</label>
+                                <InputSelect class="form-select" @bind-Value="_measureId">
+                                    <option value="">— keine —</option>
+                                    @foreach (var measure in _measures)
+                                    {
+                                        <option value="@measure.Id">@measure.Title</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Dienstleister (optional)</label>
+                                <InputSelect class="form-select" @bind-Value="_serviceProviderId">
+                                    <option value="">— keiner —</option>
+                                    @foreach (var provider in _serviceProviders)
+                                    {
+                                        <option value="@provider.Id">@provider.Name</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Verarbeitungstätigkeit (optional)</label>
+                                <InputSelect class="form-select" @bind-Value="_processingActivityId">
+                                    <option value="">— keine —</option>
+                                    @foreach (var pa in _processingActivities)
+                                    {
+                                        <option value="@pa.Id">@pa.Name</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">DSFA (optional)</label>
+                                <InputSelect class="form-select" @bind-Value="_dpiaId">
+                                    <option value="">— keine —</option>
+                                    @foreach (var dpia in _dpiaAssessments)
+                                    {
+                                        <option value="@dpia.Id">@dpia.Title</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(_message))
+                        {
+                            <div class="alert @(_isError ? "alert-danger" : "alert-success") dsms-alert mt-3 mb-0">@_message</div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel" disabled="@_saving">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveAsync" disabled="@(_loading || _saving || _document is null)">
+                        @(_saving ? "Speichern …" : "Speichern")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private DocumentLinksService LinksService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private bool _visible;
+    private bool _loading;
+    private bool _saving;
+    private int _documentId;
+    private int? _tenantId;
+    private EvidenceDocument? _document;
+    private List<AuditRun> _auditRuns = [];
+    private List<Measure> _measures = [];
+    private List<DsmsServiceProvider> _serviceProviders = [];
+    private List<ProcessingActivity> _processingActivities = [];
+    private List<DataProtectionImpactAssessment> _dpiaAssessments = [];
+    private int? _auditRunId;
+    private int? _measureId;
+    private int? _serviceProviderId;
+    private int? _processingActivityId;
+    private int? _dpiaId;
+    private string? _message;
+    private bool _isError;
+
+    public async Task ShowAsync(int documentId)
+    {
+        _documentId = documentId;
+        _visible = true;
+        _loading = true;
+        _saving = false;
+        _message = null;
+        _isError = false;
+        _document = null;
+
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null)
+        {
+            _message = "Kein Mandant zugeordnet.";
+            _isError = true;
+            _loading = false;
+            return;
+        }
+
+        _document = await Db.EvidenceDocuments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.TenantId == _tenantId);
+
+        if (_document is null)
+        {
+            _message = "Dokument nicht gefunden.";
+            _isError = true;
+            _loading = false;
+            return;
+        }
+
+        _auditRunId = _document.AuditRunId;
+        _measureId = _document.MeasureId;
+        _serviceProviderId = _document.ServiceProviderId;
+        _processingActivityId = _document.ProcessingActivityId;
+        _dpiaId = _document.DataProtectionImpactAssessmentId;
+
+        _auditRuns = await Db.AuditRuns.OrderBy(r => r.Title).ToListAsync();
+        _measures = await Db.Measures.OrderBy(m => m.Title).ToListAsync();
+        _serviceProviders = await Db.ServiceProviders.OrderBy(s => s.Name).ToListAsync();
+        _processingActivities = await Db.ProcessingActivities.OrderBy(p => p.Name).ToListAsync();
+        _dpiaAssessments = await Db.DataProtectionImpactAssessments.OrderBy(d => d.Title).ToListAsync();
+
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_tenantId is null || _document is null || _saving)
+            return;
+
+        _saving = true;
+        _message = null;
+        _isError = false;
+
+        try
+        {
+            var links = new DocumentLinksDto(
+                _auditRunId,
+                _measureId,
+                _serviceProviderId,
+                _processingActivityId,
+                _dpiaId);
+
+            var (result, errorMessage) = await LinksService.UpdateLinksAsync(_documentId, _tenantId.Value, links);
+
+            switch (result)
+            {
+                case UpdateDocumentLinksResult.Success:
+                    _visible = false;
+                    await OnSaved.InvokeAsync();
+                    break;
+                case UpdateDocumentLinksResult.NotFound:
+                    _message = errorMessage ?? "Dokument nicht gefunden.";
+                    _isError = true;
+                    break;
+                case UpdateDocumentLinksResult.InvalidTenantReference:
+                    _message = errorMessage ?? "Ungültige Verknüpfung.";
+                    _isError = true;
+                    break;
+                default:
+                    _message = "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.";
+                    _isError = true;
+                    break;
+            }
+        }
+        catch
+        {
+            _message = "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.";
+            _isError = true;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        if (_saving) return;
+        _visible = false;
+    }
+}

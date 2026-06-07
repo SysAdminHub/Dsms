@@ -10,6 +10,9 @@ public interface IUserManagementService
 
     Task<ApplicationUser?> GetUserForEditAsync(string userId);
 
+    /// <summary>Zugewiesene Mandanten-IDs eines Benutzers (Many-to-Many).</summary>
+    Task<IReadOnlyList<int>> GetUserTenantIdsAsync(string userId);
+
     Task<UserOperationResult> CreateUserAsync(UserCreateModel model);
 
     Task<UserOperationResult> UpdateUserAsync(string userId, UserEditModel model);
@@ -29,7 +32,10 @@ public sealed class UserCreateModel
     public string DisplayName { get; set; } = "";
     public string Password { get; set; } = "";
     public string Role { get; set; } = "";
+    /// <summary>Legacy: einzelner Mandant (wird in <see cref="TenantIds"/> überführt).</summary>
     public int? TenantId { get; set; }
+    /// <summary>Zugewiesene Mandanten (Many-to-Many). Superuser: beliebig; Admin: nur eigene.</summary>
+    public IList<int> TenantIds { get; set; } = [];
 }
 
 public sealed class UserEditModel
@@ -37,6 +43,7 @@ public sealed class UserEditModel
     public string DisplayName { get; set; } = "";
     public string Role { get; set; } = "";
     public int? TenantId { get; set; }
+    public IList<int> TenantIds { get; set; } = [];
     public bool IsActive { get; set; } = true;
 }
 

@@ -1,5 +1,6 @@
 @*
-    Benutzer anlegen: Superuser wählt Mandant und Rolle; Admin nur Rollen im eigenen Mandant (ohne Superuser).
+    Benutzer anlegen: Mandantenzuweisung synchron mit TenantContextService (Header-Switcher).
+    Superuser: Multi-Select; Admin: aktiver Mandant aus dem Kontext (read-only).
 *@
 @page "/users/create"
 @attribute [Authorize(Roles = DsmsRoles.UserManagement)]
@@ -22,7 +23,19 @@ else
                 <div class="alert alert-danger dsms-alert">@_errorMessage</div>
             }
 
-            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+            @if (_currentTenant is not null && _showTenantSection)
+            {
+                <div class="alert alert-info dsms-alert dsms-tenant-context-hint mb-4">
+                    Neuer Benutzer wird dem Mandanten <strong>@_currentTenant.Name</strong> zugeordnet
+                    @if (_isSuperuser)
+                    {
+                        <text>(weitere Mandanten unten wählbar)</text>
+                    }
+                    <text>.</text>
+                </div>
+            }
+
+            <EditForm Model="_model" FormName="user-create" OnValidSubmit="SaveAsync" class="dsms-form">
                 <DataAnnotationsValidator />
                 <ValidationSummary class="alert alert-danger dsms-alert" />
 
@@ -48,21 +61,48 @@ else
                         }
                     </InputSelect>
                 </div>
-                @if (_showTenantSelect)
+
+                @if (_showTenantSection)
                 {
                     <div class="mb-4">
-                        <label class="form-label">Mandant</label>
-                        <InputSelect class="form-select" @bind-Value="_model.TenantId">
+                        <label class="form-label">Mandanten</label>
+                        @if (_isSuperuser)
+                        {
+                            <p class="form-text text-muted">Aktiver Mandant ist vorausgewählt. Superuser können mehrere Mandanten zuweisen.</p>
                             @foreach (var tenant in _tenants)
                             {
-                                <option value="@tenant.Id">@tenant.Name</option>
+                                <div class="form-check">
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           id="@($"tenant-{tenant.Id}")"
+                                           checked="@_model.TenantIds.Contains(tenant.Id)"
+                                           @onchange="e => ToggleTenant(tenant.Id, e)" />
+                                    <label class="form-check-label" for="@($"tenant-{tenant.Id}")">
+                                        @tenant.Name <span class="text-muted">(ID @tenant.Id)</span>
+                                    </label>
+                                </div>
                             }
-                        </InputSelect>
+                            @if (_model.TenantIds.Count == 0)
+                            {
+                                <div class="text-danger small mt-1">Mindestens ein Mandant erforderlich.</div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="dsms-tenant-readonly">
+                                <span class="dsms-tenant-readonly__name">@(_currentTenant?.Name ?? "—")</span>
+                                @if (_currentTenant is not null)
+                                {
+                                    <span class="dsms-tenant-readonly__id">ID @_currentTenant.Id</span>
+                                }
+                            </div>
+                            <p class="form-text text-muted mb-0">Übernimmt den im Header gewählten Mandanten.</p>
+                        }
                     </div>
                 }
 
                 <div class="dsms-form-actions">
-                    <button type="submit" class="btn btn-primary">Anlegen</button>
+                    <button type="submit" class="btn btn-primary" disabled="@(!CanSubmit)">Anlegen</button>
                     <a class="btn btn-outline-secondary" href="users">Abbrechen</a>
                 </div>
             </EditForm>
@@ -73,15 +113,20 @@ else
 @code {
     [Inject] private IUserManagementService UserManagement { get; set; } = null!;
     [Inject] private IUserAccessService UserAccess { get; set; } = null!;
-    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ITenantContextService TenantContext { get; set; } = null!;
+    [Inject] private ITenantService TenantService { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
     private CreateFormModel _model = new();
     private IReadOnlyList<string>? _assignableRoles;
     private List<Tenant> _tenants = [];
-    private bool _showTenantSelect;
+    private Tenant? _currentTenant;
+    private bool _showTenantSection;
     private bool _isSuperuser;
     private string? _errorMessage;
+
+    private bool CanSubmit =>
+        IUserAccessService.RoleRequiresNoTenant(_model.Role) || _model.TenantIds.Count > 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -93,51 +138,104 @@ else
         }
 
         _model.Role = _assignableRoles[0];
+        _tenants = (await TenantService.GetAccessibleTenantsAsync()).ToList();
+        await SyncTenantsFromContextAsync();
+        await OnRoleChanged();
+    }
+
+    /// <summary>Übernimmt den aktiven Mandanten aus TenantContextService in das Formularmodell.</summary>
+    private async Task SyncTenantsFromContextAsync()
+    {
+        _currentTenant = await TenantService.GetCurrentTenantAsync();
+        var currentId = await TenantContext.GetCurrentTenantIdAsync();
+
+        if (!IUserAccessService.RoleRequiresNoTenant(_model.Role) && currentId is int tid)
+        {
+            _model.TenantId = tid;
+            if (!_model.TenantIds.Contains(tid))
+            {
+                _model.TenantIds = [tid];
+            }
+        }
+    }
+
+    private async Task OnRoleChanged()
+    {
+        if (IUserAccessService.RoleRequiresNoTenant(_model.Role))
+        {
+            _model.TenantId = null;
+            _model.TenantIds = [];
+            _showTenantSection = false;
+            return;
+        }
+
+        _showTenantSection = true;
 
         if (_isSuperuser)
         {
-            _tenants = await Db.Tenants.OrderBy(t => t.Name).ToListAsync();
-            _showTenantSelect = !IUserAccessService.RoleRequiresNoTenant(_model.Role);
-            if (_showTenantSelect && _tenants.Count > 0)
+            // Aktiven Mandant aus dem Header vorauswählen, sonst ersten verfügbaren.
+            var preferredId = _currentTenant?.Id ?? _model.TenantId;
+            if (preferredId is int pid && _tenants.Any(t => t.Id == pid))
             {
+                if (!_model.TenantIds.Contains(pid))
+                {
+                    _model.TenantIds = [pid];
+                }
+
+                _model.TenantId = pid;
+            }
+            else if (_model.TenantIds.Count == 0 && _tenants.Count > 0)
+            {
+                _model.TenantIds = [_tenants[0].Id];
                 _model.TenantId = _tenants[0].Id;
             }
         }
         else
         {
-            _model.TenantId = await UserAccess.GetCurrentTenantIdAsync();
+            // Admin: immer genau der aktive Mandant aus dem Kontext.
+            await SyncTenantsFromContextAsync();
         }
-
-        OnRoleChanged();
     }
 
-    private void OnRoleChanged()
+    private void ToggleTenant(int tenantId, ChangeEventArgs e)
     {
-        if (!_isSuperuser)
+        var isChecked = e.Value is bool b && b;
+        if (isChecked)
         {
-            return;
+            if (!_model.TenantIds.Contains(tenantId))
+            {
+                _model.TenantIds.Add(tenantId);
+            }
+        }
+        else
+        {
+            _model.TenantIds.Remove(tenantId);
         }
 
-        _showTenantSelect = !IUserAccessService.RoleRequiresNoTenant(_model.Role);
-        if (!_showTenantSelect)
-        {
-            _model.TenantId = null;
-        }
-        else if (_model.TenantId is null && _tenants.Count > 0)
-        {
-            _model.TenantId = _tenants[0].Id;
-        }
+        _model.TenantId = _model.TenantIds.FirstOrDefault();
     }
 
     private async Task SaveAsync()
     {
+        _errorMessage = null;
+
+        // Vor dem Speichern erneut mit TenantContextService synchronisieren (zentrale Wahrheit).
+        await SyncTenantsFromContextAsync();
+
+        if (!IUserAccessService.RoleRequiresNoTenant(_model.Role) && _model.TenantIds.Count == 0)
+        {
+            _errorMessage = "Kein aktiver Mandant gewählt. Bitte wählen Sie oben im Header einen Mandanten aus.";
+            return;
+        }
+
         var result = await UserManagement.CreateUserAsync(new UserCreateModel
         {
             Email = _model.Email,
             DisplayName = _model.DisplayName,
             Password = _model.Password,
             Role = _model.Role,
-            TenantId = _model.TenantId
+            TenantId = _model.TenantId,
+            TenantIds = _model.TenantIds
         });
 
         if (!result.Succeeded)
@@ -164,5 +262,6 @@ else
 
         public string Role { get; set; } = DsmsRoles.User;
         public int? TenantId { get; set; }
+        public List<int> TenantIds { get; set; } = [];
     }
 }

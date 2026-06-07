@@ -6,6 +6,7 @@
 @using System.Text.Encodings.Web
 @using Microsoft.AspNetCore.Identity
 @using Dsms.Web.Data
+@using Dsms.Web.Services
 
 @inject UserManager<ApplicationUser> UserManager
 @inject UrlEncoder UrlEncoder
@@ -37,9 +38,13 @@ else
             </li>
             <li>
                 <p>Scan the QR Code or enter this key <kbd>@sharedKey</kbd> into your two factor authenticator app. Spaces and casing do not matter.</p>
-                <div class="alert alert-info">Learn how to <a href="https://go.microsoft.com/fwlink/?Linkid=852423">enable QR code generation</a>.</div>
-                <div></div>
-                <div data-url="@authenticatorUri"></div>
+                @if (qrCodeBase64 is not null)
+                {
+                    <p class="text-muted mb-2">Scannen Sie diesen QR-Code mit Ihrer Authenticator-App.</p>
+                    <div class="text-center my-3">
+                        <img src="data:image/png;base64,@qrCodeBase64" alt="Authenticator QR Code" width="250" height="250" />
+                    </div>
+                }
             </li>
             <li>
                 <p>
@@ -66,12 +71,14 @@ else
 }
 
 @code {
+    private const string AppName = "DSMS";
     private const string AuthenticatorUriFormat = "otpauth://totp/{0}:{1}?secret={2}&issuer={0}&digits=6";
 
     private string? message;
     private ApplicationUser? user;
     private string? sharedKey;
     private string? authenticatorUri;
+    private string? qrCodeBase64;
     private IEnumerable<string>? recoveryCodes;
 
     [CascadingParameter]
@@ -144,6 +151,7 @@ else
 
         var email = await UserManager.GetEmailAsync(user);
         authenticatorUri = GenerateQrCodeUri(email!, unformattedKey!);
+        qrCodeBase64 = AuthenticatorQrCodeGenerator.TryGenerateBase64Png(authenticatorUri);
     }
 
     private string FormatKey(string unformattedKey)
@@ -168,7 +176,7 @@ else
         return string.Format(
             CultureInfo.InvariantCulture,
             AuthenticatorUriFormat,
-            UrlEncoder.Encode("Microsoft.AspNetCore.Identity.UI"),
+            UrlEncoder.Encode(AppName),
             UrlEncoder.Encode(email),
             unformattedKey);
     }

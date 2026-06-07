@@ -28,7 +28,7 @@ else
                 <div class="alert alert-danger dsms-alert">@_errorMessage</div>
             }
 
-            <EditForm Model="_editModel" OnValidSubmit="SaveAsync" class="dsms-form">
+            <EditForm Model="_editModel" FormName="user-edit" OnValidSubmit="SaveAsync" class="dsms-form">
                 <div class="mb-3">
                     <label class="form-label">E-Mail</label>
                     <input class="form-control" value="@_user.Email" disabled />
@@ -40,13 +40,32 @@ else
                 @if (_showTenantSelect)
                 {
                     <div class="mb-3">
-                        <label class="form-label">Mandant</label>
-                        <InputSelect class="form-select" @bind-Value="_editModel.TenantId">
+                        <label class="form-label">Mandanten</label>
+                        @if (_isSuperuser)
+                        {
                             @foreach (var tenant in _tenants)
                             {
-                                <option value="@tenant.Id">@tenant.Name</option>
+                                <div class="form-check">
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           id="@($"tenant-{tenant.Id}")"
+                                           checked="@_editModel.TenantIds.Contains(tenant.Id)"
+                                           @onchange="e => ToggleTenant(tenant.Id, e)" />
+                                    <label class="form-check-label" for="@($"tenant-{tenant.Id}")">@tenant.Name</label>
+                                </div>
                             }
-                        </InputSelect>
+                        }
+                        else
+                        {
+                            <div class="dsms-tenant-readonly">
+                                <span class="dsms-tenant-readonly__name">@(_currentTenant?.Name ?? "—")</span>
+                                @if (_currentTenant is not null)
+                                {
+                                    <span class="dsms-tenant-readonly__id">ID @_currentTenant.Id</span>
+                                }
+                            </div>
+                            <p class="form-text text-muted mb-0">Übernimmt den im Header gewählten Mandanten.</p>
+                        }
                     </div>
                 }
                 else if (_user.TenantId is null)
@@ -84,11 +103,13 @@ else
     [Inject] private IUserManagementService UserManagement { get; set; } = null!;
     [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private UserManager<ApplicationUser> UserManager { get; set; } = null!;
-    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ITenantContextService TenantContext { get; set; } = null!;
+    [Inject] private ITenantService TenantService { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
     private ApplicationUser? _user;
     private List<Tenant> _tenants = [];
+    private Tenant? _currentTenant;
     private IReadOnlyList<string>? _assignableRoles;
     private bool _showTenantSelect;
     private bool _isSuperuser;
@@ -108,48 +129,111 @@ else
             return;
         }
 
-        if (_isSuperuser)
-        {
-            _tenants = await Db.Tenants.OrderBy(t => t.Name).ToListAsync();
-        }
+        _tenants = (await TenantService.GetAccessibleTenantsAsync()).ToList();
+        _currentTenant = await TenantService.GetCurrentTenantAsync();
 
+        var assignedTenantIds = await UserManagement.GetUserTenantIdsAsync(UserId);
         var roles = await UserManager.GetRolesAsync(_user);
         _editModel = new EditFormModel
         {
             DisplayName = _user.DisplayName,
-            TenantId = _user.TenantId,
+            TenantId = assignedTenantIds.Count > 0 ? assignedTenantIds[0] : _user.TenantId,
+            TenantIds = assignedTenantIds.ToList(),
             Role = roles.FirstOrDefault() ?? DsmsRoles.User,
             IsActive = _user.IsActive
         };
 
-        OnRoleChanged();
+        await OnRoleChanged();
     }
 
-    private void OnRoleChanged()
+    private async Task OnRoleChanged()
     {
         if (IUserAccessService.RoleRequiresNoTenant(_editModel.Role))
         {
             _editModel.TenantId = null;
+            _editModel.TenantIds = [];
             _showTenantSelect = false;
             return;
         }
 
-        _showTenantSelect = _isSuperuser;
-        if (_showTenantSelect && _editModel.TenantId is null && _tenants.Count > 0)
+        _showTenantSelect = true;
+
+        if (_isSuperuser)
         {
-            _editModel.TenantId = _tenants[0].Id;
+            if (_editModel.TenantIds.Count == 0 && _tenants.Count > 0)
+            {
+                var preferredId = _currentTenant?.Id ?? _tenants[0].Id;
+                _editModel.TenantIds = [preferredId];
+                _editModel.TenantId = preferredId;
+            }
         }
+        else
+        {
+            await SyncTenantsFromContextAsync();
+        }
+    }
+
+    private async Task SyncTenantsFromContextAsync()
+    {
+        _currentTenant = await TenantService.GetCurrentTenantAsync();
+        var currentId = await TenantContext.GetCurrentTenantIdAsync();
+        if (currentId is int tid)
+        {
+            _editModel.TenantId = tid;
+            _editModel.TenantIds = [tid];
+        }
+    }
+
+    private void ToggleTenant(int tenantId, ChangeEventArgs e)
+    {
+        var isChecked = e.Value is bool b && b;
+        if (isChecked)
+        {
+            if (!_editModel.TenantIds.Contains(tenantId))
+            {
+                _editModel.TenantIds.Add(tenantId);
+            }
+        }
+        else
+        {
+            _editModel.TenantIds.Remove(tenantId);
+        }
+
+        _editModel.TenantId = _editModel.TenantIds.FirstOrDefault();
     }
 
     private async Task SaveAsync()
     {
         if (_user is null) return;
 
+        if (!IUserAccessService.RoleRequiresNoTenant(_editModel.Role))
+        {
+            if (_isSuperuser)
+            {
+                if (_editModel.TenantIds.Count == 0)
+                {
+                    _errorMessage = "Bitte mindestens einen Mandanten auswählen.";
+                    return;
+                }
+            }
+            else
+            {
+                // Admin: nur aktiver Header-Mandant – Formularwerte nicht überschreiben bei Superuser.
+                await SyncTenantsFromContextAsync();
+                if (_editModel.TenantIds.Count == 0)
+                {
+                    _errorMessage = "Kein aktiver Mandant gewählt. Bitte wählen Sie oben im Header einen Mandanten aus.";
+                    return;
+                }
+            }
+        }
+
         var result = await UserManagement.UpdateUserAsync(UserId, new UserEditModel
         {
             DisplayName = _editModel.DisplayName,
             Role = _editModel.Role,
             TenantId = _editModel.TenantId,
+            TenantIds = _editModel.TenantIds,
             IsActive = _editModel.IsActive
         });
 
@@ -166,6 +250,7 @@ else
     {
         public string DisplayName { get; set; } = "";
         public int? TenantId { get; set; }
+        public List<int> TenantIds { get; set; } = [];
         public string Role { get; set; } = DsmsRoles.User;
         public bool IsActive { get; set; } = true;
     }

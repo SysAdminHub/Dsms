@@ -16,10 +16,13 @@
 else
 {
     <PageHeader Title="Dienstleister" Subtitle="Auftragsverarbeiter und externe Dienstleister">
-        @if (_canEdit)
-        {
-            <a class="btn btn-primary" href="service-providers/edit">Neuer Dienstleister</a>
-        }
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
+            @if (_canEdit && !_showArchived)
+            {
+                <a class="btn btn-primary" href="service-providers/edit">Neuer Dienstleister</a>
+            }
+        </div>
     </PageHeader>
 
     @if (_items is null)
@@ -28,7 +31,9 @@ else
     }
     else if (_items.Count == 0)
     {
-        <div class="alert alert-info dsms-alert">Noch keine Dienstleister erfasst.</div>
+        <div class="alert alert-info dsms-alert">
+            @(_showArchived ? "Keine archivierten Dienstleister." : "Noch keine Dienstleister erfasst.")
+        </div>
     }
     else
     {
@@ -45,15 +50,28 @@ else
                             <th>Drittland</th>
                             <th>Risiko</th>
                             <th>Verantwortlich</th>
-                            <th>Letzte Änderung</th>
+                            @if (_showArchived)
+                            {
+                                <th>Archiviert am</th>
+                            }
+                            else
+                            {
+                                <th>Letzte Änderung</th>
+                            }
                             <th class="dsms-table-actions"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var item in _items)
                         {
-                            <tr>
-                                <td><strong>@item.Name</strong></td>
+                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
+                                <td>
+                                    <strong>@item.Name</strong>
+                                    @if (_showArchived)
+                                    {
+                                        <span class="ms-2"><ArchivedBadge /></span>
+                                    }
+                                </td>
                                 <td>@ServiceProviderLabels.GetProviderTypeLabel(item.ProviderType)</td>
                                 <td>
                                     <StatusBadge Text="@ServiceProviderLabels.GetStatusLabel(item.Status)"
@@ -80,13 +98,22 @@ else
                                                  Variant="@ServiceProviderLabels.GetRiskVariant(item.RiskAssessment)" />
                                 </td>
                                 <td>@(string.IsNullOrWhiteSpace(item.ResponsiblePerson) ? "—" : item.ResponsiblePerson)</td>
-                                <td>@FormatUpdated(item)</td>
+                                <td>@FormatDateColumn(item)</td>
                                 <td class="dsms-table-actions">
-                                    <a class="btn btn-sm btn-outline-primary" href="@($"service-providers/{item.Id}")">Details</a>
-                                    @if (_canEdit)
+                                    @if (!_showArchived)
                                     {
-                                        <a class="btn btn-sm btn-outline-secondary" href="@($"service-providers/edit/{item.Id}")">Bearbeiten</a>
+                                        <a class="btn btn-sm btn-outline-primary" href="@($"service-providers/{item.Id}")">Details</a>
+                                        @if (_canEdit)
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary" href="@($"service-providers/edit/{item.Id}")">Bearbeiten</a>
+                                        }
                                     }
+                                    <ArchiveListActions TEntity="DsmsServiceProvider"
+                                                        EntityId="@item.Id"
+                                                        ItemName="@item.Name"
+                                                        EntityLabel="Dienstleister"
+                                                        CanEdit="@_canEdit"
+                                                        OnChanged="LoadDataAsync" />
                                 </td>
                             </tr>
                         }
@@ -100,9 +127,11 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
 
     private int? _tenantId;
     private bool _canEdit;
+    private bool _showArchived;
     private List<DsmsServiceProvider>? _items;
 
     protected override async Task OnInitializedAsync()
@@ -113,12 +142,19 @@ else
         _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
             || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
 
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _showArchived = ArchiveView.ShowArchivedOnly;
         _items = await Db.ServiceProviders
-            .Where(s => s.TenantId == _tenantId)
-            .OrderByDescending(s => s.UpdatedAt ?? s.CreatedAt)
+            .OrderByDescending(s => _showArchived ? s.ArchivedAt : (s.UpdatedAt ?? s.CreatedAt))
             .ToListAsync();
     }
 
-    private static string FormatUpdated(DsmsServiceProvider item) =>
-        (item.UpdatedAt ?? item.CreatedAt).ToLocalTime().ToString("g");
+    private string FormatDateColumn(DsmsServiceProvider item) =>
+        _showArchived
+            ? item.ArchivedAt?.ToLocalTime().ToString("g") ?? "—"
+            : (item.UpdatedAt ?? item.CreatedAt).ToLocalTime().ToString("g");
 }

@@ -18,7 +18,7 @@ else if (_tenantId is null)
     <div class="alert alert-info dsms-alert">
         @if (_isSuperuser)
         {
-            <text>Als Superuser verwalten Sie die Plattform unter „Mandanten“ und „Benutzer“. Compliance-Daten erfordern eine Mandantenzuordnung (geplant: Mandantenwechsel).</text>
+            <text>Als Superuser wählen Sie oben im Header einen Mandanten aus, um Compliance-Daten zu sehen. Plattformverwaltung finden Sie unter „Mandanten“ und „Benutzer“.</text>
         }
         else
         {
@@ -180,14 +180,24 @@ else if (_summary is not null)
 
     protected override async Task OnInitializedAsync()
     {
-        _isSuperuser = await CurrentUser.IsInRoleAsync(DsmsRoles.Superuser);
-        _tenantId = await CurrentUser.GetTenantIdAsync();
-        if (_tenantId.HasValue)
+        try
         {
-            _summary = await DashboardService.GetSummaryAsync(_tenantId.Value);
+            _isSuperuser = await CurrentUser.IsInRoleAsync(DsmsRoles.Superuser);
+            _tenantId = await CurrentUser.GetTenantIdAsync();
+            if (_tenantId.HasValue)
+            {
+                _summary = await DashboardService.GetSummaryAsync(_tenantId.Value);
+            }
         }
-
-        _loading = false;
+        catch (Exception)
+        {
+            // Dashboard-Fehler dürfen den Circuit nicht abbrechen (z. B. parallele F5-Init).
+            _summary = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
     // Badge-Farben für Dashboard-Liste – rein visuell, keine Fachlogik.

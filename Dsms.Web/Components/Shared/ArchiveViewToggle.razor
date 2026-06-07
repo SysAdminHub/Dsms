@@ -1,0 +1,38 @@
+@* Umschalter zwischen Aktiv- und Archivansicht; steuert EF Global Query Filter über ArchiveViewContextAccessor. *@
+<div class="btn-group dsms-archive-toggle" role="group" aria-label="Ansicht">
+    <button type="button"
+            class="btn btn-sm @(ShowArchivedOnly ? "btn-outline-secondary" : "btn-secondary")"
+            disabled="@(ShowArchivedOnly == false)"
+            @onclick="() => SetViewAsync(false)">
+        Aktiv
+    </button>
+    <button type="button"
+            class="btn btn-sm @(ShowArchivedOnly ? "btn-secondary" : "btn-outline-secondary")"
+            disabled="@(ShowArchivedOnly == true)"
+            @onclick="() => SetViewAsync(true)">
+        Archiv
+    </button>
+</div>
+
+@code {
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
+
+    [Parameter] public EventCallback OnViewChanged { get; set; }
+
+    private bool ShowArchivedOnly => ArchiveView.ShowArchivedOnly;
+
+    private async Task SetViewAsync(bool showArchived)
+    {
+        if (ArchiveView.ShowArchivedOnly == showArchived) return;
+        ArchiveView.ShowArchivedOnly = showArchived;
+        await OnViewChanged.InvokeAsync();
+    }
+
+    /// <summary>Beim Verlassen der Listenansicht wieder Aktiv-Modus – Detail-/Bearbeitungsseiten sehen nur aktive Datensätze.</summary>
+    public void Dispose()
+    {
+        ArchiveView.ShowArchivedOnly = false;
+    }
+}
+
+@implements IDisposable

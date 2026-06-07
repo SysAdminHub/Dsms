@@ -26,10 +26,45 @@ main {
     min-height: var(--dsms-header-height);
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: var(--dsms-space-4);
     padding: 0 var(--dsms-space-6);
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 20;
+}
+
+.dsms-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--dsms-space-3);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* Mandanten-Anzeige in Formularen (read-only) */
+.dsms-tenant-readonly {
+    display: flex;
+    align-items: center;
+    gap: var(--dsms-space-3);
+    padding: var(--dsms-space-3);
+    background: var(--dsms-bg);
+    border: 1px solid var(--dsms-border);
+    border-radius: var(--dsms-radius-md, 0.5rem);
+}
+
+.dsms-tenant-readonly__name {
+    font-weight: 600;
+    color: var(--dsms-text);
+}
+
+.dsms-tenant-readonly__id {
+    font-size: var(--dsms-font-size-sm);
+    color: var(--dsms-text-muted);
+}
+
+.dsms-tenant-context-hint {
+    font-size: var(--dsms-font-size-sm);
 }
 
 .dsms-topbar-title {
@@ -141,4 +176,17 @@ article.content {
     font-weight: 700;
     font-size: var(--dsms-font-size-lg);
     margin-bottom: var(--dsms-space-4);
+}
+
+.dsms-archive-toggle .btn-secondary {
+    pointer-events: none;
+}
+
+.dsms-archive-modal .modal-content {
+    border: 1px solid var(--dsms-border);
+    box-shadow: var(--dsms-shadow-lg);
+}
+
+.dsms-table-row--archived td:first-child strong {
+    opacity: 0.85;
 }

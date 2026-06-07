@@ -1,0 +1,181 @@
+using Dsms.Web.Data;
+using Dsms.Web.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace Dsms.Web.Services;
+
+/// <summary>
+/// Implementiert mandantensichere Archivierung und Wiederherstellung für alle IArchivable-Entities.
+/// Abhängigkeitsprüfungen liefern Warnungen, blockieren aber nicht.
+/// </summary>
+public class ArchivingService(
+    ApplicationDbContext db,
+    ICurrentUserContext currentUser) : IArchivingService
+{
+    public async Task<ArchiveOperationResult> ArchiveAsync<TEntity>(int id, CancellationToken ct = default)
+        where TEntity : ArchivableEntityBase, ITenantEntity
+    {
+        var tenantId = await currentUser.GetTenantIdAsync();
+        if (tenantId is null)
+        {
+            return new ArchiveOperationResult(false, [], "Kein Mandant zugeordnet.");
+        }
+
+        var entity = await db.Set<TEntity>()
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(e => e.Id == id && e.TenantId == tenantId && !e.IsArchived, ct);
+        if (entity is null)
+        {
+            return new ArchiveOperationResult(false, [], "Eintrag wurde nicht gefunden.");
+        }
+
+        var warnings = await GetDependencyWarningsAsync<TEntity>(id, ct);
+        var userId = await currentUser.GetUserIdAsync();
+
+        entity.IsArchived = true;
+        entity.ArchivedAt = DateTime.UtcNow;
+        entity.ArchivedByUserId = userId;
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync(ct);
+        return new ArchiveOperationResult(true, warnings);
+    }
+
+    public async Task<ArchiveOperationResult> RestoreAsync<TEntity>(int id, CancellationToken ct = default)
+        where TEntity : ArchivableEntityBase, ITenantEntity
+    {
+        var tenantId = await currentUser.GetTenantIdAsync();
+        if (tenantId is null)
+        {
+            return new ArchiveOperationResult(false, [], "Kein Mandant zugeordnet.");
+        }
+
+        var entity = await db.Set<TEntity>()
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(e => e.Id == id && e.TenantId == tenantId && e.IsArchived, ct);
+        if (entity is null)
+        {
+            return new ArchiveOperationResult(false, [], "Eintrag wurde nicht gefunden.");
+        }
+
+        entity.IsArchived = false;
+        entity.ArchivedAt = null;
+        entity.ArchivedByUserId = null;
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync(ct);
+        return new ArchiveOperationResult(true, []);
+    }
+
+    public async Task<IReadOnlyList<string>> GetDependencyWarningsAsync<TEntity>(int id, CancellationToken ct = default)
+        where TEntity : ArchivableEntityBase, ITenantEntity
+    {
+        return typeof(TEntity).Name switch
+        {
+            nameof(ProcessingActivity) => await GetProcessingActivityWarningsAsync(id, ct),
+            nameof(DataProtectionImpactAssessment) => await GetDpiaWarningsAsync(id, ct),
+            nameof(Tom) => await GetTomWarningsAsync(id, ct),
+            nameof(Domain.Entities.ServiceProvider) => await GetServiceProviderWarningsAsync(id, ct),
+            nameof(AuditTemplate) => await GetAuditTemplateWarningsAsync(id, ct),
+            nameof(AuditRun) => await GetAuditRunWarningsAsync(id, ct),
+            nameof(Measure) => await GetMeasureWarningsAsync(id, ct),
+            nameof(EvidenceDocument) => [],
+            _ => []
+        };
+    }
+
+    private async Task<IReadOnlyList<string>> GetProcessingActivityWarningsAsync(int id, CancellationToken ct)
+    {
+        var warnings = new List<string>();
+
+        var tomCount = await db.ProcessingActivityToms.CountAsync(l => l.ProcessingActivityId == id, ct);
+        if (tomCount > 0) warnings.Add($"{tomCount} verknüpfte TOM(s)");
+
+        var measureCount = await db.ProcessingActivityMeasures.CountAsync(l => l.ProcessingActivityId == id, ct);
+        if (measureCount > 0) warnings.Add($"{measureCount} verknüpfte Maßnahme(n)");
+
+        var dpiaCount = await db.DataProtectionImpactAssessments.CountAsync(d => d.ProcessingActivityId == id, ct);
+        if (dpiaCount > 0) warnings.Add($"{dpiaCount} DSFA-Einträge");
+
+        var spCount = await db.ProcessingActivityServiceProviders.CountAsync(l => l.ProcessingActivityId == id, ct);
+        if (spCount > 0) warnings.Add($"{spCount} verknüpfte Dienstleister");
+
+        var docCount = await db.EvidenceDocuments.CountAsync(d => d.ProcessingActivityId == id, ct);
+        if (docCount > 0) warnings.Add($"{docCount} verknüpfte Dokument(e)");
+
+        var auditCount = await db.ProcessingActivityAuditAnswers.CountAsync(l => l.ProcessingActivityId == id, ct);
+        if (auditCount > 0) warnings.Add($"{auditCount} Audit-Bezüge");
+
+        return warnings;
+    }
+
+    private async Task<IReadOnlyList<string>> GetDpiaWarningsAsync(int id, CancellationToken ct)
+    {
+        var docCount = await db.EvidenceDocuments.CountAsync(d => d.DataProtectionImpactAssessmentId == id, ct);
+        return docCount > 0 ? [$"{docCount} verknüpfte Dokument(e)"] : [];
+    }
+
+    private async Task<IReadOnlyList<string>> GetTomWarningsAsync(int id, CancellationToken ct)
+    {
+        var warnings = new List<string>();
+
+        var paCount = await db.ProcessingActivityToms.CountAsync(l => l.TomId == id, ct);
+        if (paCount > 0) warnings.Add($"{paCount} verknüpfte Verarbeitungstätigkeit(en)");
+
+        var spCount = await db.ServiceProviderToms.CountAsync(l => l.TomId == id, ct);
+        if (spCount > 0) warnings.Add($"{spCount} verknüpfte Dienstleister");
+
+        return warnings;
+    }
+
+    private async Task<IReadOnlyList<string>> GetServiceProviderWarningsAsync(int id, CancellationToken ct)
+    {
+        var warnings = new List<string>();
+
+        var paCount = await db.ProcessingActivityServiceProviders.CountAsync(l => l.ServiceProviderId == id, ct);
+        if (paCount > 0) warnings.Add($"{paCount} verknüpfte Verarbeitungstätigkeit(en)");
+
+        var tomCount = await db.ServiceProviderToms.CountAsync(l => l.ServiceProviderId == id, ct);
+        if (tomCount > 0) warnings.Add($"{tomCount} verknüpfte TOM(s)");
+
+        var docCount = await db.EvidenceDocuments.CountAsync(d => d.ServiceProviderId == id, ct);
+        if (docCount > 0) warnings.Add($"{docCount} verknüpfte Dokument(e)");
+
+        return warnings;
+    }
+
+    private async Task<IReadOnlyList<string>> GetAuditTemplateWarningsAsync(int id, CancellationToken ct)
+    {
+        var runCount = await db.AuditRuns.CountAsync(r => r.AuditTemplateId == id, ct);
+        return runCount > 0 ? [$"{runCount} Audit-Durchlauf/Durchläufe basieren auf dieser Vorlage"] : [];
+    }
+
+    private async Task<IReadOnlyList<string>> GetAuditRunWarningsAsync(int id, CancellationToken ct)
+    {
+        var warnings = new List<string>();
+
+        var measureCount = await db.Measures.CountAsync(m => m.AuditRunId == id, ct);
+        if (measureCount > 0) warnings.Add($"{measureCount} verknüpfte Maßnahme(n)");
+
+        var docCount = await db.EvidenceDocuments.CountAsync(d => d.AuditRunId == id, ct);
+        if (docCount > 0) warnings.Add($"{docCount} verknüpfte Dokument(e)");
+
+        var answerCount = await db.AuditAnswers.CountAsync(a => a.AuditRunId == id, ct);
+        if (answerCount > 0) warnings.Add($"{answerCount} Audit-Antwort(en)");
+
+        return warnings;
+    }
+
+    private async Task<IReadOnlyList<string>> GetMeasureWarningsAsync(int id, CancellationToken ct)
+    {
+        var warnings = new List<string>();
+
+        var paCount = await db.ProcessingActivityMeasures.CountAsync(l => l.MeasureId == id, ct);
+        if (paCount > 0) warnings.Add($"{paCount} verknüpfte Verarbeitungstätigkeit(en)");
+
+        var docCount = await db.EvidenceDocuments.CountAsync(d => d.MeasureId == id, ct);
+        if (docCount > 0) warnings.Add($"{docCount} verknüpfte Dokument(e)");
+
+        return warnings;
+    }
+}

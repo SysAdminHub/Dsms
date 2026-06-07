@@ -1,0 +1,58 @@
+@*
+    Stellt sicher, dass ein aktiver Mandant gesetzt ist, bevor Compliance-Seiten angezeigt werden.
+    Leitet zur Mandantenauswahl um, wenn kein Mandant gewählt wurde.
+*@
+@inject ITenantService TenantService
+@inject ITenantContextService TenantContext
+@inject NavigationManager Navigation
+
+@if (_ready)
+{
+    @ChildContent
+}
+else if (_redirecting)
+{
+    <div class="dsms-loading">Mandantenkontext wird geladen …</div>
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool _ready;
+    private bool _redirecting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialisierung erfolgt in TenantInitializationMiddleware – hier nur Routing-Prüfung.
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+        if (!TenantService.IsTenantRequiredForRoute(relativePath))
+        {
+            _ready = true;
+            return;
+        }
+
+        if (await TenantContext.HasTenantSelectedAsync())
+        {
+            _ready = true;
+            return;
+        }
+
+        var accessible = await TenantService.GetAccessibleTenantsAsync();
+        if (accessible.Count == 0)
+        {
+            _ready = true;
+            return;
+        }
+
+        _redirecting = true;
+        try
+        {
+            Navigation.NavigateTo("/select-tenant", forceLoad: true);
+        }catch(Exception ex)
+        {
+            // Fehler beim Navigieren – z.B. ungültige URL oder Navigation blockiert.
+            Console.Error.WriteLine($"Fehler beim Navigieren zur Mandantenauswahl: {ex}");
+            _ready = true; // Fallback: Seite anzeigen, damit Benutzer informiert wird.
+        };
+    }
+}

@@ -191,6 +191,13 @@ namespace Dsms.Web.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
                     b.Property<string>("AssignedUserId")
                         .HasColumnType("longtext");
 
@@ -202,6 +209,9 @@ namespace Dsms.Web.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<DateTime?>("StartedAt")
                         .HasColumnType("datetime(6)");
@@ -237,6 +247,13 @@ namespace Dsms.Web.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -244,6 +261,9 @@ namespace Dsms.Web.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsArchived")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<int>("TenantId")
@@ -277,8 +297,18 @@ namespace Dsms.Web.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("NecessityAndProportionality")
                         .HasColumnType("text");
@@ -351,6 +381,13 @@ namespace Dsms.Web.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
                     b.Property<int?>("AuditRunId")
                         .HasColumnType("int");
 
@@ -371,6 +408,9 @@ namespace Dsms.Web.Migrations
 
                     b.Property<long>("FileSizeBytes")
                         .HasColumnType("bigint");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<int?>("MeasureId")
                         .HasColumnType("int");
@@ -422,8 +462,18 @@ namespace Dsms.Web.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
                     b.Property<string>("AssignedUserId")
                         .HasColumnType("longtext");
+
+                    b.Property<int?>("AuditAnswerId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("AuditRunId")
                         .HasColumnType("int");
@@ -439,6 +489,9 @@ namespace Dsms.Web.Migrations
 
                     b.Property<DateOnly?>("DueDate")
                         .HasColumnType("date");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -456,6 +509,8 @@ namespace Dsms.Web.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AuditAnswerId");
+
                     b.HasIndex("AuditRunId");
 
                     b.HasIndex("TenantId");
@@ -471,6 +526,13 @@ namespace Dsms.Web.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -481,6 +543,9 @@ namespace Dsms.Web.Migrations
                         .HasColumnType("text");
 
                     b.Property<bool>("DpiaRequired")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsArchived")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<string>("LegalBasis")
@@ -675,6 +740,13 @@ namespace Dsms.Web.Migrations
                     b.Property<string>("Address")
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
                     b.Property<string>("ContactPerson")
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
@@ -704,6 +776,9 @@ namespace Dsms.Web.Migrations
                     b.Property<string>("Email")
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("IsDataProcessor")
                         .HasColumnType("tinyint(1)");
@@ -856,6 +931,13 @@ namespace Dsms.Web.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
                     b.Property<int>("Category")
                         .HasColumnType("int");
 
@@ -870,6 +952,9 @@ namespace Dsms.Web.Migrations
 
                     b.Property<int>("ImplementationStatus")
                         .HasColumnType("int");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<DateOnly?>("NextReviewAt")
                         .HasColumnType("date");
@@ -905,6 +990,24 @@ namespace Dsms.Web.Migrations
                     b.HasIndex("TenantId", "ImplementationStatus");
 
                     b.ToTable("Toms", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.UserTenant", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("UserId", "TenantId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("UserTenants", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -1166,6 +1269,11 @@ namespace Dsms.Web.Migrations
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.Measure", b =>
                 {
+                    b.HasOne("Dsms.Web.Domain.Entities.AuditAnswer", "AuditAnswer")
+                        .WithMany("Measures")
+                        .HasForeignKey("AuditAnswerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Dsms.Web.Domain.Entities.AuditRun", "AuditRun")
                         .WithMany("Measures")
                         .HasForeignKey("AuditRunId")
@@ -1176,6 +1284,8 @@ namespace Dsms.Web.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("AuditAnswer");
 
                     b.Navigation("AuditRun");
 
@@ -1350,6 +1460,25 @@ namespace Dsms.Web.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.UserTenant", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany("UserTenants")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Data.ApplicationUser", "User")
+                        .WithMany("UserTenants")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -1401,8 +1530,15 @@ namespace Dsms.Web.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Dsms.Web.Data.ApplicationUser", b =>
+                {
+                    b.Navigation("UserTenants");
+                });
+
             modelBuilder.Entity("Dsms.Web.Domain.Entities.AuditAnswer", b =>
                 {
+                    b.Navigation("Measures");
+
                     b.Navigation("ProcessingActivityLinks");
                 });
 
@@ -1480,6 +1616,8 @@ namespace Dsms.Web.Migrations
                     b.Navigation("ServiceProviders");
 
                     b.Navigation("Toms");
+
+                    b.Navigation("UserTenants");
                 });
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.Tom", b =>

@@ -63,7 +63,7 @@ c:\code\DS\
     │   ├── App.razor, Routes.razor
     │   ├── Layout/                # MainLayout, NavMenu, LoginLayout
     │   ├── Pages/                 # Fachseiten (inkl. ProcessingActivities/, Toms/, ServiceProviders/)
-    │   ├── Shared/                # PageHeader, StatusBadge
+    │   ├── Shared/                # PageHeader, StatusBadge, DocumentUploadComponent, DocumentActions, DocumentLinksEditModal
     │   └── Account/               # Identity UI + Endpunkte
     ├── wwwroot/                   # CSS, Bootstrap, favicon
     ├── Properties/launchSettings.json
@@ -102,6 +102,10 @@ c:\code\DS\
 
 - `PageHeader` – Titel und Aktionen
 - `StatusBadge` – farbige Status-Anzeige
+- `ArchiveViewToggle` – Umschalter Aktiv / Archiv (steuert EF Global Query Filter)
+- `ArchiveListActions` – Archivieren / Wiederherstellen in Listen
+- `ArchiveConfirmModal` – Bestätigungsdialog mit Abhängigkeitswarnungen
+- `ArchivedBadge` – Kennzeichnung archivierter Einträge
 
 ### Datenzugriff in der UI
 
@@ -150,19 +154,29 @@ Zusätzlich alle **ASP.NET Identity**-Standardtabellen (`AspNetUsers`, `AspNetRo
 - **Restrict** beim Löschen von Mandanten, wenn abhängige Fachdaten existieren.
 - **Cascade** von Vorlage → Fragen; von Durchlauf → Antworten.
 - **Unique Index** auf `(AuditRunId, AuditQuestionId)` für Antworten.
-- **SetNull** bei Löschen eines Audit-Durchlaufs für verknüpfte Maßnahmen und Dokumente.
+- **SetNull** bei Löschen eines Audit-Durchlaufs für verknüpfte Maßnahmen und Dokumente; **SetNull** bei Löschen einer Audit-Antwort für `Measure.AuditAnswerId`.
 
 ### Datenmodell (Fach-Entities)
 
-Alle Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `UpdatedAt`).
+Archivierbare Module erben von **`ArchivableEntityBase`** (`EntityBase` + `IArchivable` + `ITenantEntity`):
+
+- `IsArchived` (bool, Standard `false`)
+- `ArchivedAt` (DateTime?, optional)
+- `ArchivedByUserId` (string?, Identity-User-ID)
+
+Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `Tom`, `ServiceProvider`, `AuditTemplate`, `AuditRun`, `Measure`, `EvidenceDocument`.
+
+Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen.
+
+Alle anderen Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `UpdatedAt`).
 
 ```
 Tenant
  ├── AuditTemplate ── AuditQuestion
  │        └── AuditRun ── AuditAnswer (→ AuditQuestion)
- │              ├── Measure
+ │              ├── Measure (optional AuditAnswerId)
  │              └── EvidenceDocument
- ├── Measure (optional AuditRun)
+ ├── Measure (optional AuditRun, optional AuditAnswerId)
  ├── EvidenceDocument
  ├── ProcessingActivity (VVT) ←──→ Tom (ProcessingActivityTom)
  │        ←──→ ServiceProvider (ProcessingActivityServiceProvider, Rolle)
@@ -196,7 +210,12 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IUserManagementService` / `UserManagementService` | Scoped | Benutzerliste, Anlegen, Bearbeiten, Deaktivieren inkl. serverseitiger Validierung |
 | `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, DSFA, VVT-Verknüpfungen) |
 | `ProcessingActivityRelationsService` | Scoped | Laden/Speichern von VVT-Verknüpfungen, Warnhinweise, Mandantenvalidierung |
-| `DocumentStorageService` | Scoped | Speichern/Lesen von Upload-Dateien unter `Data/Uploads/{tenantId}/` |
+| `DocumentStorageService` | Scoped | Speichern von Upload-Dateien unter `Data/Uploads/{tenantId}/` (unverändert) |
+| `DocumentUploadValidation` | Static | Dateityp-, MIME- und Größenprüfung für Uploads (PDF, DOCX, XLSX, JPG, PNG; max. 10 MB) |
+| `DocumentLinksService` | Scoped | Nachträgliches Aktualisieren der Verknüpfungen (`EvidenceDocument`-FKs) |
+| `DocumentFileEndpoints` | Minimal API | `GET /documents/{id}/download` und `/view` – mandantengebunden via EF-Filter |
+| `ArchiveViewContextAccessor` | Scoped | Aktiv-/Archivansicht für EF Global Query Filter (`ShowArchivedOnly`) |
+| `IArchivingService` / `ArchivingService` | Scoped | Soft Delete: Archivieren, Wiederherstellen, Abhängigkeitswarnungen |
 | `IdentityRedirectManager` | Scoped | Weiterleitungen nach Login/Logout |
 | `IdentityRevalidatingAuthenticationStateProvider` | Scoped | Auth-State-Revalidierung für Blazor |
 | `IdentityNoOpEmailSender` | Singleton | Kein echter E-Mail-Versand |
@@ -224,11 +243,17 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 
 **Version 1 – Mandant pro Benutzer:** `ApplicationUser.TenantId` (nullable). Keine `UserTenants`-Tabelle; Architektur über `IUserAccessService`/`UserManagementService` erweiterbar für Multi-Tenant-Zuordnung und Rollen pro Mandant.
 
-### Mandantenfilter
+### Mandanten- und Archivfilter
 
-- Implementierung: `ICurrentUserContext.GetTenantIdAsync()` in Razor-`OnInitializedAsync`
-- **Kein** globaler EF-Query-Filter auf `DbContext`
-- `/tenants` nur Superuser; `/users` gefiltert über `UserManagementService` (Superuser: alle, Admin: `TenantId`)
+- **Global Query Filters** in `ApplicationDbContext.ApplyTenantQueryFilters()`:
+  - Mandant: `TenantId == TenantContextAccessor.CurrentTenantId` (ohne gesetzten Kontext: keine Zeilen)
+  - Archiv: `IsArchived == ArchiveViewContextAccessor.ShowArchivedOnly` (Standard: nur aktive Einträge)
+- `TenantContextAccessor` wird pro Request/Circuit über `TenantInitializationMiddleware` / `TenantContextService` befüllt
+- **Mandantenwechsel:** Persistenz in ASP.NET-Session; aus interaktiven Blazor-Komponenten nur per HTTP-Redirect auf `GET /tenant/switch/{tenantId}` (Session ist nach Circuit-Start nicht mehr beschreibbar)
+- `ArchiveViewContextAccessor.ShowArchivedOnly` wird über `ArchiveViewToggle` in Listenansichten umgeschaltet
+- Archivieren/Wiederherstellen: `IArchivingService` mit `IgnoreQueryFilters()` und expliziter `TenantId`-Prüfung
+- Admin-Abfragen (Benutzer-/Mandantenverwaltung): `IgnoreQueryFilters()` wo nötig
+- `/tenants` nur Superuser; `/users` gefiltert über `UserManagementService`
 
 ### Identity-Endpunkte
 
@@ -263,7 +288,7 @@ Reihenfolge in `Program.cs`:
 
 ### Migrationen
 
-- Migrationen: **`InitialCreate`**, **`AddProcessingActivities`**, **`AddToms`**, **`AddServiceProviders`**, **`AddProcessingActivityRelations`**, **`AddDataProtectionImpactAssessments`** (Tabelle `DataProtectionImpactAssessments`; Spalte `EvidenceDocuments.DataProtectionImpactAssessmentId`)
+- Migrationen: **`InitialCreate`**, **`AddProcessingActivities`**, **`AddToms`**, **`AddServiceProviders`**, **`AddProcessingActivityRelations`**, **`AddDataProtectionImpactAssessments`**, **`AddArchivingSoftDelete`**, **`AddMeasureAuditAnswerLink`** (optionale Spalte `Measures.AuditAnswerId`)
 - Snapshot: `Migrations/ApplicationDbContextModelSnapshot.cs`
 
 ### Seed (`DatabaseSeeder.SeedAsync`)
@@ -355,7 +380,6 @@ Die Login-Seite ist an das DSMS-Design angepasst; viele Manage-/Register-Seiten 
 | Audit-Antwort ↔ VVT nur über Links-Seite | Direkte Zuordnung in `Answers.razor` bewusst zurückgestellt |
 | Kein FK `ApplicationUser` → `Tenant` | Referenzielle Integrität nur über Anwendungslogik |
 | UI/API für `AssignedUserId` fehlt | Datenmodell vorbereitet, nicht genutzt |
-| Kein Dokument-Download-Endpunkt | Upload ohne Abruf in der Fach-UI |
 | TOMs ohne direkte Dokumenten-Zuordnung | `EvidenceDocument` hat `AuditRunId`/`MeasureId`/`ServiceProviderId`; TOM nutzt Freitext `EvidenceReference` oder Verknüpfung über Dienstleister |
 | Keine Lösch-UI | Nur DB-Löschregeln definiert |
 | Register nicht verlinkt | Identity-Seite existiert, Produktfluss unklar |

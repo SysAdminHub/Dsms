@@ -135,6 +135,12 @@ else
             </EditForm>
         </div>
     </div>
+
+    @if (_model.Id > 0)
+    {
+        <LinkedDocumentsSection DataProtectionImpactAssessmentId="_model.Id"
+                                EmptyMessage="Keine Dokumente dieser DSFA zugeordnet." />
+    }
 }
 
 @code {
@@ -166,6 +172,7 @@ else
         if (Id is > 0)
         {
             var existing = await Db.DataProtectionImpactAssessments
+                .Include(d => d.Documents)
                 .FirstOrDefaultAsync(d => d.Id == Id && d.TenantId == _tenantId);
 
             if (existing is null)

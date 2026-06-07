@@ -6,6 +6,57 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Maßnahmen direkt aus Auditfragen erstellen:**
+  - Button „+ Maßnahme anlegen“ in `/audit-runs/answers/{Id}` neben „Speichern“
+  - Sichtbar nur bei Bewertungen mit Handlungsbedarf (Offen, Teilweise, Nicht konform) über `ComplianceLabels.ShouldShowCreateMeasureButton`
+  - Kein Button bei Konform oder Nicht anwendbar
+  - Vorausgefüllte Maßnahme über `/measures/edit?auditRunId=…&auditAnswerId=…` (Titel, Beschreibung, Audit-Durchlauf)
+  - Optionale Verknüpfung `Measure.AuditAnswerId` (EF-Migration `AddMeasureAuditAnswerLink`)
+  - Hinweis „X Maßnahme(n) vorhanden“ pro Auditfrage, verlinkt auf gefilterte Maßnahmenliste (`/measures?auditAnswerId=…`)
+  - Tenant-Prüfung beim Prefill und Speichern (Audit-Antwort muss zum Mandanten gehören)
+
+### Hinzugefügt (früher)
+
+- **QR-Code für Zwei-Faktor-Authentifizierung:**
+  - EnableAuthenticator: QR-Code-Anzeige (QRCoder) unter dem Secret Key, otpauth-URI mit App-Name „DSMS“
+  - Fallback: Secret Key bleibt sichtbar, wenn QR-Generierung fehlschlägt
+
+### Behoben
+
+- **Mandanten-Switcher:** Wechsel läuft über GET `/tenant/switch/{tenantId}` statt direkt aus dem Blazor-Circuit – Session-Persistenz funktioniert wieder (Fehler „session cannot be established after the response has started“)
+
+- **Login mit aktivierter 2FA:** `RequiresTwoFactor` wird korrekt erkannt und leitet zu `/Account/LoginWith2fa` weiter (mit `ReturnUrl` und `RememberMe`); kein falscher Passwort-Fehler mehr
+- **IdentityRedirectManager:** `NavigationException` wird nicht mehr abgefangen (Redirect nach Form-POST funktioniert); `forceLoad` für 2FA-Weiterleitung
+
+- **Dokumenten-Anzeige in allen Modulen vereinheitlicht:**
+  - Wiederverwendbare Komponente `LinkedDocumentsSection` für konsistentes Laden und Anzeige
+  - Dokumente sichtbar in DSFA (Detail + Bearbeiten), Audit-Durchläufe (Bearbeiten + Fragen), Maßnahmen (Bearbeiten)
+  - TOM-Detail: Nachweise über zugeordnete Verarbeitungstätigkeiten (kein direkter FK im Datenmodell)
+  - EF `Include(x => x.Documents)` beim Laden der übergeordneten Entitäten
+
+- **Dokumenten-Verknüpfungen nachträglich bearbeiten:**
+  - Service `DocumentLinksService` – aktualisiert nur FK-Felder, Datei bleibt unverändert
+  - Modal `DocumentLinksEditModal` – Verknüpfungen hinzufügen, ändern oder entfernen (optional leer)
+  - Button „Bearbeiten“ in der Dokumentenliste (nur aktive Ansicht)
+  - Mandantenvalidierung für alle Ziel-Entitäten
+
+- **Dokumenten-Upload mit Viewer und Download:**
+  - Verzögerter Upload: Datei auswählen, Metadaten/Verknüpfungen setzen, erst beim Klick auf „Hochladen“ speichern
+  - Validierung client- und serverseitig: Dateiendung (PDF, DOCX, XLSX, JPG, PNG), MIME-Type, max. 10 MB
+  - Komponenten `DocumentUploadComponent`, `DocumentActions` (Download + PDF-Viewer im Modal)
+  - HTTP-Endpunkte `GET /documents/{id}/download` und `/view` (PDF inline, mandantengebunden)
+  - Integration in Dokumentenliste sowie VVT-, Dienstleister- und DSFA-Detailseiten
+  - Bestehende `DocumentStorageService`- und Archivierungslogik unverändert
+
+- **Archivierung (Soft Delete) für alle Compliance-Module:**
+  - Datenmodell: `ArchivableEntityBase` mit `IsArchived`, `ArchivedAt`, `ArchivedByUserId` auf allen 8 Hauptmodulen (VVT, DSFA, TOM, Dienstleister, Audit-Vorlagen, Audit-Durchläufe, Maßnahmen, Dokumente)
+  - Interfaces `IArchivable`, `ITenantEntity` für wiederverwendbare Logik
+  - EF Global Query Filter: Standardansicht nur aktive Einträge; Archivansicht über `ArchiveViewContextAccessor`
+  - Service `IArchivingService` / `ArchivingService`: Archivieren, Wiederherstellen, Abhängigkeitswarnungen (ohne harte Blockade)
+  - UI: `ArchiveViewToggle`, `ArchiveListActions`, `ArchiveConfirmModal`, `ArchivedBadge` in allen Modul-Listen
+  - Buttons „Archivieren“ / „Wiederherstellen“ statt physischem Löschen
+  - EF-Migration `AddArchivingSoftDelete`
+
 - **SaaS-Basis: Rollen und Benutzer-/Mandantenverwaltung (Version 1):**
   - Neue Rolle **Superuser** (plattformweit, `TenantId` optional null)
   - **Admin** nur noch mandantenbezogene Benutzerverwaltung; **Mandanten** (`/tenants`) nur Superuser

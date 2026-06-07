@@ -11,6 +11,7 @@
 
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
+@inject ILogger<Login> Logger
 
 <PageTitle>Anmelden</PageTitle>
 
@@ -85,9 +86,34 @@
         }
 
         var result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+
+        Logger.LogInformation(
+            "Password sign-in for {Email}: Succeeded={Succeeded}, RequiresTwoFactor={RequiresTwoFactor}",
+            Input.Email, result.Succeeded, result.RequiresTwoFactor);
+
         if (result.Succeeded)
         {
             RedirectManager.RedirectTo(ReturnUrl);
+            return;
+        }
+
+        if (result.RequiresTwoFactor)
+        {
+            // forceLoad: vollständiger Request nach Form-POST, damit 2FA-Zwischencookie gesetzt wird.
+            RedirectManager.RedirectTo(
+                "Account/LoginWith2fa",
+                new Dictionary<string, object?>
+                {
+                    ["ReturnUrl"] = ReturnUrl,
+                    ["RememberMe"] = Input.RememberMe
+                },
+                forceLoad: true);
+            return;
+        }
+
+        if (result.IsLockedOut)
+        {
+            RedirectManager.RedirectTo("Account/Lockout", forceLoad: true);
             return;
         }
 

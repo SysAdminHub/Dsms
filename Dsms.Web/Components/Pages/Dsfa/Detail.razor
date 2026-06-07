@@ -131,28 +131,8 @@ else
         </div>
     </div>
 
-    <div class="dsms-card mb-4">
-        <div class="dsms-card-header">Verknüpfte Dokumente</div>
-        <div class="dsms-card-body">
-            @if (_documents.Count == 0)
-            {
-                <div class="dsms-empty">Keine Dokumente dieser DSFA zugeordnet.</div>
-                <p class="form-text text-muted mb-0">Dokumente können unter „Dokumente“ hochgeladen und einer DSFA zugeordnet werden.</p>
-            }
-            else
-            {
-                <ul class="dsms-list">
-                    @foreach (var doc in _documents)
-                    {
-                        <li class="dsms-list-item">
-                            <strong>@doc.FileName</strong>
-                            <span class="text-muted">@FormatSize(doc.FileSizeBytes) · @doc.CreatedAt.ToLocalTime().ToString("g")</span>
-                        </li>
-                    }
-                </ul>
-            }
-        </div>
-    </div>
+    <LinkedDocumentsSection DataProtectionImpactAssessmentId="_dpia.Id"
+                            EmptyMessage="Keine Dokumente dieser DSFA zugeordnet." />
 
     <div class="dsms-card">
         <div class="dsms-card-body">
@@ -181,7 +161,6 @@ else
     private bool _loaded;
     private DataProtectionImpactAssessment? _dpia;
     private ProcessingActivity? _processingActivity;
-    private List<EvidenceDocument> _documents = [];
     private IReadOnlyList<string> _detailWarnings = [];
 
     protected override async Task OnInitializedAsync()
@@ -197,6 +176,7 @@ else
             || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
 
         _dpia = await Db.DataProtectionImpactAssessments
+            .Include(d => d.Documents)
             .FirstOrDefaultAsync(d => d.Id == Id && d.TenantId == _tenantId);
 
         if (_dpia is not null)
@@ -204,11 +184,6 @@ else
             _processingActivity = await Db.ProcessingActivities
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == _dpia.ProcessingActivityId && p.TenantId == _tenantId);
-
-            _documents = await Db.EvidenceDocuments
-                .Where(d => d.TenantId == _tenantId && d.DataProtectionImpactAssessmentId == _dpia.Id)
-                .OrderByDescending(d => d.CreatedAt)
-                .ToListAsync();
 
             _detailWarnings = DsfaLabels.BuildDetailWarnings(_dpia);
         }
@@ -220,7 +195,4 @@ else
         string.IsNullOrWhiteSpace(text)
             ? new MarkupString("—")
             : new MarkupString(System.Net.WebUtility.HtmlEncode(text).Replace("\n", "<br />"));
-
-    private static string FormatSize(long bytes) =>
-        bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024.0:F1} KB";
 }

@@ -6,7 +6,7 @@ namespace Dsms.Web.Domain.Entities;
 /// Eintrag im Verzeichnis von Verarbeitungstätigkeiten (VVT) gemäß Art. 30 DSGVO.
 /// Mandantenbezogen; zentrale Dokumentation einer Datenverarbeitung in der Organisation.
 /// </summary>
-public class ProcessingActivity : EntityBase
+public class ProcessingActivity : ArchivableEntityBase, ITenantEntity
 {
     public int TenantId { get; set; }
     public Tenant Tenant { get; set; } = null!;

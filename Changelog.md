@@ -6,6 +6,18 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Zentraler Emailservice (Version 1 – Fundament):**
+  - Globale SMTP-Einstellungen für Superuser unter `/platform/email/settings` (Plattform → Email)
+  - Email-Vorlagen-Verwaltung unter `/platform/email/templates` und `/platform/email/templates/edit/{Id}`
+  - Services: `IEmailService`, `IEmailSettingsService`, `IEmailTemplateService`, `IEmailTemplateRenderer`, `IEmailSecretProtector`
+  - SMTP-Passwort-Schutz via ASP.NET Data Protection (`EmailSecretProtector`)
+  - Platzhalterersetzung im Format `{{VariableName}}` mit Vorschau (Beispieldaten) und Testmail
+  - Standardvorlagen (Seed): PasswordReset, WelcomeSetPassword, Reminder, TestEmail – ohne Überschreiben angepasster Vorlagen
+  - Vorbereitete Methoden: `SendPasswordResetEmailAsync`, `SendWelcomeSetPasswordEmailAsync`, `SendReminderEmailAsync` (noch nicht in Workflows integriert)
+  - EF-Migration `AddEmailSettingsAndTemplates` (Tabellen `EmailSettings`, `EmailTemplates`)
+  - NuGet-Paket `MailKit` 4.16.0 für SMTP-Versand
+  - **Bewusst nicht enthalten:** EmailLog / Versandprotokoll, mandantenspezifische SMTP-Einstellungen, vollständige Passwortreset-/Einladungs-/Reminder-Workflows
+
 - **Maßnahmen direkt aus Auditfragen erstellen:**
   - Button „+ Maßnahme anlegen“ in `/audit-runs/answers/{Id}` neben „Speichern“
   - Sichtbar nur bei Bewertungen mit Handlungsbedarf (Offen, Teilweise, Nicht konform) über `ComplianceLabels.ShouldShowCreateMeasureButton`

@@ -1,0 +1,227 @@
+@* Nur Superuser: zentrale SMTP-Einstellungen der Plattform. *@
+@page "/platform/email/settings"
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<PageTitle>Email-Einstellungen</PageTitle>
+
+<PageHeader Title="Email-Einstellungen" Subtitle="Zentrale SMTP-Konfiguration für die SaaS-Plattform" />
+
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <span class="nav-link active">SMTP-Einstellungen</span>
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link" href="platform/email/templates">Vorlagen</NavLink>
+    </li>
+</ul>
+
+@if (_loading)
+{
+    <p class="dsms-loading">Laden …</p>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success dsms-alert">@_successMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(_warningMessage))
+    {
+        <div class="alert alert-warning dsms-alert">@_warningMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(_detailMessage))
+    {
+        <div class="alert alert-secondary dsms-alert small">@_detailMessage</div>
+    }
+
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+                <div class="mb-3">
+                    <label class="form-label">SMTP-Host</label>
+                    <InputText class="form-control" @bind-Value="_model.SmtpHost" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">SMTP-Port</label>
+                    <InputNumber class="form-control" @bind-Value="_model.SmtpPort" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">SMTP-Benutzername</label>
+                    <InputText class="form-control" @bind-Value="_model.SmtpUsername" autocomplete="off" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">SMTP-Passwort / API-Key</label>
+                    <InputText type="password" class="form-control" @bind-Value="_model.NewSmtpPassword" autocomplete="new-password" />
+                    <div class="form-text text-muted">
+                        @if (_model.HasStoredPassword)
+                        {
+                            <text>Ein Passwort ist gespeichert. Feld leer lassen, um es beizubehalten.</text>
+                        }
+                        else
+                        {
+                            <text>Noch kein Passwort gespeichert.</text>
+                        }
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Absender-Email</label>
+                    <InputText class="form-control" @bind-Value="_model.SenderEmail" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Absender-Name</label>
+                    <InputText class="form-control" @bind-Value="_model.SenderName" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Verschlüsselung</label>
+                    <InputSelect class="form-select" @bind-Value="_model.Encryption">
+                        <option value="@SmtpEncryption.None">Keine</option>
+                        <option value="@SmtpEncryption.StartTls">STARTTLS</option>
+                        <option value="@SmtpEncryption.SslTls">SSL/TLS</option>
+                    </InputSelect>
+                </div>
+                <div class="form-check mb-4">
+                    <InputCheckbox class="form-check-input" @bind-Value="_model.IsEnabled" id="emailEnabled" />
+                    <label class="form-check-label" for="emailEnabled">Aktiviert</label>
+                </div>
+
+                @if (_model.UpdatedAt is not null)
+                {
+                    <p class="text-muted small">
+                        Zuletzt aktualisiert: @_model.UpdatedAt.Value.ToLocalTime().ToString("g")
+                        @if (!string.IsNullOrEmpty(_model.UpdatedByDisplay))
+                        {
+                            <text> von @_model.UpdatedByDisplay</text>
+                        }
+                    </p>
+                }
+
+                <div class="dsms-form-actions">
+                    <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+
+    <div class="dsms-card dsms-form-card mt-4">
+        <div class="dsms-card-body">
+            <h5 class="mb-3">Testmail senden</h5>
+            <p class="text-muted">Verwendet die aktuell gespeicherten SMTP-Einstellungen.</p>
+            <div class="mb-3">
+                <label class="form-label">Testempfänger-Email</label>
+                <InputText class="form-control" @bind-Value="_testRecipient" />
+            </div>
+            <button type="button" class="btn btn-outline-primary" disabled="@_sendingTest" @onclick="SendTestAsync">
+                Testmail senden
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private IEmailSettingsService EmailSettings { get; set; } = null!;
+
+    private EmailSettingsEditModel _model = new();
+    private bool _loading = true;
+    private bool _saving;
+    private bool _sendingTest;
+    private string? _testRecipient;
+    private string? _successMessage;
+    private string? _warningMessage;
+    private string? _errorMessage;
+    private string? _detailMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _model = await EmailSettings.GetForEditAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _errorMessage = "Keine Berechtigung für Email-Einstellungen.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        ClearMessages();
+
+        try
+        {
+            var result = await EmailSettings.SaveAsync(_model);
+            if (result.Succeeded)
+            {
+                _successMessage = result.Message;
+                _model = await EmailSettings.GetForEditAsync();
+                _model.NewSmtpPassword = null;
+            }
+            else
+            {
+                _errorMessage = result.Message;
+                _detailMessage = result.DetailMessage;
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _errorMessage = "Keine Berechtigung für Email-Einstellungen.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task SendTestAsync()
+    {
+        _sendingTest = true;
+        ClearMessages();
+
+        try
+        {
+            var result = await EmailSettings.SendTestEmailAsync(_testRecipient ?? "");
+            if (result.Succeeded)
+            {
+                if (result.IsWarning)
+                {
+                    _warningMessage = result.Message;
+                }
+                else
+                {
+                    _successMessage = result.Message;
+                }
+                _detailMessage = result.DetailMessage;
+            }
+            else
+            {
+                _errorMessage = result.Message;
+                _detailMessage = result.DetailMessage;
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _errorMessage = "Keine Berechtigung für Email-Einstellungen.";
+        }
+        finally
+        {
+            _sendingTest = false;
+        }
+    }
+
+    private void ClearMessages()
+    {
+        _successMessage = null;
+        _warningMessage = null;
+        _errorMessage = null;
+        _detailMessage = null;
+    }
+}

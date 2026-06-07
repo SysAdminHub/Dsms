@@ -51,6 +51,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | Maßnahmen | Listen, Anlegen und Bearbeiten von Maßnahmen mit Status und Fälligkeit; direkt aus Auditfragen bei Handlungsbedarf |
 | Dokumente | Upload von Nachweisdateien (max. 10 MB), Zuordnung zu Audit, Maßnahme, Dienstleister oder Verarbeitungstätigkeit |
 | Mandanten | Verwaltung von Organisationseinheiten (**nur Superuser**, plattformweit) |
+| Email | Zentrale SMTP-Einstellungen und Email-Vorlagen (**nur Superuser**); Testmail und Vorschau |
 | Benutzer | Anlegen und Bearbeiten von Konten, Rollen, Mandant, Aktiv-Status (**Superuser** mandantenübergreifend, **Admin** nur im eigenen Mandant) |
 | Konto | Standard-Identity-Funktionen (Profil, Passwort, optional 2FA usw.) |
 
@@ -97,6 +98,9 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | `/tenants` | Mandanten (Liste) |
 | `/tenants/edit` | Mandant anlegen |
 | `/tenants/edit/{Id}` | Mandant bearbeiten |
+| `/platform/email/settings` | Email-Einstellungen (SMTP, Testmail) |
+| `/platform/email/templates` | Email-Vorlagen (Liste) |
+| `/platform/email/templates/edit/{Id}` | Email-Vorlage bearbeiten (Vorschau, Testmail) |
 
 ### Benutzerverwaltung (**Superuser** und **Admin**)
 
@@ -245,6 +249,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 - Nachweisdokumente optional einem Dienstleister zuordenbar
 - Datei-Upload mit Mandantenordner unter `Data/Uploads/`
 - Rollenbasierte Navigation und Seitenautorisierung
+- Zentraler Emailservice (Superuser): globale SMTP-Einstellungen, Email-Vorlagen mit Platzhaltern `{{VariableName}}`, Vorschau und Testmail
 
 ### Was das System (noch) nicht kann
 
@@ -254,7 +259,8 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 - Mandantenwechsel im UI für Compliance-Daten (Superuser ohne `TenantId` sieht kein mandantenbezogenes Dashboard)
 - Bearbeiten oder Löschen einzelner Audit-Fragen nach dem Anlegen
 - Zuweisung von Verantwortlichen (`AssignedUserId`) in der UI – Feld existiert im Datenmodell
-- Echter E-Mail-Versand (Bestätigung, Passwort-Reset)
+- Vollständige Email-Workflows (Passwortreset, Benutzer-Einladung, Erinnerungen) – SMTP und Vorlagen sind vorbereitet, Workflows folgen später
+- Email-Versandprotokoll (EmailLog) – bewusst noch nicht enthalten
 - Öffentliche Selbstregistrierung als Standard-Workflow (Register-Seite existiert, ist aber nicht eingebunden)
 - Mehrere Mandanten pro Benutzer (geplant; aktuell genau ein `TenantId` pro Konto, außer Superuser)
 - Rollen pro Mandant und Impersonation (geplant)

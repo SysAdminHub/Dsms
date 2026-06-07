@@ -34,6 +34,8 @@ public class ApplicationDbContext(
     public DbSet<ProcessingActivityMeasure> ProcessingActivityMeasures => Set<ProcessingActivityMeasure>();
     public DbSet<ProcessingActivityAuditAnswer> ProcessingActivityAuditAnswers => Set<ProcessingActivityAuditAnswer>();
     public DbSet<DataProtectionImpactAssessment> DataProtectionImpactAssessments => Set<DataProtectionImpactAssessment>();
+    public DbSet<EmailSettings> EmailSettings => Set<EmailSettings>();
+    public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -291,6 +293,29 @@ public class ApplicationDbContext(
             e.HasIndex(d => d.TenantId);
             e.HasIndex(d => d.ProcessingActivityId);
             e.HasIndex(d => new { d.TenantId, d.ProcessingActivityId });
+        });
+
+        builder.Entity<EmailSettings>(e =>
+        {
+            e.ToTable("EmailSettings");
+            e.Property(s => s.SmtpHost).HasMaxLength(255);
+            e.Property(s => s.SmtpUsername).HasMaxLength(255);
+            e.Property(s => s.EncryptedSmtpPassword).HasMaxLength(2000);
+            e.Property(s => s.SenderEmail).HasMaxLength(255);
+            e.Property(s => s.SenderName).HasMaxLength(200);
+            e.Property(s => s.UpdatedByUserId).HasMaxLength(450);
+        });
+
+        builder.Entity<EmailTemplate>(e =>
+        {
+            e.ToTable("EmailTemplates");
+            e.Property(t => t.TemplateKey).HasMaxLength(100).IsRequired();
+            e.Property(t => t.DisplayName).HasMaxLength(200).IsRequired();
+            e.Property(t => t.Subject).HasMaxLength(500).IsRequired();
+            e.Property(t => t.HtmlContent).HasColumnType("text");
+            e.Property(t => t.TextContent).HasColumnType("text");
+            e.Property(t => t.UpdatedByUserId).HasMaxLength(450);
+            e.HasIndex(t => t.TemplateKey).IsUnique();
         });
     }
 

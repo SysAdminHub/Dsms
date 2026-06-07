@@ -23,6 +23,7 @@ public static class DatabaseSeeder
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
         await db.Database.MigrateAsync();
+        await EmailTemplateSeeder.SeedAsync(db);
 
         foreach (var role in DsmsRoles.All)
         {

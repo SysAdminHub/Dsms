@@ -80,6 +80,7 @@ c:\code\DS\
 | Identity | `Microsoft.AspNetCore.Identity.EntityFrameworkCore` 9.0.8 |
 | MySQL Provider | `Pomelo.EntityFrameworkCore.MySql` 9.0.0 |
 | MySQL Server-Version (konfiguriert) | `8.0.36` in `Program.cs` |
+| Email (SMTP) | `MailKit` 4.16.0 |
 | Diagnostik (Dev) | `Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore` |
 
 ## Aufbau der Blazor-Server-Anwendung
@@ -146,6 +147,8 @@ Docker Compose (`docker-compose.yml`) legt `dsms_dev` mit Root-Passwort `changem
 | `ProcessingActivityMeasures` | `ProcessingActivityMeasure` |
 | `ProcessingActivityAuditAnswers` | `ProcessingActivityAuditAnswer` |
 | `DataProtectionImpactAssessments` | `DataProtectionImpactAssessment` |
+| `EmailSettings` | `EmailSettings` (plattformweit, kein Mandantenfilter) |
+| `EmailTemplates` | `EmailTemplate` (plattformweit, eindeutiger `TemplateKey`) |
 
 Zusätzlich alle **ASP.NET Identity**-Standardtabellen (`AspNetUsers`, `AspNetRoles`, …).
 
@@ -218,7 +221,12 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IArchivingService` / `ArchivingService` | Scoped | Soft Delete: Archivieren, Wiederherstellen, Abhängigkeitswarnungen |
 | `IdentityRedirectManager` | Scoped | Weiterleitungen nach Login/Logout |
 | `IdentityRevalidatingAuthenticationStateProvider` | Scoped | Auth-State-Revalidierung für Blazor |
-| `IdentityNoOpEmailSender` | Singleton | Kein echter E-Mail-Versand |
+| `IdentityNoOpEmailSender` | Singleton | Identity-Stub (Passwort-Reset etc. noch ohne Workflow-Anbindung) |
+| `IEmailService` / `EmailService` | Scoped | Zentraler SMTP-Versand via MailKit |
+| `IEmailSettingsService` / `EmailSettingsService` | Scoped | SMTP-Einstellungen CRUD + Testmail (nur Superuser) |
+| `IEmailTemplateService` / `EmailTemplateService` | Scoped | Vorlagen CRUD, Vorschau, Testmail aus Vorlage (nur Superuser) |
+| `IEmailTemplateRenderer` / `EmailTemplateRenderer` | Scoped | Platzhalterersetzung `{{VariableName}}` |
+| `IEmailSecretProtector` / `EmailSecretProtector` | Scoped | SMTP-Passwort-Schutz via ASP.NET Data Protection |
 
 ## Authentifizierung und Berechtigungen
 
@@ -228,13 +236,13 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 - Passwort: min. 8 Zeichen, Ziffer + Kleinbuchstabe erforderlich
 - `RequireConfirmedAccount = false` (Demo/Intern)
 - Cookies: `AddIdentityCookies()`
-- Kein E-Mail-Versand: `IdentityNoOpEmailSender`
+- Zentraler Emailversand: `EmailService` (MailKit); Identity nutzt weiterhin `IdentityNoOpEmailSender` bis Workflows angebunden sind
 
 ### Rollen (`DsmsRoles`)
 
 | Rolle | Typische Rechte (aus `[Authorize]`, NavMenu, `IUserAccessService`) |
 |-------|---------------------------------------------------------------------|
-| **Superuser** | Plattform: alle Mandanten (`/tenants`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
+| **Superuser** | Plattform: alle Mandanten (`/tenants`), Email (`/platform/email/*`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
 | **Admin** | Benutzer im eigenen Mandant; **keine** Mandantenverwaltung; Compliance wie bisher für `TenantId` |
 | **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, DSFA, TOMs und Dienstleister anlegen/bearbeiten; **keine** Benutzerverwaltung |
 | **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen |
@@ -253,7 +261,8 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 - `ArchiveViewContextAccessor.ShowArchivedOnly` wird über `ArchiveViewToggle` in Listenansichten umgeschaltet
 - Archivieren/Wiederherstellen: `IArchivingService` mit `IgnoreQueryFilters()` und expliziter `TenantId`-Prüfung
 - Admin-Abfragen (Benutzer-/Mandantenverwaltung): `IgnoreQueryFilters()` wo nötig
-- `/tenants` nur Superuser; `/users` gefiltert über `UserManagementService`
+- `/tenants` und `/platform/email/*` nur Superuser; `/users` gefiltert über `UserManagementService`
+- Email-Routen sind von der Mandantenauswahl ausgenommen (`TenantService.IsTenantRequiredForRoute`)
 
 ### Identity-Endpunkte
 

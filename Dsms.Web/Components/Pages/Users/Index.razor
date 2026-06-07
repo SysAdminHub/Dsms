@@ -9,6 +9,15 @@
     <a class="btn btn-primary" href="users/create">Neuer Benutzer</a>
 </PageHeader>
 
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <div class="alert alert-success dsms-alert">@_successMessage</div>
+}
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+}
+
 @if (_users is null)
 {
     <div class="dsms-loading">Lade …</div>
@@ -46,6 +55,12 @@ else
                             </td>
                             <td class="dsms-table-actions">
                                 <a class="btn btn-sm btn-outline-secondary" href="@($"users/edit/{entry.User.Id}")">Bearbeiten</a>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-primary ms-1"
+                                        disabled="@(_sendingUserId == entry.User.Id)"
+                                        @onclick="() => SendPasswordResetAsync(entry.User.Id)">
+                                    Passwortreset-Mail senden
+                                </button>
                             </td>
                         </tr>
                     }
@@ -57,9 +72,32 @@ else
 
 @code {
     [Inject] private IUserManagementService UserManagement { get; set; } = null!;
+    [Inject] private IPasswordResetService PasswordReset { get; set; } = null!;
 
     private IReadOnlyList<UserListItem>? _users;
+    private string? _sendingUserId;
+    private string? _successMessage;
+    private string? _errorMessage;
 
     protected override async Task OnInitializedAsync() =>
         _users = await UserManagement.ListUsersAsync(includeInactive: true);
+
+    private async Task SendPasswordResetAsync(string userId)
+    {
+        _sendingUserId = userId;
+        _successMessage = null;
+        _errorMessage = null;
+
+        var result = await PasswordReset.SendAdminResetAsync(userId);
+        if (result.Succeeded)
+        {
+            _successMessage = result.Message;
+        }
+        else
+        {
+            _errorMessage = result.Message;
+        }
+
+        _sendingUserId = null;
+    }
 }

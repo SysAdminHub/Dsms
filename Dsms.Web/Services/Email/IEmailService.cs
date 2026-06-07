@@ -23,7 +23,8 @@ public interface IEmailService
         string userName,
         string resetLink,
         int expiresInMinutes,
-        int? tenantId = null);
+        int? tenantId = null,
+        string? supportEmail = null);
 
     Task<EmailOperationResult> SendWelcomeSetPasswordEmailAsync(
         string toEmail,

@@ -227,6 +227,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IEmailTemplateService` / `EmailTemplateService` | Scoped | Vorlagen CRUD, Vorschau, Testmail aus Vorlage (nur Superuser) |
 | `IEmailTemplateRenderer` / `EmailTemplateRenderer` | Scoped | Platzhalterersetzung `{{VariableName}}` |
 | `IEmailSecretProtector` / `EmailSecretProtector` | Scoped | SMTP-Passwort-Schutz via ASP.NET Data Protection |
+| `IPasswordResetService` / `PasswordResetService` | Scoped | Passwortreset via Identity-Token + `IEmailService`; Rate Limit über `IDistributedCache` |
 
 ## Authentifizierung und Berechtigungen
 
@@ -236,7 +237,10 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 - Passwort: min. 8 Zeichen, Ziffer + Kleinbuchstabe erforderlich
 - `RequireConfirmedAccount = false` (Demo/Intern)
 - Cookies: `AddIdentityCookies()`
-- Zentraler Emailversand: `EmailService` (MailKit); Identity nutzt weiterhin `IdentityNoOpEmailSender` bis Workflows angebunden sind
+- Zentraler Emailversand: `EmailService` (MailKit); Passwortreset nutzt `PasswordResetService` + Vorlage `PasswordReset`
+- Identity-Stub `IdentityNoOpEmailSender` bleibt für übrige Identity-UI (Registrierung etc.)
+- Passwortreset-Token: `UserManager.GeneratePasswordResetTokenAsync` / `ResetPasswordAsync`; Lebensdauer 60 Min. (`DataProtectionTokenProviderOptions`)
+- Keine eigene `PasswordResetTokens`-Tabelle
 
 ### Rollen (`DsmsRoles`)
 
@@ -262,6 +266,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 - Archivieren/Wiederherstellen: `IArchivingService` mit `IgnoreQueryFilters()` und expliziter `TenantId`-Prüfung
 - Admin-Abfragen (Benutzer-/Mandantenverwaltung): `IgnoreQueryFilters()` wo nötig
 - `/tenants` und `/platform/email/*` nur Superuser; `/users` gefiltert über `UserManagementService`
+- `/passwort-vergessen` und `/passwort-zuruecksetzen` öffentlich (ohne Mandantenauswahl)
 - Email-Routen sind von der Mandantenauswahl ausgenommen (`TenantService.IsTenantRequiredForRoute`)
 
 ### Identity-Endpunkte

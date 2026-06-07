@@ -6,6 +6,15 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Passwortreset mit ASP.NET Identity:**
+  - Self-Service über Login-Link „Passwort vergessen?“ → `/passwort-vergessen`
+  - Reset-Seite `/passwort-zuruecksetzen` mit URL-sicher codiertem Identity-Token (`UserManager.GeneratePasswordResetTokenAsync` / `ResetPasswordAsync`)
+  - Neutrale UI-Meldung ohne Benutzer-Aufzählung; Token-Lebensdauer 60 Minuten (`DataProtectionTokenProviderOptions`)
+  - Admin/Superuser: „Passwortreset-Mail senden“ in Benutzerverwaltung (`/users`, `/users/edit/{UserId}`)
+  - Zentraler `PasswordResetService` nutzt `IEmailService` und Vorlage `PasswordReset` – keine eigene Token-Tabelle
+  - Einfaches Rate Limiting (5 Min. pro Emailadresse) über `IDistributedCache`
+  - Keine Passwörter per Email; kein EmailLog
+
 - **Zentraler Emailservice (Version 1 – Fundament):**
   - Globale SMTP-Einstellungen für Superuser unter `/platform/email/settings` (Plattform → Email)
   - Email-Vorlagen-Verwaltung unter `/platform/email/templates` und `/platform/email/templates/edit/{Id}`

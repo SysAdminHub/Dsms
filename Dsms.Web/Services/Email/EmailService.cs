@@ -107,11 +107,16 @@ public sealed class EmailService(
         string userName,
         string resetLink,
         int expiresInMinutes,
-        int? tenantId = null)
+        int? tenantId = null,
+        string? supportEmail = null)
     {
         var variables = BuildCommonVariables(userName, toEmail);
         variables["ResetLink"] = resetLink;
         variables["ExpiresInMinutes"] = expiresInMinutes.ToString();
+        if (!string.IsNullOrWhiteSpace(supportEmail))
+        {
+            variables["SupportEmail"] = supportEmail;
+        }
         return SendTemplateEmailAsync(toEmail, EmailTemplateKeys.PasswordReset, variables);
     }
 

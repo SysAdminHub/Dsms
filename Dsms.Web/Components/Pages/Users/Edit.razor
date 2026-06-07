@@ -23,6 +23,10 @@ else
 
     <div class="dsms-card dsms-form-card">
         <div class="dsms-card-body">
+            @if (!string.IsNullOrEmpty(_successMessage))
+            {
+                <div class="alert alert-success dsms-alert">@_successMessage</div>
+            }
             @if (!string.IsNullOrEmpty(_errorMessage))
             {
                 <div class="alert alert-danger dsms-alert">@_errorMessage</div>
@@ -91,6 +95,9 @@ else
 
                 <div class="dsms-form-actions">
                     <button type="submit" class="btn btn-primary">Speichern</button>
+                    <button type="button" class="btn btn-outline-primary" disabled="@_sendingReset" @onclick="SendPasswordResetAsync">
+                        Passwortreset-Mail senden
+                    </button>
                     <a class="btn btn-outline-secondary" href="users">Abbrechen</a>
                 </div>
             </EditForm>
@@ -106,6 +113,7 @@ else
     [Inject] private ITenantContextService TenantContext { get; set; } = null!;
     [Inject] private ITenantService TenantService { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private IPasswordResetService PasswordReset { get; set; } = null!;
 
     private ApplicationUser? _user;
     private List<Tenant> _tenants = [];
@@ -115,6 +123,8 @@ else
     private bool _isSuperuser;
     private bool _loaded;
     private string? _errorMessage;
+    private string? _successMessage;
+    private bool _sendingReset;
     private EditFormModel _editModel = new();
 
     protected override async Task OnInitializedAsync()
@@ -244,6 +254,27 @@ else
         }
 
         Navigation.NavigateTo("users");
+    }
+
+    private async Task SendPasswordResetAsync()
+    {
+        if (_user is null) return;
+
+        _sendingReset = true;
+        _successMessage = null;
+        _errorMessage = null;
+
+        var result = await PasswordReset.SendAdminResetAsync(_user.Id);
+        if (result.Succeeded)
+        {
+            _successMessage = result.Message;
+        }
+        else
+        {
+            _errorMessage = result.Message;
+        }
+
+        _sendingReset = false;
     }
 
     private sealed class EditFormModel

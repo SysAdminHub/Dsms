@@ -114,7 +114,9 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 
 | Route | Hinweis |
 |-------|---------|
-| `/Account/Login` | Anmeldung (eigenes Layout ohne Sidebar) |
+| `/Account/Login` | Anmeldung (eigenes Layout ohne Sidebar); Link „Passwort vergessen?“ |
+| `/passwort-vergessen` | Passwortreset anfordern (Self-Service, neutrale Meldung) |
+| `/passwort-zuruecksetzen` | Neues Passwort setzen (Identity-Token per Query) |
 | `/Account/Manage` und Unterseiten | Profil, Passwort, 2FA, persönliche Daten (Standard-Identity-Vorlagen, teils englische UI-Texte) |
 | `/Account/Register` | Registrierung vorhanden, aber **nicht** in der Login-Seite verlinkt |
 | `/not-found` | Seite nicht gefunden |
@@ -250,6 +252,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 - Datei-Upload mit Mandantenordner unter `Data/Uploads/`
 - Rollenbasierte Navigation und Seitenautorisierung
 - Zentraler Emailservice (Superuser): globale SMTP-Einstellungen, Email-Vorlagen mit Platzhaltern `{{VariableName}}`, Vorschau und Testmail
+- Passwortreset (ASP.NET Identity): Self-Service über „Passwort vergessen?“; Admin/Superuser können Reset-Mails aus der Benutzerverwaltung auslösen
 
 ### Was das System (noch) nicht kann
 
@@ -259,7 +262,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 - Mandantenwechsel im UI für Compliance-Daten (Superuser ohne `TenantId` sieht kein mandantenbezogenes Dashboard)
 - Bearbeiten oder Löschen einzelner Audit-Fragen nach dem Anlegen
 - Zuweisung von Verantwortlichen (`AssignedUserId`) in der UI – Feld existiert im Datenmodell
-- Vollständige Email-Workflows (Passwortreset, Benutzer-Einladung, Erinnerungen) – SMTP und Vorlagen sind vorbereitet, Workflows folgen später
+- Vollständige Email-Workflows für Benutzer-Einladung und Erinnerungen – Vorlagen sind vorbereitet, Workflows folgen später
 - Email-Versandprotokoll (EmailLog) – bewusst noch nicht enthalten
 - Öffentliche Selbstregistrierung als Standard-Workflow (Register-Seite existiert, ist aber nicht eingebunden)
 - Mehrere Mandanten pro Benutzer (geplant; aktuell genau ein `TenantId` pro Konto, außer Superuser)

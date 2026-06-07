@@ -52,6 +52,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | Dokumente | Upload von Nachweisdateien (max. 10 MB), Zuordnung zu Audit, Maßnahme, Dienstleister oder Verarbeitungstätigkeit |
 | Mandanten | Verwaltung von Organisationseinheiten (**nur Superuser**, plattformweit) |
 | Benutzer | Anlegen und Bearbeiten von Konten, Rollen, Mandant, Aktiv-Status (**Superuser** mandantenübergreifend, **Admin** nur im eigenen Mandant) |
+| Tenant-Daten | Vollständiger Mandanten-Export als ZIP und sichere Löschanforderung (**Superuser** und **Admin**) |
 | Konto | Standard-Identity-Funktionen (Profil, Passwort, optional 2FA usw.) |
 
 ## Module und Seiten
@@ -105,6 +106,9 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | `/users` | Benutzer (Liste) | Superuser: alle Mandanten; Admin: nur eigener Mandant |
 | `/users/create` | Benutzer anlegen | Superuser: Rolle + Mandant; Admin: Rolle ohne Superuser, Mandant automatisch |
 | `/users/edit/{UserId}` | Benutzer bearbeiten | Wie Liste; Admin darf keine Superuser bearbeiten |
+| `/tenant-daten` | Tenant-Daten | Export als ZIP und Löschanforderung; Superuser: aktuell gewählter Mandant; Admin: nur eigener Mandant |
+
+Der Mandanten-Export enthält fachliche Daten und Dokumente des aktuellen Mandanten, **keine** Passwort-Hashes, Tokens oder Secrets. Die Löschanforderung markiert den Mandanten nur als „Löschung angefordert“ – eine endgültige Löschung folgt später in einem separaten Prozess.
 
 ### Konto und Anmeldung
 

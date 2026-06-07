@@ -3,6 +3,8 @@ using Dsms.Web.Components.Account;
 using Dsms.Web.Data;
 using Dsms.Web.Data.Seed;
 using Dsms.Web.Services;
+using Dsms.Web.Services.TenantDeletion;
+using Dsms.Web.Services.TenantExport;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -43,6 +45,8 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ProcessingActivityRelationsService>();
 builder.Services.AddScoped<DocumentStorageService>();
 builder.Services.AddScoped<DocumentLinksService>();
+builder.Services.AddScoped<ITenantExportService, TenantExportService>();
+builder.Services.AddScoped<ITenantDeletionService, TenantDeletionService>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -133,6 +137,7 @@ app.MapPost("/tenant/switch", async (
 // Minimal-API-Endpunkte für Identity-Formulare (Logout, externe Logins, …).
 app.MapAdditionalIdentityEndpoints();
 app.MapDocumentFileEndpoints();
+app.MapTenantDataEndpoints();
 
 await DatabaseSeeder.SeedAsync(app.Services);
 

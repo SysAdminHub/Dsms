@@ -4,7 +4,28 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Behoben
+
+- **Tenant-Export / Mandantenabfrage:** `InvalidCastException: Can't convert NULL to Int32` behoben
+  - Export lädt Verknüpfungen jetzt mit separaten `IgnoreQueryFilters()`-Abfragen statt gefilterter EF-Includes
+  - Audit-Vorlagen/Fragen im Export per SQL-Projektion (nur benötigte Felder)
+  - Migration `FixTenantDeletionRequestNulls`: NULL-Werte in `Tenants.IsDeletionRequested` / `IsActive` bereinigt
+  - Migration `FixArchivableNullBooleanColumns`: NULL-Werte in `IsArchived`/`IsActive` aller Archiv-Tabellen bereinigt
+
 ### Hinzugefügt
+
+- **Tenant-Daten (Export und Löschanforderung):**
+  - Neue Seite `/tenant-daten` im Bereich Verwaltung (Superuser und Mandanten-Admin)
+  - Vollständiger Mandanten-Export als ZIP (`ITenantExportService` / `TenantExportService`)
+  - Export enthält: Stammdaten, Benutzer, VVT, DSFA, TOMs, Dienstleister, Maßnahmen, Audit-Vorlagen, Audit-Durchläufe inkl. Fragen/Antworten, Dokument-Metadaten und Dateien
+  - Export enthält **keine** Passwort-Hashes, Tokens, Secrets oder SMTP-Passwörter
+  - Download über `POST /tenant-daten/export` (direkter Stream, keine dauerhafte Speicherung)
+  - Löschanforderung über `ITenantDeletionService` – markiert Tenant mit `IsDeletionRequested`, `DeletionRequestedAt`, `DeletionRequestedByUserId`, `DeletionScheduledAt` (jetzt + 7 Tage)
+  - Keine automatische Hard-Delete in Version 1
+  - Warnhinweis `TenantDeletionBanner` bei Mandanten mit Löschanforderung
+  - Superuser kann Löschanforderung abbrechen
+  - EF-Migration `AddTenantDeletionRequestFields`
+  - Berechtigung über `IUserAccessService.CanManageTenantDataAsync()`
 
 - **Maßnahmen direkt aus Auditfragen erstellen:**
   - Button „+ Maßnahme anlegen“ in `/audit-runs/answers/{Id}` neben „Speichern“

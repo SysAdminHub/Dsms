@@ -29,4 +29,7 @@ public static class DsmsRoles
 
     /// <summary>Identity-Rollen-String für Seiten der Benutzerverwaltung (Superuser + Admin).</summary>
     public const string UserManagement = $"{Superuser},{Admin}";
+
+    /// <summary>Identity-Rollen-String für Tenant-Daten (Export, Löschanforderung).</summary>
+    public const string TenantDataManagement = $"{Superuser},{Admin}";
 }

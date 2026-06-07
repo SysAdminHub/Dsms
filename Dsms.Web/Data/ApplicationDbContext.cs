@@ -58,6 +58,9 @@ public class ApplicationDbContext(
         {
             e.Property(t => t.Name).HasMaxLength(200).IsRequired();
             e.Property(t => t.LegalName).HasMaxLength(300);
+            e.Property(t => t.DeletionRequestedByUserId).HasMaxLength(450);
+            e.Property(t => t.IsActive).HasDefaultValue(true);
+            e.Property(t => t.IsDeletionRequested).HasDefaultValue(false);
         });
 
         ApplyTenantQueryFilters(builder);

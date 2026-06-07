@@ -1,6 +1,7 @@
 using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
+using Dsms.Web.Services.PasswordReset;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,7 +12,8 @@ public class UserManagementService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
     UserManager<ApplicationUser> userManager,
     IUserAccessService access,
-    ICurrentUserContext currentUser) : IUserManagementService
+    ICurrentUserContext currentUser,
+    IPasswordResetService passwordReset) : IUserManagementService
 {
     /// <inheritdoc />
     public async Task<IReadOnlyList<UserListItem>> ListUsersAsync(bool includeInactive)
@@ -143,7 +145,7 @@ public class UserManagementService(
             CreatedByUserId = creatorId
         };
 
-        var createResult = await userManager.CreateAsync(user, model.Password);
+        var createResult = await userManager.CreateAsync(user);
         if (!createResult.Succeeded)
         {
             return UserOperationResult.FromIdentity(createResult);
@@ -152,7 +154,15 @@ public class UserManagementService(
         await userManager.AddToRoleAsync(user, model.Role);
         await SyncUserTenantsAsync(user.Id, tenantIds);
 
-        return UserOperationResult.Ok();
+        var inviteResult = await passwordReset.SendWelcomeInvitationAsync(user.Id);
+        if (inviteResult.Succeeded)
+        {
+            return UserOperationResult.OkWithInfo(
+                "Benutzer wurde angelegt und die Willkommensmail wurde versendet.");
+        }
+
+        return UserOperationResult.OkWithInfo(
+            "Benutzer wurde angelegt, aber die Willkommensmail konnte nicht gesendet werden. Bitte Email-Einstellungen prüfen oder Einladung erneut senden.");
     }
 
     /// <inheritdoc />

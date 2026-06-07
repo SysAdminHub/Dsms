@@ -1,0 +1,68 @@
+@* Superuser: eingereichte Community-Vorlagen zur Prüfung. *@
+@page "/platform/audit-templates/community"
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<PageTitle>Community-Prüfung</PageTitle>
+
+<PageHeader Title="Community-Prüfung" Subtitle="Eingereichte Audit-Vorlagen zur Freigabe oder Ablehnung" />
+
+@if (_submissions is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_submissions.Count == 0)
+{
+    <div class="alert alert-info dsms-alert">Keine offenen Community-Einreichungen.</div>
+}
+else
+{
+    <div class="dsms-card">
+        <div class="dsms-table-wrap">
+            <table class="table dsms-table">
+                <thead>
+                    <tr>
+                        <th>Titel</th>
+                        <th>Version</th>
+                        <th>Fragen</th>
+                        <th>Mandant</th>
+                        <th>Eingereicht am</th>
+                        <th>Eingereicht von</th>
+                        <th>Status</th>
+                        <th class="dsms-table-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _submissions)
+                    {
+                        <tr>
+                            <td><strong>@row.Template.Title</strong></td>
+                            <td>@row.Template.Version</td>
+                            <td>@row.Template.Questions.Count</td>
+                            <td>@row.TenantName</td>
+                            <td>@(row.Template.SubmittedAt?.ToLocalTime().ToString("g") ?? "—")</td>
+                            <td>@(row.SubmittedByDisplayName ?? "—")</td>
+                            <td>
+                                <StatusBadge Text="Zur Prüfung eingereicht" Variant="warning" />
+                            </td>
+                            <td class="dsms-table-actions">
+                                <a class="btn btn-sm btn-outline-primary" href="@($"platform/audit-templates/community/{row.Template.Id}")">Prüfen</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private IAuditTemplateService TemplateService { get; set; } = null!;
+
+    private IReadOnlyList<CommunitySubmissionRow>? _submissions;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _submissions = await TemplateService.ListSubmittedForReviewAsync();
+    }
+}

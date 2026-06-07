@@ -6,6 +6,76 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Audit-Vorlagen: Fragen bearbeiten und löschen:**
+  - Bestehende Fragen in bearbeitbaren Vorlagen können inline bearbeitet (Nr., Kategorie, Text) und gelöscht werden
+  - Serverseitige Prüfung über `CanEditAsync` / `AddQuestionAsync`, `UpdateQuestionAsync`, `DeleteQuestionAsync`
+  - Löschen blockiert, wenn Frage in Audit-Durchläufen referenziert ist (`DeleteBehavior.Restrict`); Snapshots schützen laufende Audits
+  - Änderungen an Vorlagenfragen wirken nur auf neue Auditdurchläufe
+
+- **Audit-Vorlagen: Community-Einreichungen (Teil 2):**
+  - `AuditTemplateType.Community` und `CommunityStatus` (None, Submitted, Approved, Rejected)
+  - Mandanten-Admins/Auditoren können eigene aktive Vorlagen zur Community-Prüfung einreichen
+  - Eingereichte Vorlagen (`Submitted`) sind nur für den einreichenden Mandanten sichtbar und während der Prüfung schreibgeschützt
+  - Superuser-Prüfbereich unter `/platform/audit-templates/community` (Navigation: Plattform → Community-Prüfung)
+  - Freigabe erstellt globale Community-Kopie (`TemplateType = Community`, `TenantId = null`); Ursprungsvorlage bleibt im Mandanten erhalten
+  - Ablehnung lässt Vorlage privat; Mandant kann bearbeiten und erneut einreichen
+  - Badge „Community“ sowie Status-Hinweise „Zur Prüfung eingereicht“ / „Community abgelehnt“
+  - Optional: „Kopie erstellen“ für offizielle und Community-Vorlagen im eigenen Mandanten
+  - EF-Migration `AddAuditTemplateCommunityFields`
+  - Snapshot-Logik beim Auditstart unverändert – laufende Durchläufe bleiben bei Vorlagenänderungen geschützt
+
+- **Audit-Vorlagen: Eigene und offizielle Vorlagen (Teil 1):**
+  - `AuditTemplateType` Enum: `Tenant` (eigene Mandantenvorlage) und `Official` (Plattformvorlage)
+  - Eigene Vorlagen: `TenantId` gesetzt, nur im eigenen Mandanten sichtbar, bearbeitbar durch **Admin**/**Auditor** (und Superuser)
+  - Offizielle Vorlagen: `TenantId` null, für alle Mandanten sichtbar, nur **Superuser** darf erstellen/bearbeiten/archivieren
+  - Button „Neue Vorlage“ erstellt weiterhin Mandantenvorlagen im aktuell ausgewählten Mandanten (auch für Superuser)
+  - Zusätzlicher Button „Neue globale Vorlage“ nur für **Superuser** → `/audit-templates/edit?type=official` (ohne `TenantId` des Mandantenkontexts)
+  - Mandanten sehen offizielle Vorlagen schreibgeschützt („Ansehen“ statt „Bearbeiten“)
+  - Badges in der Liste: „Eigene Vorlage“ / „Offiziell“
+  - `IAuditTemplateService` / `AuditTemplateService`: serverseitige Sichtbarkeits- und Berechtigungsprüfungen
+  - Snapshot beim Auditstart: Fragentext/-metadaten in `AuditAnswer`, Vorlagentitel/-version in `AuditRun` – laufende Durchläufe bleiben bei Vorlagenänderungen unverändert
+  - EF-Migration `AddAuditTemplateTypeAndSnapshots` inkl. Backfill bestehender Daten
+  - Community-Vorlagen bewusst **nicht** enthalten (geplant für späteren Schritt)
+
+- **Zentrale Erinnerungsfunktion (Version 1 – manueller Versandassistent):**
+  - Seite `/admin/erinnerungen` für Superuser und Mandanten-Admins (Verwaltung → Erinnerungen)
+  - `IReminderService` / `ReminderService`: Vorschau und manueller Versand, keine History, kein Background-Job
+  - Pro Mandant eine Sammelmail an alle aktiven Admins (Rolle `Admin`, keine normalen Benutzer)
+  - Reminder-Typen: DSFA `NextReviewAt`, TOM `NextReviewAt`, Dienstleister `DataProcessingAgreementReviewedAt`, Maßnahmen `DueDate`, Audit-Inaktivität (>14 Tage)
+  - TemplateKey `Reminder` über bestehenden `IEmailService`
+  - Audit-Letztaktivität aus Antworten (`AnsweredAt`/`UpdatedAt`/`CreatedAt`) – keine `LastActivityAt`-Migration
+  - Kein EmailLog, keine Reminder-History-Tabelle
+
+- **Benutzeranlage ohne initiales Passwort mit Willkommensmail:**
+  - Passwortfeld aus `/users/create` entfernt; `UserManager.CreateAsync(user)` ohne Passwort
+  - Automatische Willkommensmail nach Anlage (TemplateKey `WelcomeSetPassword`)
+  - Einladungslink nutzt Identity-Passwortreset-Token (`userId` + `token` + `mode=invite`) auf `/passwort-zuruecksetzen`
+  - Passwortreset- und Einladungslinks: beide 60 Minuten gültig (gleiche Identity-Token-Lebensdauer)
+  - Keine eigene `UserInvitationTokens`-Tabelle
+  - „Einladung erneut senden“ in Benutzerverwaltung (Superuser/Admin, mandantensicher)
+  - `PasswordResetService` wiederverwendet für Token-Erzeugung, Link-Bau und Emailversand
+
+- **Passwortreset mit ASP.NET Identity:**
+  - Self-Service über Login-Link „Passwort vergessen?“ → `/passwort-vergessen`
+  - Reset-Seite `/passwort-zuruecksetzen` mit URL-sicher codiertem Identity-Token (`UserManager.GeneratePasswordResetTokenAsync` / `ResetPasswordAsync`)
+  - Neutrale UI-Meldung ohne Benutzer-Aufzählung; Token-Lebensdauer 60 Minuten (`DataProtectionTokenProviderOptions`)
+  - Admin/Superuser: „Passwortreset-Mail senden“ in Benutzerverwaltung (`/users`, `/users/edit/{UserId}`)
+  - Zentraler `PasswordResetService` nutzt `IEmailService` und Vorlage `PasswordReset` – keine eigene Token-Tabelle
+  - Einfaches Rate Limiting (5 Min. pro Emailadresse) über `IDistributedCache`
+  - Keine Passwörter per Email; kein EmailLog
+
+- **Zentraler Emailservice (Version 1 – Fundament):**
+  - Globale SMTP-Einstellungen für Superuser unter `/platform/email/settings` (Plattform → Email)
+  - Email-Vorlagen-Verwaltung unter `/platform/email/templates` und `/platform/email/templates/edit/{Id}`
+  - Services: `IEmailService`, `IEmailSettingsService`, `IEmailTemplateService`, `IEmailTemplateRenderer`, `IEmailSecretProtector`
+  - SMTP-Passwort-Schutz via ASP.NET Data Protection (`EmailSecretProtector`)
+  - Platzhalterersetzung im Format `{{VariableName}}` mit Vorschau (Beispieldaten) und Testmail
+  - Standardvorlagen (Seed): PasswordReset, WelcomeSetPassword, Reminder, TestEmail – ohne Überschreiben angepasster Vorlagen
+  - Vorbereitete Methoden: `SendPasswordResetEmailAsync`, `SendWelcomeSetPasswordEmailAsync`, `SendReminderEmailAsync` (noch nicht in Workflows integriert)
+  - EF-Migration `AddEmailSettingsAndTemplates` (Tabellen `EmailSettings`, `EmailTemplates`)
+  - NuGet-Paket `MailKit` 4.16.0 für SMTP-Versand
+  - **Bewusst nicht enthalten:** EmailLog / Versandprotokoll, mandantenspezifische SMTP-Einstellungen, vollständige Passwortreset-/Einladungs-/Reminder-Workflows
+
 - **Maßnahmen direkt aus Auditfragen erstellen:**
   - Button „+ Maßnahme anlegen“ in `/audit-runs/answers/{Id}` neben „Speichern“
   - Sichtbar nur bei Bewertungen mit Handlungsbedarf (Offen, Teilweise, Nicht konform) über `ComplianceLabels.ShouldShowCreateMeasureButton`

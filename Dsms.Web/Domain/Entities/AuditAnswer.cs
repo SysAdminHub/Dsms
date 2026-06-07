@@ -14,6 +14,13 @@ public class AuditAnswer : EntityBase
     public int AuditQuestionId { get; set; }
     public AuditQuestion AuditQuestion { get; set; } = null!;
 
+    /// <summary>Snapshot des Fragentexts beim Auditstart – unabhängig von späteren Vorlagenänderungen.</summary>
+    public string? QuestionText { get; set; }
+
+    public int QuestionSortOrder { get; set; }
+    public string? QuestionCategory { get; set; }
+    public bool QuestionIsRequired { get; set; } = true;
+
     public string? AnswerText { get; set; }
     public ComplianceLevel ComplianceLevel { get; set; } = ComplianceLevel.Open;
     public string? Notes { get; set; }

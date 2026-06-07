@@ -78,13 +78,19 @@ public class ProcessingActivityRelationsService(ApplicationDbContext db)
             .Include(l => l.AuditAnswer)
                 .ThenInclude(a => a.AuditRun)
             .OrderBy(l => l.AuditAnswer.AuditRun.Title)
-            .ThenBy(l => l.AuditAnswer.AuditQuestion.SortOrder)
+            .ThenBy(l => !string.IsNullOrEmpty(l.AuditAnswer.QuestionText)
+                ? l.AuditAnswer.QuestionSortOrder
+                : l.AuditAnswer.AuditQuestion.SortOrder)
             .Select(l => new LinkedAuditAnswerRow(
                 l.AuditAnswerId,
                 l.AuditAnswer.AuditRunId,
                 l.AuditAnswer.AuditRun.Title,
-                l.AuditAnswer.AuditQuestion.SortOrder,
-                l.AuditAnswer.AuditQuestion.Text,
+                !string.IsNullOrEmpty(l.AuditAnswer.QuestionText)
+                    ? l.AuditAnswer.QuestionSortOrder
+                    : l.AuditAnswer.AuditQuestion.SortOrder,
+                !string.IsNullOrEmpty(l.AuditAnswer.QuestionText)
+                    ? l.AuditAnswer.QuestionText!
+                    : l.AuditAnswer.AuditQuestion.Text,
                 l.AuditAnswer.AnswerText,
                 l.AuditAnswer.ComplianceLevel,
                 l.AuditAnswer.Notes))

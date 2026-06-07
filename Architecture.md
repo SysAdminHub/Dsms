@@ -80,6 +80,7 @@ c:\code\DS\
 | Identity | `Microsoft.AspNetCore.Identity.EntityFrameworkCore` 9.0.8 |
 | MySQL Provider | `Pomelo.EntityFrameworkCore.MySql` 9.0.0 |
 | MySQL Server-Version (konfiguriert) | `8.0.36` in `Program.cs` |
+| Email (SMTP) | `MailKit` 4.16.0 |
 | Diagnostik (Dev) | `Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore` |
 
 ## Aufbau der Blazor-Server-Anwendung
@@ -146,6 +147,8 @@ Docker Compose (`docker-compose.yml`) legt `dsms_dev` mit Root-Passwort `changem
 | `ProcessingActivityMeasures` | `ProcessingActivityMeasure` |
 | `ProcessingActivityAuditAnswers` | `ProcessingActivityAuditAnswer` |
 | `DataProtectionImpactAssessments` | `DataProtectionImpactAssessment` |
+| `EmailSettings` | `EmailSettings` (plattformweit, kein Mandantenfilter) |
+| `EmailTemplates` | `EmailTemplate` (plattformweit, eindeutiger `TemplateKey`) |
 
 Zusätzlich alle **ASP.NET Identity**-Standardtabellen (`AspNetUsers`, `AspNetRoles`, …).
 
@@ -166,14 +169,16 @@ Archivierbare Module erben von **`ArchivableEntityBase`** (`EntityBase` + `IArch
 
 Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `Tom`, `ServiceProvider`, `AuditTemplate`, `AuditRun`, `Measure`, `EvidenceDocument`.
 
+**`AuditTemplate`** erbt nur von `ArchivableEntityBase` (nicht `ITenantEntity`): `TenantId` bei eigenen Vorlagen gesetzt, bei globalen Vorlagen (`Official`, `Community`) `null`. Zusätzlich `CommunityStatus` und Prüffelder für Einreichungen. Sichtbarkeit: eigene Mandantenvorlagen + globale `Official`/`Community` über Query Filter. Community-Freigabe erstellt separate globale Kopie; Ursprungsvorlage bleibt beim Mandanten (`CommunityStatus = Approved`).
+
 Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen.
 
 Alle anderen Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `UpdatedAt`).
 
 ```
 Tenant
- ├── AuditTemplate ── AuditQuestion
- │        └── AuditRun ── AuditAnswer (→ AuditQuestion)
+ ├── AuditTemplate (Tenant | Official | Community) ── AuditQuestion
+ │        └── AuditRun ── AuditAnswer (Snapshot + FK AuditQuestion)
  │              ├── Measure (optional AuditAnswerId)
  │              └── EvidenceDocument
  ├── Measure (optional AuditRun, optional AuditAnswerId)
@@ -216,9 +221,17 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `DocumentFileEndpoints` | Minimal API | `GET /documents/{id}/download` und `/view` – mandantengebunden via EF-Filter |
 | `ArchiveViewContextAccessor` | Scoped | Aktiv-/Archivansicht für EF Global Query Filter (`ShowArchivedOnly`) |
 | `IArchivingService` / `ArchivingService` | Scoped | Soft Delete: Archivieren, Wiederherstellen, Abhängigkeitswarnungen |
+| `IAuditTemplateService` / `AuditTemplateService` | Scoped | Mandantensichere Sichtbarkeit, Bearbeitungsrechte, Archivierung, Community-Workflow und Fragen-CRUD; Frage-Snapshots beim Auditstart |
 | `IdentityRedirectManager` | Scoped | Weiterleitungen nach Login/Logout |
 | `IdentityRevalidatingAuthenticationStateProvider` | Scoped | Auth-State-Revalidierung für Blazor |
-| `IdentityNoOpEmailSender` | Singleton | Kein echter E-Mail-Versand |
+| `IdentityNoOpEmailSender` | Singleton | Identity-Stub (Passwort-Reset etc. noch ohne Workflow-Anbindung) |
+| `IEmailService` / `EmailService` | Scoped | Zentraler SMTP-Versand via MailKit |
+| `IEmailSettingsService` / `EmailSettingsService` | Scoped | SMTP-Einstellungen CRUD + Testmail (nur Superuser) |
+| `IEmailTemplateService` / `EmailTemplateService` | Scoped | Vorlagen CRUD, Vorschau, Testmail aus Vorlage (nur Superuser) |
+| `IEmailTemplateRenderer` / `EmailTemplateRenderer` | Scoped | Platzhalterersetzung `{{VariableName}}` |
+| `IEmailSecretProtector` / `EmailSecretProtector` | Scoped | SMTP-Passwort-Schutz via ASP.NET Data Protection |
+| `IPasswordResetService` / `PasswordResetService` | Scoped | Passwortreset und Willkommens-Einladungen via Identity-Token + `IEmailService`; Rate Limit über `IDistributedCache` |
+| `IReminderService` / `ReminderService` | Scoped | Manuelle Erinnerungsvorschau und Sammelversand an Mandanten-Admins (kein Background-Job, keine History) |
 
 ## Authentifizierung und Berechtigungen
 
@@ -228,13 +241,17 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 - Passwort: min. 8 Zeichen, Ziffer + Kleinbuchstabe erforderlich
 - `RequireConfirmedAccount = false` (Demo/Intern)
 - Cookies: `AddIdentityCookies()`
-- Kein E-Mail-Versand: `IdentityNoOpEmailSender`
+- Zentraler Emailversand: `EmailService` (MailKit); Passwortreset nutzt `PasswordResetService` + Vorlage `PasswordReset`
+- Identity-Stub `IdentityNoOpEmailSender` bleibt für übrige Identity-UI (Registrierung etc.)
+- Passwortreset- und Einladungs-Token: `UserManager.GeneratePasswordResetTokenAsync` / `ResetPasswordAsync`; Lebensdauer 60 Min. (`DataProtectionTokenProviderOptions`)
+- Keine eigene `PasswordResetTokens`- oder `UserInvitationTokens`-Tabelle
+- Benutzeranlage: `CreateAsync(user)` ohne Passwort, danach `SendWelcomeInvitationAsync` mit Template `WelcomeSetPassword`
 
 ### Rollen (`DsmsRoles`)
 
 | Rolle | Typische Rechte (aus `[Authorize]`, NavMenu, `IUserAccessService`) |
 |-------|---------------------------------------------------------------------|
-| **Superuser** | Plattform: alle Mandanten (`/tenants`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
+| **Superuser** | Plattform: alle Mandanten (`/tenants`), Email (`/platform/email/*`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
 | **Admin** | Benutzer im eigenen Mandant; **keine** Mandantenverwaltung; Compliance wie bisher für `TenantId` |
 | **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, DSFA, TOMs und Dienstleister anlegen/bearbeiten; **keine** Benutzerverwaltung |
 | **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen |
@@ -253,7 +270,10 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 - `ArchiveViewContextAccessor.ShowArchivedOnly` wird über `ArchiveViewToggle` in Listenansichten umgeschaltet
 - Archivieren/Wiederherstellen: `IArchivingService` mit `IgnoreQueryFilters()` und expliziter `TenantId`-Prüfung
 - Admin-Abfragen (Benutzer-/Mandantenverwaltung): `IgnoreQueryFilters()` wo nötig
-- `/tenants` nur Superuser; `/users` gefiltert über `UserManagementService`
+- `/tenants` und `/platform/email/*` nur Superuser; `/users` gefiltert über `UserManagementService`
+- `/passwort-vergessen` und `/passwort-zuruecksetzen` öffentlich (ohne Mandantenauswahl)
+- `/admin/erinnerungen` für Superuser/Admin ohne Mandantenauswahl (Superuser: alle Mandanten; Admin: aktiver Mandant)
+- Email-Routen sind von der Mandantenauswahl ausgenommen (`TenantService.IsTenantRequiredForRoute`)
 
 ### Identity-Endpunkte
 
@@ -288,7 +308,7 @@ Reihenfolge in `Program.cs`:
 
 ### Migrationen
 
-- Migrationen: **`InitialCreate`**, **`AddProcessingActivities`**, **`AddToms`**, **`AddServiceProviders`**, **`AddProcessingActivityRelations`**, **`AddDataProtectionImpactAssessments`**, **`AddArchivingSoftDelete`**, **`AddMeasureAuditAnswerLink`** (optionale Spalte `Measures.AuditAnswerId`)
+- Migrationen: **`InitialCreate`**, **`AddProcessingActivities`**, **`AddToms`**, **`AddServiceProviders`**, **`AddProcessingActivityRelations`**, **`AddDataProtectionImpactAssessments`**, **`AddArchivingSoftDelete`**, **`AddMeasureAuditAnswerLink`** (optionale Spalte `Measures.AuditAnswerId`), **`AddAuditTemplateTypeAndSnapshots`** (`AuditTemplates.TemplateType`, nullable `TenantId`, Snapshot-Felder auf `AuditAnswers` und `AuditRuns`), **`AddAuditTemplateCommunityFields`** (`CommunityStatus`, Einreichungs- und Prüffelder)
 - Snapshot: `Migrations/ApplicationDbContextModelSnapshot.cs`
 
 ### Seed (`DatabaseSeeder.SeedAsync`)

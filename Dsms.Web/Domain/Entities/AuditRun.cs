@@ -14,6 +14,12 @@ public class AuditRun : ArchivableEntityBase, ITenantEntity
     public int AuditTemplateId { get; set; }
     public AuditTemplate AuditTemplate { get; set; } = null!;
 
+    /// <summary>Snapshot des Vorlagentitels beim Auditstart.</summary>
+    public string? TemplateTitleSnapshot { get; set; }
+
+    /// <summary>Snapshot der Vorlagenversion beim Auditstart.</summary>
+    public string? TemplateVersionSnapshot { get; set; }
+
     public string Title { get; set; } = string.Empty;
     public AuditRunStatus Status { get; set; } = AuditRunStatus.Draft;
     public DateTime? StartedAt { get; set; }

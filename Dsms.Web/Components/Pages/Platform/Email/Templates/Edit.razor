@@ -1,0 +1,260 @@
+@* Nur Superuser: Email-Vorlage bearbeiten inkl. Vorschau und Testmail. *@
+@page "/platform/email/templates/edit/{Id:int}"
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<PageTitle>@(_model.DisplayName) bearbeiten</PageTitle>
+
+<PageHeader Title="@_model.DisplayName" Subtitle="Email-Vorlage bearbeiten" />
+
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <NavLink class="nav-link" href="platform/email/settings">SMTP-Einstellungen</NavLink>
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link" href="platform/email/templates">Vorlagen</NavLink>
+    </li>
+</ul>
+
+@if (_loading)
+{
+    <p class="dsms-loading">Laden …</p>
+}
+else if (_notFound)
+{
+    <div class="alert alert-warning dsms-alert">Vorlage wurde nicht gefunden.</div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success dsms-alert">@_successMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(_warningMessage))
+    {
+        <div class="alert alert-warning dsms-alert">@_warningMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(_detailMessage))
+    {
+        <div class="alert alert-secondary dsms-alert small">@_detailMessage</div>
+    }
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="dsms-card dsms-form-card">
+                <div class="dsms-card-body">
+                    <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+                        <div class="mb-3">
+                            <label class="form-label">TemplateKey</label>
+                            <input class="form-control" value="@_model.TemplateKey" readonly disabled />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Anzeigename</label>
+                            <InputText class="form-control" @bind-Value="_model.DisplayName" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Betreff</label>
+                            <InputText class="form-control" @bind-Value="_model.Subject" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">HTML-Inhalt</label>
+                            <InputTextArea class="form-control font-monospace" rows="12" @bind-Value="_model.HtmlContent" />
+                            <div class="form-text text-muted">Platzhalter im Format {{VariableName}}, z. B. {{UserName}}</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Text-Inhalt (optional)</label>
+                            <InputTextArea class="form-control font-monospace" rows="6" @bind-Value="_model.TextContent" />
+                        </div>
+                        <div class="form-check mb-4">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.IsEnabled" id="templateEnabled" />
+                            <label class="form-check-label" for="templateEnabled">Aktiviert</label>
+                        </div>
+
+                        @if (_model.UpdatedAt is not null)
+                        {
+                            <p class="text-muted small">
+                                Zuletzt aktualisiert: @_model.UpdatedAt.Value.ToLocalTime().ToString("g")
+                                @if (!string.IsNullOrEmpty(_model.UpdatedByDisplay))
+                                {
+                                    <text> von @_model.UpdatedByDisplay</text>
+                                }
+                            </p>
+                        }
+
+                        <div class="dsms-form-actions">
+                            <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="ShowPreview">Vorschau anzeigen</button>
+                            <a class="btn btn-outline-secondary" href="platform/email/templates">Zurück</a>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+
+            <div class="dsms-card dsms-form-card mt-4">
+                <div class="dsms-card-body">
+                    <h5 class="mb-3">Testmail aus Vorlage senden</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Testempfänger-Email</label>
+                        <InputText class="form-control" @bind-Value="_testRecipient" />
+                    </div>
+                    <button type="button" class="btn btn-outline-primary" disabled="@_sendingTest" @onclick="SendTestFromTemplateAsync">
+                        Testmail aus Vorlage senden
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @if (_showPreview)
+        {
+            <div class="col-lg-5">
+                <div class="dsms-card">
+                    <div class="dsms-card-body">
+                        <h5 class="mb-3">Vorschau (Beispieldaten)</h5>
+                        <p class="mb-1"><strong>Betreff:</strong></p>
+                        <p class="border rounded p-2 bg-light">@_preview.Subject</p>
+                        <p class="mb-1 mt-3"><strong>HTML-Inhalt:</strong></p>
+                        <div class="border rounded p-3 bg-white">@((MarkupString)_preview.HtmlBody)</div>
+                        @if (!string.IsNullOrWhiteSpace(_preview.TextBody))
+                        {
+                            <p class="mb-1 mt-3"><strong>Text-Inhalt:</strong></p>
+                            <pre class="border rounded p-2 bg-light small">@_preview.TextBody</pre>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Inject] private IEmailTemplateService EmailTemplates { get; set; } = null!;
+
+    private EmailTemplateEditModel _model = new();
+    private RenderedEmail _preview = new();
+    private bool _loading = true;
+    private bool _notFound;
+    private bool _saving;
+    private bool _sendingTest;
+    private bool _showPreview;
+    private string? _testRecipient;
+    private string? _successMessage;
+    private string? _warningMessage;
+    private string? _errorMessage;
+    private string? _detailMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var model = await EmailTemplates.GetForEditAsync(Id);
+            if (model is null)
+            {
+                _notFound = true;
+            }
+            else
+            {
+                _model = model;
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _errorMessage = "Keine Berechtigung für Email-Vorlagen.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ShowPreview()
+    {
+        _preview = EmailTemplates.GetPreview(_model);
+        _showPreview = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        ClearMessages();
+
+        try
+        {
+            var result = await EmailTemplates.SaveAsync(Id, _model);
+            if (result.Succeeded)
+            {
+                _successMessage = result.Message;
+                var refreshed = await EmailTemplates.GetForEditAsync(Id);
+                if (refreshed is not null)
+                {
+                    _model = refreshed;
+                }
+                if (_showPreview)
+                {
+                    ShowPreview();
+                }
+            }
+            else
+            {
+                _errorMessage = result.Message;
+                _detailMessage = result.DetailMessage;
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _errorMessage = "Keine Berechtigung für Email-Vorlagen.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task SendTestFromTemplateAsync()
+    {
+        _sendingTest = true;
+        ClearMessages();
+
+        try
+        {
+            var result = await EmailTemplates.SendTestFromTemplateAsync(Id, _testRecipient ?? "");
+            if (result.Succeeded)
+            {
+                if (result.IsWarning)
+                {
+                    _warningMessage = result.Message;
+                    _detailMessage = result.DetailMessage;
+                }
+                else
+                {
+                    _successMessage = result.Message;
+                }
+            }
+            else
+            {
+                _errorMessage = result.Message;
+                _detailMessage = result.DetailMessage;
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _errorMessage = "Keine Berechtigung für Email-Vorlagen.";
+        }
+        finally
+        {
+            _sendingTest = false;
+        }
+    }
+
+    private void ClearMessages()
+    {
+        _successMessage = null;
+        _warningMessage = null;
+        _errorMessage = null;
+        _detailMessage = null;
+    }
+}

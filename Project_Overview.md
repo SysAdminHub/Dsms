@@ -48,7 +48,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | Dienstleister | Auftragsverarbeiter und externe Dienstleister – AVV, Drittland, TOM-Prüfung; Verknüpfung mit VVT und TOMs |
 | Audit-Vorlagen | Listen, Anlegen und Bearbeiten von Vorlagen inkl. Fragen |
 | Audit-Durchläufe | Listen, Anlegen und Bearbeiten von Durchläufen; Beantwortung der Vorlagenfragen |
-| Maßnahmen | Listen, Anlegen und Bearbeiten von Maßnahmen mit Status und Fälligkeit |
+| Maßnahmen | Listen, Anlegen und Bearbeiten von Maßnahmen mit Status und Fälligkeit; direkt aus Auditfragen bei Handlungsbedarf |
 | Dokumente | Upload von Nachweisdateien (max. 10 MB), Zuordnung zu Audit, Maßnahme, Dienstleister oder Verarbeitungstätigkeit |
 | Mandanten | Verwaltung von Organisationseinheiten (**nur Superuser**, plattformweit) |
 | Benutzer | Anlegen und Bearbeiten von Konten, Rollen, Mandant, Aktiv-Status (**Superuser** mandantenübergreifend, **Admin** nur im eigenen Mandant) |
@@ -84,9 +84,9 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | `/audit-runs` | Audit-Durchläufe (Liste) | Durchläufe des eigenen Mandanten |
 | `/audit-runs/edit` | Durchlauf anlegen | Nur **Admin** und **Auditor** |
 | `/audit-runs/edit/{Id}` | Durchlauf bearbeiten (Status, Vorlage) | Nur **Admin** und **Auditor** |
-| `/audit-runs/answers/{Id}` | Fragen beantworten | Alle angemeldeten Benutzer |
-| `/measures` | Maßnahmen (Liste) | Mandantenbezogen |
-| `/measures/edit` | Maßnahme anlegen | Alle angemeldeten Benutzer |
+| `/audit-runs/answers/{Id}` | Fragen beantworten; bei Handlungsbedarf „+ Maßnahme anlegen“ | Alle angemeldeten Benutzer |
+| `/measures` | Maßnahmen (Liste); optional gefiltert per `?auditAnswerId=` | Mandantenbezogen |
+| `/measures/edit` | Maßnahme anlegen; optional vorausgefüllt per `?auditRunId=&auditAnswerId=` | Alle angemeldeten Benutzer |
 | `/measures/edit/{Id}` | Maßnahme bearbeiten | Alle angemeldeten Benutzer |
 | `/documents` | Dokumente | Upload und Liste, mandantenbezogen |
 

@@ -13,7 +13,8 @@ namespace Dsms.Web.Data;
 /// </summary>
 public class ApplicationDbContext(
     DbContextOptions<ApplicationDbContext> options,
-    TenantContextAccessor tenantContextAccessor)
+    TenantContextAccessor tenantContextAccessor,
+    ArchiveViewContextAccessor archiveViewContextAccessor)
     : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<Tenant> Tenants => Set<Tenant>();
@@ -65,6 +66,7 @@ public class ApplicationDbContext(
         {
             e.Property(t => t.Title).HasMaxLength(200).IsRequired();
             e.Property(t => t.Version).HasMaxLength(20);
+            e.Property(t => t.ArchivedByUserId).HasMaxLength(450);
             // Mandant darf nicht gelöscht werden, solange Vorlagen existieren.
             e.HasOne(t => t.Tenant).WithMany(t => t.AuditTemplates).OnDelete(DeleteBehavior.Restrict);
         });
@@ -80,6 +82,7 @@ public class ApplicationDbContext(
         builder.Entity<AuditRun>(e =>
         {
             e.Property(r => r.Title).HasMaxLength(200).IsRequired();
+            e.Property(r => r.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(r => r.Tenant).WithMany(t => t.AuditRuns).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(r => r.AuditTemplate).WithMany(t => t.AuditRuns).OnDelete(DeleteBehavior.Restrict);
         });
@@ -96,15 +99,19 @@ public class ApplicationDbContext(
         builder.Entity<Measure>(e =>
         {
             e.Property(m => m.Title).HasMaxLength(200).IsRequired();
+            e.Property(m => m.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(m => m.Tenant).WithMany(t => t.Measures).OnDelete(DeleteBehavior.Restrict);
             // Maßnahme bleibt erhalten, Verknüpfung zum Audit wird aufgehoben.
             e.HasOne(m => m.AuditRun).WithMany(r => r.Measures).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(m => m.AuditAnswer).WithMany(a => a.Measures).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(m => m.AuditAnswerId);
         });
 
         builder.Entity<EvidenceDocument>(e =>
         {
             e.Property(d => d.FileName).HasMaxLength(255).IsRequired();
             e.Property(d => d.StoragePath).HasMaxLength(500).IsRequired();
+            e.Property(d => d.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(d => d.Tenant).WithMany(t => t.Documents).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(d => d.AuditRun).WithMany(r => r.Documents).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(d => d.Measure).WithMany(m => m.Documents).OnDelete(DeleteBehavior.SetNull);
@@ -131,6 +138,7 @@ public class ApplicationDbContext(
             e.Property(p => p.ThirdCountryTransferDescription).HasColumnType("text");
             e.Property(p => p.RetentionPeriod).HasColumnType("text");
             e.Property(p => p.Owner).HasMaxLength(200);
+            e.Property(p => p.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(p => p.Tenant).WithMany(t => t.ProcessingActivities).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(p => p.TenantId);
         });
@@ -144,6 +152,7 @@ public class ApplicationDbContext(
             e.Property(t => t.Owner).HasMaxLength(200);
             e.Property(t => t.EvidenceReference).HasColumnType("text");
             e.Property(t => t.Notes).HasColumnType("text");
+            e.Property(t => t.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(t => t.Tenant).WithMany(tenant => tenant.Toms).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(t => t.TenantId);
             e.HasIndex(t => new { t.TenantId, t.ImplementationStatus });
@@ -186,6 +195,7 @@ public class ApplicationDbContext(
             e.Property(s => s.ThirdCountryTransferGuarantees).HasColumnType("text");
             e.Property(s => s.ResponsiblePerson).HasMaxLength(200);
             e.Property(s => s.Notes).HasColumnType("text");
+            e.Property(s => s.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(s => s.Tenant).WithMany(t => t.ServiceProviders).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(s => s.TenantId);
             e.HasIndex(s => new { s.TenantId, s.Status });
@@ -272,6 +282,7 @@ public class ApplicationDbContext(
             e.Property(d => d.ProtectiveMeasures).HasColumnType("text");
             e.Property(d => d.ResponsiblePerson).HasMaxLength(200);
             e.Property(d => d.ReviewedBy).HasMaxLength(200);
+            e.Property(d => d.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(d => d.Tenant).WithMany(t => t.DpiaAssessments).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(d => d.ProcessingActivity)
                 .WithMany(p => p.DpiaAssessments)
@@ -284,41 +295,23 @@ public class ApplicationDbContext(
     }
 
     /// <summary>
-    /// Filtert alle mandantenbezogenen Fach-Entities nach dem aktiven Mandantenkontext.
+    /// Filtert alle mandantenbezogenen Fach-Entities nach dem aktiven Mandantenkontext und Archivstatus.
     /// Ohne gesetzten Kontext werden keine Datensätze zurückgegeben (Datenisolation).
+    /// ShowArchivedOnly steuert Aktiv- vs. Archivansicht (IsArchived == ShowArchivedOnly).
     /// Verwaltungsabfragen nutzen <see cref="EntityFrameworkQueryableExtensions.IgnoreQueryFilters{TEntity}"/>.
     /// </summary>
     private void ApplyTenantQueryFilters(ModelBuilder builder)
     {
-        builder.Entity<AuditTemplate>()
-            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
-                && e.TenantId == tenantContextAccessor.CurrentTenantId);
-
-        builder.Entity<AuditRun>()
-            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
-                && e.TenantId == tenantContextAccessor.CurrentTenantId);
-
-        builder.Entity<Measure>()
-            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
-                && e.TenantId == tenantContextAccessor.CurrentTenantId);
-
-        builder.Entity<EvidenceDocument>()
-            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
-                && e.TenantId == tenantContextAccessor.CurrentTenantId);
-
-        builder.Entity<ProcessingActivity>()
-            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
-                && e.TenantId == tenantContextAccessor.CurrentTenantId);
-
-        builder.Entity<Tom>()
-            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
-                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+        ApplyArchivableTenantFilter<AuditTemplate>(builder);
+        ApplyArchivableTenantFilter<AuditRun>(builder);
+        ApplyArchivableTenantFilter<Measure>(builder);
+        ApplyArchivableTenantFilter<EvidenceDocument>(builder);
+        ApplyArchivableTenantFilter<ProcessingActivity>(builder);
+        ApplyArchivableTenantFilter<Tom>(builder);
+        ApplyArchivableTenantFilter<ServiceProviderEntity>(builder);
+        ApplyArchivableTenantFilter<DataProtectionImpactAssessment>(builder);
 
         builder.Entity<ProcessingActivityTom>()
-            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
-                && e.TenantId == tenantContextAccessor.CurrentTenantId);
-
-        builder.Entity<ServiceProviderEntity>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 
@@ -337,9 +330,14 @@ public class ApplicationDbContext(
         builder.Entity<ProcessingActivityAuditAnswer>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
+    }
 
-        builder.Entity<DataProtectionImpactAssessment>()
+    private void ApplyArchivableTenantFilter<TEntity>(ModelBuilder builder)
+        where TEntity : ArchivableEntityBase, ITenantEntity
+    {
+        builder.Entity<TEntity>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
-                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+                && e.TenantId == tenantContextAccessor.CurrentTenantId
+                && e.IsArchived == archiveViewContextAccessor.ShowArchivedOnly);
     }
 }

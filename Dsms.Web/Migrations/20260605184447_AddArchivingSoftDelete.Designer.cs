@@ -4,6 +4,7 @@ using Dsms.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Dsms.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260605184447_AddArchivingSoftDelete")]
+    partial class AddArchivingSoftDelete
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -472,9 +475,6 @@ namespace Dsms.Web.Migrations
                     b.Property<string>("AssignedUserId")
                         .HasColumnType("longtext");
 
-                    b.Property<int?>("AuditAnswerId")
-                        .HasColumnType("int");
-
                     b.Property<int?>("AuditRunId")
                         .HasColumnType("int");
 
@@ -508,8 +508,6 @@ namespace Dsms.Web.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AuditAnswerId");
 
                     b.HasIndex("AuditRunId");
 
@@ -1269,11 +1267,6 @@ namespace Dsms.Web.Migrations
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.Measure", b =>
                 {
-                    b.HasOne("Dsms.Web.Domain.Entities.AuditAnswer", "AuditAnswer")
-                        .WithMany("Measures")
-                        .HasForeignKey("AuditAnswerId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Dsms.Web.Domain.Entities.AuditRun", "AuditRun")
                         .WithMany("Measures")
                         .HasForeignKey("AuditRunId")
@@ -1284,8 +1277,6 @@ namespace Dsms.Web.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("AuditAnswer");
 
                     b.Navigation("AuditRun");
 
@@ -1537,8 +1528,6 @@ namespace Dsms.Web.Migrations
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.AuditAnswer", b =>
                 {
-                    b.Navigation("Measures");
-
                     b.Navigation("ProcessingActivityLinks");
                 });
 

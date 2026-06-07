@@ -6,7 +6,7 @@ namespace Dsms.Web.Domain.Entities;
 /// Technische oder organisatorische Maßnahme (TOM) im mandantenbezogenen TOM-Verzeichnis.
 /// Kann mit mehreren Verarbeitungstätigkeiten verknüpft werden (Many-to-Many über <see cref="ProcessingActivityTom"/>).
 /// </summary>
-public class Tom : EntityBase
+public class Tom : ArchivableEntityBase, ITenantEntity
 {
     public int TenantId { get; set; }
     public Tenant Tenant { get; set; } = null!;

@@ -1,0 +1,126 @@
+@* Verknüpfte Nachweisdokumente laden und anzeigen (mandantengebunden via EF Global Query Filter). *@
+
+<div class="dsms-card @CssClass">
+    <div class="dsms-card-header">@Title</div>
+    <div class="dsms-card-body">
+        @if (_loading)
+        {
+            <div class="dsms-loading">Lade …</div>
+        }
+        else if (_documents.Count == 0)
+        {
+            <div class="dsms-empty">@EmptyMessage</div>
+            @if (!string.IsNullOrEmpty(EmptyHint))
+            {
+                <p class="form-text text-muted mb-0">@EmptyHint</p>
+            }
+        }
+        else
+        {
+            @if (!string.IsNullOrEmpty(EmptyHint))
+            {
+                <p class="form-text text-muted">@EmptyHint</p>
+            }
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Dateiname</th>
+                            <th>Hochgeladen</th>
+                            <th>Größe</th>
+                            <th>Aktion</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var doc in _documents)
+                        {
+                            <tr>
+                                <td><strong>@doc.FileName</strong></td>
+                                <td>@doc.CreatedAt.ToLocalTime().ToString("g")</td>
+                                <td>@FormatSize(doc.FileSizeBytes)</td>
+                                <td>
+                                    <DocumentActions DocumentId="@doc.Id"
+                                                     FileName="@doc.FileName"
+                                                     ContentType="@doc.ContentType" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+
+    [Parameter] public string Title { get; set; } = "Verknüpfte Dokumente";
+    [Parameter] public string CssClass { get; set; } = "mb-4";
+    [Parameter] public string EmptyMessage { get; set; } = "Keine Dokumente zugeordnet.";
+    [Parameter] public string? EmptyHint { get; set; } = "Dokumente können unter „Dokumente“ hochgeladen und zugeordnet werden.";
+
+    [Parameter] public int? AuditRunId { get; set; }
+    [Parameter] public int? MeasureId { get; set; }
+    [Parameter] public int? ServiceProviderId { get; set; }
+    [Parameter] public int? ProcessingActivityId { get; set; }
+    [Parameter] public int? DataProtectionImpactAssessmentId { get; set; }
+    [Parameter] public IReadOnlyList<int>? ProcessingActivityIds { get; set; }
+
+    private bool _loading = true;
+    private List<EvidenceDocument> _documents = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+
+        IQueryable<EvidenceDocument> query = Db.EvidenceDocuments;
+
+        if (AuditRunId.HasValue)
+        {
+            query = query.Where(d => d.AuditRunId == AuditRunId);
+        }
+        else if (MeasureId.HasValue)
+        {
+            query = query.Where(d => d.MeasureId == MeasureId);
+        }
+        else if (ServiceProviderId.HasValue)
+        {
+            query = query.Where(d => d.ServiceProviderId == ServiceProviderId);
+        }
+        else if (ProcessingActivityId.HasValue)
+        {
+            query = query.Where(d => d.ProcessingActivityId == ProcessingActivityId);
+        }
+        else if (DataProtectionImpactAssessmentId.HasValue)
+        {
+            query = query.Where(d => d.DataProtectionImpactAssessmentId == DataProtectionImpactAssessmentId);
+        }
+        else if (ProcessingActivityIds is { Count: > 0 })
+        {
+            var ids = ProcessingActivityIds;
+            query = query.Where(d => d.ProcessingActivityId != null && ids.Contains(d.ProcessingActivityId.Value));
+        }
+        else
+        {
+            _documents = [];
+            _loading = false;
+            return;
+        }
+
+        _documents = await query
+            .AsNoTracking()
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync();
+
+        _loading = false;
+    }
+
+    private static string FormatSize(long bytes) =>
+        bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024.0:F1} KB";
+}

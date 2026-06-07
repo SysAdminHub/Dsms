@@ -6,7 +6,7 @@ namespace Dsms.Web.Domain.Entities;
 /// Konkreter Audit-Durchlauf auf Basis einer Vorlage.
 /// <see cref="Status"/> steuert Lebenszyklus; Zeitstempel werden in der UI beim Speichern gesetzt.
 /// </summary>
-public class AuditRun : EntityBase
+public class AuditRun : ArchivableEntityBase, ITenantEntity
 {
     public int TenantId { get; set; }
     public Tenant Tenant { get; set; } = null!;

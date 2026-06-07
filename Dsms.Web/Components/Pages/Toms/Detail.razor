@@ -234,6 +234,10 @@ else
 
     </div>
 
+    <LinkedDocumentsSection ProcessingActivityIds="_linkedActivityIds"
+                            EmptyMessage="Keine Nachweisdokumente gefunden."
+                            EmptyHint="Dokumente können unter „Dokumente“ hochgeladen und Verarbeitungstätigkeiten zugeordnet werden. TOMs haben keine direkte Dokumenten-Verknüpfung – angezeigt werden Nachweise der zugeordneten Verarbeitungstätigkeiten." />
+
 }
 
 
@@ -257,6 +261,7 @@ else
     private Tom? _tom;
 
     private List<ProcessingActivity> _linkedActivities = [];
+    private IReadOnlyList<int> _linkedActivityIds = [];
 
 
 
@@ -285,7 +290,6 @@ else
 
 
         _tom = await Db.Toms
-
             .FirstOrDefaultAsync(t => t.Id == Id && t.TenantId == _tenantId);
 
 
@@ -303,6 +307,8 @@ else
                 .OrderBy(p => p.Name)
 
                 .ToListAsync();
+
+            _linkedActivityIds = _linkedActivities.Select(a => a.Id).ToList();
 
         }
 

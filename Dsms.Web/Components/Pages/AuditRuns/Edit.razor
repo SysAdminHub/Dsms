@@ -57,6 +57,11 @@ else
             </EditForm>
         </div>
     </div>
+
+    @if (_model.Id > 0)
+    {
+        <LinkedDocumentsSection AuditRunId="_model.Id" />
+    }
 }
 
 @code {
@@ -81,7 +86,9 @@ else
 
         if (Id is > 0)
         {
-            _model = await Db.AuditRuns.FirstAsync(r => r.Id == Id && r.TenantId == _tenantId);
+            _model = await Db.AuditRuns
+                .Include(r => r.Documents)
+                .FirstAsync(r => r.Id == Id && r.TenantId == _tenantId);
         }
         else
         {

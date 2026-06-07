@@ -1,0 +1,66 @@
+@* Bestätigungsdialog beim Archivieren mit optionalen Abhängigkeitswarnungen. *@
+@if (_visible)
+{
+    <div class="modal fade show d-block dsms-archive-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@Title archivieren?</h5>
+                    <button type="button" class="btn-close" @onclick="Cancel"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Möchten Sie &bdquo;@ItemName&ldquo; wirklich archivieren? Der Eintrag wird nicht gelöscht und kann später wiederhergestellt werden.</p>
+                    @if (Warnings.Count > 0)
+                    {
+                        <div class="alert alert-warning dsms-alert mb-0">
+                            <strong>Hinweis – bestehende Verknüpfungen:</strong>
+                            <ul class="mb-0 mt-2">
+                                @foreach (var warning in Warnings)
+                                {
+                                    <li>@warning</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel">Abbrechen</button>
+                    <button type="button" class="btn btn-warning" @onclick="Confirm">Archivieren</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter] public string Title { get; set; } = "Eintrag";
+    [Parameter] public EventCallback OnConfirmed { get; set; }
+
+    private bool _visible;
+    private string _itemName = "";
+    private IReadOnlyList<string> _warnings = [];
+
+    public string ItemName => _itemName;
+    public IReadOnlyList<string> Warnings => _warnings;
+
+    public void Show(string itemName, IReadOnlyList<string> warnings)
+    {
+        _itemName = itemName;
+        _warnings = warnings;
+        _visible = true;
+    }
+
+    public void Hide()
+    {
+        _visible = false;
+    }
+
+    private async Task Confirm()
+    {
+        _visible = false;
+        await OnConfirmed.InvokeAsync();
+    }
+
+    private void Cancel() => _visible = false;
+}

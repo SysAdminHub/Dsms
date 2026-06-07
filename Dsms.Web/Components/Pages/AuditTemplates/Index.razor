@@ -13,12 +13,24 @@
 else
 {
     <PageHeader Title="Audit-Vorlagen" Subtitle="Wiederverwendbare Fragenkataloge für Audits">
-        <a class="btn btn-primary" href="audit-templates/edit">Neue Vorlage</a>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
+            @if (!_showArchived)
+            {
+                <a class="btn btn-primary" href="audit-templates/edit">Neue Vorlage</a>
+            }
+        </div>
     </PageHeader>
 
     @if (_templates is null)
     {
         <div class="dsms-loading">Lade …</div>
+    }
+    else if (_templates.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">
+            @(_showArchived ? "Keine archivierten Audit-Vorlagen." : "Noch keine Audit-Vorlagen erfasst.")
+        </div>
     }
     else
     {
@@ -31,21 +43,44 @@ else
                             <th>Version</th>
                             <th>Fragen</th>
                             <th>Status</th>
+                            @if (_showArchived)
+                            {
+                                <th>Archiviert am</th>
+                            }
                             <th class="dsms-table-actions"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var template in _templates)
                         {
-                            <tr>
-                                <td><strong>@template.Title</strong></td>
+                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
+                                <td>
+                                    <strong>@template.Title</strong>
+                                    @if (_showArchived)
+                                    {
+                                        <span class="ms-2"><ArchivedBadge /></span>
+                                    }
+                                </td>
                                 <td>@template.Version</td>
                                 <td>@template.Questions.Count</td>
                                 <td>
                                     <StatusBadge Text="@(template.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(template.IsActive ? "success" : "default")" />
                                 </td>
+                                @if (_showArchived)
+                                {
+                                    <td>@(template.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
+                                }
                                 <td class="dsms-table-actions">
-                                    <a class="btn btn-sm btn-outline-secondary" href="@($"audit-templates/edit/{template.Id}")">Bearbeiten</a>
+                                    @if (!_showArchived)
+                                    {
+                                        <a class="btn btn-sm btn-outline-secondary" href="@($"audit-templates/edit/{template.Id}")">Bearbeiten</a>
+                                    }
+                                    <ArchiveListActions TEntity="AuditTemplate"
+                                                        EntityId="@template.Id"
+                                                        ItemName="@template.Title"
+                                                        EntityLabel="Audit-Vorlage"
+                                                        CanEdit="true"
+                                                        OnChanged="LoadDataAsync" />
                                 </td>
                             </tr>
                         }
@@ -59,8 +94,10 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _showArchived;
     private List<AuditTemplate>? _templates;
 
     protected override async Task OnInitializedAsync()
@@ -68,10 +105,16 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _showArchived = ArchiveView.ShowArchivedOnly;
         _templates = await Db.AuditTemplates
             .Include(t => t.Questions)
-            .Where(t => t.TenantId == _tenantId)
-            .OrderBy(t => t.Title)
+            .OrderByDescending(t => _showArchived ? t.ArchivedAt : t.CreatedAt)
+            .ThenBy(t => t.Title)
             .ToListAsync();
     }
 }

@@ -19,31 +19,26 @@ internal sealed class IdentityRedirectManager(NavigationManager navigationManage
         MaxAge = TimeSpan.FromSeconds(5),
     };
 
-    public void RedirectTo(string? uri)
+    public void RedirectTo(
+        string? uri,
+        Dictionary<string, object?>? queryParameters = null,
+        bool forceLoad = false)
     {
         uri ??= "";
+
+        if (queryParameters is not null)
+        {
+            var uriWithoutQuery = navigationManager.ToAbsoluteUri(uri).GetLeftPart(UriPartial.Path);
+            uri = navigationManager.GetUriWithQueryParameters(uriWithoutQuery, queryParameters);
+        }
 
         // Nur relative URLs zulassen – Schutz vor Open-Redirect-Angriffen.
         if (!Uri.IsWellFormedUriString(uri, UriKind.Relative))
         {
             uri = navigationManager.ToBaseRelativePath(uri);
         }
-        try
-        {
-            navigationManager.NavigateTo(uri);
-        }
-        catch(Exception ex)
-        {
-            Console.WriteLine(ex.ToString());
-        }
-        
-    }
 
-    public void RedirectTo(string uri, Dictionary<string, object?> queryParameters)
-    {
-        var uriWithoutQuery = navigationManager.ToAbsoluteUri(uri).GetLeftPart(UriPartial.Path);
-        var newUri = navigationManager.GetUriWithQueryParameters(uriWithoutQuery, queryParameters);
-        RedirectTo(newUri);
+        navigationManager.NavigateTo(uri, forceLoad);
     }
 
     /// <summary>Kurzlebige Statusmeldung per Cookie für die Zielseite (z. B. Erfolg/Fehler).</summary>

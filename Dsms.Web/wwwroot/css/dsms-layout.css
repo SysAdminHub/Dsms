@@ -177,3 +177,16 @@ article.content {
     font-size: var(--dsms-font-size-lg);
     margin-bottom: var(--dsms-space-4);
 }
+
+.dsms-archive-toggle .btn-secondary {
+    pointer-events: none;
+}
+
+.dsms-archive-modal .modal-content {
+    border: 1px solid var(--dsms-border);
+    box-shadow: var(--dsms-shadow-lg);
+}
+
+.dsms-table-row--archived td:first-child strong {
+    opacity: 0.85;
+}

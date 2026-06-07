@@ -32,14 +32,17 @@ builder.Services.AddSession(options =>
 });
 
 builder.Services.AddScoped<TenantContextAccessor>();
+builder.Services.AddScoped<ArchiveViewContextAccessor>();
 builder.Services.AddScoped<ITenantContextService, TenantContextService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<IUserAccessService, UserAccessService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+builder.Services.AddScoped<IArchivingService, ArchivingService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ProcessingActivityRelationsService>();
 builder.Services.AddScoped<DocumentStorageService>();
+builder.Services.AddScoped<DocumentLinksService>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -103,7 +106,10 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// Mandantenwechsel per Form-POST (kein paralleler DbContext-Zugriff in Blazor-Komponenten).
+// Mandantenwechsel per HTTP-Request (Session vor Response-Start). Blazor-Komponenten leiten hierher um.
+app.MapGet("/tenant/switch/{tenantId:int}", TenantSwitchEndpoints.SwitchTenantAsync)
+    .RequireAuthorization();
+
 app.MapPost("/tenant/switch", async (
     HttpContext context,
     ITenantService tenantService,
@@ -116,19 +122,17 @@ app.MapPost("/tenant/switch", async (
         return Results.Redirect("/select-tenant");
     }
 
-    var result = await tenantService.SwitchTenantAsync(tenantId);
-    if (!result.Succeeded)
-    {
-        return Results.Redirect("/select-tenant");
-    }
-
-    var returnUrl = context.Request.Headers.Referer.FirstOrDefault();
-    return Results.Redirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
+    return await TenantSwitchEndpoints.SwitchTenantAsync(
+        tenantId,
+        tenantService,
+        context,
+        context.Request.Form["returnUrl"].FirstOrDefault());
 })
 .RequireAuthorization();
 
 // Minimal-API-Endpunkte für Identity-Formulare (Logout, externe Logins, …).
 app.MapAdditionalIdentityEndpoints();
+app.MapDocumentFileEndpoints();
 
 await DatabaseSeeder.SeedAsync(app.Services);
 

@@ -267,7 +267,11 @@ else
                                 <td><strong>@doc.FileName</strong></td>
                                 <td>@doc.CreatedAt.ToLocalTime().ToString("g")</td>
                                 <td>@FormatSize(doc.FileSizeBytes)</td>
-                                <td><span class="text-muted">Download noch nicht implementiert</span></td>
+                                <td>
+                                    <DocumentActions DocumentId="@doc.Id"
+                                                     FileName="@doc.FileName"
+                                                     ContentType="@doc.ContentType" />
+                                </td>
                             </tr>
                         }
                     </tbody>

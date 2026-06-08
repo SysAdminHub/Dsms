@@ -18,6 +18,7 @@ public class ApplicationDbContext(
     ArchiveViewContextAccessor archiveViewContextAccessor)
     : IdentityDbContext<ApplicationUser>(options)
 {
+    public DbSet<License> Licenses => Set<License>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<UserTenant> UserTenants => Set<UserTenant>();
     public DbSet<AuditTemplate> AuditTemplates => Set<AuditTemplate>();
@@ -57,6 +58,33 @@ public class ApplicationDbContext(
             e.HasIndex(ut => ut.TenantId);
         });
 
+        builder.Entity<License>(e =>
+        {
+            e.ToTable("Licenses");
+            e.HasKey(l => l.Id);
+            e.Property(l => l.LicenseNumber).HasMaxLength(50).IsRequired();
+            e.Property(l => l.CustomerName).HasMaxLength(200).IsRequired();
+            e.Property(l => l.CustomerEmail).HasMaxLength(255);
+            e.Property(l => l.PlanName).HasMaxLength(100).IsRequired();
+            e.Property(l => l.Status).HasMaxLength(50).IsRequired();
+            e.Property(l => l.InternalNote).HasColumnType("text");
+            e.Property(l => l.PlanName).HasDefaultValue("Manual");
+            e.Property(l => l.Status).HasDefaultValue("Active");
+            e.HasIndex(l => l.LicenseNumber).IsUnique();
+            e.HasIndex(l => l.CustomerName);
+            e.HasIndex(l => l.Status);
+        });
+
+        builder.Entity<ApplicationUser>(e =>
+        {
+            e.Property(u => u.LicenseId);
+            e.HasOne<License>()
+                .WithMany()
+                .HasForeignKey(u => u.LicenseId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(u => u.LicenseId);
+        });
+
         builder.Entity<Tenant>(e =>
         {
             e.Property(t => t.Name).HasMaxLength(200).IsRequired();
@@ -64,6 +92,11 @@ public class ApplicationDbContext(
             e.Property(t => t.DeletionRequestedByUserId).HasMaxLength(450);
             e.Property(t => t.IsActive).HasDefaultValue(true);
             e.Property(t => t.IsDeletionRequested).HasDefaultValue(false);
+            e.HasOne(t => t.License)
+                .WithMany(l => l.Tenants)
+                .HasForeignKey(t => t.LicenseId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(t => t.LicenseId);
         });
 
         ApplyTenantQueryFilters(builder);

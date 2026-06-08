@@ -32,6 +32,7 @@ else
                         <th>E-Mail</th>
                         <th>Anzeigename</th>
                         <th>Mandant</th>
+                        <th>Lizenz</th>
                         <th>Rollen</th>
                         <th>Status</th>
                         <th class="dsms-table-actions"></th>
@@ -44,6 +45,17 @@ else
                             <td>@entry.User.Email</td>
                             <td><strong>@entry.User.DisplayName</strong></td>
                             <td>@entry.TenantName</td>
+                            <td>
+                                @if (entry.HasLicenseConflict)
+                                {
+                                    <StatusBadge Text="Lizenzkonflikt" Variant="danger" />
+                                    @if (!string.IsNullOrEmpty(entry.LicenseConflictMessage))
+                                    {
+                                        <div class="text-danger small">@entry.LicenseConflictMessage</div>
+                                    }
+                                }
+                                <span class="@(entry.HasLicenseConflict ? "text-danger" : "")">@entry.LicenseDisplayName</span>
+                            </td>
                             <td>
                                 @foreach (var role in entry.Roles)
                                 {

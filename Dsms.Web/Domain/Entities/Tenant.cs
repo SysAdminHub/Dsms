@@ -9,6 +9,10 @@ public class Tenant : EntityBase
     public string? LegalName { get; set; }
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Zugehörige Kundenlizenz; null bei noch nicht zugeordneten Mandanten.</summary>
+    public Guid? LicenseId { get; set; }
+    public License? License { get; set; }
+
     /// <summary>Mandant wurde zur Löschung angefordert (keine automatische Hard-Delete in V1).</summary>
     public bool IsDeletionRequested { get; set; }
 

@@ -222,6 +222,7 @@ public class TenantService(
             || path.StartsWith("users", StringComparison.Ordinal)
             || path.StartsWith("admin/erinnerungen", StringComparison.Ordinal)
             || path.StartsWith("platform/email", StringComparison.Ordinal)
+            || path.StartsWith("platform/licenses", StringComparison.Ordinal)
             || path == "passwort-vergessen"
             || path == "passwort-zuruecksetzen"
             || path == "not-found"

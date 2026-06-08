@@ -22,6 +22,7 @@ else
                     <tr>
                         <th>Name</th>
                         <th>Rechtlicher Name</th>
+                        <th>Lizenz</th>
                         <th>Status</th>
                         <th class="dsms-table-actions"></th>
                     </tr>
@@ -32,6 +33,16 @@ else
                         <tr>
                             <td><strong>@tenant.Name</strong></td>
                             <td>@(tenant.LegalName ?? "—")</td>
+                            <td>
+                                @if (tenant.LicenseId is Guid licenseId)
+                                {
+                                    <span title="@licenseId">@tenant.LicenseDisplayName</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">@tenant.LicenseDisplayName</span>
+                                }
+                            </td>
                             <td>
                                 <StatusBadge Text="@(tenant.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(tenant.IsActive ? "success" : "default")" />
                             </td>
@@ -47,9 +58,9 @@ else
 }
 
 @code {
-    [Inject] private ApplicationDbContext Db { get; set; } = null!;
-    private List<Tenant>? _tenants;
+    [Inject] private ITenantManagementService TenantManagement { get; set; } = null!;
+    private IReadOnlyList<TenantListItemDto>? _tenants;
 
     protected override async Task OnInitializedAsync() =>
-        _tenants = await Db.Tenants.OrderBy(t => t.Name).ToListAsync();
+        _tenants = await TenantManagement.ListTenantsAsync();
 }

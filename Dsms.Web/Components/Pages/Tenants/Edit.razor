@@ -3,9 +3,14 @@
 @attribute [Authorize(Roles = DsmsRoles.Superuser)]
 @rendermode InteractiveServer
 
-<PageTitle>@(_model.Id == 0 ? "Mandant anlegen" : "Mandant bearbeiten")</PageTitle>
+<PageTitle>@(_isNew ? "Mandant anlegen" : "Mandant bearbeiten")</PageTitle>
 
-<PageHeader Title="@(_model.Id == 0 ? "Mandant anlegen" : "Mandant bearbeiten")" />
+<PageHeader Title="@(_isNew ? "Mandant anlegen" : "Mandant bearbeiten")" />
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+}
 
 <div class="dsms-card dsms-form-card">
     <div class="dsms-card-body">
@@ -21,13 +26,33 @@
                 <label class="form-label">Rechtlicher Name</label>
                 <InputText class="form-control" @bind-Value="_model.LegalName" />
             </div>
+            <div class="mb-3">
+                <label class="form-label">Lizenz @(_isNew ? "*" : "")</label>
+                <InputSelect class="form-select" @bind-Value="_selectedLicenseId">
+                    @if (!_isNew)
+                    {
+                        <option value="">Keine Lizenz zugeordnet</option>
+                    }
+                    @foreach (var license in _licenses)
+                    {
+                        <option value="@license.Id">@license.DisplayName</option>
+                    }
+                </InputSelect>
+                <p class="form-text text-muted mb-0">
+                    Die Lizenz bestimmt später die Limits und verfügbaren Funktionen dieses Mandanten.
+                </p>
+                @if (_isNew && _selectedLicenseId is null)
+                {
+                    <div class="text-danger small mt-1">Bitte wählen Sie eine Lizenz aus.</div>
+                }
+            </div>
             <div class="form-check mb-4">
                 <InputCheckbox class="form-check-input" @bind-Value="_model.IsActive" id="isActive" />
                 <label class="form-check-label" for="isActive">Aktiv</label>
             </div>
 
             <div class="dsms-form-actions">
-                <button type="submit" class="btn btn-primary">Speichern</button>
+                <button type="submit" class="btn btn-primary" disabled="@(_isNew && _selectedLicenseId is null)">Speichern</button>
                 <a class="btn btn-outline-secondary" href="tenants">Abbrechen</a>
             </div>
         </EditForm>
@@ -36,32 +61,63 @@
 
 @code {
     [Parameter] public int? Id { get; set; }
-    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ITenantManagementService TenantManagement { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
-    private Tenant _model = new();
+    private TenantSaveModel _model = new();
+    private List<LicenseOptionDto> _licenses = [];
+    private Guid? _selectedLicenseId;
+    private bool _isNew = true;
+    private string? _errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
+        _licenses = (await LicenseService.GetActiveLicenseOptionsAsync()).ToList();
+
         if (Id is > 0)
         {
-            _model = await Db.Tenants.FindAsync(Id.Value) ?? new Tenant();
+            _isNew = false;
+            var tenant = await TenantManagement.GetTenantForEditAsync(Id.Value);
+            if (tenant is null)
+            {
+                Navigation.NavigateTo("tenants");
+                return;
+            }
+
+            _model = new TenantSaveModel
+            {
+                Id = tenant.Id,
+                Name = tenant.Name,
+                LegalName = tenant.LegalName,
+                IsActive = tenant.IsActive,
+                LicenseId = tenant.LicenseId
+            };
+            _selectedLicenseId = tenant.LicenseId;
         }
     }
 
     private async Task SaveAsync()
     {
-        if (_model.Id == 0)
+        _errorMessage = null;
+        _model.LicenseId = _selectedLicenseId;
+
+        TenantOperationResult result;
+        if (_isNew)
         {
-            Db.Tenants.Add(_model);
+            result = await TenantManagement.CreateTenantAsync(_model);
         }
         else
         {
-            _model.UpdatedAt = DateTime.UtcNow;
-            Db.Tenants.Update(_model);
+            result = await TenantManagement.UpdateTenantAsync(_model.Id, _model);
         }
 
-        await Db.SaveChangesAsync();
+        if (!result.Succeeded)
+        {
+            _errorMessage = result.ErrorMessage;
+            return;
+        }
+
         Navigation.NavigateTo("tenants");
     }
 }

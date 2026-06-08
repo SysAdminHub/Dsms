@@ -131,7 +131,8 @@ Docker Compose (`docker-compose.yml`) legt `dsms_dev` mit Root-Passwort `changem
 
 | DbSet | Entity |
 |-------|--------|
-| `Tenants` | `Tenant` (inkl. `IsDeletionRequested`, `DeletionRequestedAt`, `DeletionRequestedByUserId`, `DeletionScheduledAt`) |
+| `Licenses` | `License` (Guid-Id, kaufmännische/technische Kundeneinheit; Limit-Felder, `null` = unbegrenzt) |
+| `Tenants` | `Tenant` (inkl. `LicenseId`, `IsDeletionRequested`, `DeletionRequestedAt`, `DeletionRequestedByUserId`, `DeletionScheduledAt`) |
 | `AuditTemplates` | `AuditTemplate` |
 | `AuditQuestions` | `AuditQuestion` |
 | `AuditRuns` | `AuditRun` |
@@ -173,9 +174,15 @@ Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `To
 
 Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen.
 
+**`License`** ist eine eigenständige Entity mit **`Guid Id`** (nicht `EntityBase`). Enthält Kundendaten, Status, Gültigkeit und Limit-Felder (lizenzweit und pro Mandant). `LicenseNumber` wird automatisch vergeben (Format `LIC-{Jahr}-{Sequenz}`).
+
 Alle anderen Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `UpdatedAt`).
 
 ```
+License (Guid)
+ ├── Tenant (LicenseId optional)
+ └── ApplicationUser (LicenseId optional, Lizenz-Admins)
+
 Tenant
  ├── AuditTemplate (Tenant | Official | Community) ── AuditQuestion
  │        └── AuditRun ── AuditAnswer (Snapshot + FK AuditQuestion)
@@ -201,6 +208,7 @@ ApplicationUser.TenantId → logische Zuordnung (kein EF-FK auf Tenants)
 
 - `DisplayName`
 - `TenantId` (nullable `int`) – ein Mandant pro Benutzer in V1; `null` für Superuser
+- `LicenseId` (nullable `Guid`) – Zuordnung zu Kundenlizenz für Lizenz-Admins; Superuser typischerweise `null`
 - `IsActive` – deaktivierte Konten können sich nicht anmelden
 - `CreatedAt`, `CreatedByUserId` – Metadaten zur Kontoanlage
 
@@ -235,6 +243,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IEmailSecretProtector` / `EmailSecretProtector` | Scoped | SMTP-Passwort-Schutz via ASP.NET Data Protection |
 | `IPasswordResetService` / `PasswordResetService` | Scoped | Passwortreset und Willkommens-Einladungen via Identity-Token + `IEmailService`; Rate Limit über `IDistributedCache` |
 | `IReminderService` / `ReminderService` | Scoped | Manuelle Erinnerungsvorschau und Sammelversand an Mandanten-Admins (kein Background-Job, keine History) |
+| `ILicenseService` / `LicenseService` | Scoped | Lizenz-CRUD, Usage-Counts und Limit-Anzeige für Superuser (noch ohne Limit-Durchsetzung) |
 
 ## Authentifizierung und Berechtigungen
 
@@ -254,7 +263,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 
 | Rolle | Typische Rechte (aus `[Authorize]`, NavMenu, `IUserAccessService`) |
 |-------|---------------------------------------------------------------------|
-| **Superuser** | Plattform: alle Mandanten (`/tenants`), Email (`/platform/email/*`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
+| **Superuser** | Plattform: alle Mandanten (`/tenants`), Lizenzen (`/platform/licenses`), Email (`/platform/email/*`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
 | **Admin** | Benutzer im eigenen Mandant; **keine** Mandantenverwaltung; Compliance wie bisher für `TenantId` |
 | **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, DSFA, TOMs und Dienstleister anlegen/bearbeiten; **keine** Benutzerverwaltung |
 | **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen |
@@ -273,7 +282,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 - `ArchiveViewContextAccessor.ShowArchivedOnly` wird über `ArchiveViewToggle` in Listenansichten umgeschaltet
 - Archivieren/Wiederherstellen: `IArchivingService` mit `IgnoreQueryFilters()` und expliziter `TenantId`-Prüfung
 - Admin-Abfragen (Benutzer-/Mandantenverwaltung): `IgnoreQueryFilters()` wo nötig
-- `/tenants` und `/platform/email/*` nur Superuser; `/users` gefiltert über `UserManagementService`
+- `/tenants`, `/platform/licenses` und `/platform/email/*` nur Superuser; `/users` gefiltert über `UserManagementService`
 - `/passwort-vergessen` und `/passwort-zuruecksetzen` öffentlich (ohne Mandantenauswahl)
 - `/admin/erinnerungen` nur Superuser ohne Mandantenauswahl (alle aktiven Mandanten)
 - Email-Routen sind von der Mandantenauswahl ausgenommen (`TenantService.IsTenantRequiredForRoute`)

@@ -24,13 +24,22 @@ public sealed record UserListItem(
     ApplicationUser User,
     string TenantName,
     IList<string> Roles,
-    bool IsActive);
+    bool IsActive,
+    Guid? LicenseId = null,
+    string? LicenseNumber = null,
+    string? LicenseCustomerName = null,
+    string? LicensePlanName = null,
+    string LicenseDisplayName = "",
+    bool HasLicenseConflict = false,
+    string? LicenseConflictMessage = null);
 
 public sealed class UserCreateModel
 {
     public string Email { get; set; } = "";
     public string DisplayName { get; set; } = "";
     public string Role { get; set; } = "";
+    /// <summary>Kundenlizenz (Superuser: Admin Pflicht; User/Auditor zur Filterung).</summary>
+    public Guid? LicenseId { get; set; }
     /// <summary>Legacy: einzelner Mandant (wird in <see cref="TenantIds"/> überführt).</summary>
     public int? TenantId { get; set; }
     /// <summary>Zugewiesene Mandanten (Many-to-Many). Superuser: beliebig; Admin: nur eigene.</summary>
@@ -41,6 +50,7 @@ public sealed class UserEditModel
 {
     public string DisplayName { get; set; } = "";
     public string Role { get; set; } = "";
+    public Guid? LicenseId { get; set; }
     public int? TenantId { get; set; }
     public IList<int> TenantIds { get; set; } = [];
     public bool IsActive { get; set; } = true;

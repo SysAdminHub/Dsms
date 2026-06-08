@@ -8,6 +8,8 @@ using Dsms.Web.Services.TenantExport;
 using Dsms.Web.Services.Email;
 using Dsms.Web.Services.PasswordReset;
 using Dsms.Web.Services.Reminders;
+using Dsms.Web.Services.Licenses;
+using Dsms.Web.Services.Tenants;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -59,6 +61,8 @@ builder.Services.AddScoped<IEmailSettingsService, EmailSettingsService>();
 builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IReminderService, ReminderService>();
+builder.Services.AddScoped<ILicenseService, LicenseService>();
+builder.Services.AddScoped<ITenantManagementService, TenantManagementService>();
 
 builder.Services.AddAuthentication(options =>
     {

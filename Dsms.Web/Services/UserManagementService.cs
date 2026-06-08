@@ -1,6 +1,7 @@
 using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
+using Dsms.Web.Services.Licenses;
 using Dsms.Web.Services.PasswordReset;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -25,7 +26,15 @@ public class UserManagementService(
 
         await using var db = await dbFactory.CreateDbContextAsync();
 
-        var tenants = await db.Tenants.IgnoreQueryFilters().ToDictionaryAsync(t => t.Id, t => t.Name);
+        var tenants = await db.Tenants
+            .IgnoreQueryFilters()
+            .Select(t => new { t.Id, t.Name, t.LicenseId })
+            .ToDictionaryAsync(t => t.Id, t => new TenantLicenseRow(t.Name, t.LicenseId));
+
+        var licenses = await db.Licenses
+            .AsNoTracking()
+            .ToDictionaryAsync(l => l.Id);
+
         IQueryable<ApplicationUser> query = userManager.Users;
 
         if (!await access.IsSuperuserAsync())
@@ -68,11 +77,24 @@ public class UserManagementService(
             }
 
             var tenantNames = userTenantIds
-                .Select(id => tenants.TryGetValue(id, out var name) ? name : "?")
+                .Select(id => tenants.TryGetValue(id, out var t) ? t.Name : "?")
                 .Distinct()
                 .OrderBy(n => n);
 
-            result.Add(new UserListItem(user, string.Join(", ", tenantNames), roles.ToList(), user.IsActive));
+            var licenseInfo = BuildUserLicenseInfo(user, roles, userTenantIds, tenants, licenses);
+
+            result.Add(new UserListItem(
+                user,
+                string.Join(", ", tenantNames),
+                roles.ToList(),
+                user.IsActive,
+                licenseInfo.LicenseId,
+                licenseInfo.LicenseNumber,
+                licenseInfo.LicenseCustomerName,
+                licenseInfo.LicensePlanName,
+                licenseInfo.LicenseDisplayName,
+                licenseInfo.HasLicenseConflict,
+                licenseInfo.LicenseConflictMessage));
         }
 
         return result;
@@ -120,19 +142,31 @@ public class UserManagementService(
             return UserOperationResult.Fail("Keine Berechtigung zur Benutzerverwaltung.");
         }
 
+        var isSuperuserManaging = await access.IsSuperuserAsync();
         var tenantIds = await ResolveTenantIdsForSaveAsync(model.Role, model.TenantIds, model.TenantId);
+
         var validation = await ValidateRoleAndTenantsAsync(model.Role, tenantIds, isNewUser: true);
         if (!validation.Succeeded)
         {
             return validation;
         }
 
-        if (tenantIds.Count == 0 && !IUserAccessService.RoleRequiresNoTenant(model.Role))
+        var licenseValidation = await ValidateLicenseAsync(model.Role, model.LicenseId, tenantIds, isSuperuserManaging);
+        if (!licenseValidation.Succeeded)
+        {
+            return licenseValidation;
+        }
+
+        if (tenantIds.Count == 0
+            && RequiresTenantAssignment(model.Role, isSuperuserManaging))
         {
             return UserOperationResult.Fail("Für diese Rolle ist mindestens ein Mandant erforderlich.");
         }
 
         var creatorId = await currentUser.GetUserIdAsync();
+        var resolvedLicenseId = await ResolveLicenseIdForSaveAsync(
+            model.Role, model.LicenseId, tenantIds, isSuperuserManaging);
+
         var user = new ApplicationUser
         {
             UserName = model.Email.Trim(),
@@ -140,6 +174,7 @@ public class UserManagementService(
             EmailConfirmed = true,
             DisplayName = model.DisplayName.Trim(),
             TenantId = tenantIds.FirstOrDefault(),
+            LicenseId = resolvedLicenseId,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             CreatedByUserId = creatorId
@@ -179,14 +214,23 @@ public class UserManagementService(
             return UserOperationResult.Fail("Keine Berechtigung, diesen Benutzer zu bearbeiten.");
         }
 
+        var isSuperuserManaging = await access.IsSuperuserAsync();
         var tenantIds = await ResolveTenantIdsForSaveAsync(model.Role, model.TenantIds, model.TenantId);
+
         var validation = await ValidateRoleAndTenantsAsync(model.Role, tenantIds, isNewUser: false);
         if (!validation.Succeeded)
         {
             return validation;
         }
 
-        if (tenantIds.Count == 0 && !IUserAccessService.RoleRequiresNoTenant(model.Role))
+        var licenseValidation = await ValidateLicenseAsync(model.Role, model.LicenseId, tenantIds, isSuperuserManaging);
+        if (!licenseValidation.Succeeded)
+        {
+            return licenseValidation;
+        }
+
+        if (tenantIds.Count == 0
+            && RequiresTenantAssignment(model.Role, isSuperuserManaging))
         {
             return UserOperationResult.Fail("Für diese Rolle ist mindestens ein Mandant erforderlich.");
         }
@@ -194,6 +238,8 @@ public class UserManagementService(
         user.DisplayName = model.DisplayName.Trim();
         user.TenantId = tenantIds.FirstOrDefault();
         user.IsActive = model.IsActive;
+        user.LicenseId = await ResolveLicenseIdForSaveAsync(
+            model.Role, model.LicenseId, tenantIds, isSuperuserManaging);
 
         var updateResult = await userManager.UpdateAsync(user);
         if (!updateResult.Succeeded)
@@ -227,6 +273,221 @@ public class UserManagementService(
         user.IsActive = isActive;
         var result = await userManager.UpdateAsync(user);
         return result.Succeeded ? UserOperationResult.Ok() : UserOperationResult.FromIdentity(result);
+    }
+
+    private static bool RequiresTenantAssignment(string role, bool isSuperuserManaging) =>
+        role switch
+        {
+            DsmsRoles.Superuser => false,
+            DsmsRoles.Admin => !isSuperuserManaging,
+            _ => true
+        };
+
+    private async Task<Guid?> ResolveLicenseIdForSaveAsync(
+        string role,
+        Guid? requestedLicenseId,
+        IReadOnlyList<int> tenantIds,
+        bool isSuperuserManaging)
+    {
+        if (role == DsmsRoles.Superuser)
+        {
+            return null;
+        }
+
+        if (isSuperuserManaging)
+        {
+            return role == DsmsRoles.Admin ? requestedLicenseId : null;
+        }
+
+        if (role == DsmsRoles.Admin)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync();
+            var tenantId = tenantIds.FirstOrDefault();
+            if (tenantId == 0)
+            {
+                tenantId = await access.GetCurrentTenantIdAsync() ?? 0;
+            }
+
+            if (tenantId > 0)
+            {
+                var tenant = await db.Tenants.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(t => t.Id == tenantId);
+                return tenant?.LicenseId;
+            }
+        }
+
+        return null;
+    }
+
+    private async Task<UserOperationResult> ValidateLicenseAsync(
+        string role,
+        Guid? licenseId,
+        IReadOnlyList<int> tenantIds,
+        bool isSuperuserManaging)
+    {
+        if (role == DsmsRoles.Superuser)
+        {
+            if (licenseId.HasValue)
+            {
+                return UserOperationResult.Fail("Superuser benötigen keine Kundenlizenz.");
+            }
+
+            return UserOperationResult.Ok();
+        }
+
+        if (!isSuperuserManaging)
+        {
+            return UserOperationResult.Ok();
+        }
+
+        if (!licenseId.HasValue)
+        {
+            return UserOperationResult.Fail("Bitte wählen Sie eine Lizenz aus.");
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        if (!await db.Licenses.AnyAsync(l => l.Id == licenseId.Value))
+        {
+            return UserOperationResult.Fail("Die ausgewählte Lizenz existiert nicht.");
+        }
+
+        if (role == DsmsRoles.Admin)
+        {
+            foreach (var tenantId in tenantIds)
+            {
+                var tenantLicenseId = await GetTenantLicenseIdAsync(db, tenantId);
+                if (tenantLicenseId != licenseId)
+                {
+                    return UserOperationResult.Fail("Der ausgewählte Mandant gehört nicht zur ausgewählten Lizenz.");
+                }
+            }
+
+            return UserOperationResult.Ok();
+        }
+
+        if (tenantIds.Count == 0)
+        {
+            return UserOperationResult.Fail(
+                "Benutzer und Auditoren müssen einem Mandanten der ausgewählten Lizenz zugeordnet sein.");
+        }
+
+        foreach (var tenantId in tenantIds)
+        {
+            var tenantLicenseId = await GetTenantLicenseIdAsync(db, tenantId);
+            if (tenantLicenseId != licenseId)
+            {
+                return UserOperationResult.Fail("Der ausgewählte Mandant gehört nicht zur ausgewählten Lizenz.");
+            }
+        }
+
+        return UserOperationResult.Ok();
+    }
+
+    private static async Task<Guid?> GetTenantLicenseIdAsync(ApplicationDbContext db, int tenantId) =>
+        await db.Tenants
+            .IgnoreQueryFilters()
+            .Where(t => t.Id == tenantId)
+            .Select(t => t.LicenseId)
+            .FirstOrDefaultAsync();
+
+    private sealed record UserLicenseInfo(
+        Guid? LicenseId,
+        string? LicenseNumber,
+        string? LicenseCustomerName,
+        string? LicensePlanName,
+        string LicenseDisplayName,
+        bool HasLicenseConflict,
+        string? LicenseConflictMessage);
+
+    private sealed record TenantLicenseRow(string Name, Guid? LicenseId);
+
+    private static UserLicenseInfo BuildUserLicenseInfo(
+        ApplicationUser user,
+        IList<string> roles,
+        IReadOnlyList<int> userTenantIds,
+        Dictionary<int, TenantLicenseRow> tenants,
+        Dictionary<Guid, Domain.Entities.License> licenses)
+    {
+        if (roles.Contains(DsmsRoles.Superuser))
+        {
+            return new UserLicenseInfo(
+                null, null, null, null,
+                LicenseDisplayHelper.SystemLicenseText,
+                user.LicenseId.HasValue,
+                user.LicenseId.HasValue ? "Superuser sollten keine Kundenlizenz haben." : null);
+        }
+
+        if (roles.Contains(DsmsRoles.Admin))
+        {
+            if (user.LicenseId is Guid adminLicenseId
+                && licenses.TryGetValue(adminLicenseId, out var adminLicense))
+            {
+                var tenantLicenseIds = userTenantIds
+                    .Where(tenants.ContainsKey)
+                    .Select(id => tenants[id].LicenseId)
+                    .Where(id => id.HasValue)
+                    .Distinct()
+                    .ToList();
+
+                var hasConflict = tenantLicenseIds.Any(id => id != adminLicenseId);
+                return new UserLicenseInfo(
+                    adminLicenseId,
+                    adminLicense.LicenseNumber,
+                    adminLicense.CustomerName,
+                    adminLicense.PlanName,
+                    LicenseDisplayHelper.FormatCompactDisplay(
+                        adminLicense.LicenseNumber, adminLicense.CustomerName, adminLicense.PlanName),
+                    hasConflict,
+                    hasConflict ? "Lizenz stimmt nicht mit Mandant überein" : null);
+            }
+
+            return new UserLicenseInfo(
+                user.LicenseId, null, null, null,
+                user.LicenseId.HasValue
+                    ? LicenseDisplayHelper.NoLicenseText
+                    : "Keine Lizenz zugeordnet",
+                user.LicenseId is null,
+                user.LicenseId is null ? "Für Kundenadmins muss eine Lizenz ausgewählt werden." : null);
+        }
+
+        var tenantLicenses = userTenantIds
+            .Where(tenants.ContainsKey)
+            .Select(id => tenants[id].LicenseId)
+            .Distinct()
+            .ToList();
+
+        if (tenantLicenses.Count == 0 || tenantLicenses.All(id => id is null))
+        {
+            return new UserLicenseInfo(
+                null, null, null, null,
+                LicenseDisplayHelper.NoLicenseText,
+                user.LicenseId.HasValue,
+                user.LicenseId.HasValue ? "Lizenzkonflikt" : null);
+        }
+
+        var distinctLicenseIds = tenantLicenses.Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+        if (distinctLicenseIds.Count > 1)
+        {
+            return new UserLicenseInfo(
+                null, null, null, null,
+                LicenseDisplayHelper.MultipleLicensesText,
+                true,
+                "Lizenz stimmt nicht mit Mandant überein");
+        }
+
+        var primaryLicenseId = distinctLicenseIds[0];
+        var license = licenses[primaryLicenseId];
+        var userLicenseConflict = user.LicenseId.HasValue && user.LicenseId != primaryLicenseId;
+
+        return new UserLicenseInfo(
+            primaryLicenseId,
+            license.LicenseNumber,
+            license.CustomerName,
+            license.PlanName,
+            LicenseDisplayHelper.FormatCompactDisplay(
+                license.LicenseNumber, license.CustomerName, license.PlanName),
+            userLicenseConflict,
+            userLicenseConflict ? "Die Benutzerlizenz stimmt nicht mit der Mandantenlizenz überein." : null);
     }
 
     private async Task SyncUserTenantsAsync(string userId, IReadOnlyList<int> tenantIds)
@@ -273,7 +534,8 @@ public class UserManagementService(
             return UserOperationResult.Ok();
         }
 
-        if (tenantIds.Count == 0)
+        var isSuperuserManaging = await access.IsSuperuserAsync();
+        if (tenantIds.Count == 0 && !isSuperuserManaging)
         {
             return UserOperationResult.Fail(
                 "Kein Mandant zugeordnet. Bitte wählen Sie oben im Header einen aktiven Mandanten aus.");
@@ -316,14 +578,12 @@ public class UserManagementService(
             return ids;
         }
 
-        // Mandanten-Admin: aktiver Mandant aus TenantContextService (zentrale Wahrheit).
         var ownTenant = await access.GetCurrentTenantIdAsync();
         if (ownTenant.HasValue)
         {
             return [ownTenant.Value];
         }
 
-        // Fallback: beim Formular-Init aus dem Mandantenkontext befüllte IDs.
         return ids;
     }
 }

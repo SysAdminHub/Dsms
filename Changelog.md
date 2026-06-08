@@ -4,6 +4,22 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- **Lizenzverwaltung (Grundlage):**
+  - Neue Entity `License` (Guid-Id) als zentrale kaufmännische/technische Kundeneinheit
+  - Optionale `LicenseId` auf `Tenant` und `ApplicationUser` (nullable FK, bestehende Daten unverändert)
+  - `ILicenseService` / `LicenseService` mit Usage-Counts und Limit-Anzeige-Hilfen (`LicenseLimitHelper`)
+  - Superuser-Seiten: `/platform/licenses` (Übersicht), `/platform/licenses/edit`, `/platform/licenses/{id}` (Details)
+  - Navigation „Lizenzen“ im Plattform-Bereich (nur Superuser)
+  - EF-Migration `AddLicenses`
+  - Noch **ohne** Featurelocks, Limit-Blockierung und Billing-Anbindung
+- **Demo-Seeding:** Idempotente Demo-Lizenz `LIC-DEMO-000001` mit Limits, Zuordnung zu Demo-Admins/Mandanten, zwei Demo-Mandanten (Hauptsitz + Niederlassung Süd)
+- **Lizenzzuordnung in Mandanten- und Benutzerverwaltung (Superuser):**
+  - Mandantenübersicht/-bearbeitung mit Lizenz-Spalte und -Dropdown
+  - Benutzerübersicht/-anlage/-bearbeitung mit Lizenz-Spalte, Konsistenzprüfung und mandantenabhängigem Dropdown
+  - `ITenantManagementService`, `LicenseOptionDto`, `GetActiveLicenseOptionsAsync()`
+
 ### Geändert
 
 - **Erinnerungen:** Zugriff auf `/admin/erinnerungen` nur noch für **Superuser** (Seite, Navigation, `ReminderService`)

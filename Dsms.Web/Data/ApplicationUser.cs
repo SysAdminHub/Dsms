@@ -19,6 +19,9 @@ public class ApplicationUser : IdentityUser
     /// </summary>
     public int? TenantId { get; set; }
 
+    /// <summary>Kundenlizenz für Lizenz-Admins; Superuser haben typischerweise null.</summary>
+    public Guid? LicenseId { get; set; }
+
     /// <summary>Many-to-Many-Zuordnung zu Mandanten – ein Benutzer kann mehreren Mandanten zugeordnet sein.</summary>
     public ICollection<UserTenant> UserTenants { get; set; } = [];
 

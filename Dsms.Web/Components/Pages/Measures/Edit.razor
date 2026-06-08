@@ -296,20 +296,15 @@ else
             }
             else
             {
+                var changes = ComplianceAuditDiffBuilder.ForMeasure(
+                    _previousTitle, statusBeforeSave, _previousDueDate, _model);
                 await ComplianceAuditLog.LogMeasureUpdatedAsync(
-                    _model.Id, _model.Title, tid,
-                    new { Title = _previousTitle, Status = statusBeforeSave, DueDate = _previousDueDate },
-                    new { Title = _model.Title, Status = _model.Status, DueDate = _model.DueDate });
+                    _model.Id, _model.Title, tid, changes);
 
-                if (statusBeforeSave.HasValue && statusBeforeSave != _model.Status)
+                if (statusBeforeSave.HasValue && statusBeforeSave != _model.Status
+                    && _model.Status == MeasureStatus.Done)
                 {
-                    await ComplianceAuditLog.LogMeasureStatusChangedAsync(
-                        _model.Id, _model.Title, tid, statusBeforeSave.Value, _model.Status);
-
-                    if (_model.Status == MeasureStatus.Done)
-                    {
-                        await ComplianceAuditLog.LogMeasureCompletedAsync(_model.Id, _model.Title, tid);
-                    }
+                    await ComplianceAuditLog.LogMeasureCompletedAsync(_model.Id, _model.Title, tid);
                 }
             }
         }

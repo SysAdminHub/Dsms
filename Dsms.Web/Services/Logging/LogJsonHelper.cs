@@ -66,10 +66,41 @@ public static class LogJsonHelper
             return s;
         }
 
+        if (value is Enum)
+        {
+            return value.ToString()!;
+        }
+
+        var valueType = value.GetType();
+        if (valueType.IsEnum)
+        {
+            return value.ToString()!;
+        }
+
+        var underlyingEnumType = Nullable.GetUnderlyingType(valueType);
+        if (underlyingEnumType?.IsEnum == true)
+        {
+            return value.ToString()!;
+        }
+
+        if (value is bool b)
+        {
+            return b ? "Ja" : "Nein";
+        }
+
+        if (value is DateOnly dateOnly)
+        {
+            return dateOnly.ToString("dd.MM.yyyy");
+        }
+
+        if (value is DateTime dateTime)
+        {
+            return dateTime.ToString("dd.MM.yyyy HH:mm");
+        }
+
         if (value is not IEnumerable || value is string)
         {
-            var type = value.GetType();
-            if (type.IsPrimitive || value is decimal or DateTime or DateTimeOffset or Guid)
+            if (valueType.IsPrimitive || value is decimal or DateTimeOffset or Guid)
             {
                 return value;
             }

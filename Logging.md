@@ -147,7 +147,22 @@ Fachliche Änderungen werden über `IComplianceAuditLogService` bzw. `LogAuditAs
 
 - **Sichtbar für Admins:** `IsVisibleToAdmin = true`, eigene Lizenz/Mandanten
 - **Geschrieben bei:** Create, Update, Archive, Restore, Statusänderung (soweit vorhanden)
-- **Nur unkritische Felder** in `OldValuesJson`/`NewValuesJson` (Titel, Status, Fälligkeitsdatum – keine Langtexte)
+- **Nur geänderte, unkritische Felder** in `OldValuesJson`/`NewValuesJson` (Titel, Status, Fälligkeitsdatum – keine Langtexte)
+- **Update ohne Änderung:** kein Auditlog-Eintrag (Option A)
+- **Enums/Status** als lesbarer String (z. B. `"Entwurf"`), nicht als `{}`
+- **ChangeList** in `MetadataJson` für die UI-Änderungstabelle (`AuditDiffHelper.ChangeListMetadataKey`)
+
+### Update-Diffs erstellen
+
+```csharp
+var changes = ComplianceAuditDiffBuilder.ForDpia(
+    _previousTitle, _previousStatus, _previousResidualRisk, _previousResponsible,
+    _previousReviewedAt, _previousNextReviewAt, _model);
+
+await complianceAuditLog.LogDpiaUpdatedAsync(_model.Id, _model.Title, tenantId, changes);
+```
+
+`ComplianceAuditLogService` schreibt nur, wenn `changes` nicht leer ist. `OldValuesJson`/`NewValuesJson` enthalten dann nur die geänderten Felder als `Dictionary<string, string?>`.
 
 ### Fachliches Auditlog manuell ergänzen
 

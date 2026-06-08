@@ -279,6 +279,9 @@ else
     private CommunitySubmitModal? _submitModal;
     private DeleteQuestionConfirmModal? _deleteQuestionModal;
     private string? _previousTitle;
+    private string? _previousVersion;
+    private bool? _previousIsActive;
+    private AuditTemplateType? _previousType;
 
     private string PageTitleText
     {
@@ -358,6 +361,9 @@ else
     {
         _model = template;
         _previousTitle = template.Title;
+        _previousVersion = template.Version;
+        _previousIsActive = template.IsActive;
+        _previousType = template.TemplateType;
         await ReloadQuestionsAsync();
         _readOnly = !await TemplateService.CanEditAsync(_model);
         _canSubmitToCommunity = !_readOnly && await TemplateService.CanSubmitToCommunityAsync(_model);
@@ -493,10 +499,10 @@ else
         }
         else
         {
+            var changes = ComplianceAuditDiffBuilder.ForAuditTemplate(
+                _previousTitle, _previousVersion, _previousIsActive, _previousType, _model);
             await ComplianceAuditLog.LogAuditTemplateUpdatedAsync(
-                _model.Id, _model.Title, _model.TenantId,
-                new { Title = _previousTitle },
-                new { Title = _model.Title });
+                _model.Id, _model.Title, _model.TenantId, changes);
         }
 
         Navigation.NavigateTo($"audit-templates/edit/{_model.Id}");

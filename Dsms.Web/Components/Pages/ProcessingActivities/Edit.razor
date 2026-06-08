@@ -131,6 +131,8 @@ else
     private ProcessingActivity _model = new() { Status = ProcessingActivityStatus.Draft };
     private ProcessingActivityStatus? _previousStatus;
     private string? _previousName;
+    private string? _previousOwner;
+    private string? _previousDepartment;
 
     protected override async Task OnInitializedAsync()
     {
@@ -151,6 +153,8 @@ else
             _model = existing;
             _previousStatus = existing.Status;
             _previousName = existing.Name;
+            _previousOwner = existing.Owner;
+            _previousDepartment = existing.ResponsibleDepartment;
         }
         else
         {
@@ -200,16 +204,10 @@ else
         }
         else
         {
-            var oldValues = new { Name = _previousName, Status = _previousStatus };
-            var newValues = new { Name = _model.Name, Status = _model.Status };
+            var changes = ComplianceAuditDiffBuilder.ForProcessingActivity(
+                _previousName, _previousStatus, _previousOwner, _previousDepartment, _model);
             await ComplianceAuditLog.LogProcessingActivityUpdatedAsync(
-                _model.Id, _model.Name, _tenantId.Value, oldValues, newValues);
-
-            if (_previousStatus.HasValue && _previousStatus != _model.Status)
-            {
-                await ComplianceAuditLog.LogProcessingActivityStatusChangedAsync(
-                    _model.Id, _model.Name, _tenantId.Value, _previousStatus.Value, _model.Status);
-            }
+                _model.Id, _model.Name, _tenantId.Value, changes);
         }
 
         Navigation.NavigateTo(_model.Id > 0 ? $"processing-activities/{_model.Id}" : "processing-activities");

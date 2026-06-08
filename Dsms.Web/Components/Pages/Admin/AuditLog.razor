@@ -138,17 +138,16 @@ else
                         <dd class="col-sm-9">@(_details.TenantName ?? "–")</dd>
                         <dt class="col-sm-3">Entität</dt>
                         <dd class="col-sm-9">@(_details.EntityType ?? "–") / @(_details.EntityName ?? "–")</dd>
-                        @if (!string.IsNullOrEmpty(_details.OldValuesJson))
+                        @if (!string.IsNullOrEmpty(_details.OldValuesJson) || !string.IsNullOrEmpty(_details.NewValuesJson) || !string.IsNullOrEmpty(_details.MetadataJson))
                         {
-                            <dt class="col-sm-3">Alte Werte</dt>
-                            <dd class="col-sm-9"><pre class="small bg-light p-2 rounded">@_details.OldValuesJson</pre></dd>
+                            <dt class="col-sm-3">Änderungen</dt>
+                            <dd class="col-sm-9">
+                                <LogEntryChangesView OldValuesJson="@_details.OldValuesJson"
+                                                     NewValuesJson="@_details.NewValuesJson"
+                                                     MetadataJson="@_details.MetadataJson" />
+                            </dd>
                         }
-                        @if (!string.IsNullOrEmpty(_details.NewValuesJson))
-                        {
-                            <dt class="col-sm-3">Neue Werte</dt>
-                            <dd class="col-sm-9"><pre class="small bg-light p-2 rounded">@_details.NewValuesJson</pre></dd>
-                        }
-                        @if (!string.IsNullOrEmpty(_details.MetadataJson))
+                        @if (AuditLogChangeParser.HasDisplayableMetadata(_details.MetadataJson))
                         {
                             <dt class="col-sm-3">Zusatzinfos</dt>
                             <dd class="col-sm-9"><pre class="small bg-light p-2 rounded">@_details.MetadataJson</pre></dd>

@@ -170,6 +170,10 @@ else
     private List<ProcessingActivity> _availableActivities = [];
     private DpiaStatus? _previousStatus;
     private string? _previousTitle;
+    private DpiaResidualRisk? _previousResidualRisk;
+    private string? _previousResponsible;
+    private DateOnly? _previousReviewedAt;
+    private DateOnly? _previousNextReviewAt;
 
     protected override async Task OnInitializedAsync()
     {
@@ -196,6 +200,10 @@ else
             _model = existing;
             _previousStatus = existing.Status;
             _previousTitle = existing.Title;
+            _previousResidualRisk = existing.ResidualRisk;
+            _previousResponsible = existing.ResponsiblePerson;
+            _previousReviewedAt = existing.ReviewedAt;
+            _previousNextReviewAt = existing.NextReviewAt;
             _reviewedAt = existing.ReviewedAt?.ToDateTime(TimeOnly.MinValue);
             _nextReviewAt = existing.NextReviewAt?.ToDateTime(TimeOnly.MinValue);
         }
@@ -277,16 +285,11 @@ else
         }
         else
         {
+            var changes = ComplianceAuditDiffBuilder.ForDpia(
+                _previousTitle, _previousStatus, _previousResidualRisk, _previousResponsible,
+                _previousReviewedAt, _previousNextReviewAt, _model);
             await ComplianceAuditLog.LogDpiaUpdatedAsync(
-                _model.Id, _model.Title, _tenantId.Value,
-                new { Title = _previousTitle, Status = _previousStatus },
-                new { Title = _model.Title, Status = _model.Status });
-
-            if (_previousStatus.HasValue && _previousStatus != _model.Status)
-            {
-                await ComplianceAuditLog.LogDpiaStatusChangedAsync(
-                    _model.Id, _model.Title, _tenantId.Value, _previousStatus.Value, _model.Status);
-            }
+                _model.Id, _model.Title, _tenantId.Value, changes);
         }
 
         Navigation.NavigateTo($"dsfa/{_model.Id}");

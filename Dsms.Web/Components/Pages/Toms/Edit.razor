@@ -295,6 +295,9 @@ else
     private HashSet<int> _selectedActivityIds = [];
     private TomImplementationStatus? _previousStatus;
     private string? _previousTitle;
+    private TomCategory? _previousCategory;
+    private string? _previousOwner;
+    private DateOnly? _previousNextReviewAt;
 
     protected override async Task OnInitializedAsync()
 
@@ -343,6 +346,9 @@ else
             _model = existing;
             _previousStatus = existing.ImplementationStatus;
             _previousTitle = existing.Title;
+            _previousCategory = existing.Category;
+            _previousOwner = existing.Owner;
+            _previousNextReviewAt = existing.NextReviewAt;
 
             _validFrom = existing.ValidFrom?.ToDateTime(TimeOnly.MinValue);
 
@@ -557,16 +563,10 @@ else
 
         await Db.SaveChangesAsync();
 
+        var changes = ComplianceAuditDiffBuilder.ForTom(
+            _previousTitle, _previousCategory, _previousStatus, _previousOwner, _previousNextReviewAt, _model);
         await ComplianceAuditLog.LogTomUpdatedAsync(
-            _model.Id, _model.Title, _tenantId.Value,
-            new { Title = _previousTitle, Status = _previousStatus },
-            new { Title = _model.Title, Status = _model.ImplementationStatus });
-
-        if (_previousStatus.HasValue && _previousStatus != _model.ImplementationStatus)
-        {
-            await ComplianceAuditLog.LogTomStatusChangedAsync(
-                _model.Id, _model.Title, _tenantId.Value, _previousStatus.Value, _model.ImplementationStatus);
-        }
+            _model.Id, _model.Title, _tenantId.Value, changes);
 
         Navigation.NavigateTo($"toms/{_model.Id}");
 

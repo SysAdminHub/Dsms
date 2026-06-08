@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Geändert
 
+- **Audit-Diffs lesbar:** `AuditDiffHelper`, `ComplianceAuditDiffBuilder` und `AuditLogChangeParser` – Update-Logs speichern nur geänderte Felder als lesbare Strings (Enums/Status nicht mehr als `{}`); leere Updates werden nicht geschrieben
+- **Audit-Detailansicht:** `LogEntryChangesView` in Admin- (`/admin/auditlog`) und Superuser-Protokoll (`/platform/logs`) mit Änderungstabelle; alte Logeinträge mit Roh-JSON weiterhin anzeigbar
 - **Login-Logs für Admins ausgeblendet:** `UserLoginSuccessful` mit `IsVisibleToAdmin = false` (Superuser-Nutzungsanalyse unverändert)
 - **Fachliche Auditlogs:** `IComplianceAuditLogService` für VVT, DSFA, TOMs, Dienstleister, Maßnahmen, Audits, Auditvorlagen und Nachweisdokumente (Create/Update/Archive/Status)
 

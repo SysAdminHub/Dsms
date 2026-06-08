@@ -9,9 +9,9 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
         LogAsync("ProcessingActivityCreated", "Verarbeitungstätigkeit wurde erstellt.",
             "ProcessingActivity", id, name, tenantId);
 
-    public Task LogProcessingActivityUpdatedAsync(int id, string name, int tenantId, object? oldValues = null, object? newValues = null) =>
-        LogAsync("ProcessingActivityUpdated", "Verarbeitungstätigkeit wurde geändert.",
-            "ProcessingActivity", id, name, tenantId, oldValues, newValues);
+    public Task LogProcessingActivityUpdatedAsync(int id, string name, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("ProcessingActivityUpdated", "Verarbeitungstätigkeit wurde geändert.",
+            "ProcessingActivity", id, name, tenantId, changes);
 
     public Task LogProcessingActivityArchivedAsync(int id, string name, int tenantId) =>
         LogAsync("ProcessingActivityArchived", "Verarbeitungstätigkeit wurde archiviert.",
@@ -22,15 +22,14 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
             "ProcessingActivity", id, name, tenantId);
 
     public Task LogProcessingActivityStatusChangedAsync(int id, string name, int tenantId, object oldStatus, object newStatus) =>
-        LogAsync("ProcessingActivityStatusChanged", "Status der Verarbeitungstätigkeit wurde geändert.",
-            "ProcessingActivity", id, name, tenantId,
-            new { Status = oldStatus }, new { Status = newStatus });
+        LogStatusChangeAsync("ProcessingActivityStatusChanged", "Status der Verarbeitungstätigkeit wurde geändert.",
+            "ProcessingActivity", id, name, tenantId, oldStatus, newStatus);
 
     public Task LogDpiaCreatedAsync(int id, string title, int tenantId) =>
         LogAsync("DpiaCreated", "DSFA wurde erstellt.", "Dpia", id, title, tenantId);
 
-    public Task LogDpiaUpdatedAsync(int id, string title, int tenantId, object? oldValues = null, object? newValues = null) =>
-        LogAsync("DpiaUpdated", "DSFA wurde geändert.", "Dpia", id, title, tenantId, oldValues, newValues);
+    public Task LogDpiaUpdatedAsync(int id, string title, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("DpiaUpdated", "DSFA wurde geändert.", "Dpia", id, title, tenantId, changes);
 
     public Task LogDpiaArchivedAsync(int id, string title, int tenantId) =>
         LogAsync("DpiaArchived", "DSFA wurde archiviert.", "Dpia", id, title, tenantId);
@@ -39,14 +38,13 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
         LogAsync("DpiaRestored", "DSFA wurde wiederhergestellt.", "Dpia", id, title, tenantId);
 
     public Task LogDpiaStatusChangedAsync(int id, string title, int tenantId, object oldStatus, object newStatus) =>
-        LogAsync("DpiaStatusChanged", "Status der DSFA wurde geändert.", "Dpia", id, title, tenantId,
-            new { Status = oldStatus }, new { Status = newStatus });
+        LogStatusChangeAsync("DpiaStatusChanged", "Status der DSFA wurde geändert.", "Dpia", id, title, tenantId, oldStatus, newStatus);
 
     public Task LogTomCreatedAsync(int id, string title, int tenantId) =>
         LogAsync("TomCreated", "TOM wurde erstellt.", "Tom", id, title, tenantId);
 
-    public Task LogTomUpdatedAsync(int id, string title, int tenantId, object? oldValues = null, object? newValues = null) =>
-        LogAsync("TomUpdated", "TOM wurde geändert.", "Tom", id, title, tenantId, oldValues, newValues);
+    public Task LogTomUpdatedAsync(int id, string title, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("TomUpdated", "TOM wurde geändert.", "Tom", id, title, tenantId, changes);
 
     public Task LogTomArchivedAsync(int id, string title, int tenantId) =>
         LogAsync("TomArchived", "TOM wurde archiviert.", "Tom", id, title, tenantId);
@@ -55,14 +53,13 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
         LogAsync("TomRestored", "TOM wurde wiederhergestellt.", "Tom", id, title, tenantId);
 
     public Task LogTomStatusChangedAsync(int id, string title, int tenantId, object oldStatus, object newStatus) =>
-        LogAsync("TomStatusChanged", "Status des TOM wurde geändert.", "Tom", id, title, tenantId,
-            new { Status = oldStatus }, new { Status = newStatus });
+        LogStatusChangeAsync("TomStatusChanged", "Status des TOM wurde geändert.", "Tom", id, title, tenantId, oldStatus, newStatus);
 
     public Task LogProcessorCreatedAsync(int id, string name, int tenantId) =>
         LogAsync("ProcessorCreated", "Dienstleister wurde erstellt.", "Processor", id, name, tenantId);
 
-    public Task LogProcessorUpdatedAsync(int id, string name, int tenantId, object? oldValues = null, object? newValues = null) =>
-        LogAsync("ProcessorUpdated", "Dienstleister wurde geändert.", "Processor", id, name, tenantId, oldValues, newValues);
+    public Task LogProcessorUpdatedAsync(int id, string name, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("ProcessorUpdated", "Dienstleister wurde geändert.", "Processor", id, name, tenantId, changes);
 
     public Task LogProcessorArchivedAsync(int id, string name, int tenantId) =>
         LogAsync("ProcessorArchived", "Dienstleister wurde archiviert.", "Processor", id, name, tenantId);
@@ -71,14 +68,13 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
         LogAsync("ProcessorRestored", "Dienstleister wurde wiederhergestellt.", "Processor", id, name, tenantId);
 
     public Task LogProcessorStatusChangedAsync(int id, string name, int tenantId, object oldStatus, object newStatus) =>
-        LogAsync("ProcessorStatusChanged", "Status des Dienstleisters wurde geändert.", "Processor", id, name, tenantId,
-            new { Status = oldStatus }, new { Status = newStatus });
+        LogStatusChangeAsync("ProcessorStatusChanged", "Status des Dienstleisters wurde geändert.", "Processor", id, name, tenantId, oldStatus, newStatus);
 
     public Task LogMeasureCreatedAsync(int id, string title, int tenantId) =>
         LogAsync("MeasureCreated", "Maßnahme wurde erstellt.", "Measure", id, title, tenantId);
 
-    public Task LogMeasureUpdatedAsync(int id, string title, int tenantId, object? oldValues = null, object? newValues = null) =>
-        LogAsync("MeasureUpdated", "Maßnahme wurde geändert.", "Measure", id, title, tenantId, oldValues, newValues);
+    public Task LogMeasureUpdatedAsync(int id, string title, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("MeasureUpdated", "Maßnahme wurde geändert.", "Measure", id, title, tenantId, changes);
 
     public Task LogMeasureArchivedAsync(int id, string title, int tenantId) =>
         LogAsync("MeasureArchived", "Maßnahme wurde archiviert.", "Measure", id, title, tenantId);
@@ -87,8 +83,7 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
         LogAsync("MeasureRestored", "Maßnahme wurde wiederhergestellt.", "Measure", id, title, tenantId);
 
     public Task LogMeasureStatusChangedAsync(int id, string title, int tenantId, object oldStatus, object newStatus) =>
-        LogAsync("MeasureStatusChanged", "Status der Maßnahme wurde geändert.", "Measure", id, title, tenantId,
-            new { Status = oldStatus }, new { Status = newStatus });
+        LogStatusChangeAsync("MeasureStatusChanged", "Status der Maßnahme wurde geändert.", "Measure", id, title, tenantId, oldStatus, newStatus);
 
     public Task LogMeasureCompletedAsync(int id, string title, int tenantId) =>
         LogAsync("MeasureCompleted", "Maßnahme wurde abgeschlossen.", "Measure", id, title, tenantId);
@@ -99,8 +94,8 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
     public Task LogAuditStartedAsync(int id, string title, int tenantId) =>
         LogAsync("AuditStarted", "Audit wurde gestartet.", "Audit", id, title, tenantId);
 
-    public Task LogAuditUpdatedAsync(int id, string title, int tenantId, object? oldValues = null, object? newValues = null) =>
-        LogAsync("AuditUpdated", "Audit wurde geändert.", "Audit", id, title, tenantId, oldValues, newValues);
+    public Task LogAuditUpdatedAsync(int id, string title, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("AuditUpdated", "Audit wurde geändert.", "Audit", id, title, tenantId, changes);
 
     public Task LogAuditCompletedAsync(int id, string title, int tenantId) =>
         LogAsync("AuditCompleted", "Audit wurde abgeschlossen.", "Audit", id, title, tenantId);
@@ -115,8 +110,8 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
     public Task LogAuditTemplateCreatedAsync(int id, string title, int? tenantId) =>
         LogAsync("AuditTemplateCreated", "Auditvorlage wurde erstellt.", "AuditTemplate", id, title, tenantId);
 
-    public Task LogAuditTemplateUpdatedAsync(int id, string title, int? tenantId, object? oldValues = null, object? newValues = null) =>
-        LogAsync("AuditTemplateUpdated", "Auditvorlage wurde geändert.", "AuditTemplate", id, title, tenantId, oldValues, newValues);
+    public Task LogAuditTemplateUpdatedAsync(int id, string title, int? tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("AuditTemplateUpdated", "Auditvorlage wurde geändert.", "AuditTemplate", id, title, tenantId, changes);
 
     public Task LogAuditTemplateArchivedAsync(int id, string title, int? tenantId) =>
         LogAsync("AuditTemplateArchived", "Auditvorlage wurde archiviert.", "AuditTemplate", id, title, tenantId);
@@ -140,6 +135,49 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
 
     public Task LogEvidenceDocumentRestoredAsync(int id, string fileName, int tenantId) =>
         LogAsync("EvidenceDocumentRestored", "Nachweisdokument wurde wiederhergestellt.", "EvidenceDocument", id, fileName, tenantId);
+
+    private Task LogUpdateAsync(
+        string action,
+        string description,
+        string entityType,
+        int id,
+        string name,
+        int? tenantId,
+        IReadOnlyList<AuditFieldChangeDto> changes)
+    {
+        var payload = AuditDiffHelper.BuildPayload(changes);
+        if (payload is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return logService.LogAuditAsync(
+            action: action,
+            description: description,
+            entityType: entityType,
+            entityId: id.ToString(),
+            entityName: name,
+            tenantId: tenantId,
+            oldValues: payload.OldValues,
+            newValues: payload.NewValues,
+            metadata: payload.Metadata,
+            isVisibleToAdmin: true);
+    }
+
+    private Task LogStatusChangeAsync(
+        string action,
+        string description,
+        string entityType,
+        int id,
+        string name,
+        int? tenantId,
+        object oldStatus,
+        object newStatus)
+    {
+        var changes = new List<AuditFieldChangeDto>();
+        AuditDiffHelper.AddIfChanged(changes, "Status", "Status", oldStatus, newStatus);
+        return LogUpdateAsync(action, description, entityType, id, name, tenantId, changes);
+    }
 
     private Task LogAsync(
         string action,

@@ -328,6 +328,7 @@ else
     private ProcessingRole _defaultRole = ProcessingRole.DataProcessor;
     private ServiceProviderStatus? _previousStatus;
     private string? _previousName;
+    private string? _previousResponsible;
 
     protected override async Task OnInitializedAsync()
     {
@@ -360,6 +361,7 @@ else
             _model = existing;
             _previousStatus = existing.Status;
             _previousName = existing.Name;
+            _previousResponsible = existing.ResponsiblePerson;
             _avvDate = existing.DataProcessingAgreementDate?.ToDateTime(TimeOnly.MinValue);
             _avvReviewDate = existing.DataProcessingAgreementReviewedAt?.ToDateTime(TimeOnly.MinValue);
             _tomsReviewDate = existing.TomsReviewedAt?.ToDateTime(TimeOnly.MinValue);
@@ -481,16 +483,10 @@ else
         await SaveLinksAsync(validActivityIds, validTomIds);
         await Db.SaveChangesAsync();
 
+        var changes = ComplianceAuditDiffBuilder.ForProcessor(
+            _previousName, _previousStatus, _previousResponsible, _model);
         await ComplianceAuditLog.LogProcessorUpdatedAsync(
-            _model.Id, _model.Name, _tenantId.Value,
-            new { Name = _previousName, Status = _previousStatus },
-            new { Name = _model.Name, Status = _model.Status });
-
-        if (_previousStatus.HasValue && _previousStatus != _model.Status)
-        {
-            await ComplianceAuditLog.LogProcessorStatusChangedAsync(
-                _model.Id, _model.Name, _tenantId.Value, _previousStatus.Value, _model.Status);
-        }
+            _model.Id, _model.Name, _tenantId.Value, changes);
 
         Navigation.NavigateTo($"service-providers/{_model.Id}");
     }

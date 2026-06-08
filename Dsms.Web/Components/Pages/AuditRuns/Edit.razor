@@ -93,6 +93,7 @@ else
     private AuditRun _model = new() { Status = AuditRunStatus.Draft };
     private List<AuditTemplate> _templates = [];
     private AuditRunStatus? _previousStatus;
+    private string? _previousTitle;
 
     protected override async Task OnInitializedAsync()
     {
@@ -107,6 +108,7 @@ else
                 .Include(r => r.Documents)
                 .FirstAsync(r => r.Id == Id && r.TenantId == _tenantId);
             _previousStatus = _model.Status;
+            _previousTitle = _model.Title;
         }
         else
         {
@@ -179,6 +181,9 @@ else
 
             if (_tenantId is int tid)
             {
+                var changes = ComplianceAuditDiffBuilder.ForAuditRun(_previousTitle, _previousStatus, _model);
+                await ComplianceAuditLog.LogAuditUpdatedAsync(_model.Id, _model.Title, tid, changes);
+
                 if (_previousStatus != _model.Status)
                 {
                     if (_model.Status == AuditRunStatus.InProgress)
@@ -189,17 +194,6 @@ else
                     {
                         await ComplianceAuditLog.LogAuditCompletedAsync(_model.Id, _model.Title, tid);
                     }
-                    else
-                    {
-                        await ComplianceAuditLog.LogAuditUpdatedAsync(
-                            _model.Id, _model.Title, tid,
-                            new { Status = _previousStatus },
-                            new { Status = _model.Status });
-                    }
-                }
-                else
-                {
-                    await ComplianceAuditLog.LogAuditUpdatedAsync(_model.Id, _model.Title, tid);
                 }
             }
         }

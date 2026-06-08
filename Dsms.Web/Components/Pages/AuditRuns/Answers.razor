@@ -69,6 +69,7 @@ else
     [Parameter] public int Id { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
     private AuditRun? _run;
@@ -117,6 +118,12 @@ else
         answer.AnsweredAt = DateTime.UtcNow;
         answer.UpdatedAt = DateTime.UtcNow;
         await Db.SaveChangesAsync();
+
+        if (_run is not null && _tenantId is int tenantId)
+        {
+            await ComplianceAuditLog.LogAuditAnswerUpdatedAsync(
+                _run.Id, _run.Title, answer.Id, tenantId);
+        }
     }
 
     private string GetTemplateDisplayTitle()

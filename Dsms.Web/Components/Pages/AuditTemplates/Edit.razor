@@ -253,6 +253,8 @@ else
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
     private bool _accessDenied;
@@ -276,6 +278,7 @@ else
     private QuestionEditDraft _editDraft = new();
     private CommunitySubmitModal? _submitModal;
     private DeleteQuestionConfirmModal? _deleteQuestionModal;
+    private string? _previousTitle;
 
     private string PageTitleText
     {
@@ -354,6 +357,7 @@ else
     private async Task LoadTemplateStateAsync(AuditTemplate template)
     {
         _model = template;
+        _previousTitle = template.Title;
         await ReloadQuestionsAsync();
         _readOnly = !await TemplateService.CanEditAsync(_model);
         _canSubmitToCommunity = !_readOnly && await TemplateService.CanSubmitToCommunityAsync(_model);
@@ -452,7 +456,7 @@ else
                 }
 
                 var limitCheck = await LicenseService.CanCreateCustomAuditTemplateAsync(_tenantId!.Value);
-                if (!limitCheck.IsAllowed)
+                if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "AuditTemplate"))
                 {
                     _saveError = limitCheck.Message;
                     return;
@@ -480,7 +484,21 @@ else
             _model.UpdatedAt = DateTime.UtcNow;
         }
 
+        var isNew = _model.Id == 0;
         await Db.SaveChangesAsync();
+
+        if (isNew)
+        {
+            await ComplianceAuditLog.LogAuditTemplateCreatedAsync(_model.Id, _model.Title, _model.TenantId);
+        }
+        else
+        {
+            await ComplianceAuditLog.LogAuditTemplateUpdatedAsync(
+                _model.Id, _model.Title, _model.TenantId,
+                new { Title = _previousTitle },
+                new { Title = _model.Title });
+        }
+
         Navigation.NavigateTo($"audit-templates/edit/{_model.Id}");
     }
 

@@ -1,6 +1,8 @@
 using Dsms.Web.Data;
 using Dsms.Web.Domain.Entities;
+using Dsms.Web.Services.Logging;
 using Microsoft.EntityFrameworkCore;
+using ServiceProviderEntity = Dsms.Web.Domain.Entities.ServiceProvider;
 
 namespace Dsms.Web.Services;
 
@@ -10,7 +12,8 @@ namespace Dsms.Web.Services;
 /// </summary>
 public class ArchivingService(
     ApplicationDbContext db,
-    ICurrentUserContext currentUser) : IArchivingService
+    ICurrentUserContext currentUser,
+    IComplianceAuditLogService complianceAuditLog) : IArchivingService
 {
     public async Task<ArchiveOperationResult> ArchiveAsync<TEntity>(int id, CancellationToken ct = default)
         where TEntity : ArchivableEntityBase, ITenantEntity
@@ -38,6 +41,7 @@ public class ArchivingService(
         entity.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(ct);
+        await LogArchiveAsync(entity, ct);
         return new ArchiveOperationResult(true, warnings);
     }
 
@@ -64,8 +68,34 @@ public class ArchivingService(
         entity.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(ct);
+        await LogRestoreAsync(entity, ct);
         return new ArchiveOperationResult(true, []);
     }
+
+    private Task LogArchiveAsync<TEntity>(TEntity entity, CancellationToken ct)
+        where TEntity : ArchivableEntityBase, ITenantEntity => entity switch
+    {
+        ProcessingActivity pa => complianceAuditLog.LogProcessingActivityArchivedAsync(pa.Id, pa.Name, pa.TenantId),
+        DataProtectionImpactAssessment dpia => complianceAuditLog.LogDpiaArchivedAsync(dpia.Id, dpia.Title, dpia.TenantId),
+        Tom tom => complianceAuditLog.LogTomArchivedAsync(tom.Id, tom.Title, tom.TenantId),
+        ServiceProviderEntity sp => complianceAuditLog.LogProcessorArchivedAsync(sp.Id, sp.Name, sp.TenantId),
+        AuditRun audit => complianceAuditLog.LogAuditArchivedAsync(audit.Id, audit.Title, audit.TenantId),
+        Measure measure => complianceAuditLog.LogMeasureArchivedAsync(measure.Id, measure.Title, measure.TenantId),
+        EvidenceDocument doc => complianceAuditLog.LogEvidenceDocumentArchivedAsync(doc.Id, doc.FileName, doc.TenantId),
+        _ => Task.CompletedTask
+    };
+
+    private Task LogRestoreAsync<TEntity>(TEntity entity, CancellationToken ct)
+        where TEntity : ArchivableEntityBase, ITenantEntity => entity switch
+    {
+        ProcessingActivity pa => complianceAuditLog.LogProcessingActivityRestoredAsync(pa.Id, pa.Name, pa.TenantId),
+        DataProtectionImpactAssessment dpia => complianceAuditLog.LogDpiaRestoredAsync(dpia.Id, dpia.Title, dpia.TenantId),
+        Tom tom => complianceAuditLog.LogTomRestoredAsync(tom.Id, tom.Title, tom.TenantId),
+        ServiceProviderEntity sp => complianceAuditLog.LogProcessorRestoredAsync(sp.Id, sp.Name, sp.TenantId),
+        Measure measure => complianceAuditLog.LogMeasureRestoredAsync(measure.Id, measure.Title, measure.TenantId),
+        EvidenceDocument doc => complianceAuditLog.LogEvidenceDocumentRestoredAsync(doc.Id, doc.FileName, doc.TenantId),
+        _ => Task.CompletedTask
+    };
 
     public async Task<IReadOnlyList<string>> GetDependencyWarningsAsync<TEntity>(int id, CancellationToken ct = default)
         where TEntity : ArchivableEntityBase, ITenantEntity

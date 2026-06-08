@@ -2,6 +2,7 @@ using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
+using Dsms.Web.Services.Logging;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ServiceProviderEntity = Dsms.Web.Domain.Entities.ServiceProvider;
@@ -11,7 +12,8 @@ namespace Dsms.Web.Services.Licenses;
 public sealed partial class LicenseService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
     IUserAccessService access,
-    ICurrentUserContext currentUser) : ILicenseService
+    ICurrentUserContext currentUser,
+    ILogService logService) : ILicenseService
 {
     public async Task<IReadOnlyList<LicenseListItemDto>> GetAllLicensesWithUsageAsync(
         string? search = null,
@@ -137,6 +139,16 @@ public sealed partial class LicenseService(
 
         db.Licenses.Add(license);
         await db.SaveChangesAsync();
+
+        await logService.LogAuditAsync(
+            action: "LicenseCreated",
+            description: "Lizenz wurde erstellt.",
+            entityType: "License",
+            entityId: license.Id.ToString(),
+            entityName: license.LicenseNumber,
+            licenseId: license.Id,
+            newValues: MapLicenseSnapshot(license));
+
         return license.Id;
     }
 
@@ -150,6 +162,10 @@ public sealed partial class LicenseService(
         {
             return false;
         }
+
+        var oldSnapshot = MapLicenseSnapshot(license);
+        var oldLimits = ExtractLimits(license);
+        var oldStatus = license.Status;
 
         license.CustomerName = dto.CustomerName.Trim();
         license.CustomerEmail = NormalizeOptional(dto.CustomerEmail);
@@ -174,8 +190,93 @@ public sealed partial class LicenseService(
         license.MaxEmailRemindersPerMonth = dto.MaxEmailRemindersPerMonth;
 
         await db.SaveChangesAsync();
+
+        var newSnapshot = MapLicenseSnapshot(license);
+        await logService.LogAuditAsync(
+            action: "LicenseUpdated",
+            description: "Lizenz wurde geändert.",
+            entityType: "License",
+            entityId: license.Id.ToString(),
+            entityName: license.LicenseNumber,
+            licenseId: license.Id,
+            oldValues: oldSnapshot,
+            newValues: newSnapshot);
+
+        if (!string.Equals(oldStatus, license.Status, StringComparison.OrdinalIgnoreCase))
+        {
+            await logService.LogAuditAsync(
+                action: "LicenseStatusChanged",
+                description: "Lizenzstatus wurde geändert.",
+                entityType: "License",
+                entityId: license.Id.ToString(),
+                entityName: license.LicenseNumber,
+                licenseId: license.Id,
+                oldValues: new { Status = oldStatus },
+                newValues: new { Status = license.Status });
+        }
+
+        var newLimits = ExtractLimits(license);
+        if (!LimitsEqual(oldLimits, newLimits))
+        {
+            await logService.LogAuditAsync(
+                action: "LicenseLimitChanged",
+                description: "Lizenzlimits wurden geändert.",
+                entityType: "License",
+                entityId: license.Id.ToString(),
+                entityName: license.LicenseNumber,
+                licenseId: license.Id,
+                oldValues: oldLimits,
+                newValues: newLimits);
+        }
+
         return true;
     }
+
+    private static object MapLicenseSnapshot(License license) => new
+    {
+        license.CustomerName,
+        license.CustomerEmail,
+        license.PlanName,
+        license.Status,
+        license.ValidFrom,
+        license.ValidUntil,
+        license.MaxTenants,
+        license.MaxAdmins,
+        license.MaxUsersPerTenant,
+        license.MaxAuditorsPerTenant,
+        license.MaxCustomAuditTemplatesPerTenant,
+        license.MaxActiveAuditsPerTenant,
+        license.MaxProcessingActivitiesPerTenant,
+        license.MaxDpiaPerTenant,
+        license.MaxTomsPerTenant,
+        license.MaxProcessorsPerTenant,
+        license.MaxActiveMeasuresPerTenant,
+        license.MaxStorageMb,
+        license.MaxEmailRemindersPerMonth
+    };
+
+    private static object ExtractLimits(License license) => new
+    {
+        license.MaxTenants,
+        license.MaxAdmins,
+        license.MaxUsersPerTenant,
+        license.MaxAuditorsPerTenant,
+        license.MaxCustomAuditTemplatesPerTenant,
+        license.MaxActiveAuditsPerTenant,
+        license.MaxProcessingActivitiesPerTenant,
+        license.MaxDpiaPerTenant,
+        license.MaxTomsPerTenant,
+        license.MaxProcessorsPerTenant,
+        license.MaxActiveMeasuresPerTenant,
+        license.MaxStorageMb,
+        license.MaxEmailRemindersPerMonth
+    };
+
+    private static bool LimitsEqual(object oldLimits, object newLimits) =>
+        string.Equals(
+            LogJsonHelper.SerializeSafe(oldLimits),
+            LogJsonHelper.SerializeSafe(newLimits),
+            StringComparison.Ordinal);
 
     private async Task<LicenseUsageDto> BuildUsageAsync(ApplicationDbContext db, Guid licenseId)
     {

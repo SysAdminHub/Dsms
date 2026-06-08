@@ -4,6 +4,24 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Geändert
+
+- **Login-Logs für Admins ausgeblendet:** `UserLoginSuccessful` mit `IsVisibleToAdmin = false` (Superuser-Nutzungsanalyse unverändert)
+- **Fachliche Auditlogs:** `IComplianceAuditLogService` für VVT, DSFA, TOMs, Dienstleister, Maßnahmen, Audits, Auditvorlagen und Nachweisdokumente (Create/Update/Archive/Status)
+
+### Hinzugefügt
+
+- **Zentrales Protokoll-/Auditlog-System:**
+  - Entity `LogEntry` mit Kategorien Audit, System, Security
+  - `ILogService` / `LogService` mit `LogAuditAsync`, `LogSystemAsync`, `LogSystemErrorAsync`, `LogSecurityAsync`
+  - `ILogQueryService` für Superuser- (`/platform/logs`) und Admin-Auditlog-Ansicht (`/admin/auditlog`)
+  - `ILicenseCreateGuard` für zentrale Protokollierung blockierter Lizenz-Erstellungen
+  - IP-Anonymisierung (`LogIpAnonymizer`), sichere JSON-Serialisierung (`LogJsonHelper`)
+  - Login-Protokollierung (erfolgreich / fehlgeschlagen) in `Login.razor`
+  - Automatische Logpunkte: Lizenzen, Mandanten, Benutzer, E-Mail-Fehler, Reminder-Fehler
+  - Dokumentation: `Logging.md`
+  - EF-Migration `AddLogEntries`
+
 ### Hinzugefügt
 
 - **Lizenzstatus und Ablaufdatum bei Neuanlage:**

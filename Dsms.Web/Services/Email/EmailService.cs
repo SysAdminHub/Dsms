@@ -3,6 +3,7 @@ using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
+using Dsms.Web.Services.Logging;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,8 @@ public sealed class EmailService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
     IEmailSecretProtector secretProtector,
     IEmailTemplateRenderer templateRenderer,
-    ILogger<EmailService> logger) : IEmailService
+    ILogger<EmailService> logger,
+    ILogService logService) : IEmailService
 {
     private const string DefaultTestSubject = "DSMS Testmail";
     private const string DefaultTestHtml =
@@ -48,6 +50,7 @@ public sealed class EmailService(
         catch (SmtpCommandException ex)
         {
             logger.LogWarning(ex, "SMTP-Befehl fehlgeschlagen beim Versand an {Recipient}", toEmail);
+            await LogEmailSendFailedAsync(ex, toEmail, subject);
             return EmailOperationResult.Fail(
                 "Email konnte nicht gesendet werden. Bitte SMTP-Einstellungen prüfen.",
                 MapSmtpError(ex.Message));
@@ -55,6 +58,7 @@ public sealed class EmailService(
         catch (SmtpProtocolException ex)
         {
             logger.LogWarning(ex, "SMTP-Protokollfehler beim Versand an {Recipient}", toEmail);
+            await LogEmailSendFailedAsync(ex, toEmail, subject);
             return EmailOperationResult.Fail(
                 "Email konnte nicht gesendet werden. Bitte SMTP-Einstellungen prüfen.",
                 MapSmtpError(ex.Message));
@@ -62,6 +66,7 @@ public sealed class EmailService(
         catch (AuthenticationException ex)
         {
             logger.LogWarning(ex, "SMTP-Authentifizierung fehlgeschlagen");
+            await LogEmailSendFailedAsync(ex, toEmail, subject);
             return EmailOperationResult.Fail(
                 "Email konnte nicht gesendet werden. Bitte SMTP-Einstellungen prüfen.",
                 "Fehlerdetails: Authentifizierung fehlgeschlagen.");
@@ -69,6 +74,7 @@ public sealed class EmailService(
         catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException)
         {
             logger.LogWarning(ex, "SMTP-Server nicht erreichbar");
+            await LogEmailSendFailedAsync(ex, toEmail, subject);
             return EmailOperationResult.Fail(
                 "Email konnte nicht gesendet werden. Bitte SMTP-Einstellungen prüfen.",
                 "Fehlerdetails: SMTP-Server nicht erreichbar.");
@@ -302,4 +308,11 @@ public sealed class EmailService(
             return false;
         }
     }
+
+    private Task LogEmailSendFailedAsync(Exception ex, string toEmail, string subject) =>
+        logService.LogSystemErrorAsync(
+            action: "EmailSendFailed",
+            description: "E-Mail konnte nicht versendet werden.",
+            exception: ex,
+            metadata: new { Recipient = toEmail, Subject = subject });
 }

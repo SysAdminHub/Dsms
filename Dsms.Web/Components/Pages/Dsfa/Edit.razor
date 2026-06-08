@@ -156,6 +156,8 @@ else
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
     private bool _notFound;
@@ -166,6 +168,8 @@ else
     private DateTime? _reviewedAt;
     private DateTime? _nextReviewAt;
     private List<ProcessingActivity> _availableActivities = [];
+    private DpiaStatus? _previousStatus;
+    private string? _previousTitle;
 
     protected override async Task OnInitializedAsync()
     {
@@ -190,6 +194,8 @@ else
             }
 
             _model = existing;
+            _previousStatus = existing.Status;
+            _previousTitle = existing.Title;
             _reviewedAt = existing.ReviewedAt?.ToDateTime(TimeOnly.MinValue);
             _nextReviewAt = existing.NextReviewAt?.ToDateTime(TimeOnly.MinValue);
         }
@@ -243,10 +249,12 @@ else
             return;
         }
 
-        if (_model.Id == 0)
+        var isNew = _model.Id == 0;
+
+        if (isNew)
         {
             var limitCheck = await LicenseService.CanCreateDpiaAsync(_tenantId.Value);
-            if (!limitCheck.IsAllowed)
+            if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "Dpia"))
             {
                 _saveError = limitCheck.Message;
                 _saving = false;
@@ -262,6 +270,25 @@ else
         }
 
         await Db.SaveChangesAsync();
+
+        if (isNew)
+        {
+            await ComplianceAuditLog.LogDpiaCreatedAsync(_model.Id, _model.Title, _tenantId.Value);
+        }
+        else
+        {
+            await ComplianceAuditLog.LogDpiaUpdatedAsync(
+                _model.Id, _model.Title, _tenantId.Value,
+                new { Title = _previousTitle, Status = _previousStatus },
+                new { Title = _model.Title, Status = _model.Status });
+
+            if (_previousStatus.HasValue && _previousStatus != _model.Status)
+            {
+                await ComplianceAuditLog.LogDpiaStatusChangedAsync(
+                    _model.Id, _model.Title, _tenantId.Value, _previousStatus.Value, _model.Status);
+            }
+        }
+
         Navigation.NavigateTo($"dsfa/{_model.Id}");
     }
 }

@@ -10,6 +10,7 @@ using Dsms.Web.Services.PasswordReset;
 using Dsms.Web.Services.Reminders;
 using Dsms.Web.Services.Licenses;
 using Dsms.Web.Services.Tenants;
+using Dsms.Web.Services.Logging;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -63,6 +64,10 @@ builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IReminderService, ReminderService>();
 builder.Services.AddScoped<ILicenseService, LicenseService>();
 builder.Services.AddScoped<ITenantManagementService, TenantManagementService>();
+builder.Services.AddScoped<ILogService, LogService>();
+builder.Services.AddScoped<ILogQueryService, LogQueryService>();
+builder.Services.AddScoped<ILicenseCreateGuard, LicenseCreateGuard>();
+builder.Services.AddScoped<IComplianceAuditLogService, ComplianceAuditLogService>();
 
 builder.Services.AddAuthentication(options =>
     {

@@ -119,6 +119,8 @@ else
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private ProcessingActivityRelationsService Relations { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
     private bool _canEditLinks;
@@ -130,6 +132,9 @@ else
     private List<AuditRun> _auditRuns = [];
     private List<ProcessingActivity> _processingActivities = [];
     private HashSet<int> _selectedProcessingActivityIds = [];
+    private MeasureStatus? _previousStatus;
+    private string? _previousTitle;
+    private DateOnly? _previousDueDate;
 
     protected override async Task OnInitializedAsync()
     {
@@ -155,6 +160,9 @@ else
                 .Include(m => m.ProcessingActivityLinks)
                 .Include(m => m.Documents)
                 .FirstAsync(m => m.Id == Id && m.TenantId == _tenantId);
+            _previousStatus = _model.Status;
+            _previousTitle = _model.Title;
+            _previousDueDate = _model.DueDate;
             _dueDate = _model.DueDate;
             _selectedProcessingActivityIds = _model.ProcessingActivityLinks
                 .Select(l => l.ProcessingActivityId)
@@ -256,12 +264,15 @@ else
             _model.CompletedAt ??= DateTime.UtcNow;
         }
 
-        if (_model.Id == 0)
+        var isNew = _model.Id == 0;
+        var statusBeforeSave = _previousStatus;
+
+        if (isNew)
         {
             if (_tenantId is int measureTenantId)
             {
                 var limitCheck = await LicenseService.CanCreateMeasureAsync(measureTenantId);
-                if (!limitCheck.IsAllowed)
+                if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "Measure"))
                 {
                     _linkSaveError = limitCheck.Message;
                     return;
@@ -276,6 +287,32 @@ else
         }
 
         await Db.SaveChangesAsync();
+
+        if (_tenantId is int tid)
+        {
+            if (isNew)
+            {
+                await ComplianceAuditLog.LogMeasureCreatedAsync(_model.Id, _model.Title, tid);
+            }
+            else
+            {
+                await ComplianceAuditLog.LogMeasureUpdatedAsync(
+                    _model.Id, _model.Title, tid,
+                    new { Title = _previousTitle, Status = statusBeforeSave, DueDate = _previousDueDate },
+                    new { Title = _model.Title, Status = _model.Status, DueDate = _model.DueDate });
+
+                if (statusBeforeSave.HasValue && statusBeforeSave != _model.Status)
+                {
+                    await ComplianceAuditLog.LogMeasureStatusChangedAsync(
+                        _model.Id, _model.Title, tid, statusBeforeSave.Value, _model.Status);
+
+                    if (_model.Status == MeasureStatus.Done)
+                    {
+                        await ComplianceAuditLog.LogMeasureCompletedAsync(_model.Id, _model.Title, tid);
+                    }
+                }
+            }
+        }
 
         if (_canEditLinks && _model.Id > 0 && _tenantId is int linkTenantId)
         {

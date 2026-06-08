@@ -38,6 +38,7 @@ public class ApplicationDbContext(
     public DbSet<DataProtectionImpactAssessment> DataProtectionImpactAssessments => Set<DataProtectionImpactAssessment>();
     public DbSet<EmailSettings> EmailSettings => Set<EmailSettings>();
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
+    public DbSet<LogEntry> LogEntries => Set<LogEntry>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -357,6 +358,45 @@ public class ApplicationDbContext(
             e.Property(t => t.TextContent).HasColumnType("text");
             e.Property(t => t.UpdatedByUserId).HasMaxLength(450);
             e.HasIndex(t => t.TemplateKey).IsUnique();
+        });
+
+        builder.Entity<LogEntry>(e =>
+        {
+            e.ToTable("LogEntries");
+            e.HasKey(l => l.Id);
+            e.Property(l => l.LogCategory).HasMaxLength(50).IsRequired();
+            e.Property(l => l.Severity).HasMaxLength(50).IsRequired();
+            e.Property(l => l.Action).HasMaxLength(200).IsRequired();
+            e.Property(l => l.Description).HasMaxLength(2000).IsRequired();
+            e.Property(l => l.EntityType).HasMaxLength(100);
+            e.Property(l => l.EntityId).HasMaxLength(100);
+            e.Property(l => l.EntityName).HasMaxLength(300);
+            e.Property(l => l.UserId).HasMaxLength(450);
+            e.Property(l => l.UserEmail).HasMaxLength(255);
+            e.Property(l => l.UserDisplayName).HasMaxLength(200);
+            e.Property(l => l.LicenseNumber).HasMaxLength(50);
+            e.Property(l => l.TenantName).HasMaxLength(200);
+            e.Property(l => l.IpAddressAnonymized).HasMaxLength(100);
+            e.Property(l => l.UserAgent).HasMaxLength(500);
+            e.Property(l => l.OldValuesJson).HasColumnType("text");
+            e.Property(l => l.NewValuesJson).HasColumnType("text");
+            e.Property(l => l.MetadataJson).HasColumnType("text");
+            e.Property(l => l.ExceptionType).HasMaxLength(200);
+            e.Property(l => l.ExceptionMessage).HasMaxLength(2000);
+            e.Property(l => l.ExceptionDetails).HasColumnType("text");
+            e.Property(l => l.CorrelationId).HasMaxLength(100);
+            e.Property(l => l.RequestPath).HasMaxLength(500);
+            e.Property(l => l.Source).HasMaxLength(200);
+            e.HasIndex(l => l.CreatedAt);
+            e.HasIndex(l => l.LogCategory);
+            e.HasIndex(l => l.Severity);
+            e.HasIndex(l => l.LicenseId);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => l.UserId);
+            e.HasIndex(l => l.EntityType);
+            e.HasIndex(l => l.Action);
+            e.HasIndex(l => l.IsVisibleToAdmin);
+            e.HasIndex(l => new { l.LogCategory, l.IsVisibleToAdmin, l.LicenseId });
         });
     }
 

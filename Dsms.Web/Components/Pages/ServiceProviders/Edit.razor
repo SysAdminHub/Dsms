@@ -308,6 +308,8 @@ else
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
     private bool _notFound;
@@ -324,6 +326,8 @@ else
     private Dictionary<int, ProcessingRole> _activityRoles = [];
     private HashSet<int> _selectedTomIds = [];
     private ProcessingRole _defaultRole = ProcessingRole.DataProcessor;
+    private ServiceProviderStatus? _previousStatus;
+    private string? _previousName;
 
     protected override async Task OnInitializedAsync()
     {
@@ -354,6 +358,8 @@ else
             }
 
             _model = existing;
+            _previousStatus = existing.Status;
+            _previousName = existing.Name;
             _avvDate = existing.DataProcessingAgreementDate?.ToDateTime(TimeOnly.MinValue);
             _avvReviewDate = existing.DataProcessingAgreementReviewedAt?.ToDateTime(TimeOnly.MinValue);
             _tomsReviewDate = existing.TomsReviewedAt?.ToDateTime(TimeOnly.MinValue);
@@ -454,7 +460,7 @@ else
         if (_model.Id == 0)
         {
             var limitCheck = await LicenseService.CanCreateProcessorAsync(_tenantId.Value);
-            if (!limitCheck.IsAllowed)
+            if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "ServiceProvider"))
             {
                 _saveError = limitCheck.Message;
                 _saving = false;
@@ -466,6 +472,7 @@ else
             await Db.SaveChangesAsync();
             await SaveLinksAsync(validActivityIds, validTomIds);
             await Db.SaveChangesAsync();
+            await ComplianceAuditLog.LogProcessorCreatedAsync(_model.Id, _model.Name, _tenantId.Value);
             Navigation.NavigateTo($"service-providers/{_model.Id}");
             return;
         }
@@ -473,6 +480,18 @@ else
         _model.UpdatedAt = DateTime.UtcNow;
         await SaveLinksAsync(validActivityIds, validTomIds);
         await Db.SaveChangesAsync();
+
+        await ComplianceAuditLog.LogProcessorUpdatedAsync(
+            _model.Id, _model.Name, _tenantId.Value,
+            new { Name = _previousName, Status = _previousStatus },
+            new { Name = _model.Name, Status = _model.Status });
+
+        if (_previousStatus.HasValue && _previousStatus != _model.Status)
+        {
+            await ComplianceAuditLog.LogProcessorStatusChangedAsync(
+                _model.Id, _model.Name, _tenantId.Value, _previousStatus.Value, _model.Status);
+        }
+
         Navigation.NavigateTo($"service-providers/{_model.Id}");
     }
 

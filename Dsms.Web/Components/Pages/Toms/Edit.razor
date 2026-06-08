@@ -46,7 +46,11 @@ else
 
     <PageHeader Title="@(_model.Id == 0 ? "TOM anlegen" : "TOM bearbeiten")" />
 
-
+    @if (_model.Id == 0 && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
 
     <div class="dsms-card dsms-form-card">
 
@@ -240,7 +244,7 @@ else
 
                 <div class="dsms-form-actions">
 
-                    <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                    <button type="submit" class="btn btn-primary" disabled="@(_saving || (_model.Id == 0 && _createLimit is { IsAllowed: false }))">Speichern</button>
 
                     <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"toms/{_model.Id}" : "toms")">Abbrechen</a>
 
@@ -266,7 +270,7 @@ else
 
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
-
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private int? _tenantId;
 
@@ -275,6 +279,8 @@ else
     private bool _saving;
 
     private string? _saveError;
+
+    private LicenseLimitCheckResult? _createLimit;
 
     private Tom _model = new() { ImplementationStatus = TomImplementationStatus.Planned };
 
@@ -351,6 +357,8 @@ else
         {
 
             _model.TenantId = _tenantId.Value;
+
+            _createLimit = await LicenseService.CanCreateTomAsync(_tenantId.Value);
 
         }
 
@@ -439,6 +447,20 @@ else
         if (_model.Id == 0)
 
         {
+
+            var limitCheck = await LicenseService.CanCreateTomAsync(_tenantId.Value);
+
+            if (!limitCheck.IsAllowed)
+
+            {
+
+                _saveError = limitCheck.Message;
+
+                _saving = false;
+
+                return;
+
+            }
 
             _model.CreatedAt = DateTime.UtcNow;
 

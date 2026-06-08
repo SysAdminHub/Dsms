@@ -8,9 +8,10 @@ using ServiceProviderEntity = Dsms.Web.Domain.Entities.ServiceProvider;
 
 namespace Dsms.Web.Services.Licenses;
 
-public sealed class LicenseService(
+public sealed partial class LicenseService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
-    IUserAccessService access) : ILicenseService
+    IUserAccessService access,
+    ICurrentUserContext currentUser) : ILicenseService
 {
     public async Task<IReadOnlyList<LicenseListItemDto>> GetAllLicensesWithUsageAsync(
         string? search = null,
@@ -72,7 +73,8 @@ public sealed class LicenseService(
                 MaxAuditorsPerTenant = license.MaxAuditorsPerTenant,
                 MaxActiveAuditsPerTenant = license.MaxActiveAuditsPerTenant,
                 MaxActiveMeasuresPerTenant = license.MaxActiveMeasuresPerTenant,
-                Usage = usage
+                Usage = usage,
+                Usability = LicenseLimitHelper.EvaluateUsability(license.Status, license.ValidUntil)
             });
         }
 
@@ -401,7 +403,8 @@ public sealed class LicenseService(
         MaxActiveMeasuresPerTenant = license.MaxActiveMeasuresPerTenant,
         MaxStorageMb = license.MaxStorageMb,
         MaxEmailRemindersPerMonth = license.MaxEmailRemindersPerMonth,
-        Usage = usage
+        Usage = usage,
+        Usability = LicenseLimitHelper.EvaluateUsability(license.Status, license.ValidUntil)
     };
 
     private static string? NormalizeOptional(string? value) =>

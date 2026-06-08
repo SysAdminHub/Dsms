@@ -14,7 +14,8 @@ public class UserManagementService(
     UserManager<ApplicationUser> userManager,
     IUserAccessService access,
     ICurrentUserContext currentUser,
-    IPasswordResetService passwordReset) : IUserManagementService
+    IPasswordResetService passwordReset,
+    ILicenseService licenseService) : IUserManagementService
 {
     /// <inheritdoc />
     public async Task<IReadOnlyList<UserListItem>> ListUsersAsync(bool includeInactive)
@@ -163,6 +164,12 @@ public class UserManagementService(
             return UserOperationResult.Fail("Für diese Rolle ist mindestens ein Mandant erforderlich.");
         }
 
+        var createLimitCheck = await ValidateCreateLimitAsync(model.Role, model.LicenseId, tenantIds, isSuperuserManaging);
+        if (!createLimitCheck.Succeeded)
+        {
+            return createLimitCheck;
+        }
+
         var creatorId = await currentUser.GetUserIdAsync();
         var resolvedLicenseId = await ResolveLicenseIdForSaveAsync(
             model.Role, model.LicenseId, tenantIds, isSuperuserManaging);
@@ -273,6 +280,67 @@ public class UserManagementService(
         user.IsActive = isActive;
         var result = await userManager.UpdateAsync(user);
         return result.Succeeded ? UserOperationResult.Ok() : UserOperationResult.FromIdentity(result);
+    }
+
+    private async Task<UserOperationResult> ValidateCreateLimitAsync(
+        string role,
+        Guid? licenseId,
+        IReadOnlyList<int> tenantIds,
+        bool isSuperuserManaging)
+    {
+        if (role == DsmsRoles.Superuser)
+        {
+            return UserOperationResult.Ok();
+        }
+
+        if (role == DsmsRoles.Admin)
+        {
+            var adminLicenseId = await ResolveAdminLicenseIdForLimitAsync(role, licenseId, tenantIds, isSuperuserManaging);
+            if (!adminLicenseId.HasValue)
+            {
+                return UserOperationResult.Ok();
+            }
+
+            var check = await licenseService.CanCreateAdminAsync(adminLicenseId.Value);
+            return check.IsAllowed
+                ? UserOperationResult.Ok()
+                : UserOperationResult.Fail(check.Message);
+        }
+
+        foreach (var tenantId in tenantIds)
+        {
+            var check = role switch
+            {
+                DsmsRoles.Auditor => await licenseService.CanCreateAuditorAsync(tenantId),
+                _ => await licenseService.CanCreateUserAsync(tenantId)
+            };
+
+            if (!check.IsAllowed)
+            {
+                return UserOperationResult.Fail(check.Message);
+            }
+        }
+
+        return UserOperationResult.Ok();
+    }
+
+    private async Task<Guid?> ResolveAdminLicenseIdForLimitAsync(
+        string role,
+        Guid? licenseId,
+        IReadOnlyList<int> tenantIds,
+        bool isSuperuserManaging)
+    {
+        if (role != DsmsRoles.Admin)
+        {
+            return null;
+        }
+
+        if (isSuperuserManaging)
+        {
+            return licenseId;
+        }
+
+        return await ResolveLicenseIdForSaveAsync(role, licenseId, tenantIds, isSuperuserManaging);
     }
 
     private static bool RequiresTenantAssignment(string role, bool isSuperuserManaging) =>

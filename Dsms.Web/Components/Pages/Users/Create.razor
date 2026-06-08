@@ -10,6 +10,12 @@
 
 <PageHeader Title="Benutzer anlegen" />
 
+@if (_createLimit is not null && !_created)
+{
+    <LicenseUsageBadge Check="_createLimit" />
+    <LicenseLimitAlert Check="_createLimit" />
+}
+
 @if (_assignableRoles is null)
 {
     <div class="dsms-loading">Lade …</div>
@@ -187,7 +193,11 @@ else
     private string? _warningMessage;
     private bool _created;
 
-    private bool CanSubmit => _model.Role switch
+    private LicenseLimitCheckResult? _createLimit;
+
+    private bool CanSubmit => BaseCanSubmit && (_createLimit is null || _createLimit.IsAllowed);
+
+    private bool BaseCanSubmit => _model.Role switch
     {
         DsmsRoles.Superuser => true,
         DsmsRoles.Admin when _isSuperuser => _model.LicenseId.HasValue,
@@ -213,6 +223,7 @@ else
 
         await SyncTenantsFromContextAsync();
         await OnRoleChanged();
+        await RefreshCreateLimitAsync();
     }
 
     private async Task SyncTenantsFromContextAsync()
@@ -228,6 +239,8 @@ else
                 _model.TenantIds = [tid];
             }
         }
+
+        await RefreshCreateLimitAsync();
     }
 
     private async Task OnRoleChanged()
@@ -255,6 +268,8 @@ else
         {
             await SyncTenantsFromContextAsync();
         }
+
+        await RefreshCreateLimitAsync();
     }
 
     private async Task OnLicenseChanged()
@@ -281,9 +296,44 @@ else
             _model.TenantIds = [];
             _model.TenantId = null;
         }
+
+        await RefreshCreateLimitAsync();
     }
 
-    private void ToggleTenant(int tenantId, ChangeEventArgs e)
+    private async Task RefreshCreateLimitAsync()
+    {
+        _createLimit = null;
+
+        if (_model.Role == DsmsRoles.Superuser)
+        {
+            return;
+        }
+
+        if (_model.Role == DsmsRoles.Admin)
+        {
+            if (_model.LicenseId is Guid licenseId)
+            {
+                _createLimit = await LicenseService.CanCreateAdminAsync(licenseId);
+            }
+
+            return;
+        }
+
+        var tenantId = _model.TenantIds.FirstOrDefault();
+        if (tenantId == 0 && _model.TenantId is int tid)
+        {
+            tenantId = tid;
+        }
+
+        if (tenantId > 0)
+        {
+            _createLimit = _model.Role == DsmsRoles.Auditor
+                ? await LicenseService.CanCreateAuditorAsync(tenantId)
+                : await LicenseService.CanCreateUserAsync(tenantId);
+        }
+    }
+
+    private async Task ToggleTenant(int tenantId, ChangeEventArgs e)
     {
         var isChecked = e.Value is bool b && b;
         if (isChecked)
@@ -299,6 +349,7 @@ else
         }
 
         _model.TenantId = _model.TenantIds.FirstOrDefault();
+        await RefreshCreateLimitAsync();
     }
 
     private async Task SaveAsync()

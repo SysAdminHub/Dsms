@@ -35,6 +35,12 @@ else
         }
     </PageHeader>
 
+    @if (_model.Id == 0 && !_isOfficialCreateMode && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
+
     @if (!string.IsNullOrEmpty(_successMessage))
     {
         <div class="alert alert-success dsms-alert">@_successMessage</div>
@@ -99,6 +105,10 @@ else
             {
                 <EditForm Model="_model" OnValidSubmit="SaveTemplateAsync" class="dsms-form">
                     <ValidationSummary class="alert alert-danger dsms-alert" />
+                    @if (!string.IsNullOrEmpty(_saveError))
+                    {
+                        <div class="alert alert-danger dsms-alert">@_saveError</div>
+                    }
 
                     <div class="mb-3">
                         <label class="form-label">Titel</label>
@@ -118,7 +128,7 @@ else
                     </div>
 
                     <div class="dsms-form-actions">
-                        <button type="submit" class="btn btn-primary">Vorlage speichern</button>
+                        <button type="submit" class="btn btn-primary" disabled="@(_model.Id == 0 && !_isOfficialCreateMode && _createLimit is { IsAllowed: false })">Vorlage speichern</button>
                         <a class="btn btn-outline-secondary" href="audit-templates">Zurück</a>
                     </div>
                 </EditForm>
@@ -242,10 +252,13 @@ else
     [Inject] private IAuditTemplateService TemplateService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private int? _tenantId;
     private bool _accessDenied;
     private bool _createDenied;
+    private LicenseLimitCheckResult? _createLimit;
+    private string? _saveError;
     private bool _readOnly;
     private bool _canSubmitToCommunity;
     private bool _canCopy;
@@ -334,6 +347,7 @@ else
             _model.TenantId = _tenantId.Value;
             _model.TemplateType = AuditTemplateType.Tenant;
             _typeHint = AuditTemplateLabels.GetTypeHint(AuditTemplateType.Tenant);
+            _createLimit = await LicenseService.CanCreateCustomAuditTemplateAsync(_tenantId.Value);
         }
     }
 
@@ -434,6 +448,13 @@ else
                 if (!await TemplateService.CanCreateTenantTemplateAsync())
                 {
                     _createDenied = true;
+                    return;
+                }
+
+                var limitCheck = await LicenseService.CanCreateCustomAuditTemplateAsync(_tenantId!.Value);
+                if (!limitCheck.IsAllowed)
+                {
+                    _saveError = limitCheck.Message;
                     return;
                 }
 

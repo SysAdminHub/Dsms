@@ -6,6 +6,28 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Lizenzstatus und Ablaufdatum bei Neuanlage:**
+  - Zentrale Nutzbarkeitsprüfung (`CheckLicenseUsableForCreationAsync`, `LicenseUsabilityInfo`, `LicenseBlockReason`)
+  - Alle `CanCreate*`-Methoden prüfen zuerst Status (Active) und `ValidUntil`, danach Mengenlimits
+  - UI blockiert Neu-Buttons über bestehende `LicenseLimitAlert`-Logik; Bearbeiten/Archivieren unverändert
+  - Admin- und Superuser-Lizenzübersicht zeigen Nutzbarkeit und Hinweise
+
+### Hinzugefügt
+
+- **Admin-Lizenzübersicht (read-only):**
+  - Neue Seite `/admin/license` für Kunden-Admins („Meine Lizenz“)
+  - `GetCurrentAdminLicenseOverviewAsync()` – Lizenz aus `ApplicationUser.LicenseId`, ohne URL-Parameter
+  - Anzeige von Basisdaten, lizenzweiter Nutzung und Nutzung je Mandant; Navigationspunkt nur für Tenant-Admins
+- **Lizenz-Limits (Durchsetzung beim Anlegen):**
+  - `LicenseLimitCheckResult` und zentrale `CanCreate*`-Methoden in `LicenseService` (lizenzweit und mandantenbezogen)
+  - Wiederverwendbare UI-Komponenten `LicenseUsageBadge` und `LicenseLimitAlert`
+  - Limit-Anzeige und deaktivierte Neu-Buttons in Listen-/Formularseiten (Mandanten, Benutzer, VVT, DSFA, TOMs, Dienstleister, Maßnahmen, Audits, eigene Auditvorlagen)
+  - Serverseitige Prüfung beim Speichern in Services (`TenantManagementService`, `UserManagementService`, `AuditTemplateService.CopyToTenantAsync`) und Edit-Page-Handlern
+  - Keine Featurelocks, kein Billing, keine automatische Datenlöschung; Bearbeiten/Archivieren/Löschen bestehender Objekte unverändert möglich
+  - `CanSendEmailReminderAsync` vorbereitet (TODO, aktuell ohne Blockierung)
+
+### Hinzugefügt
+
 - **Lizenzverwaltung (Grundlage):**
   - Neue Entity `License` (Guid-Id) als zentrale kaufmännische/technische Kundeneinheit
   - Optionale `LicenseId` auf `Tenant` und `ApplicationUser` (nullable FK, bestehende Daten unverändert)
@@ -13,7 +35,7 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
   - Superuser-Seiten: `/platform/licenses` (Übersicht), `/platform/licenses/edit`, `/platform/licenses/{id}` (Details)
   - Navigation „Lizenzen“ im Plattform-Bereich (nur Superuser)
   - EF-Migration `AddLicenses`
-  - Noch **ohne** Featurelocks, Limit-Blockierung und Billing-Anbindung
+  - Limit-Blockierung beim Anlegen neuer Objekte siehe Eintrag „Lizenz-Limits“; weiterhin **ohne** Featurelocks und Billing-Anbindung
 - **Demo-Seeding:** Idempotente Demo-Lizenz `LIC-DEMO-000001` mit Limits, Zuordnung zu Demo-Admins/Mandanten, zwei Demo-Mandanten (Hauptsitz + Niederlassung Süd)
 - **Lizenzzuordnung in Mandanten- und Benutzerverwaltung (Superuser):**
   - Mandantenübersicht/-bearbeitung mit Lizenz-Spalte und -Dropdown

@@ -17,10 +17,23 @@ else
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (!_showArchived)
             {
-                <a class="btn btn-primary" href="measures/edit">Neue Maßnahme</a>
+                @if (_createLimit is { IsAllowed: false })
+                {
+                    <button type="button" class="btn btn-primary" disabled title="@_createLimit.Message">Neue Maßnahme</button>
+                }
+                else
+                {
+                    <a class="btn btn-primary" href="measures/edit">Neue Maßnahme</a>
+                }
             }
         </div>
     </PageHeader>
+
+    @if (!_showArchived && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
 
     @if (_measures is null)
     {
@@ -95,9 +108,11 @@ else
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private int? _tenantId;
     private bool _showArchived;
+    private LicenseLimitCheckResult? _createLimit;
     private List<Measure>? _measures;
     private string? _filterQuestionText;
 
@@ -105,6 +120,8 @@ else
     {
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
+
+        _createLimit = await LicenseService.CanCreateMeasureAsync(_tenantId.Value);
 
         if (AuditAnswerId is int answerId)
         {

@@ -2,6 +2,7 @@ using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
+using Dsms.Web.Services.Licenses;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,7 +14,8 @@ public sealed class AuditTemplateService(
     IUserAccessService access,
     ICurrentUserContext currentUser,
     UserManager<ApplicationUser> userManager,
-    ArchiveViewContextAccessor archiveView) : IAuditTemplateService
+    ArchiveViewContextAccessor archiveView,
+    ILicenseService licenseService) : IAuditTemplateService
 {
     public async Task<bool> CanViewAsync(AuditTemplate template, CancellationToken ct = default)
     {
@@ -355,6 +357,12 @@ public sealed class AuditTemplateService(
         if (tenantId is null)
         {
             return new AuditTemplateOperationResult(false, AuditTemplateLabels.AccessDenied);
+        }
+
+        var limitCheck = await licenseService.CanCreateCustomAuditTemplateAsync(tenantId.Value);
+        if (!limitCheck.IsAllowed)
+        {
+            return new AuditTemplateOperationResult(false, limitCheck.Message);
         }
 
         var copy = new AuditTemplate

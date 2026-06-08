@@ -1,5 +1,47 @@
 namespace Dsms.Web.Services.Licenses;
 
+public enum LicenseBlockReason
+{
+    None,
+    LicenseNotFound,
+    LicenseNotAssigned,
+    LicenseInactive,
+    LicenseSuspended,
+    LicenseExpired,
+    LimitReached
+}
+
+public sealed class LicenseLimitCheckResult
+{
+    public bool IsAllowed { get; init; } = true;
+    public string Message { get; init; } = string.Empty;
+    public string LimitName { get; init; } = string.Empty;
+    public int CurrentValue { get; init; }
+    public int? LimitValue { get; init; }
+    public bool IsUnlimited { get; init; }
+    public bool IsWarning { get; init; }
+    public bool IsExceeded { get; init; }
+    public Guid? LicenseId { get; init; }
+    public int? TenantId { get; init; }
+    public string? LicenseStatus { get; init; }
+    public DateTime? ValidUntil { get; init; }
+    public LicenseBlockReason BlockReason { get; init; } = LicenseBlockReason.None;
+
+    public LicenseLimitUsageItemDto ToUsageItem() =>
+        LicenseLimitHelper.CreateItem(LimitName, CurrentValue, LimitValue);
+}
+
+public sealed class LicenseUsabilityInfo
+{
+    public bool IsUsableForCreation { get; init; }
+    public LicenseBlockReason BlockReason { get; init; } = LicenseBlockReason.None;
+    public string Status { get; init; } = string.Empty;
+    public DateTime? ValidUntil { get; init; }
+    public bool IsExpired { get; init; }
+    public string SuperuserDisplayLabel { get; init; } = string.Empty;
+    public string? AdminHintMessage { get; init; }
+}
+
 public sealed class LicenseOptionDto
 {
     public Guid Id { get; init; }
@@ -27,6 +69,7 @@ public sealed class LicenseListItemDto
     public int? MaxActiveAuditsPerTenant { get; init; }
     public int? MaxActiveMeasuresPerTenant { get; init; }
     public LicenseUsageDto Usage { get; init; } = new();
+    public LicenseUsabilityInfo Usability { get; init; } = new();
 }
 
 public sealed class LicenseDetailsDto
@@ -58,6 +101,7 @@ public sealed class LicenseDetailsDto
     public int? MaxEmailRemindersPerMonth { get; init; }
 
     public LicenseUsageDto Usage { get; init; } = new();
+    public LicenseUsabilityInfo Usability { get; init; } = new();
 }
 
 public sealed class LicenseUsageDto
@@ -114,6 +158,56 @@ public sealed class TenantLimitUsageDto
     public int TenantId { get; init; }
     public string TenantName { get; init; } = string.Empty;
     public List<LicenseLimitUsageItemDto> Items { get; init; } = [];
+}
+
+public enum AdminLicenseOverviewStatus
+{
+    Success,
+    IsSuperuser,
+    NoLicenseAssigned,
+    LicenseNotFound,
+    Unauthorized
+}
+
+public sealed class AdminLicenseOverviewResult
+{
+    public AdminLicenseOverviewStatus Status { get; init; }
+    public string? Message { get; init; }
+    public LicenseDetailsDto? License { get; init; }
+    public IReadOnlyList<TenantLimitUsageDto> TenantLimits { get; init; } = [];
+
+    public static AdminLicenseOverviewResult Success(
+        LicenseDetailsDto license,
+        IReadOnlyList<TenantLimitUsageDto> tenantLimits) => new()
+    {
+        Status = AdminLicenseOverviewStatus.Success,
+        License = license,
+        TenantLimits = tenantLimits
+    };
+
+    public static AdminLicenseOverviewResult Superuser() => new()
+    {
+        Status = AdminLicenseOverviewStatus.IsSuperuser,
+        Message = "Superuser verwalten Lizenzen über die Plattform-Lizenzverwaltung."
+    };
+
+    public static AdminLicenseOverviewResult NoLicenseAssigned(string message) => new()
+    {
+        Status = AdminLicenseOverviewStatus.NoLicenseAssigned,
+        Message = message
+    };
+
+    public static AdminLicenseOverviewResult LicenseNotFound(string message) => new()
+    {
+        Status = AdminLicenseOverviewStatus.LicenseNotFound,
+        Message = message
+    };
+
+    public static AdminLicenseOverviewResult Unauthorized() => new()
+    {
+        Status = AdminLicenseOverviewStatus.Unauthorized,
+        Message = "Keine Berechtigung für diese Seite."
+    };
 }
 
 public sealed class LicenseEditDto

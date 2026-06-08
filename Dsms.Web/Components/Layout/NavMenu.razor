@@ -10,6 +10,8 @@
 
 @inject NavigationManager NavigationManager
 
+@inject IUserAccessService UserAccess
+
 
 
 <div class="dsms-sidebar-header">
@@ -150,6 +152,15 @@
 
                     </div>
 
+                    @if (_showAdminLicense)
+                    {
+                        <div class="nav-item">
+
+                            <NavLink class="nav-link" href="admin/license">Meine Lizenz</NavLink>
+
+                        </div>
+                    }
+
                 </AuthorizeView>
 
                 <div class="nav-section dsms-nav-footer">Konto</div>
@@ -198,15 +209,19 @@
 
     private string? currentUrl;
 
+    private bool _showAdminLicense;
 
 
-    protected override void OnInitialized()
+
+    protected override async Task OnInitializedAsync()
 
     {
 
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
 
         NavigationManager.LocationChanged += OnLocationChanged;
+
+        _showAdminLicense = await UserAccess.IsTenantAdminAsync();
 
     }
 

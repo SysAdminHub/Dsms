@@ -23,6 +23,16 @@ else
 {
     <PageHeader Title="@(_model.Id == 0 ? "Verarbeitungstätigkeit anlegen" : "Verarbeitungstätigkeit bearbeiten")" />
 
+    @if (_model.Id == 0 && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
+    @if (!string.IsNullOrEmpty(_saveError))
+    {
+        <div class="alert alert-danger dsms-alert">@_saveError</div>
+    }
+
     <div class="dsms-card dsms-form-card">
         <div class="dsms-card-body">
             <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
@@ -96,7 +106,7 @@ else
                 </div>
 
                 <div class="dsms-form-actions">
-                    <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                    <button type="submit" class="btn btn-primary" disabled="@(_saving || (_model.Id == 0 && _createLimit is { IsAllowed: false }))">Speichern</button>
                     <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"processing-activities/{_model.Id}" : "processing-activities")">Abbrechen</a>
                 </div>
             </EditForm>
@@ -109,10 +119,13 @@ else
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private int? _tenantId;
     private bool _notFound;
     private bool _saving;
+    private string? _saveError;
+    private LicenseLimitCheckResult? _createLimit;
     private ProcessingActivity _model = new() { Status = ProcessingActivityStatus.Draft };
 
     protected override async Task OnInitializedAsync()
@@ -136,6 +149,7 @@ else
         else
         {
             _model.TenantId = _tenantId.Value;
+            _createLimit = await LicenseService.CanCreateProcessingActivityAsync(_tenantId.Value);
         }
     }
 
@@ -146,6 +160,7 @@ else
             return;
         }
 
+        _saveError = null;
         _saving = true;
 
         // TenantId bei Updates nicht verändern lassen – Schutz vor Mandantenwechsel.
@@ -153,6 +168,14 @@ else
 
         if (_model.Id == 0)
         {
+            var limitCheck = await LicenseService.CanCreateProcessingActivityAsync(_tenantId.Value);
+            if (!limitCheck.IsAllowed)
+            {
+                _saveError = limitCheck.Message;
+                _saving = false;
+                return;
+            }
+
             _model.CreatedAt = DateTime.UtcNow;
             Db.ProcessingActivities.Add(_model);
         }

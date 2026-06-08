@@ -348,3 +348,77 @@
     line-height: var(--dsms-line-height-relaxed);
     white-space: pre-wrap;
 }
+
+/* ---- Lizenznutzung ---- */
+.dsms-license-usage-badge {
+    display: inline-block;
+    font-size: var(--dsms-font-size-sm);
+    color: var(--dsms-text-muted);
+    margin-bottom: var(--dsms-space-2);
+}
+
+.dsms-license-usage-badge--warning {
+    color: var(--bs-warning-text-emphasis, #664d03);
+}
+
+.dsms-license-usage-badge--exceeded {
+    color: var(--bs-danger, #dc3545);
+    font-weight: 600;
+}
+
+.dsms-license-overview-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--dsms-space-5);
+}
+
+.dsms-license-usage-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--dsms-space-2);
+}
+
+.dsms-license-usage-list li {
+    margin: 0;
+}
+
+.dsms-license-tenant-block {
+    padding-bottom: var(--dsms-space-5);
+    margin-bottom: var(--dsms-space-5);
+    border-bottom: 1px solid var(--dsms-border);
+}
+
+.dsms-license-tenant-block:last-child {
+    padding-bottom: 0;
+    margin-bottom: 0;
+    border-bottom: none;
+}
+
+.dsms-license-tenant-title {
+    font-size: var(--dsms-font-size-base);
+    font-weight: 600;
+    color: var(--dsms-text);
+    margin: 0 0 var(--dsms-space-3);
+}
+
+.dsms-license-totals-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--dsms-space-2) var(--dsms-space-5);
+    font-size: var(--dsms-font-size-sm);
+    color: var(--dsms-text-secondary);
+}
+
+.dsms-license-support-hint {
+    font-size: var(--dsms-font-size-sm);
+    color: var(--dsms-text-muted);
+    margin: var(--dsms-space-6) 0 0;
+    padding-top: var(--dsms-space-4);
+    border-top: 1px solid var(--dsms-border);
+}

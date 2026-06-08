@@ -20,6 +20,12 @@ else
 {
     <PageHeader Title="@(_model.Id == 0 ? "Maßnahme anlegen" : "Maßnahme bearbeiten")" />
 
+    @if (_model.Id == 0 && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
+
     <div class="dsms-card dsms-form-card">
         <div class="dsms-card-body">
             <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
@@ -89,7 +95,7 @@ else
                 }
 
                 <div class="dsms-form-actions">
-                    <button type="submit" class="btn btn-primary">Speichern</button>
+                    <button type="submit" class="btn btn-primary" disabled="@(_model.Id == 0 && _createLimit is { IsAllowed: false })">Speichern</button>
                     <a class="btn btn-outline-secondary" href="measures">Abbrechen</a>
                 </div>
             </EditForm>
@@ -112,10 +118,12 @@ else
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private ProcessingActivityRelationsService Relations { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private int? _tenantId;
     private bool _canEditLinks;
     private string? _linkSaveError;
+    private LicenseLimitCheckResult? _createLimit;
     private string? _prefillError;
     private Measure _model = new() { Status = MeasureStatus.Open };
     private DateOnly? _dueDate;
@@ -155,6 +163,7 @@ else
         else
         {
             _model.TenantId = _tenantId.Value;
+            _createLimit = await LicenseService.CanCreateMeasureAsync(_tenantId.Value);
             await TryPrefillFromAuditAnswerAsync();
         }
     }
@@ -249,6 +258,16 @@ else
 
         if (_model.Id == 0)
         {
+            if (_tenantId is int measureTenantId)
+            {
+                var limitCheck = await LicenseService.CanCreateMeasureAsync(measureTenantId);
+                if (!limitCheck.IsAllowed)
+                {
+                    _linkSaveError = limitCheck.Message;
+                    return;
+                }
+            }
+
             Db.Measures.Add(_model);
         }
         else

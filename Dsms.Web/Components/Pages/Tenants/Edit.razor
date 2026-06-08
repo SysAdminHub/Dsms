@@ -7,6 +7,12 @@
 
 <PageHeader Title="@(_isNew ? "Mandant anlegen" : "Mandant bearbeiten")" />
 
+@if (_isNew && _createLimit is not null)
+{
+    <LicenseUsageBadge Check="_createLimit" />
+    <LicenseLimitAlert Check="_createLimit" />
+}
+
 @if (!string.IsNullOrEmpty(_errorMessage))
 {
     <div class="alert alert-danger dsms-alert">@_errorMessage</div>
@@ -28,7 +34,7 @@
             </div>
             <div class="mb-3">
                 <label class="form-label">Lizenz @(_isNew ? "*" : "")</label>
-                <InputSelect class="form-select" @bind-Value="_selectedLicenseId">
+                <InputSelect class="form-select" @bind-Value="_selectedLicenseId" @bind-Value:after="OnLicenseSelectionChanged">
                     @if (!_isNew)
                     {
                         <option value="">Keine Lizenz zugeordnet</option>
@@ -52,7 +58,7 @@
             </div>
 
             <div class="dsms-form-actions">
-                <button type="submit" class="btn btn-primary" disabled="@(_isNew && _selectedLicenseId is null)">Speichern</button>
+                <button type="submit" class="btn btn-primary" disabled="@(_isNew && (_selectedLicenseId is null || _createLimit is { IsAllowed: false }))">Speichern</button>
                 <a class="btn btn-outline-secondary" href="tenants">Abbrechen</a>
             </div>
         </EditForm>
@@ -70,6 +76,7 @@
     private Guid? _selectedLicenseId;
     private bool _isNew = true;
     private string? _errorMessage;
+    private LicenseLimitCheckResult? _createLimit;
 
     protected override async Task OnInitializedAsync()
     {
@@ -94,6 +101,23 @@
                 LicenseId = tenant.LicenseId
             };
             _selectedLicenseId = tenant.LicenseId;
+        }
+        else if (_licenses.Count == 1)
+        {
+            _selectedLicenseId = _licenses[0].Id;
+            await OnLicenseSelectionChanged();
+        }
+    }
+
+    private async Task OnLicenseSelectionChanged()
+    {
+        if (_isNew && _selectedLicenseId is Guid licenseId)
+        {
+            _createLimit = await LicenseService.CanCreateTenantAsync(licenseId);
+        }
+        else
+        {
+            _createLimit = null;
         }
     }
 

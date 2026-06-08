@@ -18,6 +18,17 @@ else
 {
     <PageHeader Title="@(_model.Id == 0 ? "Audit-Durchlauf anlegen" : "Audit-Durchlauf bearbeiten")" />
 
+    @if (_model.Id == 0 && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
+
+    @if (!string.IsNullOrEmpty(_saveError))
+    {
+        <div class="alert alert-danger dsms-alert">@_saveError</div>
+    }
+
     <div class="dsms-card dsms-form-card">
         <div class="dsms-card-body">
             <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
@@ -49,7 +60,7 @@ else
                 </div>
 
                 <div class="dsms-form-actions">
-                    <button type="submit" class="btn btn-primary">Speichern</button>
+                    <button type="submit" class="btn btn-primary" disabled="@(_model.Id == 0 && _createLimit is { IsAllowed: false })">Speichern</button>
                     <a class="btn btn-outline-secondary" href="audit-runs">Zurück</a>
                     @if (_model.Id > 0)
                     {
@@ -72,8 +83,11 @@ else
     [Inject] private IAuditTemplateService TemplateService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private int? _tenantId;
+    private LicenseLimitCheckResult? _createLimit;
+    private string? _saveError;
     private AuditRun _model = new() { Status = AuditRunStatus.Draft };
     private List<AuditTemplate> _templates = [];
 
@@ -93,6 +107,7 @@ else
         else
         {
             _model.TenantId = _tenantId.Value;
+            _createLimit = await LicenseService.CanCreateActiveAuditAsync(_tenantId.Value);
             if (_templates.Count > 0)
             {
                 _model.AuditTemplateId = _templates[0].Id;
@@ -106,6 +121,16 @@ else
 
         if (isNew)
         {
+            if (_tenantId is int tenantId)
+            {
+                var limitCheck = await LicenseService.CanCreateActiveAuditAsync(tenantId);
+                if (!limitCheck.IsAllowed)
+                {
+                    _saveError = limitCheck.Message;
+                    return;
+                }
+            }
+
             var template = await TemplateService.GetByIdAsync(_model.AuditTemplateId);
             if (template is null || !template.IsActive || template.IsArchived)
             {

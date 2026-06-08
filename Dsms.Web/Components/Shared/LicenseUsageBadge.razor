@@ -1,0 +1,28 @@
+@* Dezente Anzeige der Lizenznutzung in Listen, Formularen und Lizenzübersichten. *@
+@if (Check is not null)
+{
+    <span class="dsms-license-usage-badge @CssClass" title="@Check.Message">@LicenseLimitHelper.FormatUsageBadgeText(Check)</span>
+}
+else if (Item is not null)
+{
+    <span class="dsms-license-usage-badge @ItemCssClass">@LicenseLimitHelper.FormatUsageItemBadgeText(Item)</span>
+}
+
+@code {
+    [Parameter] public LicenseLimitCheckResult? Check { get; set; }
+    [Parameter] public LicenseLimitUsageItemDto? Item { get; set; }
+
+    private string CssClass => Check switch
+    {
+        { IsExceeded: true } => "dsms-license-usage-badge--exceeded",
+        { IsWarning: true } => "dsms-license-usage-badge--warning",
+        _ => ""
+    };
+
+    private string ItemCssClass => Item switch
+    {
+        { IsExceeded: true } => "dsms-license-usage-badge--exceeded",
+        { IsWarning: true } => "dsms-license-usage-badge--warning",
+        _ => ""
+    };
+}

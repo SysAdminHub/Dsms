@@ -10,7 +10,8 @@ namespace Dsms.Web.Services.Tenants;
 public sealed class TenantManagementService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
     IUserAccessService access,
-    UserManager<ApplicationUser> userManager) : ITenantManagementService
+    UserManager<ApplicationUser> userManager,
+    ILicenseService licenseService) : ITenantManagementService
 {
     public async Task<IReadOnlyList<TenantListItemDto>> ListTenantsAsync()
     {
@@ -68,6 +69,12 @@ public sealed class TenantManagementService(
         if (string.IsNullOrWhiteSpace(model.Name))
         {
             return TenantOperationResult.Fail("Name ist erforderlich.");
+        }
+
+        var limitCheck = await licenseService.CanCreateTenantAsync(model.LicenseId.Value);
+        if (!limitCheck.IsAllowed)
+        {
+            return TenantOperationResult.Fail(limitCheck.Message);
         }
 
         await using var db = await dbFactory.CreateDbContextAsync();

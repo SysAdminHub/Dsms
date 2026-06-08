@@ -60,6 +60,7 @@ else
                         <th>Plan</th>
                         <th>Status</th>
                         <th>Gültig bis</th>
+                        <th>Nutzbar</th>
                         <th>Mandanten</th>
                         <th>Admins</th>
                         <th>Benutzer</th>
@@ -84,6 +85,10 @@ else
                             <td>@item.PlanName</td>
                             <td><StatusBadge Text="@item.Status" Variant="@StatusVariant(item.Status)" /></td>
                             <td>@(item.ValidUntil?.ToString("d") ?? "—")</td>
+                            <td>
+                                <StatusBadge Text="@item.Usability.SuperuserDisplayLabel"
+                                             Variant="@UsabilityVariant(item.Usability)" />
+                            </td>
                             <td>@RenderLicenseWide(item.Usage.CurrentTenants, item.MaxTenants)</td>
                             <td>@RenderLicenseWide(item.Usage.CurrentAdmins, item.MaxAdmins)</td>
                             <td>@LicenseLimitHelper.FormatTotalWithPerTenantLimit(item.Usage.CurrentUsersTotal, item.MaxUsersPerTenant)</td>
@@ -134,6 +139,9 @@ else
         "Inactive" => "default",
         _ => "default"
     };
+
+    private static string UsabilityVariant(LicenseUsabilityInfo usability) =>
+        usability.IsUsableForCreation ? "success" : "danger";
 
     private static MarkupString RenderLicenseWide(int current, int? limit)
     {

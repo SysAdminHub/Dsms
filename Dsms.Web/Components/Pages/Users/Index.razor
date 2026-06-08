@@ -9,6 +9,19 @@
     <a class="btn btn-primary" href="users/create">Neuer Benutzer</a>
 </PageHeader>
 
+@if (_userLimit is not null)
+{
+    <LicenseUsageBadge Check="_userLimit" />
+}
+@if (_auditorLimit is not null)
+{
+    <LicenseUsageBadge Check="_auditorLimit" />
+}
+@if (_adminLimit is not null)
+{
+    <LicenseUsageBadge Check="_adminLimit" />
+}
+
 @if (!string.IsNullOrEmpty(_successMessage))
 {
     <div class="alert alert-success dsms-alert">@_successMessage</div>
@@ -91,15 +104,41 @@ else
 @code {
     [Inject] private IUserManagementService UserManagement { get; set; } = null!;
     [Inject] private IPasswordResetService PasswordReset { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private IReadOnlyList<UserListItem>? _users;
+    private LicenseLimitCheckResult? _userLimit;
+    private LicenseLimitCheckResult? _auditorLimit;
+    private LicenseLimitCheckResult? _adminLimit;
     private string? _sendingUserId;
     private string? _sendingInviteUserId;
     private string? _successMessage;
     private string? _errorMessage;
 
-    protected override async Task OnInitializedAsync() =>
+    protected override async Task OnInitializedAsync()
+    {
         _users = await UserManagement.ListUsersAsync(includeInactive: true);
+
+        if (await UserAccess.IsSuperuserAsync())
+        {
+            var licenses = await LicenseService.GetActiveLicenseOptionsAsync();
+            if (licenses.Count == 1)
+            {
+                _adminLimit = await LicenseService.CanCreateAdminAsync(licenses[0].Id);
+            }
+
+            return;
+        }
+
+        var tenantId = await CurrentUser.GetTenantIdAsync();
+        if (tenantId is int tid)
+        {
+            _userLimit = await LicenseService.CanCreateUserAsync(tid);
+            _auditorLimit = await LicenseService.CanCreateAuditorAsync(tid);
+        }
+    }
 
     private async Task SendPasswordResetAsync(string userId)
     {

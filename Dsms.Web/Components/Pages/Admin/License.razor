@@ -1,57 +1,76 @@
-@page "/platform/licenses/{Id:guid}"
-@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@* Read-only Lizenzübersicht für Kunden-Admins. Lizenz wird aus ApplicationUser.LicenseId ermittelt. *@
+@page "/admin/license"
+@attribute [Authorize(Roles = DsmsRoles.Admin)]
 @rendermode InteractiveServer
 
-<PageTitle>Lizenzdetails</PageTitle>
+<PageTitle>Meine Lizenz</PageTitle>
 
 @if (_loading)
 {
     <div class="dsms-loading">Lade …</div>
 }
+else if (_overview?.Status == AdminLicenseOverviewStatus.IsSuperuser)
+{
+    <PageHeader Title="Meine Lizenz" />
+    <div class="alert alert-info dsms-alert">
+        @_overview.Message
+        <div class="mt-2">
+            <a class="btn btn-outline-primary btn-sm" href="platform/licenses">Zur Plattform-Lizenzverwaltung</a>
+        </div>
+    </div>
+}
+else if (_overview?.Status is AdminLicenseOverviewStatus.NoLicenseAssigned or AdminLicenseOverviewStatus.LicenseNotFound)
+{
+    <PageHeader Title="Meine Lizenz" />
+    <div class="alert alert-warning dsms-alert">@_overview.Message</div>
+}
+else if (_overview?.Status == AdminLicenseOverviewStatus.Unauthorized)
+{
+    <PageHeader Title="Meine Lizenz" />
+    <div class="alert alert-danger dsms-alert">@_overview.Message</div>
+}
 else if (_license is null)
 {
-    <div class="alert alert-warning dsms-alert">Lizenz nicht gefunden.</div>
+    <PageHeader Title="Meine Lizenz" />
+    <div class="alert alert-warning dsms-alert">@NoLicenseMessage</div>
 }
 else
 {
-    <PageHeader Title="@_license.LicenseNumber" Subtitle="@_license.CustomerName">
-        <a class="btn btn-outline-primary" href="@($"platform/licenses/edit/{_license.Id}")">Bearbeiten</a>
-        <a class="btn btn-outline-secondary" href="platform/licenses">Zur Übersicht</a>
-    </PageHeader>
+    <PageHeader Title="Meine Lizenz"
+                Subtitle="Übersicht über Tarif, Laufzeit und aktuelle Nutzung." />
+
+    @if (!_license.Usability.IsUsableForCreation && !string.IsNullOrEmpty(_license.Usability.AdminHintMessage))
+    {
+        <div class="alert alert-warning dsms-alert mb-4">@_license.Usability.AdminHintMessage</div>
+    }
 
     <div class="row g-4">
         <div class="col-lg-5">
             <div class="dsms-card mb-4">
-                <div class="dsms-card-header"><strong>Basisdaten</strong></div>
+                <div class="dsms-card-header"><strong>Lizenzdaten</strong></div>
                 <div class="dsms-card-body">
                     <dl class="row mb-0">
                         <dt class="col-sm-5">Lizenznummer</dt>
                         <dd class="col-sm-7">@_license.LicenseNumber</dd>
-                        <dt class="col-sm-5">Id</dt>
-                        <dd class="col-sm-7"><code>@_license.Id</code></dd>
                         <dt class="col-sm-5">Kunde</dt>
                         <dd class="col-sm-7">@_license.CustomerName</dd>
-                        <dt class="col-sm-5">E-Mail</dt>
-                        <dd class="col-sm-7">@(_license.CustomerEmail ?? "—")</dd>
-                        <dt class="col-sm-5">Plan</dt>
+                        @if (!string.IsNullOrWhiteSpace(_license.CustomerEmail))
+                        {
+                            <dt class="col-sm-5">E-Mail</dt>
+                            <dd class="col-sm-7">@_license.CustomerEmail</dd>
+                        }
+                        <dt class="col-sm-5">Tarif</dt>
                         <dd class="col-sm-7">@_license.PlanName</dd>
                         <dt class="col-sm-5">Status</dt>
-                        <dd class="col-sm-7"><StatusBadge Text="@_license.Status" Variant="@StatusVariant(_license.Status)" /></dd>
+                        <dd class="col-sm-7">
+                            <StatusBadge Text="@FormatStatusLabel(_license.Status)" Variant="@StatusVariant(_license.Status)" />
+                        </dd>
                         <dt class="col-sm-5">Gültig von</dt>
                         <dd class="col-sm-7">@(_license.ValidFrom?.ToString("d") ?? "—")</dd>
                         <dt class="col-sm-5">Gültig bis</dt>
-                        <dd class="col-sm-7">@(_license.ValidUntil?.ToString("d") ?? "—")</dd>
-                        <dt class="col-sm-5">Nutzbar</dt>
-                        <dd class="col-sm-7">
-                            <StatusBadge Text="@_license.Usability.SuperuserDisplayLabel"
-                                         Variant="@UsabilityVariant(_license.Usability)" />
-                        </dd>
-                        <dt class="col-sm-5">Erstellt</dt>
-                        <dd class="col-sm-7">@_license.CreatedAt.ToLocalTime().ToString("g")</dd>
-                        <dt class="col-sm-5">Aktualisiert</dt>
-                        <dd class="col-sm-7">@(_license.UpdatedAt?.ToLocalTime().ToString("g") ?? "—")</dd>
-                        <dt class="col-sm-5">Interne Notiz</dt>
-                        <dd class="col-sm-7">@(_license.InternalNote ?? "—")</dd>
+                        <dd class="col-sm-7">@FormatValidUntil(_license.ValidUntil)</dd>
+                        <dt class="col-sm-5">Neuanlage</dt>
+                        <dd class="col-sm-7">@_license.Usability.SuperuserDisplayLabel</dd>
                     </dl>
                 </div>
             </div>
@@ -129,28 +148,45 @@ else
             </div>
         </div>
     </div>
+
+    <p class="dsms-license-support-hint mb-0">
+        Für Änderungen an Ihrer Lizenz wenden Sie sich bitte an den Support.
+    </p>
 }
 
 @code {
-    [Parameter] public Guid Id { get; set; }
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
+    private const string NoLicenseMessage =
+        "Für Ihr Benutzerkonto ist keine Lizenz zugeordnet. Bitte wenden Sie sich an den Support.";
+
+    private AdminLicenseOverviewResult? _overview;
     private LicenseDetailsDto? _license;
-    private List<TenantLimitUsageDto> _tenantLimits = [];
+    private IReadOnlyList<TenantLimitUsageDto> _tenantLimits = [];
     private bool _loading = true;
 
     protected override async Task OnInitializedAsync()
     {
-        _license = await LicenseService.GetLicenseDetailsAsync(Id);
-        if (_license is not null)
+        _overview = await LicenseService.GetCurrentAdminLicenseOverviewAsync();
+        if (_overview.Status == AdminLicenseOverviewStatus.Success && _overview.License is not null)
         {
-            _tenantLimits = _license.Usage.Tenants
-                .Select(t => LicenseLimitHelper.BuildTenantLimitUsage(t, _license))
-                .ToList();
+            _license = _overview.License;
+            _tenantLimits = _overview.TenantLimits;
         }
 
         _loading = false;
     }
+
+    private static string FormatValidUntil(DateTime? validUntil) =>
+        validUntil?.ToString("d") ?? "Keine Laufzeitbegrenzung hinterlegt";
+
+    private static string FormatStatusLabel(string status) => status switch
+    {
+        "Active" => "Aktiv",
+        "Suspended" => "Gesperrt",
+        "Inactive" => "Inaktiv",
+        _ => status
+    };
 
     private static string StatusVariant(string status) => status switch
     {
@@ -159,7 +195,4 @@ else
         "Inactive" => "default",
         _ => "default"
     };
-
-    private static string UsabilityVariant(LicenseUsabilityInfo usability) =>
-        usability.IsUsableForCreation ? "success" : "danger";
 }

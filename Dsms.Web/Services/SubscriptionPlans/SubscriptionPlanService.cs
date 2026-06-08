@@ -83,6 +83,19 @@ public sealed class SubscriptionPlanService(
         return plan is null ? null : MapToDetails(plan);
     }
 
+    public async Task<IReadOnlyList<SubscriptionPlanDetailsDto>> GetActivePaidPlansAsync()
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        return await db.SubscriptionPlans
+            .AsNoTracking()
+            .Where(p => p.IsActive && !p.IsFree)
+            .OrderBy(p => p.SortOrder)
+            .ThenBy(p => p.DisplayName)
+            .Select(p => MapToDetails(p))
+            .ToListAsync();
+    }
+
     public async Task<SubscriptionPlanDetailsDto?> GetPlanByIdAsync(Guid id)
     {
         await EnsureSuperuserAsync();

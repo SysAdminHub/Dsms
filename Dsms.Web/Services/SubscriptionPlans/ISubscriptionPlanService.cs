@@ -11,6 +11,8 @@ public interface ISubscriptionPlanService
 
     Task<SubscriptionPlanDetailsDto?> GetActiveFreePlanAsync();
 
+    Task<IReadOnlyList<SubscriptionPlanDetailsDto>> GetActivePaidPlansAsync();
+
     Task<SubscriptionPlanDetailsDto?> GetPlanByIdAsync(Guid id);
 
     Task<SubscriptionPlanDetailsDto?> GetPlanByNameAsync(string name);

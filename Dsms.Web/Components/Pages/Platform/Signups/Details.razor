@@ -1,0 +1,287 @@
+@page "/platform/signups/{Id:guid}"
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<PageTitle>Registrierungsdetails</PageTitle>
+
+@if (_loading)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_signup is null)
+{
+    <div class="alert alert-warning dsms-alert">Registrierung nicht gefunden.</div>
+}
+else
+{
+    <PageHeader Title="@_signup.CustomerName" Subtitle="@($"Status: {PendingSignupDisplayHelper.GetStatusDisplayName(_signup.Status)}")">
+        <a class="btn btn-outline-secondary" href="platform/signups">Zur Übersicht</a>
+    </PageHeader>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_messageIsError ? "alert-danger" : "alert-success") dsms-alert">@_message</div>
+    }
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Basis</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Id</dt>
+                        <dd class="col-sm-8"><code>@_signup.Id</code></dd>
+                        <dt class="col-sm-4">Erstellt</dt>
+                        <dd class="col-sm-8">@_signup.CreatedAt.ToLocalTime().ToString("g")</dd>
+                        <dt class="col-sm-4">Aktualisiert</dt>
+                        <dd class="col-sm-8">@(_signup.UpdatedAt?.ToLocalTime().ToString("g") ?? "—")</dd>
+                        <dt class="col-sm-4">Status</dt>
+                        <dd class="col-sm-8">
+                            <StatusBadge Text="@PendingSignupDisplayHelper.GetStatusDisplayName(_signup.Status)"
+                                         Variant="@PendingSignupDisplayHelper.StatusVariant(_signup.Status)" />
+                        </dd>
+                        <dt class="col-sm-4">Quelle</dt>
+                        <dd class="col-sm-8">@(_signup.Source ?? "—")</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Plan (Snapshot)</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">PlanId</dt>
+                        <dd class="col-sm-8"><code>@_signup.PlanId</code></dd>
+                        <dt class="col-sm-4">Name</dt>
+                        <dd class="col-sm-8">@(_signup.PlanNameSnapshot ?? "—")</dd>
+                        <dt class="col-sm-4">Anzeigename</dt>
+                        <dd class="col-sm-8">@(_signup.PlanDisplayNameSnapshot ?? "—")</dd>
+                        <dt class="col-sm-4">Preis monatlich</dt>
+                        <dd class="col-sm-8">@FormatPrice(_signup.PlanPriceMonthlySnapshot, _signup.CurrencySnapshot)</dd>
+                        <dt class="col-sm-4">Preis jährlich</dt>
+                        <dd class="col-sm-8">@FormatPrice(_signup.PlanPriceYearlySnapshot, _signup.CurrencySnapshot)</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Kunde / Mandant / Admin</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Kundenname</dt>
+                        <dd class="col-sm-8">@_signup.CustomerName</dd>
+                        <dt class="col-sm-4">Kunden-E-Mail</dt>
+                        <dd class="col-sm-8">@(_signup.CustomerEmail ?? "—")</dd>
+                        <dt class="col-sm-4">Mandantenname</dt>
+                        <dd class="col-sm-8">@_signup.TenantName</dd>
+                        <dt class="col-sm-4">Rechtlicher Name</dt>
+                        <dd class="col-sm-8">@(_signup.TenantLegalName ?? "—")</dd>
+                        <dt class="col-sm-4">Admin</dt>
+                        <dd class="col-sm-8">@_signup.AdminDisplayName (@_signup.AdminEmail)</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Payment (Vorbereitung)</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Provider</dt>
+                        <dd class="col-sm-8">@(_signup.PaymentProvider ?? "—")</dd>
+                        <dt class="col-sm-4">ExternalPaymentId</dt>
+                        <dd class="col-sm-8">@(_signup.ExternalPaymentId ?? "—")</dd>
+                        <dt class="col-sm-4">Betrag</dt>
+                        <dd class="col-sm-8">@PendingSignupDisplayHelper.FormatAmount(_signup.Amount, _signup.Currency)</dd>
+                        <dt class="col-sm-4">Checkout-URL</dt>
+                        <dd class="col-sm-8">@(_signup.ExternalCheckoutUrl ?? "—")</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card">
+                <div class="dsms-card-header"><strong>Provisioning-Ergebnis</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Lizenz</dt>
+                        <dd class="col-sm-8">
+                            @if (_signup.ProvisionedLicenseId is Guid licenseId)
+                            {
+                                <a href="@($"platform/licenses/{licenseId}")">@(_signup.ProvisionedLicenseNumber ?? licenseId.ToString())</a>
+                            }
+                            else
+                            {
+                                @:—
+                            }
+                        </dd>
+                        <dt class="col-sm-4">Mandant</dt>
+                        <dd class="col-sm-8">
+                            @if (_signup.ProvisionedTenantId is int tenantId)
+                            {
+                                <a href="@($"tenants/edit/{tenantId}")">@(_signup.ProvisionedTenantName ?? tenantId.ToString())</a>
+                            }
+                            else
+                            {
+                                @:—
+                            }
+                        </dd>
+                        <dt class="col-sm-4">Admin-Benutzer</dt>
+                        <dd class="col-sm-8">
+                            @if (!string.IsNullOrEmpty(_signup.ProvisionedAdminUserId))
+                            {
+                                <a href="@($"users/edit/{_signup.ProvisionedAdminUserId}")">@_signup.ProvisionedAdminUserId</a>
+                            }
+                            else
+                            {
+                                @:—
+                            }
+                        </dd>
+                        <dt class="col-sm-4">Provisioniert am</dt>
+                        <dd class="col-sm-8">@(_signup.ProvisionedAt?.ToLocalTime().ToString("g") ?? "—")</dd>
+                        <dt class="col-sm-4">Fehler</dt>
+                        <dd class="col-sm-8 text-danger">@(_signup.ErrorMessage ?? "—")</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="dsms-card dsms-form-card mb-4">
+                <div class="dsms-card-header"><strong>Status ändern</strong></div>
+                <div class="dsms-card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Neuer Status</label>
+                        <select class="form-select" @bind="_newStatus">
+                            @foreach (var status in PendingSignupStatuses.EditableBySuperuser)
+                            {
+                                <option value="@status">@PendingSignupDisplayHelper.GetStatusDisplayName(status)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notiz (optional)</label>
+                        <InputTextArea class="form-control" rows="2" @bind-Value="_statusNote" />
+                    </div>
+                    <button type="button" class="btn btn-outline-primary w-100 mb-2" disabled="@_saving" @onclick="UpdateStatusAsync">Status speichern</button>
+                    <button type="button" class="btn btn-outline-warning w-100 mb-2" disabled="@_saving" @onclick="MarkCancelledAsync">Als abgebrochen markieren</button>
+                    <button type="button" class="btn btn-outline-danger w-100" disabled="@_saving" @onclick="MarkFailedAsync">Als fehlgeschlagen markieren</button>
+                </div>
+            </div>
+
+            <div class="dsms-card dsms-form-card">
+                <div class="dsms-card-header"><strong>Interne Notiz</strong></div>
+                <div class="dsms-card-body">
+                    <InputTextArea class="form-control mb-3" rows="4" @bind-Value="_internalNote" />
+                    <button type="button" class="btn btn-outline-secondary w-100" disabled="@_saving" @onclick="SaveInternalNoteAsync">Notiz speichern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [Inject] private IPendingSignupService PendingSignupService { get; set; } = null!;
+
+    private PendingSignupDetailsDto? _signup;
+    private bool _loading = true;
+    private bool _saving;
+    private string? _message;
+    private bool _messageIsError;
+    private string _newStatus = PendingSignupStatuses.Draft;
+    private string? _statusNote;
+    private string? _internalNote;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _signup = await PendingSignupService.GetByIdAsync(Id);
+        if (_signup is not null)
+        {
+            _newStatus = _signup.Status;
+            _internalNote = _signup.InternalNote;
+        }
+        _loading = false;
+    }
+
+    private async Task UpdateStatusAsync()
+    {
+        await RunActionAsync(async () =>
+        {
+            var ok = await PendingSignupService.UpdateStatusAsync(Id, _newStatus, _statusNote);
+            if (!ok)
+            {
+                throw new InvalidOperationException("Registrierung nicht gefunden.");
+            }
+        });
+    }
+
+    private async Task MarkCancelledAsync()
+    {
+        await RunActionAsync(async () =>
+        {
+            var ok = await PendingSignupService.MarkAsCancelledAsync(Id, _statusNote);
+            if (!ok)
+            {
+                throw new InvalidOperationException("Registrierung nicht gefunden.");
+            }
+        });
+    }
+
+    private async Task MarkFailedAsync()
+    {
+        var error = string.IsNullOrWhiteSpace(_statusNote)
+            ? "Manuell als fehlgeschlagen markiert."
+            : _statusNote;
+
+        await RunActionAsync(async () =>
+        {
+            var ok = await PendingSignupService.MarkAsFailedAsync(Id, error);
+            if (!ok)
+            {
+                throw new InvalidOperationException("Registrierung nicht gefunden.");
+            }
+        });
+    }
+
+    private async Task SaveInternalNoteAsync()
+    {
+        await RunActionAsync(async () =>
+        {
+            var ok = await PendingSignupService.UpdateInternalNoteAsync(Id, _internalNote);
+            if (!ok)
+            {
+                throw new InvalidOperationException("Registrierung nicht gefunden.");
+            }
+        });
+    }
+
+    private async Task RunActionAsync(Func<Task> action)
+    {
+        _message = null;
+        _saving = true;
+
+        try
+        {
+            await action();
+            _message = "Änderung gespeichert.";
+            _messageIsError = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _messageIsError = true;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static string FormatPrice(decimal? price, string? currency) =>
+        price.HasValue
+            ? PendingSignupDisplayHelper.FormatAmount(price, currency)
+            : "nicht festgelegt";
+}

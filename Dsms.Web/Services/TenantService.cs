@@ -225,6 +225,7 @@ public class TenantService(
             || path.StartsWith("platform/licenses", StringComparison.Ordinal)
             || path.StartsWith("platform/plans", StringComparison.Ordinal)
             || path.StartsWith("platform/provisioning", StringComparison.Ordinal)
+            || path.StartsWith("platform/signups", StringComparison.Ordinal)
             || path == "passwort-vergessen"
             || path == "passwort-zuruecksetzen"
             || path == "signup"

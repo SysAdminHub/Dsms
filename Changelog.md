@@ -6,6 +6,30 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Öffentlicher Paid-Signup (ohne Mollie):**
+  - Seiten `/signup/paid` und `/signup/paid/success` (ohne Login, LoginLayout)
+  - `IPaidSignupService` / `PaidSignupService` – lädt aktive bezahlte Pläne, validiert Formular, ruft `PendingSignupService.CreatePublicAsync` auf
+  - `GetActivePaidPlansAsync()` in `SubscriptionPlanService`
+  - `CreatePublicAsync` in `PendingSignupService` – ohne Superuser-Prüfung, nur aktive bezahlte Pläne, Status Draft, Plan-Snapshots
+  - Duplikatprüfung: bestehender Benutzer und offene PendingSignups (Draft, PendingPayment, Paid) zentral im Service
+  - Auditlog `PaidSignupSubmitted`, Systemlog `PaidSignupFailed`
+  - Quelle `PaidSignup` in Superuser-Übersicht `/platform/signups` (Spalte Quelle)
+  - Verlinkung zwischen `/signup` und `/signup/paid`
+  - **Ohne** Mollie, Checkout, Webhook, License/Tenant/Admin-Erstellung, Passwortmail, ProvisioningService
+
+### Hinzugefügt
+
+- **PendingSignup (Vorbereitung bezahlte Registrierungen):**
+  - Entity `PendingSignup` mit Plan-Snapshots, Kundendaten, Payment-Vorbereitung und Provisioning-Ergebnis
+  - Statuswerte: Draft, PendingPayment, Paid, Provisioned, Failed, Cancelled, Expired
+  - `IPendingSignupService` / `PendingSignupService`
+  - Superuser-Seiten: `/platform/signups`, `/platform/signups/{id}`, `/platform/signups/create`
+  - EF-Migration `AddPendingSignups`
+  - Auditlogs: PendingSignupCreated, PendingSignupStatusChanged, PendingSignupMarkedFailed, PendingSignupCancelled, PendingSignupExpired
+  - **Ohne** Mollie, Webhook, automatische Provisionierung; Free-Signup unverändert
+
+### Hinzugefügt
+
 - **Öffentlicher Free-Signup:**
   - Seiten `/signup` und `/signup/success` (ohne Login, LoginLayout)
   - `IFreeSignupService` / `FreeSignupService` – lädt aktiven Free-Plan, validiert Formular, ruft `ProvisioningService` auf

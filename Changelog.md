@@ -4,6 +4,10 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Geändert
+
+- **Erinnerungen:** Zugriff auf `/admin/erinnerungen` nur noch für **Superuser** (Seite, Navigation, `ReminderService`)
+
 ### Behoben
 
 - **Tenant-Export / Mandantenabfrage:** `InvalidCastException: Can't convert NULL to Int32` behoben

@@ -275,7 +275,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 - Admin-Abfragen (Benutzer-/Mandantenverwaltung): `IgnoreQueryFilters()` wo nötig
 - `/tenants` und `/platform/email/*` nur Superuser; `/users` gefiltert über `UserManagementService`
 - `/passwort-vergessen` und `/passwort-zuruecksetzen` öffentlich (ohne Mandantenauswahl)
-- `/admin/erinnerungen` für Superuser/Admin ohne Mandantenauswahl (Superuser: alle Mandanten; Admin: aktiver Mandant)
+- `/admin/erinnerungen` nur Superuser ohne Mandantenauswahl (alle aktiven Mandanten)
 - Email-Routen sind von der Mandantenauswahl ausgenommen (`TenantService.IsTenantRequiredForRoute`)
 
 ### Identity-Endpunkte

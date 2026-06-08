@@ -1,6 +1,6 @@
-@* Superuser und Mandanten-Admin: manueller Erinnerungsversand mit Vorschau. *@
+@* Nur Superuser: manueller Erinnerungsversand mit Vorschau. *@
 @page "/admin/erinnerungen"
-@attribute [Authorize(Roles = DsmsRoles.UserManagement)]
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
 @rendermode InteractiveServer
 
 <PageTitle>Erinnerungen</PageTitle>

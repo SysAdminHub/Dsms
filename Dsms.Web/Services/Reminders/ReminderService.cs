@@ -491,7 +491,7 @@ public sealed class ReminderService(
 
     private async Task EnsureCanAccessRemindersAsync()
     {
-        if (await access.IsSuperuserAsync() || await access.IsTenantAdminAsync())
+        if (await access.IsSuperuserAsync())
         {
             return;
         }

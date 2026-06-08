@@ -1,0 +1,164 @@
+@page "/signup"
+@layout LoginLayout
+@rendermode InteractiveServer
+
+<PageTitle>Kostenlos registrieren</PageTitle>
+
+<div class="dsms-login-card dsms-signup-card">
+    <div class="dsms-login-brand">
+        <div class="dsms-login-logo">DS</div>
+        <h1>Kostenlos registrieren</h1>
+        <p>Erstellen Sie einen kostenlosen Testzugang für das Datenschutzmanagementsystem.</p>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else if (_freePlan is null)
+    {
+        <div class="alert alert-info dsms-alert">
+            Derzeit ist keine kostenlose Registrierung verfügbar. Bitte wenden Sie sich an den Support.
+        </div>
+        <a class="btn btn-outline-secondary w-100" href="Account/Login">Zur Anmeldung</a>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+        }
+
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header"><strong>Enthalten im kostenlosen Plan: @_freePlan.DisplayName</strong></div>
+            <div class="dsms-card-body">
+                @if (!string.IsNullOrWhiteSpace(_freePlan.Description))
+                {
+                    <p class="text-muted small">@_freePlan.Description</p>
+                }
+                <ul class="mb-0 small">
+                    <li>@FormatCount(_freePlan.MaxTenants) Mandant(en)</li>
+                    <li>@FormatCount(_freePlan.MaxAdmins) Admin(s)</li>
+                    <li>@FormatCount(_freePlan.MaxUsersPerTenant) Benutzer pro Mandant</li>
+                    <li>@FormatCount(_freePlan.MaxAuditorsPerTenant) Auditor(en) pro Mandant</li>
+                    <li>@FormatCount(_freePlan.MaxDpiaPerTenant) DSFA pro Mandant</li>
+                    <li>@FormatCount(_freePlan.MaxTomsPerTenant) TOMs pro Mandant</li>
+                    <li>@FormatCount(_freePlan.MaxProcessorsPerTenant) Dienstleister pro Mandant</li>
+                    <li>@FormatCount(_freePlan.MaxActiveMeasuresPerTenant) laufende Maßnahmen pro Mandant</li>
+                    <li>@FormatStorage(_freePlan.MaxStorageMb) Speicher</li>
+                </ul>
+            </div>
+        </div>
+
+        <EditForm Model="_model" OnValidSubmit="SubmitAsync" class="dsms-form">
+            <div class="visually-hidden" aria-hidden="true">
+                <label>Website</label>
+                <InputText tabindex="-1" autocomplete="off" @bind-Value="_model.Website" />
+            </div>
+
+            <h5 class="mb-3">Unternehmen</h5>
+            <div class="mb-3">
+                <label class="form-label">Unternehmensname *</label>
+                <InputText class="form-control" @bind-Value="_model.CustomerName" />
+            </div>
+            <div class="mb-4">
+                <label class="form-label">E-Mail-Adresse des Unternehmens</label>
+                <InputText class="form-control" @bind-Value="_model.CustomerEmail" placeholder="Optional – sonst Admin-E-Mail" />
+            </div>
+
+            <h5 class="mb-3">Erster Mandant</h5>
+            <div class="mb-3">
+                <label class="form-label">Name des ersten Mandanten *</label>
+                <InputText class="form-control" @bind-Value="_model.TenantName" />
+            </div>
+            <div class="mb-4">
+                <label class="form-label">Rechtlicher Name</label>
+                <InputText class="form-control" @bind-Value="_model.TenantLegalName" />
+            </div>
+
+            <h5 class="mb-3">Administrator</h5>
+            <div class="mb-3">
+                <label class="form-label">Name des Administrators *</label>
+                <InputText class="form-control" @bind-Value="_model.AdminDisplayName" />
+            </div>
+            <div class="mb-4">
+                <label class="form-label">E-Mail-Adresse des Administrators *</label>
+                <InputText class="form-control" @bind-Value="_model.AdminEmail" autocomplete="email" />
+            </div>
+
+            <div class="form-check mb-4">
+                <InputCheckbox class="form-check-input" @bind-Value="_model.AcceptTerms" id="acceptTerms" />
+                <label class="form-check-label" for="acceptTerms">
+                    Ich akzeptiere die <a href="#" @onclick="PreventLink" @onclick:preventDefault>Nutzungsbedingungen</a>
+                    und <a href="#" @onclick="PreventLink" @onclick:preventDefault>Datenschutzhinweise</a>.
+                </label>
+            </div>
+
+            <button type="submit" class="w-100 btn btn-primary btn-lg" disabled="@_submitting">
+                @(_submitting ? "Wird erstellt …" : "Kostenlos registrieren")
+            </button>
+        </EditForm>
+
+        <div class="text-center mt-3">
+            <span>Bereits registriert?</span>
+            <a href="Account/Login">Zur Anmeldung</a>
+        </div>
+    }
+</div>
+
+@code {
+    [Inject] private IFreeSignupService FreeSignupService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private SubscriptionPlanDetailsDto? _freePlan;
+    private FreeSignupFormDto _model = new();
+    private bool _loading = true;
+    private bool _submitting;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _freePlan = await FreeSignupService.GetActiveFreePlanAsync();
+        _loading = false;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_submitting || _freePlan is null)
+        {
+            return;
+        }
+
+        _errorMessage = null;
+        _submitting = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await FreeSignupService.SubmitSignupAsync(_model);
+            if (!result.Success)
+            {
+                _errorMessage = result.ErrorMessage;
+                return;
+            }
+
+            var emailSent = result.PasswordSetupEmailSent ? "true" : "false";
+            Navigation.NavigateTo($"signup/success?emailSent={emailSent}");
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private static string FormatCount(int? value) =>
+        SubscriptionPlanDisplayHelper.FormatLimit(value);
+
+    private static string FormatStorage(int? value) =>
+        value.HasValue ? $"{value.Value} MB" : "unbegrenzt";
+
+    private static void PreventLink()
+    {
+        // Platzhalter bis echte Links vorhanden sind.
+    }
+}

@@ -183,6 +183,8 @@ Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAn
 
 **Provisioning:** `ProvisioningService.ProvisionCustomerAsync` erstellt in einer Transaktion License (über `PlanToLicenseMapper`), ersten Mandanten (`Tenant.LicenseId`) und Admin-Benutzer (`ApplicationUser.LicenseId`, Rolle `Admin`, `UserTenant`-Zuordnung). Nach dem Commit wird optional eine Passwortvergabe-Mail über `SendProvisioningWelcomeEmailAsync` versendet. Bei E-Mail-Fehler bleiben die angelegten Daten bestehen. Später für Free-Signup und Mollie-Webhook wiederverwendbar; Public Signup und Mollie noch nicht implementiert.
 
+**Free-Signup:** Öffentliche Route `/signup` (ohne Anmeldung). Lädt den ersten aktiven `SubscriptionPlan` mit `IsFree == true` und ruft `ProvisioningService` mit `Source = "FreeSignup"` und `LicenseValidUntil = null` auf. Erfolgsseite `/signup/success`; kein Auto-Login. Kein Mollie, kein PendingSignup. Bezahlte Pläne folgen später.
+
 Alle anderen Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `UpdatedAt`).
 
 ```

@@ -1,0 +1,40 @@
+@page "/signup/success"
+@layout LoginLayout
+
+<PageTitle>Registrierung erfolgreich</PageTitle>
+
+<div class="dsms-login-card">
+    <div class="dsms-login-brand">
+        <div class="dsms-login-logo">DS</div>
+        <h1>Vielen Dank für Ihre Registrierung.</h1>
+    </div>
+
+    <div class="alert alert-success dsms-alert">
+        <p class="mb-2">Wir haben Ihren kostenlosen Zugang erstellt.</p>
+        @if (_emailSent)
+        {
+            <p class="mb-0">Sie erhalten in Kürze eine E-Mail, mit der Sie Ihr Passwort festlegen können.</p>
+        }
+        else
+        {
+            <p class="mb-0">
+                Der Zugang wurde erstellt, aber die E-Mail zur Passwortvergabe konnte nicht versendet werden.
+                Bitte wenden Sie sich an den Support.
+            </p>
+        }
+    </div>
+
+    <a class="btn btn-primary w-100" href="Account/Login">Zur Anmeldung</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? EmailSent { get; set; }
+
+    private bool _emailSent = true;
+
+    protected override void OnInitialized()
+    {
+        _emailSent = !string.Equals(EmailSent, "false", StringComparison.OrdinalIgnoreCase);
+    }
+}

@@ -69,6 +69,20 @@ public sealed class SubscriptionPlanService(
             .ToListAsync();
     }
 
+    public async Task<SubscriptionPlanDetailsDto?> GetActiveFreePlanAsync()
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var plan = await db.SubscriptionPlans
+            .AsNoTracking()
+            .Where(p => p.IsActive && p.IsFree)
+            .OrderBy(p => p.SortOrder)
+            .ThenBy(p => p.DisplayName)
+            .FirstOrDefaultAsync();
+
+        return plan is null ? null : MapToDetails(plan);
+    }
+
     public async Task<SubscriptionPlanDetailsDto?> GetPlanByIdAsync(Guid id)
     {
         await EnsureSuperuserAsync();

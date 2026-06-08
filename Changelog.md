@@ -6,6 +6,16 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Öffentlicher Free-Signup:**
+  - Seiten `/signup` und `/signup/success` (ohne Login, LoginLayout)
+  - `IFreeSignupService` / `FreeSignupService` – lädt aktiven Free-Plan, validiert Formular, ruft `ProvisioningService` auf
+  - `GetActiveFreePlanAsync()` in `SubscriptionPlanService`
+  - Systemlogs `FreeSignupSubmitted`, `FreeSignupFailed`
+  - Honeypot- und Doppelabsende-Schutz
+  - **Ohne** Mollie, PendingSignup, Webhook, bezahlte Pläne, Auto-Login
+
+### Hinzugefügt
+
 - **ProvisioningService:**
   - `IProvisioningService` / `ProvisioningService` mit `ProvisionCustomerAsync` – erstellt License (via Plan-Mapping), Tenant, Admin und sendet Passwortvergabe-Mail
   - DTOs `ProvisionCustomerRequestDto`, `ProvisionCustomerResultDto`

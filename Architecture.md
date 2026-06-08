@@ -132,6 +132,7 @@ Docker Compose (`docker-compose.yml`) legt `dsms_dev` mit Root-Passwort `changem
 | DbSet | Entity |
 |-------|--------|
 | `Licenses` | `License` (Guid-Id, kaufmännische/technische Kundeneinheit; Limit-Felder, `null` = unbegrenzt) |
+| `SubscriptionPlans` | `SubscriptionPlan` (Guid-Id, Tarifvorlage; Limit-Felder, `null` = unbegrenzt; Änderungen wirken nicht auf bestehende Lizenzen) |
 | `Tenants` | `Tenant` (inkl. `LicenseId`, `IsDeletionRequested`, `DeletionRequestedAt`, `DeletionRequestedByUserId`, `DeletionScheduledAt`) |
 | `AuditTemplates` | `AuditTemplate` |
 | `AuditQuestions` | `AuditQuestion` |
@@ -175,6 +176,12 @@ Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `To
 Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen.
 
 **`License`** ist eine eigenständige Entity mit **`Guid Id`** (nicht `EntityBase`). Enthält Kundendaten, Status, Gültigkeit und Limit-Felder (lizenzweit und pro Mandant). `LicenseNumber` wird automatisch vergeben (Format `LIC-{Jahr}-{Sequenz}`).
+
+**`SubscriptionPlan`** ist eine Tarifvorlage mit **`Guid Id`** (nicht `EntityBase`). Enthält Anzeigenamen, Preise, optionale externe Billing-IDs und dieselben Limit-Felder wie `License`. `null` = unbegrenzt. Änderungen an Plänen **ändern bestehende Lizenzen nicht**; beim späteren Signup sollen Planwerte in eine neue `License` kopiert werden über `PlanToLicenseService`. Kein Public Signup, kein Mollie, kein ProvisioningService in diesem Schritt.
+
+**Plan-to-License Mapping:** `PlanToLicenseService` lädt einen aktiven `SubscriptionPlan`, kopiert alle Limit-Felder 1:1 (`null` bleibt `null`) und setzt `License.PlanName` auf `SubscriptionPlan.DisplayName`. Beispiel: Plan „Pro“ mit `MaxUsersPerTenant = 25` → License „Muster GmbH“ mit `MaxUsersPerTenant = 25`. Wird der Plan später auf 50 geändert, bleibt die bestehende License bei 25.
+
+**Provisioning:** `ProvisioningService.ProvisionCustomerAsync` erstellt in einer Transaktion License (über `PlanToLicenseMapper`), ersten Mandanten (`Tenant.LicenseId`) und Admin-Benutzer (`ApplicationUser.LicenseId`, Rolle `Admin`, `UserTenant`-Zuordnung). Nach dem Commit wird optional eine Passwortvergabe-Mail über `SendProvisioningWelcomeEmailAsync` versendet. Bei E-Mail-Fehler bleiben die angelegten Daten bestehen. Später für Free-Signup und Mollie-Webhook wiederverwendbar; Public Signup und Mollie noch nicht implementiert.
 
 Alle anderen Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `UpdatedAt`).
 
@@ -244,6 +251,9 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IPasswordResetService` / `PasswordResetService` | Scoped | Passwortreset und Willkommens-Einladungen via Identity-Token + `IEmailService`; Rate Limit über `IDistributedCache` |
 | `IReminderService` / `ReminderService` | Scoped | Manuelle Erinnerungsvorschau und Sammelversand an Mandanten-Admins (kein Background-Job, keine History) |
 | `ILicenseService` / `LicenseService` | Scoped | Lizenz-CRUD, Usage-Counts, Limit-Prüfung und -Durchsetzung |
+| `ISubscriptionPlanService` / `SubscriptionPlanService` | Scoped | Tarifvorlagen-CRUD (Superuser); `GetActivePlansAsync()` für späteren Signup vorbereitet |
+| `IPlanToLicenseService` / `PlanToLicenseService` | Scoped | Erstellt neue `License` aus `SubscriptionPlan` (Werte werden kopiert, nicht verknüpft) |
+| `IProvisioningService` / `ProvisioningService` | Scoped | Provisioniert Kunde: License + Tenant + Admin + Passwortvergabe-Mail |
 | `ILogService` / `LogService` | Scoped | Zentrales Audit- und Systemprotokoll (`LogEntry`-Tabelle); siehe `Logging.md` |
 | `ILogQueryService` / `LogQueryService` | Scoped | Abfrage für Superuser-Protokolle und Admin-Auditlog mit Mandanten-/Lizenzfilter |
 | `ILicenseCreateGuard` / `LicenseCreateGuard` | Scoped | Lizenzlimit-Prüfung mit automatischer Audit-Protokollierung bei Blockierung |
@@ -268,7 +278,7 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 
 | Rolle | Typische Rechte (aus `[Authorize]`, NavMenu, `IUserAccessService`) |
 |-------|---------------------------------------------------------------------|
-| **Superuser** | Plattform: alle Mandanten (`/tenants`), Lizenzen (`/platform/licenses`), Email (`/platform/email/*`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
+| **Superuser** | Plattform: alle Mandanten (`/tenants`), Lizenzen (`/platform/licenses`), Tarife (`/platform/plans`), Email (`/platform/email/*`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
 | **Admin** | Benutzer im eigenen Mandant; **keine** Mandantenverwaltung; Compliance wie bisher für `TenantId` |
 | **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, DSFA, TOMs und Dienstleister anlegen/bearbeiten; **keine** Benutzerverwaltung |
 | **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen |
@@ -287,7 +297,7 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 - `ArchiveViewContextAccessor.ShowArchivedOnly` wird über `ArchiveViewToggle` in Listenansichten umgeschaltet
 - Archivieren/Wiederherstellen: `IArchivingService` mit `IgnoreQueryFilters()` und expliziter `TenantId`-Prüfung
 - Admin-Abfragen (Benutzer-/Mandantenverwaltung): `IgnoreQueryFilters()` wo nötig
-- `/tenants`, `/platform/licenses` und `/platform/email/*` nur Superuser; `/users` gefiltert über `UserManagementService`
+- `/tenants`, `/platform/licenses`, `/platform/plans` und `/platform/email/*` nur Superuser; `/users` gefiltert über `UserManagementService`
 - `/passwort-vergessen` und `/passwort-zuruecksetzen` öffentlich (ohne Mandantenauswahl)
 - `/admin/erinnerungen` nur Superuser ohne Mandantenauswahl (alle aktiven Mandanten)
 - Email-Routen sind von der Mandantenauswahl ausgenommen (`TenantService.IsTenantRequiredForRoute`)

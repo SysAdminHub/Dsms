@@ -19,6 +19,7 @@ public class ApplicationDbContext(
     : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<License> Licenses => Set<License>();
+    public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<UserTenant> UserTenants => Set<UserTenant>();
     public DbSet<AuditTemplate> AuditTemplates => Set<AuditTemplate>();
@@ -74,6 +75,28 @@ public class ApplicationDbContext(
             e.HasIndex(l => l.LicenseNumber).IsUnique();
             e.HasIndex(l => l.CustomerName);
             e.HasIndex(l => l.Status);
+        });
+
+        builder.Entity<SubscriptionPlan>(e =>
+        {
+            e.ToTable("SubscriptionPlans");
+            e.HasKey(p => p.Id);
+            e.Property(p => p.Name).HasMaxLength(100).IsRequired();
+            e.Property(p => p.DisplayName).HasMaxLength(200).IsRequired();
+            e.Property(p => p.Description).HasColumnType("text");
+            e.Property(p => p.Currency).HasMaxLength(10).IsRequired().HasDefaultValue("EUR");
+            e.Property(p => p.ExternalProductId).HasMaxLength(200);
+            e.Property(p => p.ExternalMonthlyPriceId).HasMaxLength(200);
+            e.Property(p => p.ExternalYearlyPriceId).HasMaxLength(200);
+            e.Property(p => p.InternalNote).HasColumnType("text");
+            e.Property(p => p.IsActive).HasDefaultValue(true);
+            e.Property(p => p.IsFree).HasDefaultValue(false);
+            e.Property(p => p.SortOrder).HasDefaultValue(0);
+            e.Property(p => p.PriceMonthly).HasPrecision(18, 2);
+            e.Property(p => p.PriceYearly).HasPrecision(18, 2);
+            e.HasIndex(p => p.Name).IsUnique();
+            e.HasIndex(p => p.IsActive);
+            e.HasIndex(p => p.SortOrder);
         });
 
         builder.Entity<ApplicationUser>(e =>

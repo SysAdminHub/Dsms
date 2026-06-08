@@ -4,6 +4,39 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- **ProvisioningService:**
+  - `IProvisioningService` / `ProvisioningService` mit `ProvisionCustomerAsync` – erstellt License (via Plan-Mapping), Tenant, Admin und sendet Passwortvergabe-Mail
+  - DTOs `ProvisionCustomerRequestDto`, `ProvisionCustomerResultDto`
+  - Gemeinsame Plan-Mapping-Logik in `PlanToLicenseMapper` / `PlanToLicenseValidator`
+  - `SendProvisioningWelcomeEmailAsync` in `IPasswordResetService` (ohne Benutzerverwaltungs-Prüfung)
+  - Superuser-Seite `/platform/provisioning/create` (Navigation „Provisionierung“)
+  - Auditlog `CustomerProvisioned`, Systemlogs bei Fehlern (`ProvisioningFailed`, `PasswordSetupEmailFailed`)
+  - **Ohne** Public Signup, Mollie, PendingSignup, Webhook; wiederverwendbar für spätere Signup-/Webhook-Flows
+
+### Hinzugefügt
+
+- **Plan-to-License Mapping:**
+  - `IPlanToLicenseService` / `PlanToLicenseService` – kopiert Tarifvorlagen-Werte in neue `License`-Einträge
+  - `PreviewLicenseFromPlanAsync`, `CreateLicenseFromPlanAsync`, DTOs `CreateLicenseFromPlanDto`, `LicenseFromPlanPreviewDto`
+  - Gemeinsame Lizenznummern-Generierung in `LicenseNumberGenerator` (wiederverwendet von `LicenseService`)
+  - Superuser-Seite `/platform/licenses/create-from-plan` („Neue Lizenz aus Plan“)
+  - Auditlog `LicenseCreatedFromPlan` (`IsVisibleToAdmin = false`)
+  - **Ohne** Public Signup, Mollie, ProvisioningService, Mandanten-/Admin-Anlage, Passwortmail; bestehende Lizenzen unverändert
+
+### Hinzugefügt
+
+- **Tarif-/Planverwaltung (Grundlage):**
+  - Neue Entity `SubscriptionPlan` (Guid-Id) als Tarifvorlage mit Preisen, Limits und optionalen externen Billing-Feldern
+  - `ISubscriptionPlanService` / `SubscriptionPlanService` mit CRUD und `GetActivePlansAsync()` (für späteren Signup vorbereitet)
+  - Superuser-Seiten: `/platform/plans` (Übersicht), `/platform/plans/edit`, `/platform/plans/{id}` (Details)
+  - Navigation „Pläne“ im Plattform-Bereich (nur Superuser)
+  - EF-Migration `AddSubscriptionPlans`
+  - Idempotentes Seeding der Demo-Tarife `free`, `basic`, `pro`, `business` (`SubscriptionPlanSeeder`)
+  - Plattform-Auditlog: `SubscriptionPlanCreated`, `SubscriptionPlanUpdated`, `SubscriptionPlanActivated`, `SubscriptionPlanDeactivated` (`IsVisibleToAdmin = false`)
+  - **Ohne** Public Signup, Mollie, ProvisioningService, automatische Lizenzanlage, Featurelocks; bestehende `License`-Logik unverändert
+
 ### Geändert
 
 - **Audit-Diffs lesbar:** `AuditDiffHelper`, `ComplianceAuditDiffBuilder` und `AuditLogChangeParser` – Update-Logs speichern nur geänderte Felder als lesbare Strings (Enums/Status nicht mehr als `{}`); leere Updates werden nicht geschrieben

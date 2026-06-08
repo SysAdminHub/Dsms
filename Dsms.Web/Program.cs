@@ -3,6 +3,8 @@ using Dsms.Web.Components.Account;
 using Dsms.Web.Data;
 using Dsms.Web.Data.Seed;
 using Dsms.Web.Services;
+using Dsms.Web.Services.TenantDeletion;
+using Dsms.Web.Services.TenantExport;
 using Dsms.Web.Services.Email;
 using Dsms.Web.Services.PasswordReset;
 using Dsms.Web.Services.Reminders;
@@ -47,6 +49,8 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ProcessingActivityRelationsService>();
 builder.Services.AddScoped<DocumentStorageService>();
 builder.Services.AddScoped<DocumentLinksService>();
+builder.Services.AddScoped<ITenantExportService, TenantExportService>();
+builder.Services.AddScoped<ITenantDeletionService, TenantDeletionService>();
 builder.Services.AddDataProtection();
 builder.Services.AddScoped<IEmailSecretProtector, EmailSecretProtector>();
 builder.Services.AddScoped<IEmailTemplateRenderer, EmailTemplateRenderer>();
@@ -150,6 +154,7 @@ app.MapPost("/tenant/switch", async (
 // Minimal-API-Endpunkte für Identity-Formulare (Logout, externe Logins, …).
 app.MapAdditionalIdentityEndpoints();
 app.MapDocumentFileEndpoints();
+app.MapTenantDataEndpoints();
 
 await DatabaseSeeder.SeedAsync(app.Services);
 

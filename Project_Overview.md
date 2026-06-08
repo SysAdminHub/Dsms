@@ -46,13 +46,16 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | DSFA | Datenschutz-Folgenabschätzungen – Listen, Detail, Anlegen/Bearbeiten; Zuordnung zu Verarbeitungstätigkeiten |
 | TOM-Verzeichnis | Technische und organisatorische Maßnahmen – Listen, Detail, Anlegen/Bearbeiten; Verknüpfung mit Verarbeitungstätigkeiten |
 | Dienstleister | Auftragsverarbeiter und externe Dienstleister – AVV, Drittland, TOM-Prüfung; Verknüpfung mit VVT und TOMs |
-| Audit-Vorlagen | Listen, Anlegen und Bearbeiten von Vorlagen inkl. Fragen |
+| Audit-Vorlagen | Eigene, offizielle und Community-Vorlagen; Einreichung zur Community-Prüfung; Listen, Anlegen, Bearbeiten/Ansehen inkl. Fragen |
 | Audit-Durchläufe | Listen, Anlegen und Bearbeiten von Durchläufen; Beantwortung der Vorlagenfragen |
 | Maßnahmen | Listen, Anlegen und Bearbeiten von Maßnahmen mit Status und Fälligkeit; direkt aus Auditfragen bei Handlungsbedarf |
 | Dokumente | Upload von Nachweisdateien (max. 10 MB), Zuordnung zu Audit, Maßnahme, Dienstleister oder Verarbeitungstätigkeit |
 | Mandanten | Verwaltung von Organisationseinheiten (**nur Superuser**, plattformweit) |
 | Benutzer | Anlegen und Bearbeiten von Konten, Rollen, Mandant, Aktiv-Status (**Superuser** mandantenübergreifend, **Admin** nur im eigenen Mandant) |
 | Tenant-Daten | Vollständiger Mandanten-Export als ZIP und sichere Löschanforderung (**Superuser** und **Admin**) |
+| Email | Zentrale SMTP-Einstellungen und Email-Vorlagen (**nur Superuser**); Testmail und Vorschau |
+| Benutzer | Anlegen (ohne Passwort, mit Willkommensmail) und Bearbeiten von Konten, Rollen, Mandant, Aktiv-Status (**Superuser** mandantenübergreifend, **Admin** nur im eigenen Mandant) |
+| Erinnerungen | Fällige Datenschutz-Themen prüfen und Sammelmail an Mandanten-Admins senden (**Superuser** + **Admin**) |
 | Konto | Standard-Identity-Funktionen (Profil, Passwort, optional 2FA usw.) |
 
 ## Module und Seiten
@@ -79,9 +82,12 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | `/service-providers/{Id}` | Dienstleister (Detail) | Alle angemeldeten Benutzer mit Mandant |
 | `/service-providers/edit` | Dienstleister anlegen | Nur **Admin** und **Auditor** |
 | `/service-providers/edit/{Id}` | Dienstleister bearbeiten | Nur **Admin** und **Auditor**; Zuordnung zu VVT und TOMs |
-| `/audit-templates` | Audit-Vorlagen (Liste) | Vorlagen des eigenen Mandanten |
-| `/audit-templates/edit` | Vorlage anlegen | Nur Rollen **Admin** und **Auditor** |
-| `/audit-templates/edit/{Id}` | Vorlage bearbeiten + Fragen hinzufügen | Nur **Admin** und **Auditor** |
+| `/audit-templates` | Audit-Vorlagen (Liste) | Eigene Vorlagen des Mandanten + offizielle Vorlagen; Badge „Eigene Vorlage“ / „Offiziell“; Superuser sieht zusätzlich „Neue globale Vorlage“ |
+| `/audit-templates/edit` | Mandantenvorlage anlegen | **Admin**/**Auditor** und **Superuser** (Vorlage im aktuell ausgewählten Mandanten) |
+| `/audit-templates/edit?type=official` | Globale/offizielle Vorlage anlegen | Nur **Superuser**; `TenantId` bleibt null trotz Mandantenkontext |
+| `/audit-templates/edit/{Id}` | Vorlage bearbeiten oder ansehen + Fragen | Fragen hinzufügen/bearbeiten/löschen nur bei bearbeitbarer Vorlage; offizielle/Community nur **Superuser** |
+| `/platform/audit-templates/community` | Community-Einreichungen prüfen (Liste) | Nur **Superuser** |
+| `/platform/audit-templates/community/{Id}` | Einreichung freigeben oder ablehnen | Nur **Superuser** |
 | `/audit-runs` | Audit-Durchläufe (Liste) | Durchläufe des eigenen Mandanten |
 | `/audit-runs/edit` | Durchlauf anlegen | Nur **Admin** und **Auditor** |
 | `/audit-runs/edit/{Id}` | Durchlauf bearbeiten (Status, Vorlage) | Nur **Admin** und **Auditor** |
@@ -98,6 +104,9 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | `/tenants` | Mandanten (Liste) |
 | `/tenants/edit` | Mandant anlegen |
 | `/tenants/edit/{Id}` | Mandant bearbeiten |
+| `/platform/email/settings` | Email-Einstellungen (SMTP, Testmail) |
+| `/platform/email/templates` | Email-Vorlagen (Liste) |
+| `/platform/email/templates/edit/{Id}` | Email-Vorlage bearbeiten (Vorschau, Testmail) |
 
 ### Benutzerverwaltung (**Superuser** und **Admin**)
 
@@ -109,12 +118,15 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | `/tenant-daten` | Tenant-Daten | Export als ZIP und Löschanforderung; Superuser: aktuell gewählter Mandant; Admin: nur eigener Mandant |
 
 Der Mandanten-Export enthält fachliche Daten und Dokumente des aktuellen Mandanten, **keine** Passwort-Hashes, Tokens oder Secrets. Die Löschanforderung markiert den Mandanten nur als „Löschung angefordert“ – eine endgültige Löschung folgt später in einem separaten Prozess.
+| `/admin/erinnerungen` | Erinnerungen | Superuser: alle Mandanten; Admin: nur eigener Mandant; manueller Versand mit Vorschau |
 
 ### Konto und Anmeldung
 
 | Route | Hinweis |
 |-------|---------|
-| `/Account/Login` | Anmeldung (eigenes Layout ohne Sidebar) |
+| `/Account/Login` | Anmeldung (eigenes Layout ohne Sidebar); Link „Passwort vergessen?“ |
+| `/passwort-vergessen` | Passwortreset anfordern (Self-Service, neutrale Meldung) |
+| `/passwort-zuruecksetzen` | Neues Passwort setzen (Identity-Token per Query) |
 | `/Account/Manage` und Unterseiten | Profil, Passwort, 2FA, persönliche Daten (Standard-Identity-Vorlagen, teils englische UI-Texte) |
 | `/Account/Register` | Registrierung vorhanden, aber **nicht** in der Login-Seite verlinkt |
 | `/not-found` | Seite nicht gefunden |
@@ -124,7 +136,7 @@ Der Mandanten-Export enthält fachliche Daten und Dokumente des aktuellen Mandan
 | Begriff | Bedeutung im System |
 |--------|---------------------|
 | **Mandant (Tenant)** | Organisationseinheit; Daten werden primär nach `TenantId` getrennt |
-| **Audit-Vorlage** | Wiederverwendbarer Fragenkatalog (Titel, Version, aktiv/inaktiv) |
+| **Audit-Vorlage** | Wiederverwendbarer Fragenkatalog; **Eigene Vorlage**, **Offiziell** (Plattform) oder **Community** (vom Mandanten eingereicht und freigegeben) |
 | **Audit-Frage** | Einzelne Prüffrage in einer Vorlage (Sortierung, Kategorie, Pflichtfeld) |
 | **Audit-Durchlauf** | Konkretes Audit auf Basis einer Vorlage mit Lebenszyklus-Status |
 | **Audit-Antwort** | Antwort zu einer Frage innerhalb eines Durchlaufs inkl. Compliance-Bewertung |
@@ -249,6 +261,10 @@ Der Mandanten-Export enthält fachliche Daten und Dokumente des aktuellen Mandan
 - Nachweisdokumente optional einem Dienstleister zuordenbar
 - Datei-Upload mit Mandantenordner unter `Data/Uploads/`
 - Rollenbasierte Navigation und Seitenautorisierung
+- Zentraler Emailservice (Superuser): globale SMTP-Einstellungen, Email-Vorlagen mit Platzhaltern `{{VariableName}}`, Vorschau und Testmail
+- Passwortreset (ASP.NET Identity): Self-Service über „Passwort vergessen?“; Admin/Superuser können Reset-Mails aus der Benutzerverwaltung auslösen
+- Benutzeranlage ohne Passwort: Willkommensmail mit Einladungslink (Identity-Token, 60 Min.); Passwort festlegen über `/passwort-zuruecksetzen?mode=invite`
+- Erinnerungen (manuell): DSFA/TOM/AVV/Maßnahmen/Audit-Inaktivität; Sammelmail pro Mandant an Admins
 
 ### Was das System (noch) nicht kann
 
@@ -258,7 +274,8 @@ Der Mandanten-Export enthält fachliche Daten und Dokumente des aktuellen Mandan
 - Mandantenwechsel im UI für Compliance-Daten (Superuser ohne `TenantId` sieht kein mandantenbezogenes Dashboard)
 - Bearbeiten oder Löschen einzelner Audit-Fragen nach dem Anlegen
 - Zuweisung von Verantwortlichen (`AssignedUserId`) in der UI – Feld existiert im Datenmodell
-- Echter E-Mail-Versand (Bestätigung, Passwort-Reset)
+- Vollständige Email-Workflows für Benutzer-Einladung und Erinnerungen – Vorlagen sind vorbereitet, Workflows folgen später
+- Email-Versandprotokoll (EmailLog) – bewusst noch nicht enthalten
 - Öffentliche Selbstregistrierung als Standard-Workflow (Register-Seite existiert, ist aber nicht eingebunden)
 - Mehrere Mandanten pro Benutzer (geplant; aktuell genau ein `TenantId` pro Konto, außer Superuser)
 - Rollen pro Mandant und Impersonation (geplant)

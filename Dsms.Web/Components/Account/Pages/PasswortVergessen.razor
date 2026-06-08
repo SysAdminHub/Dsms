@@ -1,0 +1,87 @@
+@page "/passwort-vergessen"
+@layout LoginLayout
+
+@using System.ComponentModel.DataAnnotations
+@using Dsms.Web.Services.PasswordReset
+
+@inject IPasswordResetService PasswordReset
+
+<PageTitle>Passwort vergessen</PageTitle>
+
+<div class="dsms-login-card">
+    <div class="dsms-login-brand">
+        <div class="dsms-login-logo">DS</div>
+        <h1>Passwort vergessen</h1>
+        <p>Geben Sie Ihre Emailadresse ein. Sie erhalten einen Link zum Zurücksetzen des Passworts.</p>
+    </div>
+
+    @if (_submitted)
+    {
+        <div class="alert alert-success dsms-alert" role="alert">@_neutralMessage</div>
+        <a class="btn btn-outline-secondary w-100" href="Account/Login">Zurück zur Anmeldung</a>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_validationError))
+        {
+            <div class="alert alert-danger dsms-alert" role="alert">@_validationError</div>
+        }
+
+        <EditForm Model="Input" FormName="passwort-vergessen" OnValidSubmit="OnValidSubmitAsync" method="post" class="dsms-form">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger dsms-alert alert alert-danger" role="alert" />
+
+            <div class="mb-3">
+                <label for="Input.Email" class="form-label">Emailadresse</label>
+                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@beispiel.de" />
+                <ValidationMessage For="() => Input.Email" class="validation-message" />
+            </div>
+            <button type="submit" class="w-100 btn btn-primary btn-lg" disabled="@_submitting">Email zum Zurücksetzen senden</button>
+        </EditForm>
+
+        <div class="text-center mt-3">
+            <a href="Account/Login">Zurück zur Anmeldung</a>
+        </div>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = default!;
+
+    private bool _submitted;
+    private bool _submitting;
+    private string _neutralMessage = "";
+    private string? _validationError;
+
+    protected override void OnInitialized()
+    {
+        Input ??= new();
+    }
+
+    private async Task OnValidSubmitAsync()
+    {
+        _submitting = true;
+        _validationError = null;
+
+        var result = await PasswordReset.RequestSelfServiceResetAsync(Input.Email);
+
+        if (!string.IsNullOrEmpty(result.ValidationError))
+        {
+            _validationError = result.ValidationError;
+            _submitting = false;
+            return;
+        }
+
+        _neutralMessage = result.Message;
+        _submitted = true;
+        _submitting = false;
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "Emailadresse ist erforderlich.")]
+        [EmailAddress(ErrorMessage = "Bitte eine gültige Emailadresse eingeben.")]
+        public string Email { get; set; } = "";
+    }
+}

@@ -5,6 +5,9 @@ using Dsms.Web.Data.Seed;
 using Dsms.Web.Services;
 using Dsms.Web.Services.TenantDeletion;
 using Dsms.Web.Services.TenantExport;
+using Dsms.Web.Services.Email;
+using Dsms.Web.Services.PasswordReset;
+using Dsms.Web.Services.Reminders;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -41,12 +44,21 @@ builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<IUserAccessService, UserAccessService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddScoped<IArchivingService, ArchivingService>();
+builder.Services.AddScoped<IAuditTemplateService, AuditTemplateService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ProcessingActivityRelationsService>();
 builder.Services.AddScoped<DocumentStorageService>();
 builder.Services.AddScoped<DocumentLinksService>();
 builder.Services.AddScoped<ITenantExportService, TenantExportService>();
 builder.Services.AddScoped<ITenantDeletionService, TenantDeletionService>();
+builder.Services.AddDataProtection();
+builder.Services.AddScoped<IEmailSecretProtector, EmailSecretProtector>();
+builder.Services.AddScoped<IEmailTemplateRenderer, EmailTemplateRenderer>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IEmailSettingsService, EmailSettingsService>();
+builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+builder.Services.AddScoped<IReminderService, ReminderService>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -83,7 +95,12 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-// Kein echter Mailversand in Version 1.
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+{
+    options.TokenLifespan = TimeSpan.FromMinutes(60);
+});
+
+// Identity-Stub für generische Identity-UI; Passwortreset nutzt IEmailService direkt.
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 var app = builder.Build();

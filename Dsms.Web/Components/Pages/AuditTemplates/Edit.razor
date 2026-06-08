@@ -1,49 +1,128 @@
 @*
     Vorlage inkl. Fragenverwaltung. Fragen-Block nur sichtbar nach erstem Speichern (Id > 0).
+    Globale Vorlagen: /audit-templates/edit?type=official (nur Superuser).
 *@
 @page "/audit-templates/edit"
 @page "/audit-templates/edit/{Id:int}"
-@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+@attribute [Authorize]
 @rendermode InteractiveServer
 
-<PageTitle>Vorlage bearbeiten</PageTitle>
+<PageTitle>@PageTitleText</PageTitle>
 
 @if (_tenantId is null)
 {
     <PageHeader Title="Audit-Vorlage" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
+else if (_accessDenied)
+{
+    <PageHeader Title="Audit-Vorlage" />
+    <div class="alert alert-danger dsms-alert">Zugriff verweigert.</div>
+    <a class="btn btn-outline-secondary" href="audit-templates">Zurück</a>
+}
+else if (_createDenied)
+{
+    <PageHeader Title="Audit-Vorlage" />
+    <div class="alert alert-danger dsms-alert">Sie dürfen keine Audit-Vorlagen anlegen.</div>
+    <a class="btn btn-outline-secondary" href="audit-templates">Zurück</a>
+}
 else
 {
-    <PageHeader Title="@(_model.Id == 0 ? "Audit-Vorlage anlegen" : "Audit-Vorlage bearbeiten")" />
+    <PageHeader Title="@PageTitleText">
+        @if (_canSubmitToCommunity)
+        {
+            <button type="button" class="btn btn-outline-primary" @onclick="ShowSubmitModal">Als Community-Vorlage einreichen</button>
+        }
+    </PageHeader>
+
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success dsms-alert">@_successMessage</div>
+    }
+
+    @if (!string.IsNullOrEmpty(_typeHint))
+    {
+        <div class="alert alert-info dsms-alert">@_typeHint</div>
+    }
+
+    @if (_model.CommunityStatus == CommunityStatus.Rejected && !string.IsNullOrEmpty(_model.ReviewComment))
+    {
+        <div class="alert alert-warning dsms-alert">
+            Kommentar zur Ablehnung: @_model.ReviewComment
+        </div>
+    }
+
+    @if (_readOnly)
+    {
+        <div class="alert alert-secondary dsms-alert">Diese Vorlage kann nur angesehen werden.</div>
+    }
 
     <div class="dsms-card dsms-form-card mb-4">
         <div class="dsms-card-body">
-            <EditForm Model="_model" OnValidSubmit="SaveTemplateAsync" class="dsms-form">
-                <ValidationSummary class="alert alert-danger dsms-alert" />
-
-                <div class="mb-3">
-                    <label class="form-label">Titel</label>
-                    <InputText class="form-control" @bind-Value="_model.Title" />
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Beschreibung</label>
-                    <InputTextArea class="form-control" @bind-Value="_model.Description" rows="3" />
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Version</label>
-                    <InputText class="form-control" @bind-Value="_model.Version" />
-                </div>
-                <div class="form-check mb-4">
-                    <InputCheckbox class="form-check-input" @bind-Value="_model.IsActive" id="templateActive" />
-                    <label class="form-check-label" for="templateActive">Aktiv</label>
-                </div>
-
-                <div class="dsms-form-actions">
-                    <button type="submit" class="btn btn-primary">Vorlage speichern</button>
+            @if (_readOnly)
+            {
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">Titel</dt>
+                    <dd class="col-sm-9">@_model.Title</dd>
+                    <dt class="col-sm-3">Typ</dt>
+                    <dd class="col-sm-9">
+                        <div class="d-flex flex-wrap gap-1">
+                            <StatusBadge Text="@AuditTemplateLabels.GetTypeBadge(_model.TemplateType)"
+                                         Variant="@AuditTemplateLabels.GetTypeBadgeVariant(_model.TemplateType)" />
+                            @if (_model.TemplateType == AuditTemplateType.Tenant)
+                            {
+                                var statusBadge = AuditTemplateLabels.GetCommunityStatusBadge(_model.CommunityStatus);
+                                if (statusBadge is not null)
+                                {
+                                    <StatusBadge Text="@statusBadge"
+                                                 Variant="@(_model.CommunityStatus == CommunityStatus.Rejected ? "danger" : "warning")" />
+                                }
+                            }
+                        </div>
+                    </dd>
+                    <dt class="col-sm-3">Beschreibung</dt>
+                    <dd class="col-sm-9">@(_model.Description ?? "—")</dd>
+                    <dt class="col-sm-3">Version</dt>
+                    <dd class="col-sm-9">@_model.Version</dd>
+                    <dt class="col-sm-3">Status</dt>
+                    <dd class="col-sm-9">@(_model.IsActive ? "Aktiv" : "Inaktiv")</dd>
+                </dl>
+                <div class="dsms-form-actions mt-4">
+                    @if (_canCopy)
+                    {
+                        <button type="button" class="btn btn-outline-primary" disabled="@_copyBusy" @onclick="CopyAsync">Kopie erstellen</button>
+                    }
                     <a class="btn btn-outline-secondary" href="audit-templates">Zurück</a>
                 </div>
-            </EditForm>
+            }
+            else
+            {
+                <EditForm Model="_model" OnValidSubmit="SaveTemplateAsync" class="dsms-form">
+                    <ValidationSummary class="alert alert-danger dsms-alert" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Titel</label>
+                        <InputText class="form-control" @bind-Value="_model.Title" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Beschreibung</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.Description" rows="3" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Version</label>
+                        <InputText class="form-control" @bind-Value="_model.Version" />
+                    </div>
+                    <div class="form-check mb-4">
+                        <InputCheckbox class="form-check-input" @bind-Value="_model.IsActive" id="templateActive" />
+                        <label class="form-check-label" for="templateActive">Aktiv</label>
+                    </div>
+
+                    <div class="dsms-form-actions">
+                        <button type="submit" class="btn btn-primary">Vorlage speichern</button>
+                        <a class="btn btn-outline-secondary" href="audit-templates">Zurück</a>
+                    </div>
+                </EditForm>
+            }
         </div>
     </div>
 
@@ -52,25 +131,37 @@ else
         <div class="dsms-card">
             <div class="dsms-card-header">Fragen (@_questions.Count)</div>
             <div class="dsms-card-body">
-                <EditForm Model="_newQuestion" OnValidSubmit="AddQuestionAsync" class="dsms-form dsms-upload-zone mb-4">
-                    <div class="row g-2 align-items-end">
-                        <div class="col-6 col-md-1">
-                            <label class="form-label">Nr.</label>
-                            <InputNumber class="form-control" @bind-Value="_newQuestion.SortOrder" />
+                @if (!string.IsNullOrEmpty(_questionError))
+                {
+                    <div class="alert alert-danger dsms-alert">@_questionError</div>
+                }
+                @if (!string.IsNullOrEmpty(_questionSuccess))
+                {
+                    <div class="alert alert-success dsms-alert">@_questionSuccess</div>
+                }
+
+                @if (!_readOnly)
+                {
+                    <EditForm Model="_newQuestion" OnValidSubmit="AddQuestionAsync" class="dsms-form dsms-upload-zone mb-4">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-6 col-md-1">
+                                <label class="form-label">Nr.</label>
+                                <InputNumber class="form-control" @bind-Value="_newQuestion.SortOrder" />
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <label class="form-label">Kategorie</label>
+                                <InputText class="form-control" @bind-Value="_newQuestion.Category" placeholder="z. B. Technik" />
+                            </div>
+                            <div class="col-12 col-md-7">
+                                <label class="form-label">Fragentext</label>
+                                <InputText class="form-control" @bind-Value="_newQuestion.Text" />
+                            </div>
+                            <div class="col-12 col-md-2">
+                                <button type="submit" class="btn btn-outline-primary w-100">Hinzufügen</button>
+                            </div>
                         </div>
-                        <div class="col-6 col-md-2">
-                            <label class="form-label">Kategorie</label>
-                            <InputText class="form-control" @bind-Value="_newQuestion.Category" placeholder="z. B. Technik" />
-                        </div>
-                        <div class="col-12 col-md-7">
-                            <label class="form-label">Fragentext</label>
-                            <InputText class="form-control" @bind-Value="_newQuestion.Text" />
-                        </div>
-                        <div class="col-12 col-md-2">
-                            <button type="submit" class="btn btn-outline-primary w-100">Hinzufügen</button>
-                        </div>
-                    </div>
-                </EditForm>
+                    </EditForm>
+                }
 
                 @if (_questions.Count == 0)
                 {
@@ -82,14 +173,56 @@ else
                         @foreach (var question in _questions.OrderBy(q => q.SortOrder))
                         {
                             <li class="dsms-list-item">
-                                <span>
-                                    <strong>@question.SortOrder.</strong>
-                                    @if (!string.IsNullOrEmpty(question.Category))
-                                    {
-                                        <StatusBadge Text="@question.Category" Variant="primary" />
-                                    }
-                                    @question.Text
-                                </span>
+                                @if (_editingQuestionId == question.Id)
+                                {
+                                    <EditForm Model="_editDraft" OnValidSubmit="SaveQuestionAsync" FormName="@($"edit-question-{question.Id}")" class="dsms-form">
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-6 col-md-1">
+                                                <label class="form-label">Nr.</label>
+                                                <InputNumber class="form-control" @bind-Value="_editDraft.SortOrder" />
+                                            </div>
+                                            <div class="col-6 col-md-2">
+                                                <label class="form-label">Kategorie</label>
+                                                <InputText class="form-control" @bind-Value="_editDraft.Category" />
+                                            </div>
+                                            <div class="col-12 col-md-7">
+                                                <label class="form-label">Fragentext</label>
+                                                <InputText class="form-control" @bind-Value="_editDraft.Text" />
+                                            </div>
+                                            <div class="col-12 col-md-2 d-flex flex-column gap-1">
+                                                <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEditQuestion">Abbrechen</button>
+                                            </div>
+                                        </div>
+                                    </EditForm>
+                                }
+                                else
+                                {
+                                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                                        <span>
+                                            <strong>@question.SortOrder.</strong>
+                                            @if (!string.IsNullOrEmpty(question.Category))
+                                            {
+                                                <StatusBadge Text="@question.Category" Variant="primary" />
+                                            }
+                                            @question.Text
+                                        </span>
+                                        @if (!_readOnly)
+                                        {
+                                            <div class="d-flex flex-wrap gap-1 align-items-center">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => StartEditQuestion(question)">Bearbeiten</button>
+                                                @if (_questionsInUse.Contains(question.Id))
+                                                {
+                                                    <span class="text-muted small" title="@AuditTemplateLabels.QuestionDeleteInUse">In Verwendung</span>
+                                                }
+                                                else
+                                                {
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => ShowDeleteQuestionModal(question)">Löschen</button>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
                             </li>
                         }
                     </ul>
@@ -99,63 +232,371 @@ else
     }
 }
 
+<CommunitySubmitModal @ref="_submitModal" OnConfirmed="SubmitToCommunityAsync" />
+<DeleteQuestionConfirmModal @ref="_deleteQuestionModal" OnConfirmed="ConfirmDeleteQuestionAsync" />
+
 @code {
     [Parameter] public int? Id { get; set; }
+    [SupplyParameterFromQuery] public string? Type { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private IAuditTemplateService TemplateService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _accessDenied;
+    private bool _createDenied;
+    private bool _readOnly;
+    private bool _canSubmitToCommunity;
+    private bool _canCopy;
+    private bool _copyBusy;
+    private bool _isOfficialCreateMode;
+    private string? _typeHint;
+    private string? _successMessage;
+    private string? _questionError;
+    private string? _questionSuccess;
+    private HashSet<int> _questionsInUse = [];
+    private int? _editingQuestionId;
     private AuditTemplate _model = new();
     private List<AuditQuestion> _questions = [];
     private AuditQuestion _newQuestion = new() { SortOrder = 1, IsRequired = true };
+    private QuestionEditDraft _editDraft = new();
+    private CommunitySubmitModal? _submitModal;
+    private DeleteQuestionConfirmModal? _deleteQuestionModal;
+
+    private string PageTitleText
+    {
+        get
+        {
+            if (_readOnly)
+            {
+                return "Audit-Vorlage ansehen";
+            }
+
+            if (_model.Id == 0 && _isOfficialCreateMode)
+            {
+                return "Neue globale Vorlage";
+            }
+
+            if (_model.Id > 0 && _model.TemplateType == AuditTemplateType.Official)
+            {
+                return "Offizielle Vorlage bearbeiten";
+            }
+
+            if (_model.Id > 0 && _model.TemplateType == AuditTemplateType.Community)
+            {
+                return "Community-Vorlage bearbeiten";
+            }
+
+            return _model.Id == 0 ? "Audit-Vorlage anlegen" : "Audit-Vorlage bearbeiten";
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
+        _isOfficialCreateMode = Id is null or 0
+            && string.Equals(Type, "official", StringComparison.OrdinalIgnoreCase);
+
         if (Id is > 0)
         {
-            _model = await Db.AuditTemplates
-                .Include(t => t.Questions)
-                .FirstAsync(t => t.Id == Id && t.TenantId == _tenantId);
-            _questions = _model.Questions.ToList();
-            _newQuestion.SortOrder = (_questions.Count == 0 ? 0 : _questions.Max(q => q.SortOrder)) + 1;
+            var template = await TemplateService.GetByIdAsync(Id.Value);
+            if (template is null)
+            {
+                _accessDenied = true;
+                return;
+            }
+
+            await LoadTemplateStateAsync(template);
+        }
+        else if (_isOfficialCreateMode)
+        {
+            if (!await TemplateService.CanCreateOfficialTemplateAsync())
+            {
+                _accessDenied = true;
+                return;
+            }
+
+            _model.TemplateType = AuditTemplateType.Official;
+            _model.TenantId = null;
+            _typeHint = AuditTemplateLabels.OfficialCreateHint;
         }
         else
         {
+            if (!await TemplateService.CanCreateTenantTemplateAsync())
+            {
+                _createDenied = true;
+                return;
+            }
+
             _model.TenantId = _tenantId.Value;
+            _model.TemplateType = AuditTemplateType.Tenant;
+            _typeHint = AuditTemplateLabels.GetTypeHint(AuditTemplateType.Tenant);
+        }
+    }
+
+    private async Task LoadTemplateStateAsync(AuditTemplate template)
+    {
+        _model = template;
+        await ReloadQuestionsAsync();
+        _readOnly = !await TemplateService.CanEditAsync(_model);
+        _canSubmitToCommunity = !_readOnly && await TemplateService.CanSubmitToCommunityAsync(_model);
+        _canCopy = _readOnly && await TemplateService.CanCopyToTenantAsync(_model);
+        _typeHint = ResolveTypeHint();
+    }
+
+    private string? ResolveTypeHint()
+    {
+        if (_model.TemplateType == AuditTemplateType.Tenant && _model.CommunityStatus == CommunityStatus.Submitted)
+        {
+            return AuditTemplateLabels.CommunitySubmittedHint;
+        }
+
+        if (_readOnly)
+        {
+            return AuditTemplateLabels.GetTypeHint(_model.TemplateType);
+        }
+
+        return _model.TemplateType switch
+        {
+            AuditTemplateType.Official => AuditTemplateLabels.OfficialEditHint,
+            AuditTemplateType.Community => AuditTemplateLabels.GetTypeHint(AuditTemplateType.Community),
+            _ => AuditTemplateLabels.GetTypeHint(AuditTemplateType.Tenant)
+        };
+    }
+
+    private void ShowSubmitModal() => _submitModal?.Show();
+
+    private async Task SubmitToCommunityAsync()
+    {
+        if (_model.Id == 0)
+        {
+            return;
+        }
+
+        var result = await TemplateService.SubmitToCommunityAsync(_model.Id);
+        if (!result.Succeeded)
+        {
+            _accessDenied = true;
+            return;
+        }
+
+        var refreshed = await TemplateService.GetByIdAsync(_model.Id);
+        if (refreshed is not null)
+        {
+            await LoadTemplateStateAsync(refreshed);
+        }
+
+        _successMessage = result.Message;
+    }
+
+    private async Task CopyAsync()
+    {
+        _copyBusy = true;
+        try
+        {
+            var result = await TemplateService.CopyToTenantAsync(_model.Id);
+            if (result.Succeeded)
+            {
+                Navigation.NavigateTo("audit-templates");
+            }
+        }
+        finally
+        {
+            _copyBusy = false;
         }
     }
 
     private async Task SaveTemplateAsync()
     {
+        if (_readOnly)
+        {
+            return;
+        }
+
         if (_model.Id == 0)
         {
+            if (_isOfficialCreateMode)
+            {
+                if (!await TemplateService.CanCreateOfficialTemplateAsync())
+                {
+                    _accessDenied = true;
+                    return;
+                }
+
+                _model.TemplateType = AuditTemplateType.Official;
+                _model.TenantId = null;
+            }
+            else
+            {
+                if (!await TemplateService.CanCreateTenantTemplateAsync())
+                {
+                    _createDenied = true;
+                    return;
+                }
+
+                _model.TemplateType = AuditTemplateType.Tenant;
+                _model.TenantId = _tenantId!.Value;
+            }
+
             Db.AuditTemplates.Add(_model);
         }
         else
         {
+            if (!await TemplateService.CanEditAsync(_model))
+            {
+                _accessDenied = true;
+                return;
+            }
+
+            if (_model.TemplateType is AuditTemplateType.Official or AuditTemplateType.Community)
+            {
+                _model.TenantId = null;
+            }
+
             _model.UpdatedAt = DateTime.UtcNow;
         }
 
         await Db.SaveChangesAsync();
-        // Nach Anlage zur Bearbeitungs-URL mit Id wechseln, damit Fragen hinzugefügt werden können.
         Navigation.NavigateTo($"audit-templates/edit/{_model.Id}");
     }
 
     private async Task AddQuestionAsync()
     {
-        _newQuestion.AuditTemplateId = _model.Id;
-        Db.AuditQuestions.Add(_newQuestion);
-        await Db.SaveChangesAsync();
-        _questions = await Db.AuditQuestions.Where(q => q.AuditTemplateId == _model.Id).ToListAsync();
+        ClearQuestionMessages();
+        if (_readOnly)
+        {
+            return;
+        }
+
+        var result = await TemplateService.AddQuestionAsync(
+            _model.Id, _newQuestion.SortOrder, _newQuestion.Category, _newQuestion.Text);
+        if (!result.Succeeded)
+        {
+            _questionError = result.Message;
+            return;
+        }
+
+        await ReloadQuestionsAsync();
+    }
+
+    private void StartEditQuestion(AuditQuestion question)
+    {
+        ClearQuestionMessages();
+        _editingQuestionId = question.Id;
+        _editDraft = new QuestionEditDraft
+        {
+            SortOrder = question.SortOrder,
+            Category = question.Category,
+            Text = question.Text
+        };
+    }
+
+    private void CancelEditQuestion()
+    {
+        _editingQuestionId = null;
+        ClearQuestionMessages();
+    }
+
+    private async Task SaveQuestionAsync()
+    {
+        if (_editingQuestionId is null)
+        {
+            return;
+        }
+
+        ClearQuestionMessages();
+        var result = await TemplateService.UpdateQuestionAsync(
+            _model.Id,
+            _editingQuestionId.Value,
+            _editDraft.SortOrder,
+            _editDraft.Category,
+            _editDraft.Text);
+
+        if (!result.Succeeded)
+        {
+            _questionError = result.Message;
+            return;
+        }
+
+        _editingQuestionId = null;
+        _questionSuccess = result.Message;
+        await ReloadQuestionsAsync();
+    }
+
+    private void ShowDeleteQuestionModal(AuditQuestion question)
+    {
+        ClearQuestionMessages();
+        if (_questionsInUse.Contains(question.Id))
+        {
+            _questionError = AuditTemplateLabels.QuestionDeleteInUse;
+            return;
+        }
+
+        _deleteQuestionModal?.Show(question.Id, question.Text);
+    }
+
+    private Task ConfirmDeleteQuestionAsync(int questionId) => DeleteQuestionAsync(questionId);
+
+    private async Task DeleteQuestionAsync(int questionId)
+    {
+        ClearQuestionMessages();
+        var result = await TemplateService.DeleteQuestionAsync(_model.Id, questionId);
+        if (!result.Succeeded)
+        {
+            _questionError = result.Message;
+            return;
+        }
+
+        if (_editingQuestionId == questionId)
+        {
+            _editingQuestionId = null;
+        }
+
+        _questionSuccess = result.Message;
+        await ReloadQuestionsAsync();
+    }
+
+    private void ClearQuestionMessages()
+    {
+        _questionError = null;
+        _questionSuccess = null;
+    }
+
+    private async Task ReloadQuestionsAsync()
+    {
+        _questions = await Db.AuditQuestions
+            .Where(q => q.AuditTemplateId == _model.Id)
+            .ToListAsync();
+
+        if (_questions.Count == 0)
+        {
+            _questionsInUse = [];
+        }
+        else
+        {
+            var questionIds = _questions.Select(q => q.Id).ToList();
+            _questionsInUse = (await Db.AuditAnswers
+                .Where(a => questionIds.Contains(a.AuditQuestionId))
+                .Select(a => a.AuditQuestionId)
+                .Distinct()
+                .ToListAsync()).ToHashSet();
+        }
+
         _newQuestion = new AuditQuestion
         {
             AuditTemplateId = _model.Id,
-            SortOrder = _questions.Max(q => q.SortOrder) + 1,
+            SortOrder = (_questions.Count == 0 ? 0 : _questions.Max(q => q.SortOrder)) + 1,
             IsRequired = true
         };
+    }
+
+    private sealed class QuestionEditDraft
+    {
+        public int SortOrder { get; set; }
+        public string? Category { get; set; }
+        public string Text { get; set; } = "";
     }
 }

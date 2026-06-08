@@ -23,6 +23,7 @@ public static class DatabaseSeeder
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
         await db.Database.MigrateAsync();
+        await EmailTemplateSeeder.SeedAsync(db);
 
         foreach (var role in DsmsRoles.All)
         {
@@ -50,6 +51,7 @@ public static class DatabaseSeeder
         var template = new AuditTemplate
         {
             TenantId = tenant.Id,
+            TemplateType = AuditTemplateType.Tenant,
             Title = "DSGVO-Basisaudit",
             Description = "Einfache Vorlage für den Einstieg in Datenschutz-Audits.",
             Version = "1.0",
@@ -78,12 +80,19 @@ public static class DatabaseSeeder
 
         // Leere Antwort-Zeilen für jede Vorlagenfrage – werden in der UI befüllt.
         var questions = await db.AuditQuestions.Where(q => q.AuditTemplateId == template.Id).ToListAsync();
+        auditRun.TemplateTitleSnapshot = template.Title;
+        auditRun.TemplateVersionSnapshot = template.Version;
+
         foreach (var question in questions)
         {
             db.AuditAnswers.Add(new AuditAnswer
             {
                 AuditRunId = auditRun.Id,
                 AuditQuestionId = question.Id,
+                QuestionText = question.Text,
+                QuestionSortOrder = question.SortOrder,
+                QuestionCategory = question.Category,
+                QuestionIsRequired = question.IsRequired,
                 ComplianceLevel = question.SortOrder == 1 ? ComplianceLevel.Compliant : ComplianceLevel.Open
             });
         }

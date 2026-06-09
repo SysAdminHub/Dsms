@@ -15,6 +15,10 @@ public sealed class PendingSignupListDto
     public string? Source { get; init; }
     public decimal? Amount { get; init; }
     public string? Currency { get; init; }
+    public string? PaymentProvider { get; init; }
+    public string? MetadataJson { get; init; }
+    public string? BillingEmail { get; init; }
+    public string? BillingCompanyName { get; init; }
     public string? ExternalPaymentId { get; init; }
     public Guid? ProvisionedLicenseId { get; init; }
     public string? ProvisionedLicenseNumber { get; init; }

@@ -21,5 +21,11 @@ public class EmailSettings : EntityBase
     public SmtpEncryption Encryption { get; set; } = SmtpEncryption.StartTls;
     public bool IsEnabled { get; set; }
 
+    /// <summary>Interne Systembenachrichtigungen (z. B. neue Registrierungen) versenden.</summary>
+    public bool SystemNotificationsEnabled { get; set; }
+
+    /// <summary>Empfängeradresse für interne Systembenachrichtigungen.</summary>
+    public string? SystemNotificationRecipientEmail { get; set; }
+
     public string? UpdatedByUserId { get; set; }
 }

@@ -27,6 +27,8 @@ public sealed class EmailSettingsEditModel
     public string? SenderName { get; set; }
     public SmtpEncryption Encryption { get; set; } = SmtpEncryption.StartTls;
     public bool IsEnabled { get; set; }
+    public bool SystemNotificationsEnabled { get; set; }
+    public string? SystemNotificationRecipientEmail { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public string? UpdatedByDisplay { get; set; }
 }

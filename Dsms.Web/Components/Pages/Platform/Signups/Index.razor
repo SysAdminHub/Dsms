@@ -5,7 +5,7 @@
 
 <PageTitle>Registrierungen</PageTitle>
 
-<PageHeader Title="Registrierungen" Subtitle="Ausstehende Registrierungen – Vorbereitung für bezahlte Signups (ohne Mollie)">
+<PageHeader Title="Registrierungen" Subtitle="Öffentliche und manuelle Registrierungen – Übersicht und Provisioning-Historie">
     <a class="btn btn-outline-primary" href="platform/signups/create">Neu vormerken</a>
 </PageHeader>
 
@@ -74,7 +74,7 @@ else
                         <th>Plan</th>
                         <th>Quelle</th>
                         <th>Betrag</th>
-                        <th>Payment-ID</th>
+                        <th>Rechnung</th>
                         <th>Lizenz</th>
                         <th>Provisioniert</th>
                         <th>Fehler</th>
@@ -105,7 +105,25 @@ else
                             <td>@(item.PlanDisplayNameSnapshot ?? "—")</td>
                             <td class="small">@(item.Source ?? "—")</td>
                             <td>@PendingSignupDisplayHelper.FormatAmount(item.Amount, item.Currency)</td>
-                            <td class="small">@(item.ExternalPaymentId ?? "—")</td>
+                            <td class="small">
+                                @{
+                                    var isFree = PendingSignupDisplayHelper.IsFreeSignup(item.PaymentProvider, item.Amount);
+                                }
+                                @if (isFree)
+                                {
+                                    <span class="text-muted">Nicht erforderlich</span>
+                                }
+                                else if (PendingSignupDisplayHelper.HasBillingData(item.BillingEmail, item.BillingCompanyName))
+                                {
+                                    <div>@item.BillingEmail</div>
+                                    <StatusBadge Text="@PendingSignupDisplayHelper.GetBillingStatusDisplay(item.MetadataJson, isFree: false)"
+                                                 Variant="@PendingSignupDisplayHelper.BillingStatusBadgeVariant(item.MetadataJson, isFree: false)" />
+                                }
+                                else
+                                {
+                                    <span class="text-warning">Rechnungsdaten fehlen</span>
+                                }
+                            </td>
                             <td>@(item.ProvisionedLicenseNumber ?? "—")</td>
                             <td>@(item.ProvisionedAt?.ToLocalTime().ToString("g") ?? "—")</td>
                             <td class="small text-danger">@(item.ErrorMessage ?? "—")</td>

@@ -4,7 +4,19 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Geändert
+
+- **Systembenachrichtigungen:** Empfänger nicht mehr in `appsettings.json`, sondern in `EmailSettings` unter `/platform/email/settings` (`SystemNotificationsEnabled`, `SystemNotificationRecipientEmail`); Migration `AddEmailSettingsSystemNotifications`
+
 ### Hinzugefügt
+
+- **Signup: Superuser-Ansicht Rechnungsdaten + interne Benachrichtigung:**
+  - Rechnungsdaten in `PendingSignupListDto` (BillingEmail, PaymentProvider, MetadataJson)
+  - Spalte „Rechnung“ in `/platform/signups` (kompakt: E-Mail + Status)
+  - Abschnitt „Rechnungsdaten“ auf `/platform/signups/{id}`; Lizenzstatus und Ablaufdatum aus `ILicenseService`
+  - `SignupNotificationService` – interne E-Mail nach erfolgreichem Public Signup
+  - Systembenachrichtigungen konfigurierbar unter `/platform/email/settings` (`SystemNotificationsEnabled`, `SystemNotificationRecipientEmail`)
+  - Systemlogs: `SignupNotificationSent`, `SignupNotificationFailed`, `SignupNotificationSkipped`
 
 - **Public Signup: Direkte Provisionierung für alle Pläne:**
   - Free- und kostenpflichtige Pläne werden nach Absenden direkt provisioniert (License, Mandant, Admin, Passwortmail)
@@ -16,8 +28,6 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
   - `BillingStatus` und `BillingCycle` in `MetadataJson` (kein separates DB-Feld)
   - Erfolgsseite `/signup/success` für Free und Paid (Query-Parameter `paid`, `planName`, `emailSent`)
   - **Ohne** Mollie, Online-Zahlung, automatische Rechnungserstellung
-
-### Hinzugefügt
 
 - **Signup: Rechnungsdaten bei kostenpflichtigen Plänen:**
   - Rechnungsfelder in `PublicSignupFormDto` und bedingte Anzeige auf `/signup` (nur wenn `IsFree == false`)

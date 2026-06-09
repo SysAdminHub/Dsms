@@ -83,6 +83,55 @@ else
             </div>
 
             <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Rechnungsdaten</strong></div>
+                <div class="dsms-card-body">
+                    @if (_isFreeSignup)
+                    {
+                        <p class="text-muted mb-0">Für diesen Tarif sind keine Rechnungsdaten erforderlich.</p>
+                    }
+                    else if (!_hasCompleteBillingData)
+                    {
+                        <p class="text-muted mb-0">Für diese Registrierung wurden keine vollständigen Rechnungsdaten gespeichert.</p>
+                        @if (PendingSignupDisplayHelper.HasBillingData(_signup.BillingEmail, _signup.BillingCompanyName))
+                        {
+                            <dl class="row mb-0 mt-3">
+                                <dt class="col-sm-4">Rechnungsempfänger / Firma</dt>
+                                <dd class="col-sm-8">@(_signup.BillingCompanyName ?? "—")</dd>
+                                <dt class="col-sm-4">Rechnungs-E-Mail</dt>
+                                <dd class="col-sm-8">@(_signup.BillingEmail ?? "—")</dd>
+                            </dl>
+                        }
+                    }
+                    else
+                    {
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Rechnungsempfänger / Firma</dt>
+                            <dd class="col-sm-8">@(_signup.BillingCompanyName ?? "—")</dd>
+                            <dt class="col-sm-4">Rechnungs-E-Mail</dt>
+                            <dd class="col-sm-8">@(_signup.BillingEmail ?? "—")</dd>
+                            <dt class="col-sm-4">Straße und Hausnummer</dt>
+                            <dd class="col-sm-8">@(_signup.BillingStreet ?? "—")</dd>
+                            <dt class="col-sm-4">Postleitzahl</dt>
+                            <dd class="col-sm-8">@(_signup.BillingPostalCode ?? "—")</dd>
+                            <dt class="col-sm-4">Ort</dt>
+                            <dd class="col-sm-8">@(_signup.BillingCity ?? "—")</dd>
+                            <dt class="col-sm-4">Land</dt>
+                            <dd class="col-sm-8">@(_signup.BillingCountry ?? "—")</dd>
+                            <dt class="col-sm-4">Umsatzsteuer-ID</dt>
+                            <dd class="col-sm-8">@(_signup.BillingVatId ?? "—")</dd>
+                            <dt class="col-sm-4">Bestellnummer / Referenz</dt>
+                            <dd class="col-sm-8">@(_signup.BillingReference ?? "—")</dd>
+                            <dt class="col-sm-4">Rechnungsstatus</dt>
+                            <dd class="col-sm-8">
+                                <StatusBadge Text="@PendingSignupDisplayHelper.GetBillingStatusDisplay(_signup.MetadataJson, isFree: false)"
+                                             Variant="@PendingSignupDisplayHelper.BillingStatusBadgeVariant(_signup.MetadataJson, isFree: false)" />
+                            </dd>
+                        </dl>
+                    }
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
                 <div class="dsms-card-header"><strong>Payment (Vorbereitung)</strong></div>
                 <div class="dsms-card-body">
                     <dl class="row mb-0">
@@ -113,6 +162,10 @@ else
                                 @:—
                             }
                         </dd>
+                        <dt class="col-sm-4">Lizenzstatus</dt>
+                        <dd class="col-sm-8">@(_license?.Status ?? "—")</dd>
+                        <dt class="col-sm-4">Lizenz gültig bis</dt>
+                        <dd class="col-sm-8">@FormatLicenseDate(_license?.ValidUntil)</dd>
                         <dt class="col-sm-4">Mandant</dt>
                         <dd class="col-sm-8">
                             @if (_signup.ProvisionedTenantId is int tenantId)
@@ -181,8 +234,12 @@ else
 @code {
     [Parameter] public Guid Id { get; set; }
     [Inject] private IPendingSignupService PendingSignupService { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private PendingSignupDetailsDto? _signup;
+    private LicenseDetailsDto? _license;
+    private bool _isFreeSignup;
+    private bool _hasCompleteBillingData;
     private bool _loading = true;
     private bool _saving;
     private string? _message;
@@ -197,10 +254,24 @@ else
     {
         _loading = true;
         _signup = await PendingSignupService.GetByIdAsync(Id);
+        _license = null;
         if (_signup is not null)
         {
             _newStatus = _signup.Status;
             _internalNote = _signup.InternalNote;
+            _isFreeSignup = PendingSignupDisplayHelper.IsFreeSignup(_signup.PaymentProvider, _signup.Amount);
+            _hasCompleteBillingData = PendingSignupDisplayHelper.HasCompleteBillingAddress(
+                _signup.BillingEmail,
+                _signup.BillingCompanyName,
+                _signup.BillingStreet,
+                _signup.BillingPostalCode,
+                _signup.BillingCity,
+                _signup.BillingCountry);
+
+            if (_signup.ProvisionedLicenseId is Guid licenseId)
+            {
+                _license = await LicenseService.GetLicenseDetailsAsync(licenseId);
+            }
         }
         _loading = false;
     }
@@ -284,4 +355,7 @@ else
         price.HasValue
             ? PendingSignupDisplayHelper.FormatAmount(price, currency)
             : "nicht festgelegt";
+
+    private static string FormatLicenseDate(DateTime? value) =>
+        value?.ToLocalTime().ToString("d") ?? "—";
 }

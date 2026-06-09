@@ -250,7 +250,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IdentityRevalidatingAuthenticationStateProvider` | Scoped | Auth-State-Revalidierung für Blazor |
 | `IdentityNoOpEmailSender` | Singleton | Identity-Stub (Passwort-Reset etc. noch ohne Workflow-Anbindung) |
 | `IEmailService` / `EmailService` | Scoped | Zentraler SMTP-Versand via MailKit |
-| `IEmailSettingsService` / `EmailSettingsService` | Scoped | SMTP-Einstellungen CRUD + Testmail (nur Superuser) |
+| `IEmailSettingsService` / `EmailSettingsService` | Scoped | SMTP-Einstellungen CRUD + Testmail + Systembenachrichtigungen (nur Superuser) |
 | `IEmailTemplateService` / `EmailTemplateService` | Scoped | Vorlagen CRUD, Vorschau, Testmail aus Vorlage (nur Superuser) |
 | `IEmailTemplateRenderer` / `EmailTemplateRenderer` | Scoped | Platzhalterersetzung `{{VariableName}}` |
 | `IEmailSecretProtector` / `EmailSecretProtector` | Scoped | SMTP-Passwort-Schutz via ASP.NET Data Protection |
@@ -260,7 +260,8 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ISubscriptionPlanService` / `SubscriptionPlanService` | Scoped | Tarifvorlagen-CRUD (Superuser); `GetPublicSignupPlansAsync()`, `GetPublicSignupPlanByIdAsync()` für Signup |
 | `IPlanToLicenseService` / `PlanToLicenseService` | Scoped | Erstellt neue `License` aus `SubscriptionPlan` (Werte werden kopiert, nicht verknüpft) |
 | `IProvisioningService` / `ProvisioningService` | Scoped | Provisioniert Kunde: License + Tenant + Admin + Passwortvergabe-Mail |
-| `IPublicSignupService` / `PublicSignupService` | Scoped | Öffentlicher Signup mit Tarifauswahl → PendingSignup + direkte Provisionierung für Free und Paid |
+| `IPublicSignupService` / `PublicSignupService` | Scoped | Öffentlicher Signup mit Tarifauswahl → PendingSignup + direkte Provisionierung; interne Benachrichtigung via `ISignupNotificationService` |
+| `ISignupNotificationService` / `SignupNotificationService` | Scoped | Interne E-Mail nach erfolgreichem Public Signup; Empfänger aus `EmailSettings.SystemNotificationRecipientEmail` |
 | `IPaidSignupService` / `PaidSignupService` | Scoped | Legacy Paid-Signup-Service (nicht mehr über eigene Seite) |
 | `IPendingSignupService` / `PendingSignupService` | Scoped | Zwischenspeicher für ausstehende (bezahlte) Registrierungen; `CreatePublicAsync` für öffentlichen Paid-Signup |
 | `ILogService` / `LogService` | Scoped | Zentrales Audit- und Systemprotokoll (`LogEntry`-Tabelle); siehe `Logging.md` |

@@ -423,6 +423,8 @@ public class ApplicationDbContext(
             e.Property(s => s.EncryptedSmtpPassword).HasMaxLength(2000);
             e.Property(s => s.SenderEmail).HasMaxLength(255);
             e.Property(s => s.SenderName).HasMaxLength(200);
+            e.Property(s => s.SystemNotificationRecipientEmail).HasMaxLength(255);
+            e.Property(s => s.SystemNotificationsEnabled).HasDefaultValue(false);
             e.Property(s => s.UpdatedByUserId).HasMaxLength(450);
         });
 

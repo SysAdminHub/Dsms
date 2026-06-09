@@ -26,6 +26,12 @@ else
 {
     <PageHeader Title="@(_model.Id == 0 ? "DSFA anlegen" : "DSFA bearbeiten")" />
 
+    @if (_model.Id == 0 && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
+
     <div class="dsms-card dsms-form-card">
         <div class="dsms-card-body">
             <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
@@ -129,7 +135,7 @@ else
                 }
 
                 <div class="dsms-form-actions">
-                    <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                    <button type="submit" class="btn btn-primary" disabled="@(_saving || (_model.Id == 0 && _createLimit is { IsAllowed: false }))">Speichern</button>
                     <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"dsfa/{_model.Id}" : "dsfa")">Abbrechen</a>
                 </div>
             </EditForm>
@@ -149,15 +155,25 @@ else
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
     private bool _notFound;
     private bool _saving;
     private string? _saveError;
+    private LicenseLimitCheckResult? _createLimit;
     private DataProtectionImpactAssessment _model = new();
     private DateTime? _reviewedAt;
     private DateTime? _nextReviewAt;
     private List<ProcessingActivity> _availableActivities = [];
+    private DpiaStatus? _previousStatus;
+    private string? _previousTitle;
+    private DpiaResidualRisk? _previousResidualRisk;
+    private string? _previousResponsible;
+    private DateOnly? _previousReviewedAt;
+    private DateOnly? _previousNextReviewAt;
 
     protected override async Task OnInitializedAsync()
     {
@@ -182,6 +198,12 @@ else
             }
 
             _model = existing;
+            _previousStatus = existing.Status;
+            _previousTitle = existing.Title;
+            _previousResidualRisk = existing.ResidualRisk;
+            _previousResponsible = existing.ResponsiblePerson;
+            _previousReviewedAt = existing.ReviewedAt;
+            _previousNextReviewAt = existing.NextReviewAt;
             _reviewedAt = existing.ReviewedAt?.ToDateTime(TimeOnly.MinValue);
             _nextReviewAt = existing.NextReviewAt?.ToDateTime(TimeOnly.MinValue);
         }
@@ -200,6 +222,8 @@ else
             {
                 _model.ProcessingActivityId = paId;
             }
+
+            _createLimit = await LicenseService.CanCreateDpiaAsync(_tenantId.Value);
         }
     }
 
@@ -233,8 +257,18 @@ else
             return;
         }
 
-        if (_model.Id == 0)
+        var isNew = _model.Id == 0;
+
+        if (isNew)
         {
+            var limitCheck = await LicenseService.CanCreateDpiaAsync(_tenantId.Value);
+            if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "Dpia"))
+            {
+                _saveError = limitCheck.Message;
+                _saving = false;
+                return;
+            }
+
             _model.CreatedAt = DateTime.UtcNow;
             Db.DataProtectionImpactAssessments.Add(_model);
         }
@@ -244,6 +278,20 @@ else
         }
 
         await Db.SaveChangesAsync();
+
+        if (isNew)
+        {
+            await ComplianceAuditLog.LogDpiaCreatedAsync(_model.Id, _model.Title, _tenantId.Value);
+        }
+        else
+        {
+            var changes = ComplianceAuditDiffBuilder.ForDpia(
+                _previousTitle, _previousStatus, _previousResidualRisk, _previousResponsible,
+                _previousReviewedAt, _previousNextReviewAt, _model);
+            await ComplianceAuditLog.LogDpiaUpdatedAsync(
+                _model.Id, _model.Title, _tenantId.Value, changes);
+        }
+
         Navigation.NavigateTo($"dsfa/{_model.Id}");
     }
 }

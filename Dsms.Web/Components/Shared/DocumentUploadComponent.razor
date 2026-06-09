@@ -50,6 +50,7 @@
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private DocumentStorageService Storage { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private IBrowserFile? _selectedFile;
     private bool _uploading;
@@ -147,6 +148,8 @@
 
             Db.EvidenceDocuments.Add(document);
             await Db.SaveChangesAsync();
+
+            await ComplianceAuditLog.LogEvidenceDocumentUploadedAsync(document.Id, document.FileName, TenantId);
 
             _message = $"Datei \"{file.Name}\" wurde gespeichert.";
             _selectedFile = null;

@@ -18,10 +18,23 @@ else
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (_canEdit && !_showArchived)
             {
-                <a class="btn btn-primary" href="processing-activities/edit">Neue Verarbeitungstätigkeit</a>
+                @if (_createLimit is { IsAllowed: false })
+                {
+                    <button type="button" class="btn btn-primary" disabled title="@_createLimit.Message">Neue Verarbeitungstätigkeit</button>
+                }
+                else
+                {
+                    <a class="btn btn-primary" href="processing-activities/edit">Neue Verarbeitungstätigkeit</a>
+                }
             }
         </div>
     </PageHeader>
+
+    @if (_canEdit && !_showArchived && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
 
     @if (_activities is null)
     {
@@ -104,10 +117,12 @@ else
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private int? _tenantId;
     private bool _canEdit;
     private bool _showArchived;
+    private LicenseLimitCheckResult? _createLimit;
     private List<ProcessingActivity>? _activities;
 
     protected override async Task OnInitializedAsync()
@@ -118,6 +133,7 @@ else
         _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
             || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
 
+        _createLimit = await LicenseService.CanCreateProcessingActivityAsync(_tenantId.Value);
         await LoadDataAsync();
     }
 

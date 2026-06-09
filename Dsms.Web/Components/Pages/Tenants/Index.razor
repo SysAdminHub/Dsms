@@ -6,8 +6,21 @@
 <PageTitle>Mandanten</PageTitle>
 
 <PageHeader Title="Mandanten" Subtitle="Organisationseinheiten der Plattform verwalten">
-    <a class="btn btn-primary" href="tenants/edit">Neuer Mandant</a>
+    @if (_createLimit is { IsAllowed: false })
+    {
+        <button type="button" class="btn btn-primary" disabled title="@_createLimit.Message">Neuer Mandant</button>
+    }
+    else
+    {
+        <a class="btn btn-primary" href="tenants/edit">Neuer Mandant</a>
+    }
 </PageHeader>
+
+@if (_createLimit is not null)
+{
+    <LicenseUsageBadge Check="_createLimit" />
+    <LicenseLimitAlert Check="_createLimit" />
+}
 
 @if (_tenants is null)
 {
@@ -22,6 +35,7 @@ else
                     <tr>
                         <th>Name</th>
                         <th>Rechtlicher Name</th>
+                        <th>Lizenz</th>
                         <th>Status</th>
                         <th class="dsms-table-actions"></th>
                     </tr>
@@ -32,6 +46,16 @@ else
                         <tr>
                             <td><strong>@tenant.Name</strong></td>
                             <td>@(tenant.LegalName ?? "—")</td>
+                            <td>
+                                @if (tenant.LicenseId is Guid licenseId)
+                                {
+                                    <span title="@licenseId">@tenant.LicenseDisplayName</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">@tenant.LicenseDisplayName</span>
+                                }
+                            </td>
                             <td>
                                 <StatusBadge Text="@(tenant.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(tenant.IsActive ? "success" : "default")" />
                             </td>
@@ -47,9 +71,18 @@ else
 }
 
 @code {
-    [Inject] private ApplicationDbContext Db { get; set; } = null!;
-    private List<Tenant>? _tenants;
+    [Inject] private ITenantManagementService TenantManagement { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    private IReadOnlyList<TenantListItemDto>? _tenants;
+    private LicenseLimitCheckResult? _createLimit;
 
-    protected override async Task OnInitializedAsync() =>
-        _tenants = await Db.Tenants.OrderBy(t => t.Name).ToListAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        _tenants = await TenantManagement.ListTenantsAsync();
+        var licenses = await LicenseService.GetActiveLicenseOptionsAsync();
+        if (licenses.Count == 1)
+        {
+            _createLimit = await LicenseService.CanCreateTenantAsync(licenses[0].Id);
+        }
+    }
 }

@@ -347,5 +347,5 @@ flowchart TD
 
 - `Dsms.sln` – Visual-Studio-Lösung mit einem Projekt
 - `Dsms.Web/` – Blazor-Server-Webanwendung
-- `docker-compose.yml` – optionaler MySQL-8-Container
+- `docker-compose.yml` – MySQL 8 und DSMS-App für Production (siehe `Production_Deployment.md`)
 - `README.md` – Schnellstart und Entwicklerhinweise (bestehend, unverändert durch diese Dokumentation)

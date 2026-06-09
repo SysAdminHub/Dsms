@@ -3,6 +3,7 @@ using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
 using Dsms.Web.Services.Email;
+using Dsms.Web.Services.Logging;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +17,8 @@ public sealed class ReminderService(
     UserManager<ApplicationUser> userManager,
     IEmailService emailService,
     NavigationManager navigationManager,
-    ILogger<ReminderService> logger) : IReminderService
+    ILogger<ReminderService> logger,
+    ILogService logService) : IReminderService
 {
     private const int DsfaTomAvvDaysAhead = 14;
     private const int MeasureDaysAhead = 7;
@@ -109,6 +111,19 @@ public sealed class ReminderService(
                     ? $"{sentCount} von {tenant.AdminRecipients.Count} Emails versendet."
                     : $"{sentCount} Empfänger, {tenant.Items.Count} Erinnerungen."
             });
+        }
+
+        if (anyFailure)
+        {
+            await logService.LogSystemErrorAsync(
+                action: "ReminderJobFailed",
+                description: "Reminder-Job konnte nicht vollständig ausgeführt werden.",
+                exception: new InvalidOperationException("Einige Erinnerungs-E-Mails konnten nicht versendet werden."),
+                metadata: new
+                {
+                    TenantCount = tenantResults.Count,
+                    FailedTenants = tenantResults.Count(r => !r.Success && !r.Skipped)
+                });
         }
 
         return new ReminderSendResult

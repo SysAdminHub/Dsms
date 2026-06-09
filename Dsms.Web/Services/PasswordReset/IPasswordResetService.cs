@@ -18,6 +18,9 @@ public interface IPasswordResetService
     /// <summary>Willkommensmail mit Einladungslink (Identity-Passwortreset-Token, mode=invite).</summary>
     Task<PasswordResetAdminResult> SendWelcomeInvitationAsync(string userId);
 
+    /// <summary>Willkommensmail für Provisioning ohne Benutzerverwaltungs-Prüfung.</summary>
+    Task<PasswordResetAdminResult> SendProvisioningWelcomeEmailAsync(string userId, string tenantName);
+
     /// <summary>Neues Passwort setzen via Identity ResetPasswordAsync (email oder userId).</summary>
     Task<PasswordResetChangeResult> ChangePasswordAsync(
         string? email,

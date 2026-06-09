@@ -1,0 +1,125 @@
+@* Nur Superuser: plattformweite Tarifübersicht. *@
+@page "/platform/plans"
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<PageTitle>Pläne</PageTitle>
+
+<PageHeader Title="Pläne" Subtitle="Tarifvorlagen für spätere Kundenlizenzen verwalten">
+    <a class="btn btn-primary" href="platform/plans/edit">Neuer Plan</a>
+</PageHeader>
+
+<div class="dsms-card dsms-form-card mb-4">
+    <div class="dsms-card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Suche</label>
+                <input class="form-control" @bind="_search" @bind:event="oninput" placeholder="Name, Anzeigename …" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Aktiv</label>
+                <select class="form-select" @bind="_activeFilter">
+                    <option value="">Alle</option>
+                    <option value="true">Aktiv</option>
+                    <option value="false">Inaktiv</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Sortierung</label>
+                <select class="form-select" @bind="_sortDirection">
+                    <option value="asc">Sortierung aufsteigend</option>
+                    <option value="desc">Sortierung absteigend</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-outline-primary w-100" @onclick="LoadAsync">Anwenden</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_plans.Count == 0)
+{
+    <div class="alert alert-info dsms-alert">Keine Tarife gefunden.</div>
+}
+else
+{
+    <div class="dsms-card">
+        <div class="dsms-table-wrap">
+            <table class="table dsms-table">
+                <thead>
+                    <tr>
+                        <th>Sortierung</th>
+                        <th>Name</th>
+                        <th>Anzeigename</th>
+                        <th>Aktiv</th>
+                        <th>Kostenlos</th>
+                        <th>Öffentlich registrierbar</th>
+                        <th>Preis monatlich</th>
+                        <th>Preis jährlich</th>
+                        <th>Währung</th>
+                        <th>Limits</th>
+                        <th class="dsms-table-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _plans)
+                    {
+                        <tr>
+                            <td>@item.SortOrder</td>
+                            <td><code>@item.Name</code></td>
+                            <td>@item.DisplayName</td>
+                            <td><StatusBadge Text="@(item.IsActive ? "Ja" : "Nein")" Variant="@(item.IsActive ? "success" : "default")" /></td>
+                            <td>@(item.IsFree ? "Ja" : "Nein")</td>
+                            <td><StatusBadge Text="@(item.IsPublicSignupEnabled ? "Ja" : "Nein")" Variant="@(item.IsPublicSignupEnabled ? "success" : "default")" /></td>
+                            <td>@SubscriptionPlanDisplayHelper.FormatMonthlyPrice(item.PriceMonthly, item.Currency, item.IsFree)</td>
+                            <td>@SubscriptionPlanDisplayHelper.FormatYearlyPrice(item.PriceYearly, item.Currency, item.IsFree)</td>
+                            <td>@item.Currency</td>
+                            <td class="small">@SubscriptionPlanDisplayHelper.FormatCompactLimits(item.MaxTenants, item.MaxAdmins, item.MaxUsersPerTenant)</td>
+                            <td class="dsms-table-actions">
+                                <a class="btn btn-sm btn-outline-secondary" href="@($"platform/plans/{item.Id}")">Details</a>
+                                <a class="btn btn-sm btn-outline-primary" href="@($"platform/plans/edit/{item.Id}")">Bearbeiten</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private ISubscriptionPlanService PlanService { get; set; } = null!;
+
+    private List<SubscriptionPlanListDto> _plans = [];
+    private bool _loading = true;
+    private string _search = "";
+    private string _activeFilter = "";
+    private string _sortDirection = "asc";
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        bool? activeFilter = _activeFilter switch
+        {
+            "true" => true,
+            "false" => false,
+            _ => null
+        };
+
+        _plans = (await PlanService.GetAllPlansAsync(
+            string.IsNullOrWhiteSpace(_search) ? null : _search,
+            activeFilter,
+            sortDescending: _sortDirection == "desc")).ToList();
+
+        _loading = false;
+    }
+}

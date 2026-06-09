@@ -10,6 +10,8 @@
 
 @inject NavigationManager NavigationManager
 
+@inject IUserAccessService UserAccess
+
 
 
 <div class="dsms-sidebar-header">
@@ -110,6 +112,30 @@
 
                     <div class="nav-item">
 
+                        <NavLink class="nav-link" href="platform/licenses">Lizenzen</NavLink>
+
+                    </div>
+
+                    <div class="nav-item">
+
+                        <NavLink class="nav-link" href="platform/plans">Pläne</NavLink>
+
+                    </div>
+
+                    <div class="nav-item">
+
+                        <NavLink class="nav-link" href="platform/provisioning/create">Provisionierung</NavLink>
+
+                    </div>
+
+                    <div class="nav-item">
+
+                        <NavLink class="nav-link" href="platform/signups">Registrierungen</NavLink>
+
+                    </div>
+
+                    <div class="nav-item">
+
                         <NavLink class="nav-link" href="platform/email/settings">Email</NavLink>
 
                     </div>
@@ -123,6 +149,12 @@
                     <div class="nav-item">
 
                         <NavLink class="nav-link" href="admin/erinnerungen">Erinnerungen</NavLink>
+
+                    </div>
+
+                    <div class="nav-item">
+
+                        <NavLink class="nav-link" href="platform/logs">Protokolle</NavLink>
 
                     </div>
 
@@ -143,6 +175,21 @@
                         <NavLink class="nav-link" href="tenant-daten">Tenant-Daten</NavLink>
 
                     </div>
+
+                    @if (_showAdminLicense)
+                    {
+                        <div class="nav-item">
+
+                            <NavLink class="nav-link" href="admin/license">Meine Lizenz</NavLink>
+
+                        </div>
+
+                        <div class="nav-item">
+
+                            <NavLink class="nav-link" href="admin/auditlog">Auditlog</NavLink>
+
+                        </div>
+                    }
 
                 </AuthorizeView>
 
@@ -192,15 +239,19 @@
 
     private string? currentUrl;
 
+    private bool _showAdminLicense;
 
 
-    protected override void OnInitialized()
+
+    protected override async Task OnInitializedAsync()
 
     {
 
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
 
         NavigationManager.LocationChanged += OnLocationChanged;
+
+        _showAdminLicense = await UserAccess.IsTenantAdminAsync();
 
     }
 

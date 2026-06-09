@@ -26,6 +26,12 @@ else
 {
     <PageHeader Title="@(_model.Id == 0 ? "Dienstleister anlegen" : "Dienstleister bearbeiten")" />
 
+    @if (_model.Id == 0 && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
+
     @if (!string.IsNullOrEmpty(_validationWarning))
     {
         <div class="alert alert-warning dsms-alert">@_validationWarning</div>
@@ -288,7 +294,7 @@ else
                 }
 
                 <div class="dsms-form-actions">
-                    <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                    <button type="submit" class="btn btn-primary" disabled="@(_saving || (_model.Id == 0 && _createLimit is { IsAllowed: false }))">Speichern</button>
                     <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"service-providers/{_model.Id}" : "service-providers")">Abbrechen</a>
                 </div>
             </EditForm>
@@ -301,11 +307,15 @@ else
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
     private bool _notFound;
     private bool _saving;
     private string? _saveError;
+    private LicenseLimitCheckResult? _createLimit;
     private string? _validationWarning;
     private DsmsServiceProvider _model = new() { Status = ServiceProviderStatus.InReview };
     private DateTime? _avvDate;
@@ -316,6 +326,9 @@ else
     private Dictionary<int, ProcessingRole> _activityRoles = [];
     private HashSet<int> _selectedTomIds = [];
     private ProcessingRole _defaultRole = ProcessingRole.DataProcessor;
+    private ServiceProviderStatus? _previousStatus;
+    private string? _previousName;
+    private string? _previousResponsible;
 
     protected override async Task OnInitializedAsync()
     {
@@ -346,6 +359,9 @@ else
             }
 
             _model = existing;
+            _previousStatus = existing.Status;
+            _previousName = existing.Name;
+            _previousResponsible = existing.ResponsiblePerson;
             _avvDate = existing.DataProcessingAgreementDate?.ToDateTime(TimeOnly.MinValue);
             _avvReviewDate = existing.DataProcessingAgreementReviewedAt?.ToDateTime(TimeOnly.MinValue);
             _tomsReviewDate = existing.TomsReviewedAt?.ToDateTime(TimeOnly.MinValue);
@@ -357,6 +373,7 @@ else
         else
         {
             _model.TenantId = _tenantId.Value;
+            _createLimit = await LicenseService.CanCreateProcessorAsync(_tenantId.Value);
         }
 
         UpdateValidationWarning();
@@ -444,11 +461,20 @@ else
 
         if (_model.Id == 0)
         {
+            var limitCheck = await LicenseService.CanCreateProcessorAsync(_tenantId.Value);
+            if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "ServiceProvider"))
+            {
+                _saveError = limitCheck.Message;
+                _saving = false;
+                return;
+            }
+
             _model.CreatedAt = DateTime.UtcNow;
             Db.ServiceProviders.Add(_model);
             await Db.SaveChangesAsync();
             await SaveLinksAsync(validActivityIds, validTomIds);
             await Db.SaveChangesAsync();
+            await ComplianceAuditLog.LogProcessorCreatedAsync(_model.Id, _model.Name, _tenantId.Value);
             Navigation.NavigateTo($"service-providers/{_model.Id}");
             return;
         }
@@ -456,6 +482,12 @@ else
         _model.UpdatedAt = DateTime.UtcNow;
         await SaveLinksAsync(validActivityIds, validTomIds);
         await Db.SaveChangesAsync();
+
+        var changes = ComplianceAuditDiffBuilder.ForProcessor(
+            _previousName, _previousStatus, _previousResponsible, _model);
+        await ComplianceAuditLog.LogProcessorUpdatedAsync(
+            _model.Id, _model.Name, _tenantId.Value, changes);
+
         Navigation.NavigateTo($"service-providers/{_model.Id}");
     }
 

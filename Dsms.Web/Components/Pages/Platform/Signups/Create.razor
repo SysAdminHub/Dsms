@@ -1,0 +1,116 @@
+@page "/platform/signups/create"
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<PageTitle>Registrierung vormerken</PageTitle>
+
+<PageHeader Title="Registrierung vormerken"
+            Subtitle="Erstellt einen PendingSignup-Eintrag ohne License, Mandant oder Admin (Test/Vorbereitung)" />
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+}
+
+<div class="dsms-card dsms-form-card">
+    <div class="dsms-card-body">
+        <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+            <h5 class="mb-3">Tarif</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label">Tarif *</label>
+                    <select class="form-select" @bind="_model.PlanId">
+                        <option value="@Guid.Empty">Bitte wählen …</option>
+                        @foreach (var plan in _plans)
+                        {
+                            <option value="@plan.Id">@SubscriptionPlanDisplayHelper.FormatPlanOptionLabel(plan)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <h5 class="mb-3">Kunde</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label">Kundenname *</label>
+                    <InputText class="form-control" @bind-Value="_model.CustomerName" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Kunden-E-Mail</label>
+                    <InputText class="form-control" @bind-Value="_model.CustomerEmail" />
+                </div>
+            </div>
+
+            <h5 class="mb-3">Mandant</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label">Mandantenname *</label>
+                    <InputText class="form-control" @bind-Value="_model.TenantName" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Rechtlicher Name</label>
+                    <InputText class="form-control" @bind-Value="_model.TenantLegalName" />
+                </div>
+            </div>
+
+            <h5 class="mb-3">Admin</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label">Admin-E-Mail *</label>
+                    <InputText class="form-control" @bind-Value="_model.AdminEmail" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Anzeigename *</label>
+                    <InputText class="form-control" @bind-Value="_model.AdminDisplayName" />
+                </div>
+            </div>
+
+            <div class="dsms-form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">Vormerken</button>
+                <a class="btn btn-outline-secondary" href="platform/signups">Abbrechen</a>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [Inject] private IPendingSignupService PendingSignupService { get; set; } = null!;
+    [Inject] private ISubscriptionPlanService PlanService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private CreatePendingSignupDto _model = new() { Source = "ManualSuperuser" };
+    private List<SubscriptionPlanOptionDto> _plans = [];
+    private bool _saving;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _plans = (await PlanService.GetPlanOptionsAsync()).ToList();
+    }
+
+    private async Task SaveAsync()
+    {
+        _errorMessage = null;
+        _saving = true;
+
+        try
+        {
+            if (_model.PlanId == Guid.Empty)
+            {
+                _errorMessage = "Bitte wählen Sie einen Tarif aus.";
+                return;
+            }
+
+            var id = await PendingSignupService.CreateAsync(_model);
+            Navigation.NavigateTo($"platform/signups/{id}");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

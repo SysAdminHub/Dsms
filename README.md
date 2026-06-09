@@ -16,10 +16,10 @@ Einfaches Grundgerüst für ein Datenschutzmanagementsystem als **Blazor Server*
 "DefaultConnection": "Server=localhost;Port=3306;Database=dsms_dev;User=root;Password=IHR_PASSWORT;CharSet=utf8mb4;"
 ```
 
-2. **MySQL starten** (optional per Docker):
+2. **MySQL starten** (optional per Docker – nur Datenbank, App lokal mit `dotnet run`):
 
 ```bash
-docker compose up -d
+docker compose up -d db
 ```
 
 Oder Datenbank manuell anlegen:
@@ -42,9 +42,31 @@ Migrationen werden beim ersten Start automatisch angewendet (inkl. Demo-Daten).
 | E-Mail | Passwort | Rolle |
 |--------|----------|-------|
 | superuser@demo.local | Demo123! | Superuser (Plattform) |
-| admin@demo.local | Demo123! | Admin (Mandant Demo GmbH) |
+| admin@demo.local | Demo123! | Admin (Demo-Lizenz, Mandant Hauptsitz) |
 | auditor@demo.local | Demo123! | Auditor |
-| user@demo.local | Demo123! | User |
+| user@demo.local | Demo123! | User (Mandant Hauptsitz) |
+| auditor.sued@demo.local | Demo123! | Auditor (Mandant Niederlassung Süd) |
+| user.sued@demo.local | Demo123! | User (Mandant Niederlassung Süd) |
+
+Die Demo-Lizenz `LIC-DEMO-000001` (Kunde: Demo Kunde GmbH) wird beim Start idempotent angelegt. Demo-Mandanten und Demo-Admins werden ihr zugeordnet.
+
+## Entwicklungsdatenbank zurücksetzen (nur lokal)
+
+**Nur für lokale Entwicklungsdatenbanken** – niemals auf Produktionsdaten anwenden.
+
+1. Anwendung stoppen (`dotnet run` / Visual Studio beenden).
+2. Datenbank leeren oder löschen, z. B. in MySQL:
+
+```sql
+DROP DATABASE dsms_dev;
+CREATE DATABASE dsms_dev CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Alternativ mit Docker Compose: Container neu starten und Datenbank neu anlegen.
+
+3. Projekt starten (`dotnet run` in `Dsms.Web`) – Migrationen und Seeding laufen automatisch beim Start.
+4. Als Superuser anmelden (`superuser@demo.local` / `Demo123!`).
+5. **Plattform → Lizenzen** öffnen und Demo-Lizenz `LIC-DEMO-000001` prüfen (Mandanten, Admins, Nutzung je Mandant).
 
 ## Projektstruktur
 
@@ -76,6 +98,10 @@ cd Dsms.Web
 dotnet ef migrations add MeinMigrationName
 dotnet ef database update
 ```
+
+## Production Deployment (Docker)
+
+Für den produktiven Betrieb mit Docker Compose, Volumes und Environment Variables siehe **[Production_Deployment.md](Production_Deployment.md)**.
 
 ## Hinweise
 

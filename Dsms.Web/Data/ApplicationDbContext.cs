@@ -1,3 +1,4 @@
+using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
 using Dsms.Web.Services;
@@ -18,6 +19,9 @@ public class ApplicationDbContext(
     ArchiveViewContextAccessor archiveViewContextAccessor)
     : IdentityDbContext<ApplicationUser>(options)
 {
+    public DbSet<License> Licenses => Set<License>();
+    public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+    public DbSet<PendingSignup> PendingSignups => Set<PendingSignup>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<UserTenant> UserTenants => Set<UserTenant>();
     public DbSet<AuditTemplate> AuditTemplates => Set<AuditTemplate>();
@@ -37,6 +41,7 @@ public class ApplicationDbContext(
     public DbSet<DataProtectionImpactAssessment> DataProtectionImpactAssessments => Set<DataProtectionImpactAssessment>();
     public DbSet<EmailSettings> EmailSettings => Set<EmailSettings>();
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
+    public DbSet<LogEntry> LogEntries => Set<LogEntry>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -57,6 +62,111 @@ public class ApplicationDbContext(
             e.HasIndex(ut => ut.TenantId);
         });
 
+        builder.Entity<License>(e =>
+        {
+            e.ToTable("Licenses");
+            e.HasKey(l => l.Id);
+            e.Property(l => l.LicenseNumber).HasMaxLength(50).IsRequired();
+            e.Property(l => l.CustomerName).HasMaxLength(200).IsRequired();
+            e.Property(l => l.CustomerEmail).HasMaxLength(255);
+            e.Property(l => l.PlanName).HasMaxLength(100).IsRequired();
+            e.Property(l => l.Status).HasMaxLength(50).IsRequired();
+            e.Property(l => l.InternalNote).HasColumnType("text");
+            e.Property(l => l.PlanName).HasDefaultValue("Manual");
+            e.Property(l => l.Status).HasDefaultValue("Active");
+            e.HasIndex(l => l.LicenseNumber).IsUnique();
+            e.HasIndex(l => l.CustomerName);
+            e.HasIndex(l => l.Status);
+        });
+
+        builder.Entity<SubscriptionPlan>(e =>
+        {
+            e.ToTable("SubscriptionPlans");
+            e.HasKey(p => p.Id);
+            e.Property(p => p.Name).HasMaxLength(100).IsRequired();
+            e.Property(p => p.DisplayName).HasMaxLength(200).IsRequired();
+            e.Property(p => p.Description).HasColumnType("text");
+            e.Property(p => p.Currency).HasMaxLength(10).IsRequired().HasDefaultValue("EUR");
+            e.Property(p => p.ExternalProductId).HasMaxLength(200);
+            e.Property(p => p.ExternalMonthlyPriceId).HasMaxLength(200);
+            e.Property(p => p.ExternalYearlyPriceId).HasMaxLength(200);
+            e.Property(p => p.InternalNote).HasColumnType("text");
+            e.Property(p => p.IsActive).HasDefaultValue(true);
+            e.Property(p => p.IsFree).HasDefaultValue(false);
+            e.Property(p => p.IsPublicSignupEnabled).HasDefaultValue(false);
+            e.Property(p => p.SortOrder).HasDefaultValue(0);
+            e.Property(p => p.PriceMonthly).HasPrecision(18, 2);
+            e.Property(p => p.PriceYearly).HasPrecision(18, 2);
+            e.HasIndex(p => p.Name).IsUnique();
+            e.HasIndex(p => p.IsActive);
+            e.HasIndex(p => p.SortOrder);
+        });
+
+        builder.Entity<PendingSignup>(e =>
+        {
+            e.ToTable("PendingSignups");
+            e.HasKey(p => p.Id);
+            e.Property(p => p.Status).HasMaxLength(50).IsRequired();
+            e.Property(p => p.PlanNameSnapshot).HasMaxLength(100);
+            e.Property(p => p.PlanDisplayNameSnapshot).HasMaxLength(200);
+            e.Property(p => p.CurrencySnapshot).HasMaxLength(10);
+            e.Property(p => p.CustomerName).HasMaxLength(200).IsRequired();
+            e.Property(p => p.CustomerEmail).HasMaxLength(255);
+            e.Property(p => p.TenantName).HasMaxLength(200).IsRequired();
+            e.Property(p => p.TenantLegalName).HasMaxLength(300);
+            e.Property(p => p.TenantEmail).HasMaxLength(255);
+            e.Property(p => p.TenantPhone).HasMaxLength(50);
+            e.Property(p => p.TenantAddress).HasColumnType("text");
+            e.Property(p => p.AdminEmail).HasMaxLength(255).IsRequired();
+            e.Property(p => p.AdminDisplayName).HasMaxLength(200).IsRequired();
+            e.Property(p => p.AdminFirstName).HasMaxLength(100);
+            e.Property(p => p.AdminLastName).HasMaxLength(100);
+            e.Property(p => p.PaymentProvider).HasMaxLength(50);
+            e.Property(p => p.ExternalPaymentId).HasMaxLength(200);
+            e.Property(p => p.ExternalCheckoutUrl).HasMaxLength(500);
+            e.Property(p => p.Currency).HasMaxLength(10);
+            e.Property(p => p.PlanPriceMonthlySnapshot).HasPrecision(18, 2);
+            e.Property(p => p.PlanPriceYearlySnapshot).HasPrecision(18, 2);
+            e.Property(p => p.Amount).HasPrecision(18, 2);
+            e.Property(p => p.ProvisionedLicenseNumber).HasMaxLength(50);
+            e.Property(p => p.ProvisionedTenantName).HasMaxLength(200);
+            e.Property(p => p.ProvisionedAdminUserId).HasMaxLength(450);
+            e.Property(p => p.ErrorMessage).HasColumnType("text");
+            e.Property(p => p.InternalNote).HasColumnType("text");
+            e.Property(p => p.Source).HasMaxLength(100);
+            e.Property(p => p.MetadataJson).HasColumnType("text");
+            e.Property(p => p.BillingCompanyName).HasMaxLength(200);
+            e.Property(p => p.BillingEmail).HasMaxLength(255);
+            e.Property(p => p.BillingStreet).HasMaxLength(300);
+            e.Property(p => p.BillingPostalCode).HasMaxLength(20);
+            e.Property(p => p.BillingCity).HasMaxLength(100);
+            e.Property(p => p.BillingCountry).HasMaxLength(100);
+            e.Property(p => p.BillingVatId).HasMaxLength(50);
+            e.Property(p => p.BillingReference).HasMaxLength(100);
+            e.Property(p => p.BillingCycle).HasMaxLength(20);
+            e.Property(p => p.BillingStatus).HasMaxLength(50);
+            e.Property(p => p.BillingNote).HasColumnType("text");
+            e.Property(p => p.Status).HasDefaultValue(PendingSignupStatuses.Draft);
+            e.HasIndex(p => p.CreatedAt);
+            e.HasIndex(p => p.Status);
+            e.HasIndex(p => p.PlanId);
+            e.HasIndex(p => p.AdminEmail);
+            e.HasIndex(p => p.CustomerEmail);
+            e.HasIndex(p => p.ExternalPaymentId);
+            e.HasIndex(p => p.ProvisionedLicenseId);
+            e.HasIndex(p => p.ExpiresAt);
+        });
+
+        builder.Entity<ApplicationUser>(e =>
+        {
+            e.Property(u => u.LicenseId);
+            e.HasOne<License>()
+                .WithMany()
+                .HasForeignKey(u => u.LicenseId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(u => u.LicenseId);
+        });
+
         builder.Entity<Tenant>(e =>
         {
             e.Property(t => t.Name).HasMaxLength(200).IsRequired();
@@ -64,6 +174,11 @@ public class ApplicationDbContext(
             e.Property(t => t.DeletionRequestedByUserId).HasMaxLength(450);
             e.Property(t => t.IsActive).HasDefaultValue(true);
             e.Property(t => t.IsDeletionRequested).HasDefaultValue(false);
+            e.HasOne(t => t.License)
+                .WithMany(l => l.Tenants)
+                .HasForeignKey(t => t.LicenseId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(t => t.LicenseId);
         });
 
         ApplyTenantQueryFilters(builder);
@@ -311,6 +426,8 @@ public class ApplicationDbContext(
             e.Property(s => s.EncryptedSmtpPassword).HasMaxLength(2000);
             e.Property(s => s.SenderEmail).HasMaxLength(255);
             e.Property(s => s.SenderName).HasMaxLength(200);
+            e.Property(s => s.SystemNotificationRecipientEmail).HasMaxLength(255);
+            e.Property(s => s.SystemNotificationsEnabled).HasDefaultValue(false);
             e.Property(s => s.UpdatedByUserId).HasMaxLength(450);
         });
 
@@ -324,6 +441,45 @@ public class ApplicationDbContext(
             e.Property(t => t.TextContent).HasColumnType("text");
             e.Property(t => t.UpdatedByUserId).HasMaxLength(450);
             e.HasIndex(t => t.TemplateKey).IsUnique();
+        });
+
+        builder.Entity<LogEntry>(e =>
+        {
+            e.ToTable("LogEntries");
+            e.HasKey(l => l.Id);
+            e.Property(l => l.LogCategory).HasMaxLength(50).IsRequired();
+            e.Property(l => l.Severity).HasMaxLength(50).IsRequired();
+            e.Property(l => l.Action).HasMaxLength(200).IsRequired();
+            e.Property(l => l.Description).HasMaxLength(2000).IsRequired();
+            e.Property(l => l.EntityType).HasMaxLength(100);
+            e.Property(l => l.EntityId).HasMaxLength(100);
+            e.Property(l => l.EntityName).HasMaxLength(300);
+            e.Property(l => l.UserId).HasMaxLength(450);
+            e.Property(l => l.UserEmail).HasMaxLength(255);
+            e.Property(l => l.UserDisplayName).HasMaxLength(200);
+            e.Property(l => l.LicenseNumber).HasMaxLength(50);
+            e.Property(l => l.TenantName).HasMaxLength(200);
+            e.Property(l => l.IpAddressAnonymized).HasMaxLength(100);
+            e.Property(l => l.UserAgent).HasMaxLength(500);
+            e.Property(l => l.OldValuesJson).HasColumnType("text");
+            e.Property(l => l.NewValuesJson).HasColumnType("text");
+            e.Property(l => l.MetadataJson).HasColumnType("text");
+            e.Property(l => l.ExceptionType).HasMaxLength(200);
+            e.Property(l => l.ExceptionMessage).HasMaxLength(2000);
+            e.Property(l => l.ExceptionDetails).HasColumnType("text");
+            e.Property(l => l.CorrelationId).HasMaxLength(100);
+            e.Property(l => l.RequestPath).HasMaxLength(500);
+            e.Property(l => l.Source).HasMaxLength(200);
+            e.HasIndex(l => l.CreatedAt);
+            e.HasIndex(l => l.LogCategory);
+            e.HasIndex(l => l.Severity);
+            e.HasIndex(l => l.LicenseId);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => l.UserId);
+            e.HasIndex(l => l.EntityType);
+            e.HasIndex(l => l.Action);
+            e.HasIndex(l => l.IsVisibleToAdmin);
+            e.HasIndex(l => new { l.LogCategory, l.IsVisibleToAdmin, l.LicenseId });
         });
     }
 

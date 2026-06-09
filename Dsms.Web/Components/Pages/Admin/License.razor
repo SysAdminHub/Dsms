@@ -1,0 +1,418 @@
+@* Read-only Lizenzübersicht für Kunden-Admins. Lizenz wird aus ApplicationUser.LicenseId ermittelt. *@
+@page "/admin/license"
+@attribute [Authorize(Roles = DsmsRoles.Admin)]
+@rendermode InteractiveServer
+
+<PageTitle>Meine Lizenz</PageTitle>
+
+@if (_loading)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_overview?.Status == AdminLicenseOverviewStatus.IsSuperuser)
+{
+    <PageHeader Title="Meine Lizenz" />
+    <div class="alert alert-info dsms-alert">
+        @_overview.Message
+        <div class="mt-2">
+            <a class="btn btn-outline-primary btn-sm" href="platform/licenses">Zur Plattform-Lizenzverwaltung</a>
+        </div>
+    </div>
+}
+else if (_overview?.Status is AdminLicenseOverviewStatus.NoLicenseAssigned or AdminLicenseOverviewStatus.LicenseNotFound)
+{
+    <PageHeader Title="Meine Lizenz" />
+    <div class="alert alert-warning dsms-alert">@_overview.Message</div>
+}
+else if (_overview?.Status == AdminLicenseOverviewStatus.Unauthorized)
+{
+    <PageHeader Title="Meine Lizenz" />
+    <div class="alert alert-danger dsms-alert">@_overview.Message</div>
+}
+else if (_license is null)
+{
+    <PageHeader Title="Meine Lizenz" />
+    <div class="alert alert-warning dsms-alert">@NoLicenseMessage</div>
+}
+else
+{
+    <PageHeader Title="Meine Lizenz"
+                Subtitle="Übersicht über Tarif, Laufzeit und aktuelle Nutzung." />
+
+    @if (!_license.Usability.IsUsableForCreation && !string.IsNullOrEmpty(_license.Usability.AdminHintMessage))
+    {
+        <div class="alert alert-warning dsms-alert mb-4">@_license.Usability.AdminHintMessage</div>
+    }
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Lizenzdaten</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Lizenznummer</dt>
+                        <dd class="col-sm-7">@_license.LicenseNumber</dd>
+                        <dt class="col-sm-5">Kunde</dt>
+                        <dd class="col-sm-7">@_license.CustomerName</dd>
+                        @if (!string.IsNullOrWhiteSpace(_license.CustomerEmail))
+                        {
+                            <dt class="col-sm-5">E-Mail</dt>
+                            <dd class="col-sm-7">@_license.CustomerEmail</dd>
+                        }
+                        <dt class="col-sm-5">Tarif</dt>
+                        <dd class="col-sm-7">@_license.PlanName</dd>
+                        @if (!string.IsNullOrWhiteSpace(_license.PlanDisplayName)
+                             && !string.Equals(_license.PlanDisplayName, _license.PlanName, StringComparison.Ordinal))
+                        {
+                            <dt class="col-sm-5">Plan-Anzeigename</dt>
+                            <dd class="col-sm-7">@_license.PlanDisplayName</dd>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_license.PlanDescription))
+                        {
+                            <dt class="col-sm-5">Planbeschreibung</dt>
+                            <dd class="col-sm-7">@_license.PlanDescription</dd>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_license.BillingCycleDisplay))
+                        {
+                            <dt class="col-sm-5">Abrechnung</dt>
+                            <dd class="col-sm-7">@_license.BillingCycleDisplay</dd>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_license.AmountDisplay))
+                        {
+                            <dt class="col-sm-5">Betrag</dt>
+                            <dd class="col-sm-7">@_license.AmountDisplay</dd>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_license.NextInvoiceDateDisplay))
+                        {
+                            <dt class="col-sm-5">Nächste Rechnung am</dt>
+                            <dd class="col-sm-7">@_license.NextInvoiceDateDisplay</dd>
+                        }
+                        <dt class="col-sm-5">Status</dt>
+                        <dd class="col-sm-7">
+                            <StatusBadge Text="@FormatStatusLabel(_license.Status)" Variant="@StatusVariant(_license.Status)" />
+                        </dd>
+                        <dt class="col-sm-5">Gültig von</dt>
+                        <dd class="col-sm-7">@(_license.ValidFrom?.ToString("d") ?? "—")</dd>
+                        <dt class="col-sm-5">Gültig bis</dt>
+                        <dd class="col-sm-7">@FormatValidUntil(_license.ValidUntil)</dd>
+                        <dt class="col-sm-5">Neuanlage</dt>
+                        <dd class="col-sm-7">@_license.Usability.SuperuserDisplayLabel</dd>
+                    </dl>
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-primary" @onclick="ShowUpgradeForm">
+                            Upgrade anfragen
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            @if (_showUpgradeForm)
+            {
+                <div class="dsms-card mb-4">
+                    <div class="dsms-card-header"><strong>Upgrade anfragen</strong></div>
+                    <div class="dsms-card-body">
+                        <p class="text-muted mb-3">
+                            Wählen Sie den gewünschten Tarif aus oder fragen Sie ein individuelles Upgrade an.
+                            Es erfolgt kein automatischer Tarifwechsel. Wir melden uns zur Abstimmung bei Ihnen.
+                        </p>
+
+                        @if (!string.IsNullOrEmpty(_upgradeErrorMessage))
+                        {
+                            <div class="alert alert-danger dsms-alert">@_upgradeErrorMessage</div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(_upgradeSuccessMessage))
+                        {
+                            <div class="alert alert-success dsms-alert">@_upgradeSuccessMessage</div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label" for="upgradeTarget">Gewünschtes Upgrade</label>
+                            <select id="upgradeTarget" class="form-select" @bind="_selectedUpgradeOption">
+                                <option value="">— Bitte wählen —</option>
+                                @foreach (var plan in _upgradePlans)
+                                {
+                                    <option value="@plan.Id">@plan.DisplayLabel</option>
+                                }
+                                <option value="@UpgradeRequestConstants.IndividualUpgradeOption">
+                                    Individuelles Upgrade / Beratungstermin
+                                </option>
+                            </select>
+                        </div>
+
+                        @if (SelectedUpgradePlan is { } selectedPlan)
+                        {
+                            <div class="alert alert-info dsms-alert mb-3">
+                                <strong>Tarifinformationen</strong>
+                                <div class="mt-2">
+                                    <div><strong>Ausgewählter Tarif:</strong> @UpgradeTargetPlanDisplayHelper.GetPlanTitle(selectedPlan)</div>
+                                    @if (!string.IsNullOrWhiteSpace(selectedPlan.Description))
+                                    {
+                                        <div class="mt-1">@selectedPlan.Description</div>
+                                    }
+                                    <div class="mt-2"><strong>Preis:</strong></div>
+                                    @if (UpgradeTargetPlanDisplayHelper.HasAnyPrice(selectedPlan))
+                                    {
+                                        @foreach (var priceLine in UpgradeTargetPlanDisplayHelper.FormatPriceLines(selectedPlan))
+                                        {
+                                            <div>@priceLine</div>
+                                        }
+                                        <div class="small text-muted mt-1">
+                                            Währung: @UpgradeTargetPlanDisplayHelper.ResolveCurrency(selectedPlan)
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div>@UpgradeTargetPlanDisplayHelper.NoPriceMessage</div>
+                                    }
+                                    <div class="mt-2 small"><strong>Enthalten:</strong></div>
+                                    <ul class="small mb-0">
+                                        <li>Mandanten: @SubscriptionPlanDisplayHelper.FormatLimit(selectedPlan.MaxTenants)</li>
+                                        <li>Admins: @SubscriptionPlanDisplayHelper.FormatLimit(selectedPlan.MaxAdmins)</li>
+                                        <li>Benutzer pro Mandant: @SubscriptionPlanDisplayHelper.FormatLimit(selectedPlan.MaxUsersPerTenant)</li>
+                                        <li>DSFA pro Mandant: @SubscriptionPlanDisplayHelper.FormatLimit(selectedPlan.MaxDpiaPerTenant)</li>
+                                        <li>TOMs pro Mandant: @SubscriptionPlanDisplayHelper.FormatLimit(selectedPlan.MaxTomsPerTenant)</li>
+                                        <li>Speicher: @UpgradeTargetPlanDisplayHelper.FormatStorageLimit(selectedPlan.MaxStorageMb)</li>
+                                    </ul>
+                                    <p class="small text-muted mb-0 mt-2">@UpgradeTargetPlanDisplayHelper.RequestOnlyHint</p>
+                                </div>
+                            </div>
+                        }
+                        else if (IsIndividualUpgradeSelected)
+                        {
+                            <div class="alert alert-info dsms-alert mb-3">
+                                Preis nach Absprache. Bei einem individuellen Upgrade besprechen wir Ihren Bedarf zuerst in einem Online-Termin.
+                                Nach dem Absenden melden wir uns zur Terminabstimmung.
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label" for="upgradeMessage">Nachricht</label>
+                            <textarea id="upgradeMessage"
+                                      class="form-control"
+                                      rows="4"
+                                      placeholder="Optional: Beschreiben Sie kurz, was Sie benötigen."
+                                      @bind="_upgradeMessage"></textarea>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button"
+                                    class="btn btn-primary"
+                                    disabled="@_submittingUpgrade"
+                                    @onclick="SubmitUpgradeRequestAsync">
+                                Upgrade-Anfrage senden
+                            </button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    disabled="@_submittingUpgrade"
+                                    @onclick="CancelUpgradeForm">
+                                Abbrechen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Lizenzweite Nutzung</strong></div>
+                <div class="dsms-card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            Mandanten:
+                            <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Mandanten", _license.Usage.CurrentTenants, _license.MaxTenants)" />
+                        </li>
+                        <li class="mb-2">
+                            Admins:
+                            <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Admins", _license.Usage.CurrentAdmins, _license.MaxAdmins)" />
+                        </li>
+                        <li class="mb-2">
+                            Speicher (MB):
+                            <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Speicher", _license.Usage.CurrentStorageMb, _license.MaxStorageMb)" />
+                        </li>
+                        <li>
+                            E-Mail-Erinnerungen (aktueller Monat):
+                            <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Erinnerungen", _license.Usage.CurrentEmailRemindersThisMonth, _license.MaxEmailRemindersPerMonth)" />
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="dsms-card">
+                <div class="dsms-card-header"><strong>Gesamtwerte (informativ)</strong></div>
+                <div class="dsms-card-body">
+                    <p class="text-muted small">Bei Per-Mandant-Limits nur zur Übersicht – Limits gelten je Mandant.</p>
+                    <ul class="list-unstyled mb-0">
+                        <li>Benutzer gesamt: @_license.Usage.CurrentUsersTotal</li>
+                        <li>Auditoren gesamt: @_license.Usage.CurrentAuditorsTotal</li>
+                        <li>Eigene Auditvorlagen gesamt: @_license.Usage.CurrentCustomAuditTemplatesTotal</li>
+                        <li>Laufende Audits gesamt: @_license.Usage.CurrentActiveAuditsTotal</li>
+                        <li>Verarbeitungstätigkeiten gesamt: @_license.Usage.CurrentProcessingActivitiesTotal</li>
+                        <li>DSFA gesamt: @_license.Usage.CurrentDpiaTotal</li>
+                        <li>TOMs gesamt: @_license.Usage.CurrentTomsTotal</li>
+                        <li>Dienstleister gesamt: @_license.Usage.CurrentProcessorsTotal</li>
+                        <li>Laufende Maßnahmen gesamt: @_license.Usage.CurrentActiveMeasuresTotal</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="dsms-card">
+                <div class="dsms-card-header"><strong>Nutzung je Mandant</strong></div>
+                <div class="dsms-card-body">
+                    @if (_tenantLimits.Count == 0)
+                    {
+                        <p class="text-muted mb-0">Keine aktiven Mandanten dieser Lizenz zugeordnet.</p>
+                    }
+                    else
+                    {
+                        @foreach (var tenant in _tenantLimits)
+                        {
+                            <div class="mb-4 pb-3 border-bottom">
+                                <h6 class="mb-3">Mandant: @tenant.TenantName</h6>
+                                <ul class="list-unstyled mb-0">
+                                    @foreach (var item in tenant.Items)
+                                    {
+                                        <li class="mb-2">
+                                            @item.Name:
+                                            <LicenseLimitRow Item="@item" />
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-license-support-hint mt-4 mb-0">
+        <p class="mb-2">
+            Sie benötigen mehr Benutzer, Mandanten oder Funktionen? Fordern Sie direkt ein Upgrade an.
+        </p>
+        <button type="button" class="btn btn-primary" @onclick="ShowUpgradeForm">
+            Upgrade anfragen
+        </button>
+    </div>
+}
+
+@code {
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private IUpgradeRequestService UpgradeRequestService { get; set; } = null!;
+
+    private const string NoLicenseMessage =
+        "Für Ihr Benutzerkonto ist keine Lizenz zugeordnet. Bitte wenden Sie sich an den Support.";
+
+    private AdminLicenseOverviewResult? _overview;
+    private LicenseDetailsDto? _license;
+    private IReadOnlyList<TenantLimitUsageDto> _tenantLimits = [];
+    private IReadOnlyList<UpgradeTargetPlanDto> _upgradePlans = [];
+    private bool _loading = true;
+    private bool _showUpgradeForm;
+    private bool _submittingUpgrade;
+    private string _selectedUpgradeOption = string.Empty;
+    private string? _upgradeMessage;
+    private string? _upgradeErrorMessage;
+    private string? _upgradeSuccessMessage;
+
+    private bool IsIndividualUpgradeSelected =>
+        string.Equals(_selectedUpgradeOption, UpgradeRequestConstants.IndividualUpgradeOption, StringComparison.Ordinal);
+
+    private UpgradeTargetPlanDto? SelectedUpgradePlan
+    {
+        get
+        {
+            if (IsIndividualUpgradeSelected || string.IsNullOrWhiteSpace(_selectedUpgradeOption))
+            {
+                return null;
+            }
+
+            if (!Guid.TryParse(_selectedUpgradeOption, out var planId))
+            {
+                return null;
+            }
+
+            return _upgradePlans.FirstOrDefault(p => p.Id == planId);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _overview = await LicenseService.GetCurrentAdminLicenseOverviewAsync();
+        if (_overview.Status == AdminLicenseOverviewStatus.Success && _overview.License is not null)
+        {
+            _license = _overview.License;
+            _tenantLimits = _overview.TenantLimits;
+            _upgradePlans = await UpgradeRequestService.GetUpgradeTargetPlansAsync(_license.PlanName);
+        }
+
+        _loading = false;
+    }
+
+    private void ShowUpgradeForm()
+    {
+        _showUpgradeForm = true;
+        _upgradeErrorMessage = null;
+        _upgradeSuccessMessage = null;
+    }
+
+    private void CancelUpgradeForm()
+    {
+        _showUpgradeForm = false;
+        _selectedUpgradeOption = string.Empty;
+        _upgradeMessage = null;
+        _upgradeErrorMessage = null;
+    }
+
+    private async Task SubmitUpgradeRequestAsync()
+    {
+        if (_license is null || _submittingUpgrade)
+        {
+            return;
+        }
+
+        _submittingUpgrade = true;
+        _upgradeErrorMessage = null;
+        _upgradeSuccessMessage = null;
+
+        var result = await UpgradeRequestService.SubmitUpgradeRequestAsync(
+            _license,
+            new UpgradeRequestInput
+            {
+                SelectedOption = _selectedUpgradeOption,
+                Message = _upgradeMessage
+            });
+
+        _submittingUpgrade = false;
+
+        if (result.Succeeded)
+        {
+            _upgradeSuccessMessage = result.Message;
+            _selectedUpgradeOption = string.Empty;
+            _upgradeMessage = null;
+            return;
+        }
+
+        _upgradeErrorMessage = result.Message;
+    }
+
+    private static string FormatValidUntil(DateTime? validUntil) =>
+        validUntil?.ToString("d") ?? "Keine Laufzeitbegrenzung hinterlegt";
+
+    private static string FormatStatusLabel(string status) => status switch
+    {
+        "Active" => "Aktiv",
+        "Suspended" => "Gesperrt",
+        "Inactive" => "Inaktiv",
+        _ => status
+    };
+
+    private static string StatusVariant(string status) => status switch
+    {
+        "Active" => "success",
+        "Suspended" => "warning",
+        "Inactive" => "default",
+        _ => "default"
+    };
+}

@@ -1,0 +1,165 @@
+@page "/platform/licenses/{Id:guid}"
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<PageTitle>Lizenzdetails</PageTitle>
+
+@if (_loading)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_license is null)
+{
+    <div class="alert alert-warning dsms-alert">Lizenz nicht gefunden.</div>
+}
+else
+{
+    <PageHeader Title="@_license.LicenseNumber" Subtitle="@_license.CustomerName">
+        <a class="btn btn-outline-primary" href="@($"platform/licenses/edit/{_license.Id}")">Bearbeiten</a>
+        <a class="btn btn-outline-secondary" href="platform/licenses">Zur Übersicht</a>
+    </PageHeader>
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Basisdaten</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Lizenznummer</dt>
+                        <dd class="col-sm-7">@_license.LicenseNumber</dd>
+                        <dt class="col-sm-5">Id</dt>
+                        <dd class="col-sm-7"><code>@_license.Id</code></dd>
+                        <dt class="col-sm-5">Kunde</dt>
+                        <dd class="col-sm-7">@_license.CustomerName</dd>
+                        <dt class="col-sm-5">E-Mail</dt>
+                        <dd class="col-sm-7">@(_license.CustomerEmail ?? "—")</dd>
+                        <dt class="col-sm-5">Plan</dt>
+                        <dd class="col-sm-7">@_license.PlanName</dd>
+                        <dt class="col-sm-5">Status</dt>
+                        <dd class="col-sm-7"><StatusBadge Text="@_license.Status" Variant="@StatusVariant(_license.Status)" /></dd>
+                        <dt class="col-sm-5">Gültig von</dt>
+                        <dd class="col-sm-7">@(_license.ValidFrom?.ToString("d") ?? "—")</dd>
+                        <dt class="col-sm-5">Gültig bis</dt>
+                        <dd class="col-sm-7">@(_license.ValidUntil?.ToString("d") ?? "—")</dd>
+                        <dt class="col-sm-5">Nutzbar</dt>
+                        <dd class="col-sm-7">
+                            <StatusBadge Text="@_license.Usability.SuperuserDisplayLabel"
+                                         Variant="@UsabilityVariant(_license.Usability)" />
+                        </dd>
+                        <dt class="col-sm-5">Erstellt</dt>
+                        <dd class="col-sm-7">@_license.CreatedAt.ToLocalTime().ToString("g")</dd>
+                        <dt class="col-sm-5">Aktualisiert</dt>
+                        <dd class="col-sm-7">@(_license.UpdatedAt?.ToLocalTime().ToString("g") ?? "—")</dd>
+                        <dt class="col-sm-5">Interne Notiz</dt>
+                        <dd class="col-sm-7">@(_license.InternalNote ?? "—")</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Lizenzweite Nutzung</strong></div>
+                <div class="dsms-card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            Mandanten:
+                            <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Mandanten", _license.Usage.CurrentTenants, _license.MaxTenants)" />
+                        </li>
+                        <li class="mb-2">
+                            Admins:
+                            <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Admins", _license.Usage.CurrentAdmins, _license.MaxAdmins)" />
+                        </li>
+                        <li class="mb-2">
+                            Speicher (MB):
+                            <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Speicher", _license.Usage.CurrentStorageMb, _license.MaxStorageMb)" />
+                        </li>
+                        <li>
+                            E-Mail-Erinnerungen (aktueller Monat):
+                            <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Erinnerungen", _license.Usage.CurrentEmailRemindersThisMonth, _license.MaxEmailRemindersPerMonth)" />
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="dsms-card">
+                <div class="dsms-card-header"><strong>Gesamtwerte (informativ)</strong></div>
+                <div class="dsms-card-body">
+                    <p class="text-muted small">Bei Per-Mandant-Limits nur zur Übersicht – Limits gelten je Mandant.</p>
+                    <ul class="list-unstyled mb-0">
+                        <li>Benutzer gesamt: @_license.Usage.CurrentUsersTotal</li>
+                        <li>Auditoren gesamt: @_license.Usage.CurrentAuditorsTotal</li>
+                        <li>Eigene Auditvorlagen gesamt: @_license.Usage.CurrentCustomAuditTemplatesTotal</li>
+                        <li>Laufende Audits gesamt: @_license.Usage.CurrentActiveAuditsTotal</li>
+                        <li>Verarbeitungstätigkeiten gesamt: @_license.Usage.CurrentProcessingActivitiesTotal</li>
+                        <li>DSFA gesamt: @_license.Usage.CurrentDpiaTotal</li>
+                        <li>TOMs gesamt: @_license.Usage.CurrentTomsTotal</li>
+                        <li>Dienstleister gesamt: @_license.Usage.CurrentProcessorsTotal</li>
+                        <li>Laufende Maßnahmen gesamt: @_license.Usage.CurrentActiveMeasuresTotal</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="dsms-card">
+                <div class="dsms-card-header"><strong>Nutzung je Mandant</strong></div>
+                <div class="dsms-card-body">
+                    @if (_tenantLimits.Count == 0)
+                    {
+                        <p class="text-muted mb-0">Keine aktiven Mandanten dieser Lizenz zugeordnet.</p>
+                    }
+                    else
+                    {
+                        @foreach (var tenant in _tenantLimits)
+                        {
+                            <div class="mb-4 pb-3 border-bottom">
+                                <h6 class="mb-3">Mandant: @tenant.TenantName</h6>
+                                <ul class="list-unstyled mb-0">
+                                    @foreach (var item in tenant.Items)
+                                    {
+                                        <li class="mb-2">
+                                            @item.Name:
+                                            <LicenseLimitRow Item="@item" />
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
+
+    private LicenseDetailsDto? _license;
+    private List<TenantLimitUsageDto> _tenantLimits = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _license = await LicenseService.GetLicenseDetailsAsync(Id);
+        if (_license is not null)
+        {
+            _tenantLimits = _license.Usage.Tenants
+                .Select(t => LicenseLimitHelper.BuildTenantLimitUsage(t, _license))
+                .ToList();
+        }
+
+        _loading = false;
+    }
+
+    private static string StatusVariant(string status) => status switch
+    {
+        "Active" => "success",
+        "Suspended" => "warning",
+        "Inactive" => "default",
+        _ => "default"
+    };
+
+    private static string UsabilityVariant(LicenseUsabilityInfo usability) =>
+        usability.IsUsableForCreation ? "success" : "danger";
+}

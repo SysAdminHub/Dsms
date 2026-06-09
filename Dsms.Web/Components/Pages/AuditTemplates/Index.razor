@@ -1,195 +1,211 @@
-@* Listenansicht: eigene Mandantenvorlagen, offizielle und Community-Vorlagen. *@
-@page "/audit-templates"
-@attribute [Authorize]
-@rendermode InteractiveServer
-
-<PageTitle>Audit-Vorlagen</PageTitle>
-
-@if (_tenantId is null)
-{
-    <PageHeader Title="Audit-Vorlagen" />
-    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
-}
-else
-{
-    <PageHeader Title="Audit-Vorlagen" Subtitle="Wiederverwendbare Fragenkataloge für Audits">
-        <div class="d-flex flex-wrap gap-2 align-items-center">
-            <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
-            @if (!_showArchived)
-            {
-                @if (_canCreateOfficial)
-                {
-                    <a class="btn btn-outline-primary" href="audit-templates/edit?type=official">Neue globale Vorlage</a>
-                }
-                @if (_canCreateTenant)
-                {
-                    <a class="btn btn-primary" href="audit-templates/edit">Neue Vorlage</a>
-                }
-            }
-        </div>
-    </PageHeader>
-
-    @if (!string.IsNullOrEmpty(_copyMessage))
-    {
-        <div class="alert alert-success dsms-alert">@_copyMessage</div>
-    }
-
-    @if (_templates is null)
-    {
-        <div class="dsms-loading">Lade …</div>
-    }
-    else if (_templates.Count == 0)
-    {
-        <div class="alert alert-info dsms-alert">
-            @(_showArchived ? "Keine archivierten Audit-Vorlagen." : "Noch keine Audit-Vorlagen erfasst.")
-        </div>
-    }
-    else
-    {
-        <div class="dsms-card">
-            <div class="dsms-table-wrap">
-                <table class="table dsms-table">
-                    <thead>
-                        <tr>
-                            <th>Titel</th>
-                            <th>Typ</th>
-                            <th>Version</th>
-                            <th>Fragen</th>
-                            <th>Status</th>
-                            @if (_showArchived)
-                            {
-                                <th>Archiviert am</th>
-                            }
-                            <th class="dsms-table-actions"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var row in _templates)
-                        {
-                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
-                                <td>
-                                    <strong>@row.Template.Title</strong>
-                                    @if (_showArchived)
-                                    {
-                                        <span class="ms-2"><ArchivedBadge /></span>
-                                    }
-                                </td>
-                                <td>
-                                    <div class="d-flex flex-wrap gap-1">
-                                        <StatusBadge Text="@AuditTemplateLabels.GetTypeBadge(row.Template.TemplateType)"
-                                                     Variant="@AuditTemplateLabels.GetTypeBadgeVariant(row.Template.TemplateType)" />
-                                        @if (row.Template.TemplateType == AuditTemplateType.Tenant)
-                                        {
-                                            var statusBadge = AuditTemplateLabels.GetCommunityStatusBadge(row.Template.CommunityStatus);
-                                            if (statusBadge is not null)
-                                            {
-                                                <StatusBadge Text="@statusBadge"
-                                                             Variant="@(row.Template.CommunityStatus == CommunityStatus.Rejected ? "danger" : "warning")" />
-                                            }
-                                        }
-                                    </div>
-                                </td>
-                                <td>@row.Template.Version</td>
-                                <td>@row.Template.Questions.Count</td>
-                                <td>
-                                    <StatusBadge Text="@(row.Template.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(row.Template.IsActive ? "success" : "default")" />
-                                </td>
-                                @if (_showArchived)
-                                {
-                                    <td>@(row.Template.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
-                                }
-                                <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        @if (row.CanEdit)
-                                        {
-                                            <a class="btn btn-sm btn-outline-secondary" href="@($"audit-templates/edit/{row.Template.Id}")">Bearbeiten</a>
-                                        }
-                                        else
-                                        {
-                                            <a class="btn btn-sm btn-outline-secondary" href="@($"audit-templates/edit/{row.Template.Id}")">Ansehen</a>
-                                        }
-                                        @if (row.CanCopy)
-                                        {
-                                            <button type="button" class="btn btn-sm btn-outline-primary" disabled="@_copyBusy" @onclick="() => CopyAsync(row.Template.Id)">Kopie erstellen</button>
-                                        }
-                                    }
-                                    @if (row.CanArchive)
-                                    {
-                                        <AuditTemplateArchiveActions TemplateId="@row.Template.Id"
-                                                                     ItemName="@row.Template.Title"
-                                                                     ShowArchivedView="_showArchived"
-                                                                     OnChanged="LoadDataAsync" />
-                                    }
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    }
-}
-
-@code {
-    [Inject] private IAuditTemplateService TemplateService { get; set; } = null!;
-    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
-    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
-    [Inject] private NavigationManager Navigation { get; set; } = null!;
-
-    private int? _tenantId;
-    private bool _showArchived;
-    private bool _canCreateTenant;
-    private bool _canCreateOfficial;
-    private bool _copyBusy;
-    private string? _copyMessage;
-    private List<TemplateRow>? _templates;
-
-    protected override async Task OnInitializedAsync()
-    {
-        _tenantId = await CurrentUser.GetTenantIdAsync();
-        if (_tenantId is null) return;
-
-        _canCreateTenant = await TemplateService.CanCreateTenantTemplateAsync();
-        _canCreateOfficial = await TemplateService.CanCreateOfficialTemplateAsync();
-        await LoadDataAsync();
-    }
-
-    private async Task LoadDataAsync()
-    {
-        _showArchived = ArchiveView.ShowArchivedOnly;
-        var items = await TemplateService.ListVisibleAsync();
-        var rows = new List<TemplateRow>();
-        foreach (var template in items)
-        {
-            rows.Add(new TemplateRow(
-                template,
-                await TemplateService.CanEditAsync(template),
-                await TemplateService.CanArchiveAsync(template),
-                await TemplateService.CanCopyToTenantAsync(template)));
-        }
-
-        _templates = rows;
-    }
-
-    private async Task CopyAsync(int templateId)
-    {
-        _copyBusy = true;
-        try
-        {
-            var result = await TemplateService.CopyToTenantAsync(templateId);
-            if (result.Succeeded)
-            {
-                await LoadDataAsync();
-                _copyMessage = "Kopie wurde als eigene Vorlage erstellt.";
-            }
-        }
-        finally
-        {
-            _copyBusy = false;
-        }
-    }
-
-    private sealed record TemplateRow(AuditTemplate Template, bool CanEdit, bool CanArchive, bool CanCopy);
-}
-
+@* Listenansicht: eigene Mandantenvorlagen, offizielle und Community-Vorlagen. *@
+@page "/audit-templates"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Audit-Vorlagen</PageTitle>
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Audit-Vorlagen" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <PageHeader Title="Audit-Vorlagen" Subtitle="Wiederverwendbare Fragenkataloge für Audits">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
+            @if (!_showArchived)
+            {
+                @if (_canCreateOfficial)
+                {
+                    <a class="btn btn-outline-primary" href="audit-templates/edit?type=official">Neue globale Vorlage</a>
+                }
+                @if (_canCreateTenant)
+                {
+                    @if (_customTemplateLimit is { IsAllowed: false })
+                    {
+                        <button type="button" class="btn btn-primary" disabled title="@_customTemplateLimit.Message">Neue Vorlage</button>
+                    }
+                    else
+                    {
+                        <a class="btn btn-primary" href="audit-templates/edit">Neue Vorlage</a>
+                    }
+                }
+            }
+        </div>
+    </PageHeader>
+
+    @if (!_showArchived && _canCreateTenant && _customTemplateLimit is not null)
+    {
+        <LicenseUsageBadge Check="_customTemplateLimit" />
+        <LicenseLimitAlert Check="_customTemplateLimit" />
+    }
+
+    @if (!string.IsNullOrEmpty(_copyMessage))
+    {
+        <div class="alert alert-success dsms-alert">@_copyMessage</div>
+    }
+
+    @if (_templates is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else if (_templates.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">
+            @(_showArchived ? "Keine archivierten Audit-Vorlagen." : "Noch keine Audit-Vorlagen erfasst.")
+        </div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Typ</th>
+                            <th>Version</th>
+                            <th>Fragen</th>
+                            <th>Status</th>
+                            @if (_showArchived)
+                            {
+                                <th>Archiviert am</th>
+                            }
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in _templates)
+                        {
+                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
+                                <td>
+                                    <strong>@row.Template.Title</strong>
+                                    @if (_showArchived)
+                                    {
+                                        <span class="ms-2"><ArchivedBadge /></span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        <StatusBadge Text="@AuditTemplateLabels.GetTypeBadge(row.Template.TemplateType)"
+                                                     Variant="@AuditTemplateLabels.GetTypeBadgeVariant(row.Template.TemplateType)" />
+                                        @if (row.Template.TemplateType == AuditTemplateType.Tenant)
+                                        {
+                                            var statusBadge = AuditTemplateLabels.GetCommunityStatusBadge(row.Template.CommunityStatus);
+                                            if (statusBadge is not null)
+                                            {
+                                                <StatusBadge Text="@statusBadge"
+                                                             Variant="@(row.Template.CommunityStatus == CommunityStatus.Rejected ? "danger" : "warning")" />
+                                            }
+                                        }
+                                    </div>
+                                </td>
+                                <td>@row.Template.Version</td>
+                                <td>@row.Template.Questions.Count</td>
+                                <td>
+                                    <StatusBadge Text="@(row.Template.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(row.Template.IsActive ? "success" : "default")" />
+                                </td>
+                                @if (_showArchived)
+                                {
+                                    <td>@(row.Template.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
+                                }
+                                <td class="dsms-table-actions">
+                                    @if (!_showArchived)
+                                    {
+                                        @if (row.CanEdit)
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary" href="@($"audit-templates/edit/{row.Template.Id}")">Bearbeiten</a>
+                                        }
+                                        else
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary" href="@($"audit-templates/edit/{row.Template.Id}")">Ansehen</a>
+                                        }
+                                        @if (row.CanCopy)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-primary" disabled="@(_copyBusy || _customTemplateLimit is { IsAllowed: false })" title="@(_customTemplateLimit is { IsAllowed: false } ? _customTemplateLimit.Message : null)" @onclick="() => CopyAsync(row.Template.Id)">Kopie erstellen</button>
+                                        }
+                                    }
+                                    @if (row.CanArchive)
+                                    {
+                                        <AuditTemplateArchiveActions TemplateId="@row.Template.Id"
+                                                                     ItemName="@row.Template.Title"
+                                                                     ShowArchivedView="_showArchived"
+                                                                     OnChanged="LoadDataAsync" />
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private IAuditTemplateService TemplateService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _showArchived;
+    private bool _canCreateTenant;
+    private bool _canCreateOfficial;
+    private LicenseLimitCheckResult? _customTemplateLimit;
+    private bool _copyBusy;
+    private string? _copyMessage;
+    private List<TemplateRow>? _templates;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canCreateTenant = await TemplateService.CanCreateTenantTemplateAsync();
+        _canCreateOfficial = await TemplateService.CanCreateOfficialTemplateAsync();
+        _customTemplateLimit = await LicenseService.CanCreateCustomAuditTemplateAsync(_tenantId.Value);
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _showArchived = ArchiveView.ShowArchivedOnly;
+        var items = await TemplateService.ListVisibleAsync();
+        var rows = new List<TemplateRow>();
+        foreach (var template in items)
+        {
+            rows.Add(new TemplateRow(
+                template,
+                await TemplateService.CanEditAsync(template),
+                await TemplateService.CanArchiveAsync(template),
+                await TemplateService.CanCopyToTenantAsync(template)));
+        }
+
+        _templates = rows;
+    }
+
+    private async Task CopyAsync(int templateId)
+    {
+        _copyBusy = true;
+        try
+        {
+            var result = await TemplateService.CopyToTenantAsync(templateId);
+            if (result.Succeeded)
+            {
+                await LoadDataAsync();
+                _copyMessage = "Kopie wurde als eigene Vorlage erstellt.";
+            }
+        }
+        finally
+        {
+            _copyBusy = false;
+        }
+    }
+
+    private sealed record TemplateRow(AuditTemplate Template, bool CanEdit, bool CanArchive, bool CanCopy);
+}
+

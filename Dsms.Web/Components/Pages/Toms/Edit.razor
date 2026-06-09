@@ -46,7 +46,11 @@ else
 
     <PageHeader Title="@(_model.Id == 0 ? "TOM anlegen" : "TOM bearbeiten")" />
 
-
+    @if (_model.Id == 0 && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
 
     <div class="dsms-card dsms-form-card">
 
@@ -240,7 +244,7 @@ else
 
                 <div class="dsms-form-actions">
 
-                    <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                    <button type="submit" class="btn btn-primary" disabled="@(_saving || (_model.Id == 0 && _createLimit is { IsAllowed: false }))">Speichern</button>
 
                     <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"toms/{_model.Id}" : "toms")">Abbrechen</a>
 
@@ -266,7 +270,9 @@ else
 
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
-
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
 
@@ -275,6 +281,8 @@ else
     private bool _saving;
 
     private string? _saveError;
+
+    private LicenseLimitCheckResult? _createLimit;
 
     private Tom _model = new() { ImplementationStatus = TomImplementationStatus.Planned };
 
@@ -285,8 +293,11 @@ else
     private List<ProcessingActivity> _availableActivities = [];
 
     private HashSet<int> _selectedActivityIds = [];
-
-
+    private TomImplementationStatus? _previousStatus;
+    private string? _previousTitle;
+    private TomCategory? _previousCategory;
+    private string? _previousOwner;
+    private DateOnly? _previousNextReviewAt;
 
     protected override async Task OnInitializedAsync()
 
@@ -333,6 +344,11 @@ else
 
 
             _model = existing;
+            _previousStatus = existing.ImplementationStatus;
+            _previousTitle = existing.Title;
+            _previousCategory = existing.Category;
+            _previousOwner = existing.Owner;
+            _previousNextReviewAt = existing.NextReviewAt;
 
             _validFrom = existing.ValidFrom?.ToDateTime(TimeOnly.MinValue);
 
@@ -351,6 +367,8 @@ else
         {
 
             _model.TenantId = _tenantId.Value;
+
+            _createLimit = await LicenseService.CanCreateTomAsync(_tenantId.Value);
 
         }
 
@@ -440,6 +458,19 @@ else
 
         {
 
+            var limitCheck = await LicenseService.CanCreateTomAsync(_tenantId.Value);
+
+            if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "Tom"))
+            {
+
+                _saveError = limitCheck.Message;
+
+                _saving = false;
+
+                return;
+
+            }
+
             _model.CreatedAt = DateTime.UtcNow;
 
             Db.Toms.Add(_model);
@@ -471,6 +502,8 @@ else
 
 
             await Db.SaveChangesAsync();
+
+            await ComplianceAuditLog.LogTomCreatedAsync(_model.Id, _model.Title, _tenantId.Value);
 
             Navigation.NavigateTo($"toms/{_model.Id}");
 
@@ -529,6 +562,11 @@ else
 
 
         await Db.SaveChangesAsync();
+
+        var changes = ComplianceAuditDiffBuilder.ForTom(
+            _previousTitle, _previousCategory, _previousStatus, _previousOwner, _previousNextReviewAt, _model);
+        await ComplianceAuditLog.LogTomUpdatedAsync(
+            _model.Id, _model.Title, _tenantId.Value, changes);
 
         Navigation.NavigateTo($"toms/{_model.Id}");
 

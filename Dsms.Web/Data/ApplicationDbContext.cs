@@ -93,6 +93,7 @@ public class ApplicationDbContext(
             e.Property(p => p.InternalNote).HasColumnType("text");
             e.Property(p => p.IsActive).HasDefaultValue(true);
             e.Property(p => p.IsFree).HasDefaultValue(false);
+            e.Property(p => p.IsPublicSignupEnabled).HasDefaultValue(false);
             e.Property(p => p.SortOrder).HasDefaultValue(0);
             e.Property(p => p.PriceMonthly).HasPrecision(18, 2);
             e.Property(p => p.PriceYearly).HasPrecision(18, 2);

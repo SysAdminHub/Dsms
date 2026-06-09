@@ -69,7 +69,7 @@ builder.Services.AddScoped<IReminderService, ReminderService>();
 builder.Services.AddScoped<ILicenseService, LicenseService>();
 builder.Services.AddScoped<IPlanToLicenseService, PlanToLicenseService>();
 builder.Services.AddScoped<IProvisioningService, ProvisioningService>();
-builder.Services.AddScoped<IFreeSignupService, FreeSignupService>();
+builder.Services.AddScoped<IPublicSignupService, PublicSignupService>();
 builder.Services.AddScoped<IPaidSignupService, PaidSignupService>();
 builder.Services.AddScoped<IPendingSignupService, PendingSignupService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();

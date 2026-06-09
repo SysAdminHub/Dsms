@@ -37,6 +37,8 @@ else
                         <dd class="col-sm-7"><StatusBadge Text="@(_plan.IsActive ? "Ja" : "Nein")" Variant="@(_plan.IsActive ? "success" : "default")" /></dd>
                         <dt class="col-sm-5">Kostenlos</dt>
                         <dd class="col-sm-7">@(_plan.IsFree ? "Ja" : "Nein")</dd>
+                        <dt class="col-sm-5">Öffentlich registrierbar</dt>
+                        <dd class="col-sm-7"><StatusBadge Text="@(_plan.IsPublicSignupEnabled ? "Ja" : "Nein")" Variant="@(_plan.IsPublicSignupEnabled ? "success" : "default")" /></dd>
                         <dt class="col-sm-5">Sortierung</dt>
                         <dd class="col-sm-7">@_plan.SortOrder</dd>
                         <dt class="col-sm-5">Erstellt</dt>

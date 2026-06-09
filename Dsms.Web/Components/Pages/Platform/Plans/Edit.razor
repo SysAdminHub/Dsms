@@ -50,6 +50,13 @@
                         <label class="form-check-label" for="isFree">Kostenlos</label>
                     </div>
                 </div>
+                <div class="col-md-6">
+                    <div class="form-check mt-4">
+                        <InputCheckbox class="form-check-input" @bind-Value="_model.IsPublicSignupEnabled" id="isPublicSignupEnabled" />
+                        <label class="form-check-label" for="isPublicSignupEnabled">Öffentlich registrierbar</label>
+                    </div>
+                    <div class="form-text">Wenn aktiviert, wird dieser Plan auf der öffentlichen Registrierungsseite angezeigt.</div>
+                </div>
             </div>
 
             <h5 class="mb-3">Preise</h5>
@@ -207,6 +214,7 @@
                 Description = details.Description,
                 IsActive = details.IsActive,
                 IsFree = details.IsFree,
+                IsPublicSignupEnabled = details.IsPublicSignupEnabled,
                 SortOrder = details.SortOrder,
                 Currency = details.Currency,
                 ExternalProductId = details.ExternalProductId,

@@ -58,6 +58,7 @@ else
                         <th>Anzeigename</th>
                         <th>Aktiv</th>
                         <th>Kostenlos</th>
+                        <th>Öffentlich registrierbar</th>
                         <th>Preis monatlich</th>
                         <th>Preis jährlich</th>
                         <th>Währung</th>
@@ -74,6 +75,7 @@ else
                             <td>@item.DisplayName</td>
                             <td><StatusBadge Text="@(item.IsActive ? "Ja" : "Nein")" Variant="@(item.IsActive ? "success" : "default")" /></td>
                             <td>@(item.IsFree ? "Ja" : "Nein")</td>
+                            <td><StatusBadge Text="@(item.IsPublicSignupEnabled ? "Ja" : "Nein")" Variant="@(item.IsPublicSignupEnabled ? "success" : "default")" /></td>
                             <td>@SubscriptionPlanDisplayHelper.FormatMonthlyPrice(item.PriceMonthly, item.Currency, item.IsFree)</td>
                             <td>@SubscriptionPlanDisplayHelper.FormatYearlyPrice(item.PriceYearly, item.Currency, item.IsFree)</td>
                             <td>@item.Currency</td>

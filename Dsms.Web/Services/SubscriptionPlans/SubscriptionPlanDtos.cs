@@ -7,6 +7,7 @@ public sealed class SubscriptionPlanListDto
     public string DisplayName { get; init; } = string.Empty;
     public bool IsActive { get; init; }
     public bool IsFree { get; init; }
+    public bool IsPublicSignupEnabled { get; init; }
     public int SortOrder { get; init; }
     public decimal? PriceMonthly { get; init; }
     public decimal? PriceYearly { get; init; }
@@ -24,6 +25,7 @@ public sealed class SubscriptionPlanDetailsDto
     public string? Description { get; init; }
     public bool IsActive { get; init; }
     public bool IsFree { get; init; }
+    public bool IsPublicSignupEnabled { get; init; }
     public int SortOrder { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
@@ -60,6 +62,7 @@ public sealed class SubscriptionPlanEditDto
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsFree { get; set; }
+    public bool IsPublicSignupEnabled { get; set; }
     public int SortOrder { get; set; }
 
     public decimal? PriceMonthly { get; set; }

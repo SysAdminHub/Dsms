@@ -6,6 +6,24 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Öffentliche Registrierung mit Tarifauswahl:**
+  - Neues Feld `IsPublicSignupEnabled` auf `SubscriptionPlan` (Migration `AddSubscriptionPlanIsPublicSignupEnabled`)
+  - Bestehende aktive Free-Pläne werden per Migration auf öffentlich registrierbar gesetzt; bezahlte Pläne standardmäßig nicht
+  - `IPublicSignupService` / `PublicSignupService` – lädt öffentliche Pläne, validiert Auswahl, verzweigt Free → `ProvisioningService`, Paid → `PendingSignupService.CreatePublicAsync`
+  - DTOs `PublicSignupPlanDto`, `PublicSignupFormDto`, `PublicSignupSubmitResult`
+  - `GetPublicSignupPlansAsync()` und `GetPublicSignupPlanByIdAsync()` in `SubscriptionPlanService`
+  - `/signup` zeigt alle aktiven, öffentlich registrierbaren Pläne als wählbare Karten; Formular erst nach Planwahl
+  - Superuser-Planverwaltung: Checkbox „Öffentlich registrierbar“, Spalte in `/platform/plans`
+  - `/signup/paid` leitet auf `/signup?preferPaid=true` weiter (Vorauswahl bezahlter öffentlicher Pläne)
+  - Systemlogs `PublicSignupSubmitted`, `PublicSignupFailed`; Quelle `PublicSignup` für Paid-PendingSignups
+  - **Ohne** Mollie, Online-Zahlung, Rechnungslogik, Upgrade-Funktion
+
+### Geändert
+
+- **Signup vereinheitlicht:** `IFreeSignupService` / `FreeSignupService` durch `IPublicSignupService` / `PublicSignupService` ersetzt; `/signup` nicht mehr nur für kostenlosen Plan
+
+### Hinzugefügt
+
 - **Öffentlicher Paid-Signup (ohne Mollie):**
   - Seiten `/signup/paid` und `/signup/paid/success` (ohne Login, LoginLayout)
   - `IPaidSignupService` / `PaidSignupService` – lädt aktive bezahlte Pläne, validiert Formular, ruft `PendingSignupService.CreatePublicAsync` auf

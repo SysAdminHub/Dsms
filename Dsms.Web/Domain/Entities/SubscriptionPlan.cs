@@ -14,6 +14,10 @@ public class SubscriptionPlan
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsFree { get; set; }
+    /// <summary>
+    /// Wenn true, wird der Plan auf der öffentlichen Registrierungsseite angezeigt und auswählbar.
+    /// </summary>
+    public bool IsPublicSignupEnabled { get; set; }
     public int SortOrder { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }

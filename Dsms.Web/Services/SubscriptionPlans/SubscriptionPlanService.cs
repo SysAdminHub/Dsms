@@ -45,6 +45,7 @@ public sealed class SubscriptionPlanService(
                 DisplayName = p.DisplayName,
                 IsActive = p.IsActive,
                 IsFree = p.IsFree,
+                IsPublicSignupEnabled = p.IsPublicSignupEnabled,
                 SortOrder = p.SortOrder,
                 PriceMonthly = p.PriceMonthly,
                 PriceYearly = p.PriceYearly,
@@ -96,6 +97,31 @@ public sealed class SubscriptionPlanService(
             .ToListAsync();
     }
 
+    public async Task<IReadOnlyList<SubscriptionPlanDetailsDto>> GetPublicSignupPlansAsync()
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        return await db.SubscriptionPlans
+            .AsNoTracking()
+            .Where(p => p.IsActive && p.IsPublicSignupEnabled)
+            .OrderBy(p => p.SortOrder)
+            .ThenBy(p => p.DisplayName)
+            .Select(p => MapToDetails(p))
+            .ToListAsync();
+    }
+
+    public async Task<SubscriptionPlanDetailsDto?> GetPublicSignupPlanByIdAsync(Guid id)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var plan = await db.SubscriptionPlans
+            .AsNoTracking()
+            .Where(p => p.Id == id && p.IsActive && p.IsPublicSignupEnabled)
+            .FirstOrDefaultAsync();
+
+        return plan is null ? null : MapToDetails(plan);
+    }
+
     public async Task<SubscriptionPlanDetailsDto?> GetPlanByIdAsync(Guid id)
     {
         await EnsureSuperuserAsync();
@@ -137,6 +163,7 @@ public sealed class SubscriptionPlanService(
             Description = NormalizeOptional(dto.Description),
             IsActive = dto.IsActive,
             IsFree = dto.IsFree,
+            IsPublicSignupEnabled = dto.IsPublicSignupEnabled,
             SortOrder = dto.SortOrder,
             PriceMonthly = dto.PriceMonthly,
             PriceYearly = dto.PriceYearly,
@@ -200,6 +227,7 @@ public sealed class SubscriptionPlanService(
         plan.Description = NormalizeOptional(dto.Description);
         plan.IsActive = dto.IsActive;
         plan.IsFree = dto.IsFree;
+        plan.IsPublicSignupEnabled = dto.IsPublicSignupEnabled;
         plan.SortOrder = dto.SortOrder;
         plan.PriceMonthly = dto.PriceMonthly;
         plan.PriceYearly = dto.PriceYearly;
@@ -328,6 +356,7 @@ public sealed class SubscriptionPlanService(
         Description = plan.Description,
         IsActive = plan.IsActive,
         IsFree = plan.IsFree,
+        IsPublicSignupEnabled = plan.IsPublicSignupEnabled,
         SortOrder = plan.SortOrder,
         CreatedAt = plan.CreatedAt,
         UpdatedAt = plan.UpdatedAt,
@@ -373,6 +402,7 @@ public sealed class SubscriptionPlanService(
         plan.Description,
         plan.IsActive,
         plan.IsFree,
+        plan.IsPublicSignupEnabled,
         plan.SortOrder,
         plan.PriceMonthly,
         plan.PriceYearly,

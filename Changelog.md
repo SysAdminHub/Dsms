@@ -4,6 +4,171 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- **Docker-Production-Deployment (Open Source):**
+  - `docker-compose.yml` – App-Service `dsms`, MySQL 8 `db`, Volumes für DB/Uploads/Data-Protection-Keys
+  - `.env.example` mit Platzhalterwerten; `.env` in `.gitignore`
+  - `Production_Deployment.md` – Anleitung für produktiven Docker-Betrieb
+  - `Dsms.Web/Dockerfile` – Multi-Stage Release-Build (Port 8080)
+  - Data Protection Keys persistent (`DataProtection-Keys` + Docker-Volume)
+  - Upload-Pfad konfigurierbar (`Storage:UploadPath`, Default `Data/Uploads`)
+  - Production Connection String über `ConnectionStrings__DefaultConnection`
+
+### Geändert
+
+- `appsettings.json`: lokaler Default-ConnectionString auf `dsms_dev` vereinheitlicht; `Storage:UploadPath` ergänzt
+- `README.md`: Verweis auf `Production_Deployment.md`; lokaler Compose-Start nur `db`
+- `Architecture.md`: Docker-Deployment und Konfiguration aktualisiert
+
+### Hinzugefügt
+
+- **Admin-Lizenzübersicht: Upgrade-Anfrage (`/admin/license`):**
+  - Erweiterte Tarif-/Billing-Anzeige in „Lizenzdaten“ (Plan-Anzeigename, Beschreibung, Abrechnung, Betrag, Nächste Rechnung – falls verfügbar)
+  - Button „Upgrade anfragen“ mit aufklappbarem Formular (Zieltarif oder individuelles Upgrade)
+  - `IUpgradeRequestService` / `UpgradeRequestService` – Validierung, interne E-Mail an Systembenachrichtigungsadresse, Audit-/Systemlog
+  - Zielpläne: aktive kostenpflichtige Pläne außer aktuellem Tarif (`GetActivePaidPlansAsync`)
+  - Tarifinfo im Formular mit Preisen, Beschreibung und kompakten Limits; Preise auch in der internen Upgrade-Mail
+  - **Keine** automatische Lizenz-/Planänderung, **keine** Zahlung, **keine** Rechnung
+
+### Hinzugefügt
+
+- **Manuelle Rechnungsverwaltung für Registrierungen:**
+  - `BillingStatuses` (NotRequired, InvoicePending, InvoiceSent, Paid, PaymentOverdue, Cancelled) und `BillingStatusDisplayHelper`
+  - Neue Felder auf `PendingSignup`: `BillingStatus`, `InvoiceSentAt`, `InvoicePaidAt`, `NextInvoiceDate` (DateOnly), `BillingNote` (Migration `AddPendingSignupBillingManagement`)
+  - Beim Public Signup: Free → `NotRequired`, kein Datum; Paid monatlich → `NextInvoiceDate = Registrierung + 1 Monat`; Paid jährlich → + 1 Jahr
+  - `/platform/signups`: Spalten Rechnungsstatus und Nächste Rechnung; Filter Rechnungsstatus und Nächste Rechnung bis
+  - Detailseite `/platform/signups/{id}`: Abschnitt „Rechnung“, Bearbeitung Nächste Rechnung + interne Rechnungsnotiz, Aktionen (gesendet/bezahlt/überfällig/offen)
+  - Service-Methoden: `UpdateBillingDetailsAsync`, `MarkInvoiceSentAsync`, `MarkInvoicePaidAsync`, `MarkPaymentOverdueAsync`, `MarkInvoicePendingAsync` (nur Superuser, mit Auditlog)
+  - Interne Signup-E-Mail enthält „Nächste Rechnung am“
+  - **Keine** automatische Lizenzverlängerung bei Rechnungsaktionen
+
+### Geändert
+
+- **Public Signup: Abrechnungszeitraum Monatlich/Jährlich:**
+  - `BillingCycles` (Monthly/Yearly) und `BillingCycleDisplayHelper`
+  - Auswahl im Signup-Formular bei kostenpflichtigen Plänen; Validierung und Amount nach Nutzerwahl
+  - Feld `BillingCycle` auf `PendingSignup` (Migration `AddPendingSignupBillingCycle`)
+  - Anzeige in `/platform/signups`, Detailseite und interner E-Mail
+
+- **Systembenachrichtigungen:** Empfänger nicht mehr in `appsettings.json`, sondern in `EmailSettings` unter `/platform/email/settings` (`SystemNotificationsEnabled`, `SystemNotificationRecipientEmail`); Migration `AddEmailSettingsSystemNotifications`
+
+### Hinzugefügt
+
+- **Signup: Superuser-Ansicht Rechnungsdaten + interne Benachrichtigung:**
+  - Rechnungsdaten in `PendingSignupListDto` (BillingEmail, PaymentProvider, MetadataJson)
+  - Spalte „Rechnung“ in `/platform/signups` (kompakt: E-Mail + Status)
+  - Abschnitt „Rechnungsdaten“ auf `/platform/signups/{id}`; Lizenzstatus und Ablaufdatum aus `ILicenseService`
+  - `SignupNotificationService` – interne E-Mail nach erfolgreichem Public Signup
+  - Systembenachrichtigungen konfigurierbar unter `/platform/email/settings` (`SystemNotificationsEnabled`, `SystemNotificationRecipientEmail`)
+  - Systemlogs: `SignupNotificationSent`, `SignupNotificationFailed`, `SignupNotificationSkipped`
+
+- **Public Signup: Direkte Provisionierung für alle Pläne:**
+  - Free- und kostenpflichtige Pläne werden nach Absenden direkt provisioniert (License, Mandant, Admin, Passwortmail)
+  - Einheitlicher Flow in `PublicSignupService.SubmitWithProvisioningAsync`: PendingSignup → Provisioning → Status Provisioned/Failed
+  - `CreateForPublicSignupAsync`, `SetStatusForPublicSignupAsync`, `MarkAsProvisionedForPublicSignupAsync`, `MarkAsFailedForPublicSignupAsync` in `PendingSignupService`
+  - Neuer Status `Provisioning` in `PendingSignupStatuses`
+  - Automatische Lizenzlaufzeit beim Public Signup: 1 Monat (`ValidFrom` = UTC-Datum heute, `ValidUntil` = +1 Monat)
+  - Billing: Free → `PaymentProvider = None`, Amount = 0; Paid → `PaymentProvider = ManualInvoice`, Amount = jährlicher Preis falls gesetzt, sonst monatlich
+  - `BillingStatus` und `BillingCycle` in `MetadataJson` (Legacy-Fallback); zusätzlich eigenes DB-Feld `BillingStatus` und Rechnungsverwaltungsfelder (s. unten)
+  - Erfolgsseite `/signup/success` für Free und Paid (Query-Parameter `paid`, `planName`, `emailSent`)
+  - **Ohne** Mollie, Online-Zahlung, automatische Rechnungserstellung
+
+- **Signup: Rechnungsdaten bei kostenpflichtigen Plänen:**
+  - Rechnungsfelder in `PublicSignupFormDto` und bedingte Anzeige auf `/signup` (nur wenn `IsFree == false`)
+  - Validierung in `PublicSignupService` nur für kostenpflichtige Pläne
+  - Speicherung in `PendingSignup` (Migration `AddPendingSignupBillingFields`)
+  - Sinnvolle Vorausfüllung aus Unternehmens-/Admin-Daten beim Wechsel auf kostenpflichtigen Plan
+
+### Geändert
+
+- **Signup-Header:** Helle Schriftfarben auf blauem Hintergrund für Titel, Untertitel und „Tarif auswählen“
+
+### Hinzugefügt
+
+- **Öffentliche Registrierung mit Tarifauswahl:**
+  - Neues Feld `IsPublicSignupEnabled` auf `SubscriptionPlan` (Migration `AddSubscriptionPlanIsPublicSignupEnabled`)
+  - Bestehende aktive Free-Pläne werden per Migration auf öffentlich registrierbar gesetzt; bezahlte Pläne standardmäßig nicht
+  - `IPublicSignupService` / `PublicSignupService` – lädt öffentliche Pläne, validiert Auswahl, verzweigt Free → `ProvisioningService`, Paid → `PendingSignupService.CreatePublicAsync`
+  - DTOs `PublicSignupPlanDto`, `PublicSignupFormDto`, `PublicSignupSubmitResult`
+  - `GetPublicSignupPlansAsync()` und `GetPublicSignupPlanByIdAsync()` in `SubscriptionPlanService`
+  - `/signup` zeigt alle aktiven, öffentlich registrierbaren Pläne als wählbare Karten; Formular erst nach Planwahl
+  - Superuser-Planverwaltung: Checkbox „Öffentlich registrierbar“, Spalte in `/platform/plans`
+  - `/signup/paid` leitet auf `/signup?preferPaid=true` weiter (Vorauswahl bezahlter öffentlicher Pläne)
+  - Systemlogs `PublicSignupSubmitted`, `PublicSignupFailed`; Quelle `PublicSignup` für Paid-PendingSignups
+  - **Ohne** Mollie, Online-Zahlung, Rechnungslogik, Upgrade-Funktion
+
+### Geändert
+
+- **Signup vereinheitlicht:** `IFreeSignupService` / `FreeSignupService` durch `IPublicSignupService` / `PublicSignupService` ersetzt; `/signup` nicht mehr nur für kostenlosen Plan
+
+### Hinzugefügt
+
+- **Öffentlicher Paid-Signup (ohne Mollie):**
+  - Seiten `/signup/paid` und `/signup/paid/success` (ohne Login, LoginLayout)
+  - `IPaidSignupService` / `PaidSignupService` – lädt aktive bezahlte Pläne, validiert Formular, ruft `PendingSignupService.CreatePublicAsync` auf
+  - `GetActivePaidPlansAsync()` in `SubscriptionPlanService`
+  - `CreatePublicAsync` in `PendingSignupService` – ohne Superuser-Prüfung, nur aktive bezahlte Pläne, Status Draft, Plan-Snapshots
+  - Duplikatprüfung: bestehender Benutzer und offene PendingSignups (Draft, PendingPayment, Paid) zentral im Service
+  - Auditlog `PaidSignupSubmitted`, Systemlog `PaidSignupFailed`
+  - Quelle `PaidSignup` in Superuser-Übersicht `/platform/signups` (Spalte Quelle)
+  - Verlinkung zwischen `/signup` und `/signup/paid`
+  - **Ohne** Mollie, Checkout, Webhook, License/Tenant/Admin-Erstellung, Passwortmail, ProvisioningService
+
+### Hinzugefügt
+
+- **PendingSignup (Vorbereitung bezahlte Registrierungen):**
+  - Entity `PendingSignup` mit Plan-Snapshots, Kundendaten, Payment-Vorbereitung und Provisioning-Ergebnis
+  - Statuswerte: Draft, PendingPayment, Paid, Provisioned, Failed, Cancelled, Expired
+  - `IPendingSignupService` / `PendingSignupService`
+  - Superuser-Seiten: `/platform/signups`, `/platform/signups/{id}`, `/platform/signups/create`
+  - EF-Migration `AddPendingSignups`
+  - Auditlogs: PendingSignupCreated, PendingSignupStatusChanged, PendingSignupMarkedFailed, PendingSignupCancelled, PendingSignupExpired
+  - **Ohne** Mollie, Webhook, automatische Provisionierung; Free-Signup unverändert
+
+### Hinzugefügt
+
+- **Öffentlicher Free-Signup:**
+  - Seiten `/signup` und `/signup/success` (ohne Login, LoginLayout)
+  - `IFreeSignupService` / `FreeSignupService` – lädt aktiven Free-Plan, validiert Formular, ruft `ProvisioningService` auf
+  - `GetActiveFreePlanAsync()` in `SubscriptionPlanService`
+  - Systemlogs `FreeSignupSubmitted`, `FreeSignupFailed`
+  - Honeypot- und Doppelabsende-Schutz
+  - **Ohne** Mollie, PendingSignup, Webhook, bezahlte Pläne, Auto-Login
+
+### Hinzugefügt
+
+- **ProvisioningService:**
+  - `IProvisioningService` / `ProvisioningService` mit `ProvisionCustomerAsync` – erstellt License (via Plan-Mapping), Tenant, Admin und sendet Passwortvergabe-Mail
+  - DTOs `ProvisionCustomerRequestDto`, `ProvisionCustomerResultDto`
+  - Gemeinsame Plan-Mapping-Logik in `PlanToLicenseMapper` / `PlanToLicenseValidator`
+  - `SendProvisioningWelcomeEmailAsync` in `IPasswordResetService` (ohne Benutzerverwaltungs-Prüfung)
+  - Superuser-Seite `/platform/provisioning/create` (Navigation „Provisionierung“)
+  - Auditlog `CustomerProvisioned`, Systemlogs bei Fehlern (`ProvisioningFailed`, `PasswordSetupEmailFailed`)
+  - **Ohne** Public Signup, Mollie, PendingSignup, Webhook; wiederverwendbar für spätere Signup-/Webhook-Flows
+
+### Hinzugefügt
+
+- **Plan-to-License Mapping:**
+  - `IPlanToLicenseService` / `PlanToLicenseService` – kopiert Tarifvorlagen-Werte in neue `License`-Einträge
+  - `PreviewLicenseFromPlanAsync`, `CreateLicenseFromPlanAsync`, DTOs `CreateLicenseFromPlanDto`, `LicenseFromPlanPreviewDto`
+  - Gemeinsame Lizenznummern-Generierung in `LicenseNumberGenerator` (wiederverwendet von `LicenseService`)
+  - Superuser-Seite `/platform/licenses/create-from-plan` („Neue Lizenz aus Plan“)
+  - Auditlog `LicenseCreatedFromPlan` (`IsVisibleToAdmin = false`)
+  - **Ohne** Public Signup, Mollie, ProvisioningService, Mandanten-/Admin-Anlage, Passwortmail; bestehende Lizenzen unverändert
+
+### Hinzugefügt
+
+- **Tarif-/Planverwaltung (Grundlage):**
+  - Neue Entity `SubscriptionPlan` (Guid-Id) als Tarifvorlage mit Preisen, Limits und optionalen externen Billing-Feldern
+  - `ISubscriptionPlanService` / `SubscriptionPlanService` mit CRUD und `GetActivePlansAsync()` (für späteren Signup vorbereitet)
+  - Superuser-Seiten: `/platform/plans` (Übersicht), `/platform/plans/edit`, `/platform/plans/{id}` (Details)
+  - Navigation „Pläne“ im Plattform-Bereich (nur Superuser)
+  - EF-Migration `AddSubscriptionPlans`
+  - Idempotentes Seeding der Demo-Tarife `free`, `basic`, `pro`, `business` (`SubscriptionPlanSeeder`)
+  - Plattform-Auditlog: `SubscriptionPlanCreated`, `SubscriptionPlanUpdated`, `SubscriptionPlanActivated`, `SubscriptionPlanDeactivated` (`IsVisibleToAdmin = false`)
+  - **Ohne** Public Signup, Mollie, ProvisioningService, automatische Lizenzanlage, Featurelocks; bestehende `License`-Logik unverändert
+
 ### Geändert
 
 - **Audit-Diffs lesbar:** `AuditDiffHelper`, `ComplianceAuditDiffBuilder` und `AuditLogChangeParser` – Update-Logs speichern nur geänderte Felder als lesbare Strings (Enums/Status nicht mehr als `{}`); leere Updates werden nicht geschrieben

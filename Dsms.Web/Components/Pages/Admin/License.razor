@@ -61,6 +61,32 @@ else
                         }
                         <dt class="col-sm-5">Tarif</dt>
                         <dd class="col-sm-7">@_license.PlanName</dd>
+                        @if (!string.IsNullOrWhiteSpace(_license.PlanDisplayName)
+                             && !string.Equals(_license.PlanDisplayName, _license.PlanName, StringComparison.Ordinal))
+                        {
+                            <dt class="col-sm-5">Plan-Anzeigename</dt>
+                            <dd class="col-sm-7">@_license.PlanDisplayName</dd>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_license.PlanDescription))
+                        {
+                            <dt class="col-sm-5">Planbeschreibung</dt>
+                            <dd class="col-sm-7">@_license.PlanDescription</dd>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_license.BillingCycleDisplay))
+                        {
+                            <dt class="col-sm-5">Abrechnung</dt>
+                            <dd class="col-sm-7">@_license.BillingCycleDisplay</dd>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_license.AmountDisplay))
+                        {
+                            <dt class="col-sm-5">Betrag</dt>
+                            <dd class="col-sm-7">@_license.AmountDisplay</dd>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_license.NextInvoiceDateDisplay))
+                        {
+                            <dt class="col-sm-5">Nächste Rechnung am</dt>
+                            <dd class="col-sm-7">@_license.NextInvoiceDateDisplay</dd>
+                        }
                         <dt class="col-sm-5">Status</dt>
                         <dd class="col-sm-7">
                             <StatusBadge Text="@FormatStatusLabel(_license.Status)" Variant="@StatusVariant(_license.Status)" />
@@ -72,8 +98,120 @@ else
                         <dt class="col-sm-5">Neuanlage</dt>
                         <dd class="col-sm-7">@_license.Usability.SuperuserDisplayLabel</dd>
                     </dl>
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-primary" @onclick="ShowUpgradeForm">
+                            Upgrade anfragen
+                        </button>
+                    </div>
                 </div>
             </div>
+
+            @if (_showUpgradeForm)
+            {
+                <div class="dsms-card mb-4">
+                    <div class="dsms-card-header"><strong>Upgrade anfragen</strong></div>
+                    <div class="dsms-card-body">
+                        <p class="text-muted mb-3">
+                            Wählen Sie den gewünschten Tarif aus oder fragen Sie ein individuelles Upgrade an.
+                            Es erfolgt kein automatischer Tarifwechsel. Wir melden uns zur Abstimmung bei Ihnen.
+                        </p>
+
+                        @if (!string.IsNullOrEmpty(_upgradeErrorMessage))
+                        {
+                            <div class="alert alert-danger dsms-alert">@_upgradeErrorMessage</div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(_upgradeSuccessMessage))
+                        {
+                            <div class="alert alert-success dsms-alert">@_upgradeSuccessMessage</div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label" for="upgradeTarget">Gewünschtes Upgrade</label>
+                            <select id="upgradeTarget" class="form-select" @bind="_selectedUpgradeOption">
+                                <option value="">— Bitte wählen —</option>
+                                @foreach (var plan in _upgradePlans)
+                                {
+                                    <option value="@plan.Id">@plan.DisplayLabel</option>
+                                }
+                                <option value="@UpgradeRequestConstants.IndividualUpgradeOption">
+                                    Individuelles Upgrade / Beratungstermin
+                                </option>
+                            </select>
+                        </div>
+
+                        @if (SelectedUpgradePlan is { } selectedPlan)
+                        {
+                            <div class="alert alert-info dsms-alert mb-3">
+                                <strong>Tarifinformationen</strong>
+                                <div class="mt-2">
+                                    <div><strong>Ausgewählter Tarif:</strong> @UpgradeTargetPlanDisplayHelper.GetPlanTitle(selectedPlan)</div>
+                                    @if (!string.IsNullOrWhiteSpace(selectedPlan.Description))
+                                    {
+                                        <div class="mt-1">@selectedPlan.Description</div>
+                                    }
+                                    <div class="mt-2"><strong>Preis:</strong></div>
+                                    @if (UpgradeTargetPlanDisplayHelper.HasAnyPrice(selectedPlan))
+                                    {
+                                        @foreach (var priceLine in UpgradeTargetPlanDisplayHelper.FormatPriceLines(selectedPlan))
+                                        {
+                                            <div>@priceLine</div>
+                                        }
+                                        <div class="small text-muted mt-1">
+                                            Währung: @UpgradeTargetPlanDisplayHelper.ResolveCurrency(selectedPlan)
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div>@UpgradeTargetPlanDisplayHelper.NoPriceMessage</div>
+                                    }
+                                    <div class="mt-2 small"><strong>Enthalten:</strong></div>
+                                    <ul class="small mb-0">
+                                        <li>Mandanten: @SubscriptionPlanDisplayHelper.FormatLimit(selectedPlan.MaxTenants)</li>
+                                        <li>Admins: @SubscriptionPlanDisplayHelper.FormatLimit(selectedPlan.MaxAdmins)</li>
+                                        <li>Benutzer pro Mandant: @SubscriptionPlanDisplayHelper.FormatLimit(selectedPlan.MaxUsersPerTenant)</li>
+                                        <li>DSFA pro Mandant: @SubscriptionPlanDisplayHelper.FormatLimit(selectedPlan.MaxDpiaPerTenant)</li>
+                                        <li>TOMs pro Mandant: @SubscriptionPlanDisplayHelper.FormatLimit(selectedPlan.MaxTomsPerTenant)</li>
+                                        <li>Speicher: @UpgradeTargetPlanDisplayHelper.FormatStorageLimit(selectedPlan.MaxStorageMb)</li>
+                                    </ul>
+                                    <p class="small text-muted mb-0 mt-2">@UpgradeTargetPlanDisplayHelper.RequestOnlyHint</p>
+                                </div>
+                            </div>
+                        }
+                        else if (IsIndividualUpgradeSelected)
+                        {
+                            <div class="alert alert-info dsms-alert mb-3">
+                                Preis nach Absprache. Bei einem individuellen Upgrade besprechen wir Ihren Bedarf zuerst in einem Online-Termin.
+                                Nach dem Absenden melden wir uns zur Terminabstimmung.
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label" for="upgradeMessage">Nachricht</label>
+                            <textarea id="upgradeMessage"
+                                      class="form-control"
+                                      rows="4"
+                                      placeholder="Optional: Beschreiben Sie kurz, was Sie benötigen."
+                                      @bind="_upgradeMessage"></textarea>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button"
+                                    class="btn btn-primary"
+                                    disabled="@_submittingUpgrade"
+                                    @onclick="SubmitUpgradeRequestAsync">
+                                Upgrade-Anfrage senden
+                            </button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    disabled="@_submittingUpgrade"
+                                    @onclick="CancelUpgradeForm">
+                                Abbrechen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
 
             <div class="dsms-card mb-4">
                 <div class="dsms-card-header"><strong>Lizenzweite Nutzung</strong></div>
@@ -149,13 +287,19 @@ else
         </div>
     </div>
 
-    <p class="dsms-license-support-hint mb-0">
-        Für Änderungen an Ihrer Lizenz wenden Sie sich bitte an den Support.
-    </p>
+    <div class="dsms-license-support-hint mt-4 mb-0">
+        <p class="mb-2">
+            Sie benötigen mehr Benutzer, Mandanten oder Funktionen? Fordern Sie direkt ein Upgrade an.
+        </p>
+        <button type="button" class="btn btn-primary" @onclick="ShowUpgradeForm">
+            Upgrade anfragen
+        </button>
+    </div>
 }
 
 @code {
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private IUpgradeRequestService UpgradeRequestService { get; set; } = null!;
 
     private const string NoLicenseMessage =
         "Für Ihr Benutzerkonto ist keine Lizenz zugeordnet. Bitte wenden Sie sich an den Support.";
@@ -163,7 +307,35 @@ else
     private AdminLicenseOverviewResult? _overview;
     private LicenseDetailsDto? _license;
     private IReadOnlyList<TenantLimitUsageDto> _tenantLimits = [];
+    private IReadOnlyList<UpgradeTargetPlanDto> _upgradePlans = [];
     private bool _loading = true;
+    private bool _showUpgradeForm;
+    private bool _submittingUpgrade;
+    private string _selectedUpgradeOption = string.Empty;
+    private string? _upgradeMessage;
+    private string? _upgradeErrorMessage;
+    private string? _upgradeSuccessMessage;
+
+    private bool IsIndividualUpgradeSelected =>
+        string.Equals(_selectedUpgradeOption, UpgradeRequestConstants.IndividualUpgradeOption, StringComparison.Ordinal);
+
+    private UpgradeTargetPlanDto? SelectedUpgradePlan
+    {
+        get
+        {
+            if (IsIndividualUpgradeSelected || string.IsNullOrWhiteSpace(_selectedUpgradeOption))
+            {
+                return null;
+            }
+
+            if (!Guid.TryParse(_selectedUpgradeOption, out var planId))
+            {
+                return null;
+            }
+
+            return _upgradePlans.FirstOrDefault(p => p.Id == planId);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -172,9 +344,57 @@ else
         {
             _license = _overview.License;
             _tenantLimits = _overview.TenantLimits;
+            _upgradePlans = await UpgradeRequestService.GetUpgradeTargetPlansAsync(_license.PlanName);
         }
 
         _loading = false;
+    }
+
+    private void ShowUpgradeForm()
+    {
+        _showUpgradeForm = true;
+        _upgradeErrorMessage = null;
+        _upgradeSuccessMessage = null;
+    }
+
+    private void CancelUpgradeForm()
+    {
+        _showUpgradeForm = false;
+        _selectedUpgradeOption = string.Empty;
+        _upgradeMessage = null;
+        _upgradeErrorMessage = null;
+    }
+
+    private async Task SubmitUpgradeRequestAsync()
+    {
+        if (_license is null || _submittingUpgrade)
+        {
+            return;
+        }
+
+        _submittingUpgrade = true;
+        _upgradeErrorMessage = null;
+        _upgradeSuccessMessage = null;
+
+        var result = await UpgradeRequestService.SubmitUpgradeRequestAsync(
+            _license,
+            new UpgradeRequestInput
+            {
+                SelectedOption = _selectedUpgradeOption,
+                Message = _upgradeMessage
+            });
+
+        _submittingUpgrade = false;
+
+        if (result.Succeeded)
+        {
+            _upgradeSuccessMessage = result.Message;
+            _selectedUpgradeOption = string.Empty;
+            _upgradeMessage = null;
+            return;
+        }
+
+        _upgradeErrorMessage = result.Message;
     }
 
     private static string FormatValidUntil(DateTime? validUntil) =>

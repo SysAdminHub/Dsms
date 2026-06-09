@@ -1,0 +1,419 @@
+@page "/signup"
+@layout PublicSignupLayout
+@rendermode InteractiveServer
+
+<PageTitle>Registrieren</PageTitle>
+
+<div class="dsms-public-signup-page">
+    <header class="dsms-public-signup-header dsms-login-brand">
+        <div class="dsms-login-logo">DS</div>
+        <h1>Registrieren</h1>
+        <p>Wählen Sie einen Tarif und erstellen Sie Ihren Zugang zum Datenschutzmanagementsystem.</p>
+    </header>
+
+    @if (_loading)
+    {
+        <div class="dsms-signup-registration-card">
+            <div class="dsms-loading">Lade …</div>
+        </div>
+    }
+    else if (_publicPlans.Count == 0)
+    {
+        <div class="dsms-signup-registration-card">
+            <div class="alert alert-info dsms-alert mb-4">
+                Derzeit sind keine Tarife für die öffentliche Registrierung verfügbar. Bitte wenden Sie sich an den Support.
+            </div>
+            <a class="btn btn-outline-secondary w-100" href="Account/Login">Zur Anmeldung</a>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="dsms-signup-alert-wrap">
+                <div class="alert alert-danger dsms-alert mb-0">@_errorMessage</div>
+            </div>
+        }
+
+        <h2 class="dsms-signup-plans-heading">Tarif auswählen</h2>
+
+        <div class="dsms-signup-plan-row">
+            @foreach (var plan in _publicPlans)
+            {
+                var selected = _model.SelectedPlanId == plan.Id;
+                <div class="dsms-signup-plan-card @(selected ? "dsms-signup-plan-card--selected" : "")">
+                    <div class="dsms-signup-plan-card__header">
+                        <strong class="dsms-signup-plan-card__title">@plan.DisplayName</strong>
+                        <div class="dsms-signup-plan-card__badges">
+                            @if (plan.IsFree)
+                            {
+                                <StatusBadge Text="Kostenloser Einstieg" Variant="success" />
+                            }
+                            @if (selected)
+                            {
+                                <StatusBadge Text="Ausgewählt" Variant="primary" />
+                            }
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(plan.Description))
+                    {
+                        <p class="dsms-signup-plan-card__description">@plan.Description</p>
+                    }
+
+                    <div class="dsms-signup-plan-card__prices">
+                        <p><strong>Monatlich:</strong> @FormatMonthlyPrice(plan)</p>
+                        <p><strong>Jährlich:</strong> @FormatYearlyPrice(plan)</p>
+                    </div>
+
+                    @if (!plan.IsFree)
+                    {
+                        <p class="dsms-signup-plan-card__hint">Rechnung folgt separat</p>
+                    }
+
+                    <p class="dsms-signup-plan-card__limits-title"><strong>Limits</strong></p>
+                    <ul class="dsms-signup-plan-card__limits">
+                        <li>@FormatCount(plan.MaxTenants) Mandanten</li>
+                        <li>@FormatCount(plan.MaxAdmins) Admins</li>
+                        <li>@FormatCount(plan.MaxUsersPerTenant) Benutzer pro Mandant</li>
+                        <li>@FormatCount(plan.MaxDpiaPerTenant) DSFA pro Mandant</li>
+                        <li>@FormatCount(plan.MaxTomsPerTenant) TOMs pro Mandant</li>
+                        <li>@FormatCount(plan.MaxProcessorsPerTenant) Dienstleister pro Mandant</li>
+                        <li>@FormatCount(plan.MaxActiveMeasuresPerTenant) laufende Maßnahmen pro Mandant</li>
+                        <li>@FormatStorage(plan.MaxStorageMb) Speicher</li>
+                    </ul>
+
+                    <div class="dsms-signup-plan-card__footer">
+                        <button type="button"
+                                class="btn @(selected ? "btn-primary" : "btn-outline-primary") w-100"
+                                disabled="@_submitting"
+                                @onclick="() => SelectPlan(plan.Id)">
+                            @(selected ? "Ausgewählt" : "Tarif auswählen")
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="dsms-signup-registration-card">
+            <h2 class="dsms-signup-section-title">Registrierungsdaten</h2>
+            <p class="dsms-signup-section-lead">Bitte geben Sie die Daten für den ersten Zugang ein.</p>
+
+            @if (_model.SelectedPlanId == Guid.Empty)
+            {
+                <p class="text-muted mb-0">Bitte wählen Sie zuerst einen Tarif aus.</p>
+            }
+            else
+            {
+                var selectedPlan = _publicPlans.First(p => p.Id == _model.SelectedPlanId);
+
+                <div class="dsms-selected-plan-info alert alert-secondary dsms-alert small">
+                    Ausgewählter Tarif: <strong>@selectedPlan.DisplayName</strong>
+                    @if (!selectedPlan.IsFree)
+                    {
+                        <span class="d-block mt-1">
+                            Die Rechnung wird separat gestellt. Online-Zahlung ist derzeit nicht erforderlich.
+                        </span>
+                    }
+                </div>
+
+                <EditForm Model="_model" OnValidSubmit="SubmitAsync" class="dsms-form">
+                    <div class="visually-hidden" aria-hidden="true">
+                        <label>Website</label>
+                        <InputText tabindex="-1" autocomplete="off" @bind-Value="_model.Website" />
+                    </div>
+
+                    <h5 class="mb-3">Unternehmen</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Unternehmensname *</label>
+                        <InputText class="form-control" @bind-Value="_model.CustomerName" />
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">E-Mail-Adresse des Unternehmens</label>
+                        <InputText class="form-control" @bind-Value="_model.CustomerEmail" placeholder="Optional – sonst Admin-E-Mail" />
+                    </div>
+
+                    <h5 class="mb-3">Erster Mandant</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Name des ersten Mandanten *</label>
+                        <InputText class="form-control" @bind-Value="_model.TenantName" />
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">Rechtlicher Name</label>
+                        <InputText class="form-control" @bind-Value="_model.TenantLegalName" />
+                    </div>
+
+                    <h5 class="mb-3">Administrator</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Name des Administrators *</label>
+                        <InputText class="form-control" @bind-Value="_model.AdminDisplayName" />
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">E-Mail-Adresse des Administrators *</label>
+                        <InputText class="form-control" @bind-Value="_model.AdminEmail" autocomplete="email" />
+                    </div>
+
+                    @if (!selectedPlan.IsFree)
+                    {
+                        <h5 class="mb-2 mt-2">Abrechnung</h5>
+                        <p class="text-muted small mb-3">
+                            Wählen Sie, ob die Rechnung monatlich oder jährlich gestellt werden soll.
+                        </p>
+                        <InputRadioGroup @bind-Value="_model.BillingCycle" Name="billingCycle" class="mb-4">
+                            @if (selectedPlan.PriceMonthly.HasValue)
+                            {
+                                <div class="form-check mb-2">
+                                    <InputRadio class="form-check-input" Value="@BillingCycles.Monthly" id="billingMonthly" />
+                                    <label class="form-check-label" for="billingMonthly">
+                                        Monatlich – @FormatMonthlyPrice(selectedPlan)
+                                    </label>
+                                </div>
+                            }
+                            @if (selectedPlan.PriceYearly.HasValue)
+                            {
+                                <div class="form-check mb-2">
+                                    <InputRadio class="form-check-input" Value="@BillingCycles.Yearly" id="billingYearly" />
+                                    <label class="form-check-label" for="billingYearly">
+                                        Jährlich – @FormatYearlyPrice(selectedPlan)
+                                    </label>
+                                </div>
+                            }
+                        </InputRadioGroup>
+
+                        <h5 class="mb-2 mt-2">Rechnungsdaten</h5>
+                        <p class="text-muted small mb-3">
+                            Die Rechnung wird separat per E-Mail gestellt. Online-Zahlung ist derzeit nicht erforderlich.
+                        </p>
+                        <div class="mb-3">
+                            <label class="form-label">Rechnungsempfänger / Firmenname *</label>
+                            <InputText class="form-control" @bind-Value="_model.BillingCompanyName" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Rechnungs-E-Mail *</label>
+                            <InputText class="form-control" @bind-Value="_model.BillingEmail" autocomplete="email" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Straße und Hausnummer *</label>
+                            <InputText class="form-control" @bind-Value="_model.BillingStreet" />
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Postleitzahl *</label>
+                                <InputText class="form-control" @bind-Value="_model.BillingPostalCode" />
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label">Ort *</label>
+                                <InputText class="form-control" @bind-Value="_model.BillingCity" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Land *</label>
+                            <InputText class="form-control" @bind-Value="_model.BillingCountry" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Umsatzsteuer-ID</label>
+                            <InputText class="form-control" @bind-Value="_model.BillingVatId" />
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label">Bestellnummer / Referenz</label>
+                            <InputText class="form-control" @bind-Value="_model.BillingReference" />
+                        </div>
+                    }
+
+                    <div class="form-check mb-4">
+                        <InputCheckbox class="form-check-input" @bind-Value="_model.AcceptTerms" id="acceptTerms" />
+                        <label class="form-check-label" for="acceptTerms">
+                            Ich akzeptiere die <a href="#" @onclick="PreventLink" @onclick:preventDefault>Nutzungsbedingungen</a>
+                            und <a href="#" @onclick="PreventLink" @onclick:preventDefault>Datenschutzhinweise</a>.
+                        </label>
+                    </div>
+
+                    <button type="submit" class="w-100 btn btn-primary btn-lg" disabled="@_submitting">
+                        @GetSubmitButtonText(selectedPlan.IsFree)
+                    </button>
+                </EditForm>
+            }
+
+            <div class="dsms-public-signup-footer">
+                <span>Bereits registriert?</span>
+                <a href="Account/Login">Zur Anmeldung</a>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "preferPaid")]
+    public bool PreferPaid { get; set; }
+
+    [Inject] private IPublicSignupService PublicSignupService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private List<PublicSignupPlanDto> _publicPlans = [];
+    private PublicSignupFormDto _model = new();
+    private bool _loading = true;
+    private bool _submitting;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _publicPlans = (await PublicSignupService.GetPublicSignupPlansAsync()).ToList();
+        ApplyDefaultSelection();
+        MaybeApplyBillingDefaults();
+        _loading = false;
+    }
+
+    private void ApplyDefaultSelection()
+    {
+        if (_publicPlans.Count == 0)
+        {
+            return;
+        }
+
+        if (_publicPlans.Count == 1)
+        {
+            _model.SelectedPlanId = _publicPlans[0].Id;
+            MaybeApplyBillingDefaults();
+            return;
+        }
+
+        if (PreferPaid)
+        {
+            var paidPlan = _publicPlans.FirstOrDefault(p => !p.IsFree);
+            if (paidPlan is not null)
+            {
+                _model.SelectedPlanId = paidPlan.Id;
+                MaybeApplyBillingDefaults();
+                return;
+            }
+        }
+
+        var freePlan = _publicPlans.FirstOrDefault(p => p.IsFree);
+        if (freePlan is not null)
+        {
+            _model.SelectedPlanId = freePlan.Id;
+            MaybeApplyBillingDefaults();
+        }
+    }
+
+    private void SelectPlan(Guid planId)
+    {
+        if (_submitting)
+        {
+            return;
+        }
+
+        _model.SelectedPlanId = planId;
+        _errorMessage = null;
+        MaybeApplyBillingDefaults();
+    }
+
+    private void MaybeApplyBillingDefaults()
+    {
+        var plan = _publicPlans.FirstOrDefault(p => p.Id == _model.SelectedPlanId);
+        if (plan is null)
+        {
+            return;
+        }
+
+        if (plan.IsFree)
+        {
+            _model.BillingCycle = null;
+            return;
+        }
+
+        ApplyBillingCycleSelection(plan);
+
+        if (string.IsNullOrWhiteSpace(_model.BillingCompanyName)
+            && !string.IsNullOrWhiteSpace(_model.CustomerName))
+        {
+            _model.BillingCompanyName = _model.CustomerName.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.BillingEmail))
+        {
+            if (!string.IsNullOrWhiteSpace(_model.CustomerEmail))
+            {
+                _model.BillingEmail = _model.CustomerEmail.Trim();
+            }
+            else if (!string.IsNullOrWhiteSpace(_model.AdminEmail))
+            {
+                _model.BillingEmail = _model.AdminEmail.Trim();
+            }
+        }
+    }
+
+    private void ApplyBillingCycleSelection(PublicSignupPlanDto plan)
+    {
+        if (BillingCycles.IsValid(_model.BillingCycle)
+            && BillingCycles.IsAvailableForPlan(_model.BillingCycle!, plan.PriceMonthly, plan.PriceYearly))
+        {
+            return;
+        }
+
+        _model.BillingCycle = BillingCycles.ResolveDefault(plan.PriceMonthly, plan.PriceYearly);
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_submitting || _model.SelectedPlanId == Guid.Empty)
+        {
+            if (_model.SelectedPlanId == Guid.Empty)
+            {
+                _errorMessage = "Bitte wählen Sie einen Tarif aus.";
+            }
+
+            return;
+        }
+
+        _errorMessage = null;
+        _submitting = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await PublicSignupService.SubmitSignupAsync(_model);
+            if (!result.Success)
+            {
+                _errorMessage = result.ErrorMessage;
+                return;
+            }
+
+            var emailSent = result.PasswordSetupEmailSent ? "true" : "false";
+            var paid = result.IsPaidPlan ? "true" : "false";
+            var planName = Uri.EscapeDataString(result.PlanDisplayName ?? string.Empty);
+            Navigation.NavigateTo($"signup/success?emailSent={emailSent}&paid={paid}&planName={planName}");
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private string GetSubmitButtonText(bool isFreePlan)
+    {
+        if (_submitting)
+        {
+            return "Wird verarbeitet …";
+        }
+
+        return isFreePlan ? "Kostenlos registrieren" : "Zugang erstellen";
+    }
+
+    private static string FormatCount(int? value) =>
+        SubscriptionPlanDisplayHelper.FormatLimit(value);
+
+    private static string FormatStorage(int? value) =>
+        value.HasValue ? $"{value.Value} MB" : "unbegrenzt";
+
+    private static string FormatMonthlyPrice(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.FormatMonthlyPrice(plan.PriceMonthly, plan.Currency, plan.IsFree);
+
+    private static string FormatYearlyPrice(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.FormatYearlyPrice(plan.PriceYearly, plan.Currency, plan.IsFree);
+
+    private static void PreventLink()
+    {
+        // Platzhalter bis echte Links vorhanden sind.
+    }
+}

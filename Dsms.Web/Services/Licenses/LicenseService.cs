@@ -113,7 +113,7 @@ public sealed partial class LicenseService(
         var license = new License
         {
             Id = Guid.NewGuid(),
-            LicenseNumber = await GenerateLicenseNumberAsync(db),
+            LicenseNumber = await LicenseNumberGenerator.GenerateAsync(db),
             CustomerName = dto.CustomerName.Trim(),
             CustomerEmail = NormalizeOptional(dto.CustomerEmail),
             PlanName = string.IsNullOrWhiteSpace(dto.PlanName) ? "Manual" : dto.PlanName.Trim(),
@@ -453,29 +453,6 @@ public sealed partial class LicenseService(
             .GroupBy(e => e.TenantId)
             .Select(g => new { TenantId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.TenantId, x => x.Count);
-    }
-
-    private static async Task<string> GenerateLicenseNumberAsync(ApplicationDbContext db)
-    {
-        var year = DateTime.UtcNow.Year;
-        var prefix = $"LIC-{year}-";
-
-        var existingNumbers = await db.Licenses
-            .Where(l => l.LicenseNumber.StartsWith(prefix))
-            .Select(l => l.LicenseNumber)
-            .ToListAsync();
-
-        var maxSequence = 0;
-        foreach (var number in existingNumbers)
-        {
-            if (number.Length > prefix.Length
-                && int.TryParse(number[prefix.Length..], out var sequence))
-            {
-                maxSequence = Math.Max(maxSequence, sequence);
-            }
-        }
-
-        return $"{prefix}{(maxSequence + 1):D6}";
     }
 
     private static LicenseDetailsDto MapToDetails(License license, LicenseUsageDto usage) => new()

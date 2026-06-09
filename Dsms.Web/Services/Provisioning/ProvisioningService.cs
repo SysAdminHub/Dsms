@@ -1,0 +1,339 @@
+using Dsms.Web.Data;
+using Dsms.Web.Domain;
+using Dsms.Web.Domain.Entities;
+using Dsms.Web.Services.Licenses;
+using Dsms.Web.Services.Logging;
+using Dsms.Web.Services.PasswordReset;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+
+namespace Dsms.Web.Services.Provisioning;
+
+public sealed class ProvisioningService(
+    ApplicationDbContext db,
+    UserManager<ApplicationUser> userManager,
+    RoleManager<IdentityRole> roleManager,
+    ILogService logService,
+    IPasswordResetService passwordReset) : IProvisioningService
+{
+    public async Task<ProvisionCustomerResultDto> ProvisionCustomerAsync(ProvisionCustomerRequestDto dto)
+    {
+        var warnings = new List<string>();
+
+        try
+        {
+            var validationError = ValidateRequest(dto);
+            if (validationError is not null)
+            {
+                return ProvisionCustomerResultDto.Fail(validationError);
+            }
+
+            var existingUser = await userManager.FindByEmailAsync(dto.AdminEmail.Trim());
+            if (existingUser is not null)
+            {
+                return ProvisionCustomerResultDto.Fail("Für diese E-Mail-Adresse existiert bereits ein Benutzer.");
+            }
+
+            if (!await roleManager.RoleExistsAsync(DsmsRoles.Admin))
+            {
+                return ProvisionCustomerResultDto.Fail("Die erforderliche Admin-Rolle wurde nicht gefunden.");
+            }
+
+            var plan = await db.SubscriptionPlans
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == dto.PlanId);
+
+            if (plan is null)
+            {
+                return ProvisionCustomerResultDto.Fail("Der ausgewählte Tarif wurde nicht gefunden.");
+            }
+
+            if (!plan.IsActive)
+            {
+                return ProvisionCustomerResultDto.Fail("Der ausgewählte Tarif ist nicht aktiv.");
+            }
+
+            var licenseDto = BuildLicenseDto(dto);
+            PlanToLicenseValidator.ValidateForCreate(licenseDto);
+
+            await using var transaction = await db.Database.BeginTransactionAsync();
+
+            try
+            {
+                var licenseNumber = await LicenseNumberGenerator.GenerateAsync(db);
+                var license = PlanToLicenseMapper.MapToLicense(plan, licenseDto, licenseNumber);
+                license.Id = Guid.NewGuid();
+                license.CreatedAt = DateTime.UtcNow;
+
+                db.Licenses.Add(license);
+
+                var tenant = new Tenant
+                {
+                    Name = dto.TenantName.Trim(),
+                    LegalName = string.IsNullOrWhiteSpace(dto.TenantLegalName) ? null : dto.TenantLegalName.Trim(),
+                    IsActive = true,
+                    LicenseId = license.Id,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                db.Tenants.Add(tenant);
+                await db.SaveChangesAsync();
+
+                var adminEmail = dto.AdminEmail.Trim();
+                var displayName = ResolveAdminDisplayName(dto);
+
+                var admin = new ApplicationUser
+                {
+                    UserName = adminEmail,
+                    Email = adminEmail,
+                    EmailConfirmed = true,
+                    DisplayName = displayName,
+                    TenantId = tenant.Id,
+                    LicenseId = license.Id,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedByUserId = null
+                };
+
+                var createResult = await userManager.CreateAsync(admin);
+                if (!createResult.Succeeded)
+                {
+                    var errors = createResult.Errors.Select(e => e.Description).ToList();
+                    await transaction.RollbackAsync();
+                    await TryLogProvisioningFailedAsync(dto, "AdminCreateFailed", errors);
+                    return ProvisionCustomerResultDto.Fail(
+                        "Der Kunde konnte nicht angelegt werden. Bitte prüfen Sie die Systemprotokolle.",
+                        errors);
+                }
+
+                var roleResult = await userManager.AddToRoleAsync(admin, DsmsRoles.Admin);
+                if (!roleResult.Succeeded)
+                {
+                    var errors = roleResult.Errors.Select(e => e.Description).ToList();
+                    await transaction.RollbackAsync();
+                    await TryLogProvisioningFailedAsync(dto, "AdminRoleAssignFailed", errors);
+                    return ProvisionCustomerResultDto.Fail(
+                        "Der Kunde konnte nicht angelegt werden. Bitte prüfen Sie die Systemprotokolle.",
+                        errors);
+                }
+
+                db.UserTenants.Add(new UserTenant
+                {
+                    UserId = admin.Id,
+                    TenantId = tenant.Id,
+                    AssignedAt = DateTime.UtcNow
+                });
+
+                await db.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                await TryLogCustomerProvisionedAsync(plan, license, tenant, admin, dto.Source);
+
+                var passwordSetupEmailSent = false;
+                if (dto.SendWelcomeEmail)
+                {
+                    var emailResult = await passwordReset.SendProvisioningWelcomeEmailAsync(admin.Id, tenant.Name);
+                    passwordSetupEmailSent = emailResult.Succeeded;
+
+                    if (!emailResult.Succeeded)
+                    {
+                        warnings.Add("Die Passwortvergabe-Mail konnte nicht versendet werden.");
+                        await TryLogPasswordEmailFailedAsync(license.Id, tenant.Id, admin.Id, emailResult.Message);
+                    }
+                }
+                else
+                {
+                    warnings.Add("Keine Willkommensmail versendet (SendWelcomeEmail = false).");
+                }
+
+                return ProvisionCustomerResultDto.Ok(
+                    message: "Der Kunde wurde erfolgreich angelegt.",
+                    licenseId: license.Id,
+                    licenseNumber: license.LicenseNumber,
+                    tenantId: tenant.Id,
+                    tenantName: tenant.Name,
+                    adminUserId: admin.Id,
+                    adminEmail: admin.Email!,
+                    passwordSetupEmailSent: passwordSetupEmailSent,
+                    warnings: warnings);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                await TryLogProvisioningFailedAsync(dto, "ProvisioningFailed", [ex.Message]);
+                return ProvisionCustomerResultDto.Fail(
+                    "Der Kunde konnte nicht angelegt werden. Bitte prüfen Sie die Systemprotokolle.",
+                    [ex.Message]);
+            }
+        }
+        catch (Exception ex)
+        {
+            await TryLogProvisioningFailedAsync(dto, "ProvisioningFailed", [ex.Message]);
+            return ProvisionCustomerResultDto.Fail(
+                "Der Kunde konnte nicht angelegt werden. Bitte prüfen Sie die Systemprotokolle.",
+                [ex.Message]);
+        }
+    }
+
+    private static string? ValidateRequest(ProvisionCustomerRequestDto dto)
+    {
+        if (dto.PlanId == Guid.Empty)
+        {
+            return "Bitte wählen Sie einen Tarif aus.";
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.CustomerName))
+        {
+            return "Bitte geben Sie einen Kundennamen ein.";
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.TenantName))
+        {
+            return "Bitte geben Sie einen Mandantennamen ein.";
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.AdminEmail))
+        {
+            return "Bitte geben Sie eine Admin-E-Mail-Adresse ein.";
+        }
+
+        if (!PlanToLicenseValidator.IsValidEmail(dto.AdminEmail))
+        {
+            return "Die Admin-E-Mail-Adresse ist ungültig.";
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.AdminDisplayName))
+        {
+            return "Bitte geben Sie einen Anzeigenamen für den Admin ein.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.CustomerEmail) && !PlanToLicenseValidator.IsValidEmail(dto.CustomerEmail))
+        {
+            return "Die Kunden-E-Mail-Adresse ist ungültig.";
+        }
+
+        var status = string.IsNullOrWhiteSpace(dto.LicenseStatus) ? "Active" : dto.LicenseStatus.Trim();
+        if (status is not ("Active" or "Inactive" or "Suspended"))
+        {
+            return "Der Lizenzstatus ist ungültig.";
+        }
+
+        var validFrom = dto.LicenseValidFrom ?? DateTime.UtcNow.Date;
+        if (dto.LicenseValidUntil.HasValue && dto.LicenseValidUntil.Value < validFrom)
+        {
+            return "Das Ablaufdatum darf nicht vor dem Startdatum liegen.";
+        }
+
+        return null;
+    }
+
+    private static CreateLicenseFromPlanDto BuildLicenseDto(ProvisionCustomerRequestDto dto)
+    {
+        var source = string.IsNullOrWhiteSpace(dto.Source) ? "ManualProvisioning" : dto.Source.Trim();
+        var autoNote = $"Automatisch durch ProvisioningService erstellt. Quelle: {source}";
+        var internalNote = string.IsNullOrWhiteSpace(dto.LicenseInternalNote)
+            ? autoNote
+            : $"{dto.LicenseInternalNote.Trim()}\n{autoNote}";
+
+        return new CreateLicenseFromPlanDto
+        {
+            PlanId = dto.PlanId,
+            CustomerName = dto.CustomerName.Trim(),
+            CustomerEmail = string.IsNullOrWhiteSpace(dto.CustomerEmail) ? null : dto.CustomerEmail.Trim(),
+            Status = string.IsNullOrWhiteSpace(dto.LicenseStatus) ? "Active" : dto.LicenseStatus.Trim(),
+            ValidFrom = dto.LicenseValidFrom ?? DateTime.UtcNow.Date,
+            ValidUntil = dto.LicenseValidUntil,
+            InternalNote = internalNote
+        };
+    }
+
+    private static string ResolveAdminDisplayName(ProvisionCustomerRequestDto dto) =>
+        dto.AdminDisplayName.Trim();
+
+    private async Task TryLogCustomerProvisionedAsync(
+        SubscriptionPlan plan,
+        License license,
+        Tenant tenant,
+        ApplicationUser admin,
+        string? source)
+    {
+        try
+        {
+            await logService.LogAuditAsync(
+                action: "CustomerProvisioned",
+                description: "Neuer Kunde wurde provisioniert.",
+                entityType: "License",
+                entityId: license.Id.ToString(),
+                entityName: license.LicenseNumber,
+                tenantId: tenant.Id,
+                licenseId: license.Id,
+                metadata: new
+                {
+                    PlanId = plan.Id,
+                    PlanName = plan.Name,
+                    PlanDisplayName = plan.DisplayName,
+                    LicenseId = license.Id,
+                    LicenseNumber = license.LicenseNumber,
+                    TenantId = tenant.Id,
+                    TenantName = tenant.Name,
+                    AdminUserId = admin.Id,
+                    AdminEmail = admin.Email,
+                    Source = source ?? "ManualProvisioning"
+                },
+                isVisibleToAdmin: false);
+        }
+        catch
+        {
+            // Protokollierung darf Fachfunktion nicht blockieren.
+        }
+    }
+
+    private async Task TryLogProvisioningFailedAsync(
+        ProvisionCustomerRequestDto dto,
+        string action,
+        IReadOnlyList<string> errors)
+    {
+        try
+        {
+            await logService.LogSystemAsync(
+                action: action,
+                description: "Provisionierung fehlgeschlagen.",
+                severity: "Error",
+                metadata: new
+                {
+                    dto.PlanId,
+                    dto.CustomerName,
+                    dto.TenantName,
+                    dto.AdminEmail,
+                    dto.Source,
+                    Errors = errors
+                });
+        }
+        catch
+        {
+            // Protokollierung darf Fachfunktion nicht blockieren.
+        }
+    }
+
+    private async Task TryLogPasswordEmailFailedAsync(
+        Guid licenseId,
+        int tenantId,
+        string adminUserId,
+        string detail)
+    {
+        try
+        {
+            await logService.LogSystemAsync(
+                action: "PasswordSetupEmailFailed",
+                description: "Passwortvergabe-Mail konnte nach Provisionierung nicht versendet werden.",
+                severity: "Warning",
+                tenantId: tenantId,
+                licenseId: licenseId,
+                metadata: new { AdminUserId = adminUserId, Detail = detail });
+        }
+        catch
+        {
+            // Protokollierung darf Fachfunktion nicht blockieren.
+        }
+    }
+}

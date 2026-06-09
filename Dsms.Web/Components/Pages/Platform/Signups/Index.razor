@@ -44,6 +44,20 @@
                 <label class="form-label">Bis</label>
                 <InputDate class="form-control" @bind-Value="_createdTo" />
             </div>
+            <div class="col-md-2">
+                <label class="form-label">Rechnungsstatus</label>
+                <select class="form-select" @bind="_billingStatusFilter">
+                    <option value="">Alle</option>
+                    @foreach (var status in BillingStatuses.All)
+                    {
+                        <option value="@status">@BillingStatuses.GetDisplayName(status)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Nächste Rechnung bis</label>
+                <InputDate class="form-control" @bind-Value="_nextInvoiceUntil" TValue="DateOnly?" />
+            </div>
             <div class="col-md-1">
                 <button type="button" class="btn btn-outline-primary w-100" @onclick="LoadAsync">OK</button>
             </div>
@@ -75,6 +89,7 @@ else
                         <th>Quelle</th>
                         <th>Betrag</th>
                         <th>Rechnung</th>
+                        <th>Nächste Rechnung</th>
                         <th>Lizenz</th>
                         <th>Provisioniert</th>
                         <th>Fehler</th>
@@ -104,26 +119,12 @@ else
                             </td>
                             <td>@(item.PlanDisplayNameSnapshot ?? "—")</td>
                             <td class="small">@(item.Source ?? "—")</td>
-                            <td>@PendingSignupDisplayHelper.FormatAmount(item.Amount, item.Currency)</td>
-                            <td class="small">
-                                @{
-                                    var isFree = PendingSignupDisplayHelper.IsFreeSignup(item.PaymentProvider, item.Amount);
-                                }
-                                @if (isFree)
-                                {
-                                    <span class="text-muted">Nicht erforderlich</span>
-                                }
-                                else if (PendingSignupDisplayHelper.HasBillingData(item.BillingEmail, item.BillingCompanyName))
-                                {
-                                    <div>@item.BillingEmail</div>
-                                    <StatusBadge Text="@PendingSignupDisplayHelper.GetBillingStatusDisplay(item.MetadataJson, isFree: false)"
-                                                 Variant="@PendingSignupDisplayHelper.BillingStatusBadgeVariant(item.MetadataJson, isFree: false)" />
-                                }
-                                else
-                                {
-                                    <span class="text-warning">Rechnungsdaten fehlen</span>
-                                }
+                            <td>@BillingCycleDisplayHelper.FormatAmountWithCycle(item.PaymentProvider, item.Amount, item.Currency, item.BillingCycle, item.MetadataJson)</td>
+                            <td>
+                                <StatusBadge Text="@PendingSignupDisplayHelper.GetBillingStatusDisplay(item.BillingStatus, item.MetadataJson, item.PaymentProvider, item.Amount)"
+                                             Variant="@PendingSignupDisplayHelper.BillingStatusBadgeVariant(item.BillingStatus, item.MetadataJson, item.PaymentProvider, item.Amount)" />
                             </td>
+                            <td class="small">@BillingStatusDisplayHelper.FormatNextInvoiceDate(item.NextInvoiceDate, PendingSignupDisplayHelper.IsFreeSignup(item.PaymentProvider, item.Amount))</td>
                             <td>@(item.ProvisionedLicenseNumber ?? "—")</td>
                             <td>@(item.ProvisionedAt?.ToLocalTime().ToString("g") ?? "—")</td>
                             <td class="small text-danger">@(item.ErrorMessage ?? "—")</td>
@@ -150,6 +151,8 @@ else
     private string _planFilter = "";
     private DateTime? _createdFrom;
     private DateTime? _createdTo;
+    private string _billingStatusFilter = "";
+    private DateOnly? _nextInvoiceUntil;
 
     protected override async Task OnInitializedAsync()
     {
@@ -169,7 +172,9 @@ else
             string.IsNullOrWhiteSpace(_statusFilter) ? null : _statusFilter,
             planId,
             _createdFrom,
-            _createdTo)).ToList();
+            _createdTo,
+            string.IsNullOrWhiteSpace(_billingStatusFilter) ? null : _billingStatusFilter,
+            _nextInvoiceUntil)).ToList();
 
         _loading = false;
     }

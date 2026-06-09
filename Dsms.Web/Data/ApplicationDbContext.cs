@@ -143,6 +143,9 @@ public class ApplicationDbContext(
             e.Property(p => p.BillingCountry).HasMaxLength(100);
             e.Property(p => p.BillingVatId).HasMaxLength(50);
             e.Property(p => p.BillingReference).HasMaxLength(100);
+            e.Property(p => p.BillingCycle).HasMaxLength(20);
+            e.Property(p => p.BillingStatus).HasMaxLength(50);
+            e.Property(p => p.BillingNote).HasColumnType("text");
             e.Property(p => p.Status).HasDefaultValue(PendingSignupStatuses.Draft);
             e.HasIndex(p => p.CreatedAt);
             e.HasIndex(p => p.Status);

@@ -155,6 +155,31 @@
 
                     @if (!selectedPlan.IsFree)
                     {
+                        <h5 class="mb-2 mt-2">Abrechnung</h5>
+                        <p class="text-muted small mb-3">
+                            Wählen Sie, ob die Rechnung monatlich oder jährlich gestellt werden soll.
+                        </p>
+                        <InputRadioGroup @bind-Value="_model.BillingCycle" Name="billingCycle" class="mb-4">
+                            @if (selectedPlan.PriceMonthly.HasValue)
+                            {
+                                <div class="form-check mb-2">
+                                    <InputRadio class="form-check-input" Value="@BillingCycles.Monthly" id="billingMonthly" />
+                                    <label class="form-check-label" for="billingMonthly">
+                                        Monatlich – @FormatMonthlyPrice(selectedPlan)
+                                    </label>
+                                </div>
+                            }
+                            @if (selectedPlan.PriceYearly.HasValue)
+                            {
+                                <div class="form-check mb-2">
+                                    <InputRadio class="form-check-input" Value="@BillingCycles.Yearly" id="billingYearly" />
+                                    <label class="form-check-label" for="billingYearly">
+                                        Jährlich – @FormatYearlyPrice(selectedPlan)
+                                    </label>
+                                </div>
+                            }
+                        </InputRadioGroup>
+
                         <h5 class="mb-2 mt-2">Rechnungsdaten</h5>
                         <p class="text-muted small mb-3">
                             Die Rechnung wird separat per E-Mail gestellt. Online-Zahlung ist derzeit nicht erforderlich.
@@ -248,6 +273,7 @@
         if (_publicPlans.Count == 1)
         {
             _model.SelectedPlanId = _publicPlans[0].Id;
+            MaybeApplyBillingDefaults();
             return;
         }
 
@@ -257,6 +283,7 @@
             if (paidPlan is not null)
             {
                 _model.SelectedPlanId = paidPlan.Id;
+                MaybeApplyBillingDefaults();
                 return;
             }
         }
@@ -265,6 +292,7 @@
         if (freePlan is not null)
         {
             _model.SelectedPlanId = freePlan.Id;
+            MaybeApplyBillingDefaults();
         }
     }
 
@@ -283,10 +311,18 @@
     private void MaybeApplyBillingDefaults()
     {
         var plan = _publicPlans.FirstOrDefault(p => p.Id == _model.SelectedPlanId);
-        if (plan is null || plan.IsFree)
+        if (plan is null)
         {
             return;
         }
+
+        if (plan.IsFree)
+        {
+            _model.BillingCycle = null;
+            return;
+        }
+
+        ApplyBillingCycleSelection(plan);
 
         if (string.IsNullOrWhiteSpace(_model.BillingCompanyName)
             && !string.IsNullOrWhiteSpace(_model.CustomerName))
@@ -305,6 +341,17 @@
                 _model.BillingEmail = _model.AdminEmail.Trim();
             }
         }
+    }
+
+    private void ApplyBillingCycleSelection(PublicSignupPlanDto plan)
+    {
+        if (BillingCycles.IsValid(_model.BillingCycle)
+            && BillingCycles.IsAvailableForPlan(_model.BillingCycle!, plan.PriceMonthly, plan.PriceYearly))
+        {
+            return;
+        }
+
+        _model.BillingCycle = BillingCycles.ResolveDefault(plan.PriceMonthly, plan.PriceYearly);
     }
 
     private async Task SubmitAsync()

@@ -40,6 +40,7 @@ public class PendingSignup
     public string? ExternalCheckoutUrl { get; set; }
     public decimal? Amount { get; set; }
     public string? Currency { get; set; }
+    public string? BillingCycle { get; set; }
 
     public DateTime? PaidAt { get; set; }
     public DateTime? ProvisionedAt { get; set; }
@@ -67,4 +68,10 @@ public class PendingSignup
     public string? BillingCountry { get; set; }
     public string? BillingVatId { get; set; }
     public string? BillingReference { get; set; }
+
+    public string? BillingStatus { get; set; }
+    public DateTime? InvoiceSentAt { get; set; }
+    public DateTime? InvoicePaidAt { get; set; }
+    public DateOnly? NextInvoiceDate { get; set; }
+    public string? BillingNote { get; set; }
 }

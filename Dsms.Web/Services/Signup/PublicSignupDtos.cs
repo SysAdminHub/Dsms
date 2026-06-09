@@ -45,6 +45,9 @@ public sealed class PublicSignupFormDto
 
     /// <summary>Honeypot-Feld – muss leer bleiben.</summary>
     public string? Website { get; set; }
+
+    /// <summary>Abrechnungszeitraum bei kostenpflichtigen Plänen (<see cref="BillingCycles"/>).</summary>
+    public string? BillingCycle { get; set; }
 }
 
 public sealed class PublicSignupSubmitResult

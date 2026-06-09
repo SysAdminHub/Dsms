@@ -19,7 +19,9 @@ public sealed class PendingSignupService(
         string? statusFilter = null,
         Guid? planIdFilter = null,
         DateTime? createdFrom = null,
-        DateTime? createdTo = null)
+        DateTime? createdTo = null,
+        string? billingStatusFilter = null,
+        DateOnly? nextInvoiceDateUntil = null)
     {
         await EnsureSuperuserAsync();
         await using var db = await dbFactory.CreateDbContextAsync();
@@ -59,6 +61,18 @@ public sealed class PendingSignupService(
         {
             var to = createdTo.Value.Date.AddDays(1);
             query = query.Where(p => p.CreatedAt < to);
+        }
+
+        if (!string.IsNullOrWhiteSpace(billingStatusFilter))
+        {
+            var billingStatus = billingStatusFilter.Trim();
+            query = query.Where(p => p.BillingStatus == billingStatus);
+        }
+
+        if (nextInvoiceDateUntil.HasValue)
+        {
+            var until = nextInvoiceDateUntil.Value;
+            query = query.Where(p => p.NextInvoiceDate != null && p.NextInvoiceDate <= until);
         }
 
         return await query
@@ -254,6 +268,7 @@ public sealed class PendingSignupService(
             Source = NormalizeOptional(dto.Source) ?? "PublicSignup",
             InternalNote = NormalizeOptional(dto.InternalNote),
             MetadataJson = NormalizeOptional(dto.MetadataJson),
+            BillingCycle = NormalizeOptional(dto.BillingCycle),
             BillingCompanyName = NormalizeOptional(dto.BillingCompanyName),
             BillingEmail = NormalizeOptional(dto.BillingEmail),
             BillingStreet = NormalizeOptional(dto.BillingStreet),
@@ -261,7 +276,9 @@ public sealed class PendingSignupService(
             BillingCity = NormalizeOptional(dto.BillingCity),
             BillingCountry = NormalizeOptional(dto.BillingCountry),
             BillingVatId = NormalizeOptional(dto.BillingVatId),
-            BillingReference = NormalizeOptional(dto.BillingReference)
+            BillingReference = NormalizeOptional(dto.BillingReference),
+            BillingStatus = NormalizeOptional(dto.BillingStatus),
+            NextInvoiceDate = dto.NextInvoiceDate
         };
 
         db.PendingSignups.Add(entity);
@@ -542,6 +559,125 @@ public sealed class PendingSignupService(
         return true;
     }
 
+    public async Task<bool> UpdateBillingDetailsAsync(UpdateBillingDetailsDto dto)
+    {
+        await EnsureSuperuserAsync();
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var entity = await db.PendingSignups.FirstOrDefaultAsync(p => p.Id == dto.Id);
+        if (entity is null)
+        {
+            return false;
+        }
+
+        if (IsPaidSignup(entity))
+        {
+            var oldDate = entity.NextInvoiceDate;
+            entity.NextInvoiceDate = dto.NextInvoiceDate;
+            entity.BillingNote = NormalizeOptional(dto.BillingNote);
+            entity.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+
+            await TryLogBillingAuditAsync(
+                entity,
+                "PendingSignupBillingDetailsUpdated",
+                "Rechnungsdetails wurden aktualisiert.",
+                new { OldNextInvoiceDate = oldDate, NewNextInvoiceDate = entity.NextInvoiceDate, BillingNoteUpdated = dto.BillingNote is not null });
+            return true;
+        }
+
+        entity.BillingNote = NormalizeOptional(dto.BillingNote);
+        entity.NextInvoiceDate = null;
+        entity.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public Task<bool> MarkInvoiceSentAsync(Guid id) =>
+        UpdateBillingStatusAsync(id, BillingStatuses.InvoiceSent, setInvoiceSentAt: true);
+
+    public Task<bool> MarkInvoicePaidAsync(Guid id) =>
+        UpdateBillingStatusAsync(id, BillingStatuses.Paid, setInvoicePaidAt: true);
+
+    public Task<bool> MarkPaymentOverdueAsync(Guid id) =>
+        UpdateBillingStatusAsync(id, BillingStatuses.PaymentOverdue);
+
+    public Task<bool> MarkInvoicePendingAsync(Guid id) =>
+        UpdateBillingStatusAsync(id, BillingStatuses.InvoicePending);
+
+    private async Task<bool> UpdateBillingStatusAsync(
+        Guid id,
+        string billingStatus,
+        bool setInvoiceSentAt = false,
+        bool setInvoicePaidAt = false)
+    {
+        await EnsureSuperuserAsync();
+
+        if (!BillingStatuses.IsValid(billingStatus))
+        {
+            throw new InvalidOperationException("Der Rechnungsstatus ist ungültig.");
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var entity = await db.PendingSignups.FirstOrDefaultAsync(p => p.Id == id);
+        if (entity is null)
+        {
+            return false;
+        }
+
+        if (!IsPaidSignup(entity))
+        {
+            throw new InvalidOperationException("Für kostenlose Registrierungen sind keine Rechnungsaktionen verfügbar.");
+        }
+
+        var oldStatus = entity.BillingStatus;
+        entity.BillingStatus = billingStatus;
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        if (setInvoiceSentAt)
+        {
+            entity.InvoiceSentAt = DateTime.UtcNow;
+        }
+
+        if (setInvoicePaidAt)
+        {
+            entity.InvoicePaidAt = DateTime.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+
+        var action = billingStatus switch
+        {
+            BillingStatuses.InvoiceSent => "PendingSignupInvoiceMarkedSent",
+            BillingStatuses.Paid => "PendingSignupInvoiceMarkedPaid",
+            BillingStatuses.PaymentOverdue => "PendingSignupInvoiceMarkedOverdue",
+            BillingStatuses.InvoicePending => "PendingSignupInvoiceMarkedPending",
+            _ => "PendingSignupBillingStatusChanged"
+        };
+
+        var description = billingStatus switch
+        {
+            BillingStatuses.InvoiceSent => "Rechnung wurde als gesendet markiert.",
+            BillingStatuses.Paid => "Registrierung wurde als bezahlt markiert.",
+            BillingStatuses.PaymentOverdue => "Registrierung wurde als überfällig markiert.",
+            BillingStatuses.InvoicePending => "Rechnungsstatus wurde auf offen gesetzt.",
+            _ => "Rechnungsstatus wurde geändert."
+        };
+
+        await TryLogBillingAuditAsync(entity, action, description, new { OldStatus = oldStatus, NewStatus = billingStatus });
+        return true;
+    }
+
+    private static bool IsPaidSignup(PendingSignup entity) =>
+        !PendingSignupDisplayHelper.IsFreeSignup(entity.PaymentProvider, entity.Amount);
+
+    private Task TryLogBillingAuditAsync(
+        PendingSignup entity,
+        string action,
+        string description,
+        object? metadata = null) =>
+        TryLogAuditAsync(action, description, entity, metadata);
+
     public async Task<IReadOnlyList<PendingSignupListDto>> GetPendingPaymentAsync()
     {
         await EnsureSuperuserAsync();
@@ -673,6 +809,9 @@ public sealed class PendingSignupService(
         MetadataJson = p.MetadataJson,
         BillingEmail = p.BillingEmail,
         BillingCompanyName = p.BillingCompanyName,
+        BillingCycle = p.BillingCycle,
+        BillingStatus = p.BillingStatus,
+        NextInvoiceDate = p.NextInvoiceDate,
         ExternalPaymentId = p.ExternalPaymentId,
         ProvisionedLicenseId = p.ProvisionedLicenseId,
         ProvisionedLicenseNumber = p.ProvisionedLicenseNumber,
@@ -709,6 +848,7 @@ public sealed class PendingSignupService(
         ExternalCheckoutUrl = p.ExternalCheckoutUrl,
         Amount = p.Amount,
         Currency = p.Currency,
+        BillingCycle = p.BillingCycle,
         PaidAt = p.PaidAt,
         ProvisionedAt = p.ProvisionedAt,
         CancelledAt = p.CancelledAt,
@@ -729,7 +869,12 @@ public sealed class PendingSignupService(
         BillingCity = p.BillingCity,
         BillingCountry = p.BillingCountry,
         BillingVatId = p.BillingVatId,
-        BillingReference = p.BillingReference
+        BillingReference = p.BillingReference,
+        BillingStatus = p.BillingStatus,
+        InvoiceSentAt = p.InvoiceSentAt,
+        InvoicePaidAt = p.InvoicePaidAt,
+        NextInvoiceDate = p.NextInvoiceDate,
+        BillingNote = p.BillingNote
     };
 
     private static string? NormalizeOptional(string? value) =>

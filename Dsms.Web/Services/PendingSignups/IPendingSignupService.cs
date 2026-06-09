@@ -7,7 +7,9 @@ public interface IPendingSignupService
         string? statusFilter = null,
         Guid? planIdFilter = null,
         DateTime? createdFrom = null,
-        DateTime? createdTo = null);
+        DateTime? createdTo = null,
+        string? billingStatusFilter = null,
+        DateOnly? nextInvoiceDateUntil = null);
 
     Task<PendingSignupDetailsDto?> GetByIdAsync(Guid id);
 
@@ -50,6 +52,16 @@ public interface IPendingSignupService
     Task<bool> MarkAsExpiredAsync(Guid id, string? note = null);
 
     Task<bool> UpdateInternalNoteAsync(Guid id, string? internalNote);
+
+    Task<bool> UpdateBillingDetailsAsync(UpdateBillingDetailsDto dto);
+
+    Task<bool> MarkInvoiceSentAsync(Guid id);
+
+    Task<bool> MarkInvoicePaidAsync(Guid id);
+
+    Task<bool> MarkPaymentOverdueAsync(Guid id);
+
+    Task<bool> MarkInvoicePendingAsync(Guid id);
 
     Task<IReadOnlyList<PendingSignupListDto>> GetPendingPaymentAsync();
 

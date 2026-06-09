@@ -60,6 +60,10 @@ else
                         <dd class="col-sm-8">@FormatPrice(_signup.PlanPriceMonthlySnapshot, _signup.CurrencySnapshot)</dd>
                         <dt class="col-sm-4">Preis jährlich</dt>
                         <dd class="col-sm-8">@FormatPrice(_signup.PlanPriceYearlySnapshot, _signup.CurrencySnapshot)</dd>
+                        <dt class="col-sm-4">Abrechnung</dt>
+                        <dd class="col-sm-8">@BillingCycleDisplayHelper.GetDisplayName(_signup.BillingCycle, _signup.MetadataJson, _isFreeSignup)</dd>
+                        <dt class="col-sm-4">Betrag</dt>
+                        <dd class="col-sm-8">@BillingCycleDisplayHelper.FormatAmountWithCycle(_signup.PaymentProvider, _signup.Amount, _signup.Currency, _signup.BillingCycle, _signup.MetadataJson)</dd>
                     </dl>
                 </div>
             </div>
@@ -83,27 +87,53 @@ else
             </div>
 
             <div class="dsms-card mb-4">
-                <div class="dsms-card-header"><strong>Rechnungsdaten</strong></div>
+                <div class="dsms-card-header"><strong>Rechnung</strong></div>
                 <div class="dsms-card-body">
                     @if (_isFreeSignup)
                     {
-                        <p class="text-muted mb-0">Für diesen Tarif sind keine Rechnungsdaten erforderlich.</p>
-                    }
-                    else if (!_hasCompleteBillingData)
-                    {
-                        <p class="text-muted mb-0">Für diese Registrierung wurden keine vollständigen Rechnungsdaten gespeichert.</p>
-                        @if (PendingSignupDisplayHelper.HasBillingData(_signup.BillingEmail, _signup.BillingCompanyName))
-                        {
-                            <dl class="row mb-0 mt-3">
-                                <dt class="col-sm-4">Rechnungsempfänger / Firma</dt>
-                                <dd class="col-sm-8">@(_signup.BillingCompanyName ?? "—")</dd>
-                                <dt class="col-sm-4">Rechnungs-E-Mail</dt>
-                                <dd class="col-sm-8">@(_signup.BillingEmail ?? "—")</dd>
-                            </dl>
-                        }
+                        <p class="text-muted mb-3">Für kostenlose Tarife ist keine Rechnungsverwaltung erforderlich.</p>
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Rechnungsstatus</dt>
+                            <dd class="col-sm-8">
+                                <StatusBadge Text="Nicht erforderlich" Variant="default" />
+                            </dd>
+                            <dt class="col-sm-4">Abrechnung</dt>
+                            <dd class="col-sm-8">Nicht erforderlich</dd>
+                            <dt class="col-sm-4">Betrag</dt>
+                            <dd class="col-sm-8">Kostenlos</dd>
+                            <dt class="col-sm-4">Nächste Rechnung am</dt>
+                            <dd class="col-sm-8">Nicht erforderlich</dd>
+                        </dl>
                     }
                     else
                     {
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Rechnungsstatus</dt>
+                            <dd class="col-sm-8">
+                                <StatusBadge Text="@PendingSignupDisplayHelper.GetBillingStatusDisplay(_signup.BillingStatus, _signup.MetadataJson, _signup.PaymentProvider, _signup.Amount)"
+                                             Variant="@PendingSignupDisplayHelper.BillingStatusBadgeVariant(_signup.BillingStatus, _signup.MetadataJson, _signup.PaymentProvider, _signup.Amount)" />
+                            </dd>
+                            <dt class="col-sm-4">Abrechnung</dt>
+                            <dd class="col-sm-8">@BillingCycleDisplayHelper.GetDisplayName(_signup.BillingCycle, _signup.MetadataJson, isFree: false)</dd>
+                            <dt class="col-sm-4">Betrag</dt>
+                            <dd class="col-sm-8">@BillingCycleDisplayHelper.FormatAmountWithCycle(_signup.PaymentProvider, _signup.Amount, _signup.Currency, _signup.BillingCycle, _signup.MetadataJson)</dd>
+                            <dt class="col-sm-4">Nächste Rechnung am</dt>
+                            <dd class="col-sm-8">@BillingStatusDisplayHelper.FormatNextInvoiceDate(_signup.NextInvoiceDate, isFree: false)</dd>
+                            <dt class="col-sm-4">Rechnung gesendet am</dt>
+                            <dd class="col-sm-8">@BillingStatusDisplayHelper.FormatInvoiceTimestamp(_signup.InvoiceSentAt)</dd>
+                            <dt class="col-sm-4">Bezahlt am</dt>
+                            <dd class="col-sm-8">@BillingStatusDisplayHelper.FormatInvoiceTimestamp(_signup.InvoicePaidAt)</dd>
+                            <dt class="col-sm-4">Interne Rechnungsnotiz</dt>
+                            <dd class="col-sm-8">@(_signup.BillingNote ?? "—")</dd>
+                        </dl>
+
+                        <hr class="my-4" />
+
+                        <h6 class="mb-3">Rechnungsadresse</h6>
+                        @if (!_hasCompleteBillingData)
+                        {
+                            <p class="text-muted mb-3">Für diese Registrierung wurden keine vollständigen Rechnungsdaten gespeichert.</p>
+                        }
                         <dl class="row mb-0">
                             <dt class="col-sm-4">Rechnungsempfänger / Firma</dt>
                             <dd class="col-sm-8">@(_signup.BillingCompanyName ?? "—")</dd>
@@ -121,11 +151,6 @@ else
                             <dd class="col-sm-8">@(_signup.BillingVatId ?? "—")</dd>
                             <dt class="col-sm-4">Bestellnummer / Referenz</dt>
                             <dd class="col-sm-8">@(_signup.BillingReference ?? "—")</dd>
-                            <dt class="col-sm-4">Rechnungsstatus</dt>
-                            <dd class="col-sm-8">
-                                <StatusBadge Text="@PendingSignupDisplayHelper.GetBillingStatusDisplay(_signup.MetadataJson, isFree: false)"
-                                             Variant="@PendingSignupDisplayHelper.BillingStatusBadgeVariant(_signup.MetadataJson, isFree: false)" />
-                            </dd>
                         </dl>
                     }
                 </div>
@@ -140,7 +165,7 @@ else
                         <dt class="col-sm-4">ExternalPaymentId</dt>
                         <dd class="col-sm-8">@(_signup.ExternalPaymentId ?? "—")</dd>
                         <dt class="col-sm-4">Betrag</dt>
-                        <dd class="col-sm-8">@PendingSignupDisplayHelper.FormatAmount(_signup.Amount, _signup.Currency)</dd>
+                        <dd class="col-sm-8">@BillingCycleDisplayHelper.FormatAmountWithCycle(_signup.PaymentProvider, _signup.Amount, _signup.Currency, _signup.BillingCycle, _signup.MetadataJson)</dd>
                         <dt class="col-sm-4">Checkout-URL</dt>
                         <dd class="col-sm-8">@(_signup.ExternalCheckoutUrl ?? "—")</dd>
                     </dl>
@@ -199,6 +224,41 @@ else
 
         <div class="col-lg-5">
             <div class="dsms-card dsms-form-card mb-4">
+                <div class="dsms-card-header"><strong>Rechnung bearbeiten</strong></div>
+                <div class="dsms-card-body">
+                    @if (_isFreeSignup)
+                    {
+                        <p class="text-muted mb-0">Für kostenlose Tarife ist keine nächste Rechnung erforderlich.</p>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Nächste Rechnung am</label>
+                            <InputDate class="form-control" @bind-Value="_nextInvoiceDate" TValue="DateOnly?" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Interne Rechnungsnotiz</label>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="_billingNote" />
+                        </div>
+                        <button type="button" class="btn btn-outline-primary w-100 mb-3" disabled="@_saving" @onclick="SaveBillingDetailsAsync">Speichern</button>
+
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-outline-info" disabled="@_saving" @onclick="MarkInvoiceSentAsync">Rechnung als gesendet markieren</button>
+                            <button type="button" class="btn btn-outline-success" disabled="@_saving" @onclick="MarkInvoicePaidAsync">Als bezahlt markieren</button>
+                            @if (_resolvedBillingStatus != BillingStatuses.Paid)
+                            {
+                                <button type="button" class="btn btn-outline-danger" disabled="@_saving" @onclick="MarkPaymentOverdueAsync">Als überfällig markieren</button>
+                            }
+                            @if (_resolvedBillingStatus != BillingStatuses.InvoicePending)
+                            {
+                                <button type="button" class="btn btn-outline-secondary" disabled="@_saving" @onclick="MarkInvoicePendingAsync">Auf Rechnung offen setzen</button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="dsms-card dsms-form-card mb-4">
                 <div class="dsms-card-header"><strong>Status ändern</strong></div>
                 <div class="dsms-card-body">
                     <div class="mb-3">
@@ -247,6 +307,9 @@ else
     private string _newStatus = PendingSignupStatuses.Draft;
     private string? _statusNote;
     private string? _internalNote;
+    private DateOnly? _nextInvoiceDate;
+    private string? _billingNote;
+    private string _resolvedBillingStatus = BillingStatuses.InvoicePending;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -267,6 +330,13 @@ else
                 _signup.BillingPostalCode,
                 _signup.BillingCity,
                 _signup.BillingCountry);
+            _nextInvoiceDate = _signup.NextInvoiceDate;
+            _billingNote = _signup.BillingNote;
+            _resolvedBillingStatus = BillingStatusDisplayHelper.ResolveBillingStatus(
+                _signup.BillingStatus,
+                _signup.MetadataJson,
+                _signup.PaymentProvider,
+                _signup.Amount);
 
             if (_signup.ProvisionedLicenseId is Guid licenseId)
             {
@@ -326,6 +396,86 @@ else
                 throw new InvalidOperationException("Registrierung nicht gefunden.");
             }
         });
+    }
+
+    private async Task SaveBillingDetailsAsync()
+    {
+        await RunBillingActionAsync("Die Rechnungsdaten wurden gespeichert.", async () =>
+        {
+            var ok = await PendingSignupService.UpdateBillingDetailsAsync(new UpdateBillingDetailsDto
+            {
+                Id = Id,
+                NextInvoiceDate = _nextInvoiceDate,
+                BillingNote = _billingNote
+            });
+            if (!ok)
+            {
+                throw new InvalidOperationException("Die Aktion konnte nicht durchgeführt werden.");
+            }
+        });
+    }
+
+    private Task MarkInvoiceSentAsync() =>
+        RunBillingActionAsync("Die Rechnung wurde als gesendet markiert.", () => PendingSignupService.MarkInvoiceSentAsync(Id));
+
+    private Task MarkInvoicePaidAsync() =>
+        RunBillingActionAsync("Die Registrierung wurde als bezahlt markiert.", () => PendingSignupService.MarkInvoicePaidAsync(Id));
+
+    private Task MarkPaymentOverdueAsync() =>
+        RunBillingActionAsync("Die Registrierung wurde als überfällig markiert.", () => PendingSignupService.MarkPaymentOverdueAsync(Id));
+
+    private Task MarkInvoicePendingAsync() =>
+        RunBillingActionAsync("Der Rechnungsstatus wurde auf offen gesetzt.", () => PendingSignupService.MarkInvoicePendingAsync(Id));
+
+    private async Task RunBillingActionAsync(string successMessage, Func<Task<bool>> action)
+    {
+        _message = null;
+        _saving = true;
+
+        try
+        {
+            var ok = await action();
+            if (!ok)
+            {
+                throw new InvalidOperationException("Die Aktion konnte nicht durchgeführt werden.");
+            }
+
+            _message = successMessage;
+            _messageIsError = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _messageIsError = true;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task RunBillingActionAsync(string successMessage, Func<Task> action)
+    {
+        _message = null;
+        _saving = true;
+
+        try
+        {
+            await action();
+            _message = successMessage;
+            _messageIsError = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _messageIsError = true;
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     private async Task RunActionAsync(Func<Task> action)

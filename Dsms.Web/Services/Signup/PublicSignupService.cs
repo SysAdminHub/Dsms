@@ -106,6 +106,16 @@ public sealed class PublicSignupService(
 
             }
 
+            var billingCycleError = ValidateBillingCycle(selectedPlan, form);
+
+            if (billingCycleError is not null)
+
+            {
+
+                return PublicSignupSubmitResult.Failed(billingCycleError);
+
+            }
+
         }
 
 
@@ -138,9 +148,10 @@ public sealed class PublicSignupService(
 
 
 
-        var (amount, billingCycle) = ResolveBillingAmount(selectedPlan);
+        var (amount, billingCycle) = ResolveBillingAmount(selectedPlan, form.BillingCycle);
 
         var billingMetadata = BuildBillingMetadata(selectedPlan.IsFree, billingCycle);
+        var (initialBillingStatus, initialNextInvoiceDate) = ResolveInitialBilling(selectedPlan.IsFree, billingCycle);
 
 
 
@@ -168,6 +179,8 @@ public sealed class PublicSignupService(
 
             Currency = selectedPlan.Currency,
 
+            BillingCycle = billingCycle,
+
             PaymentProvider = selectedPlan.IsFree ? "None" : "ManualInvoice",
 
             MetadataJson = billingMetadata,
@@ -186,7 +199,11 @@ public sealed class PublicSignupService(
 
             BillingVatId = selectedPlan.IsFree ? null : NormalizeOptional(form.BillingVatId),
 
-            BillingReference = selectedPlan.IsFree ? null : NormalizeOptional(form.BillingReference)
+            BillingReference = selectedPlan.IsFree ? null : NormalizeOptional(form.BillingReference),
+
+            BillingStatus = initialBillingStatus,
+
+            NextInvoiceDate = initialNextInvoiceDate
 
         };
 
@@ -346,7 +363,9 @@ public sealed class PublicSignupService(
 
 
 
-    private static (decimal? amount, string billingCycle) ResolveBillingAmount(SubscriptionPlanDetailsDto plan)
+    private static (decimal? amount, string? billingCycle) ResolveBillingAmount(
+        SubscriptionPlanDetailsDto plan,
+        string? selectedCycle)
 
     {
 
@@ -354,41 +373,102 @@ public sealed class PublicSignupService(
 
         {
 
-            return (0m, "None");
+            return (0m, null);
 
         }
 
+        var cycle = selectedCycle!.Trim();
 
-
-        // BillingCycle-Auswahl (monatlich/jährlich) kann später ergänzt werden.
-
-        if (plan.PriceYearly.HasValue)
+        return cycle switch
 
         {
 
-            return (plan.PriceYearly, "Yearly");
+            BillingCycles.Monthly => (plan.PriceMonthly, BillingCycles.Monthly),
 
-        }
+            BillingCycles.Yearly => (plan.PriceYearly, BillingCycles.Yearly),
 
+            _ => (null, null)
 
-
-        return (plan.PriceMonthly, "Monthly");
+        };
 
     }
 
 
 
-    private static string BuildBillingMetadata(bool isFree, string billingCycle) =>
+    private static string? ValidateBillingCycle(SubscriptionPlanDetailsDto plan, PublicSignupFormDto form)
+
+    {
+
+        if (plan.IsFree)
+
+        {
+
+            return null;
+
+        }
+
+        if (string.IsNullOrWhiteSpace(form.BillingCycle))
+
+        {
+
+            return "Bitte wählen Sie den Abrechnungszeitraum aus.";
+
+        }
+
+        var cycle = form.BillingCycle.Trim();
+
+        if (!BillingCycles.IsValid(cycle))
+
+        {
+
+            return "Der gewählte Abrechnungszeitraum ist für diesen Tarif nicht verfügbar.";
+
+        }
+
+        if (!BillingCycles.IsAvailableForPlan(cycle, plan.PriceMonthly, plan.PriceYearly))
+
+        {
+
+            return "Der gewählte Abrechnungszeitraum ist für diesen Tarif nicht verfügbar.";
+
+        }
+
+        return null;
+
+    }
+
+
+
+    private static string BuildBillingMetadata(bool isFree, string? billingCycle) =>
 
         JsonSerializer.Serialize(new
 
         {
 
-            BillingStatus = isFree ? "NotRequired" : "InvoicePending",
+            BillingStatus = isFree ? BillingStatuses.NotRequired : BillingStatuses.InvoicePending,
 
             BillingCycle = billingCycle
 
         });
+
+
+
+    private static (string BillingStatus, DateOnly? NextInvoiceDate) ResolveInitialBilling(bool isFree, string? billingCycle)
+    {
+        if (isFree)
+        {
+            return (BillingStatuses.NotRequired, null);
+        }
+
+        var registrationDate = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        if (string.Equals(billingCycle, BillingCycles.Yearly, StringComparison.OrdinalIgnoreCase))
+        {
+            return (BillingStatuses.InvoicePending, registrationDate.AddYears(1));
+        }
+
+        return (BillingStatuses.InvoicePending, registrationDate.AddMonths(1));
+    }
 
 
 

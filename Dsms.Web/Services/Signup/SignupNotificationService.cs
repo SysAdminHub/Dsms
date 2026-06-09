@@ -126,12 +126,16 @@ public sealed class SignupNotificationService(
             ("E-Mail", signup.AdminEmail)
         ]);
 
-        var billingCycle = PendingSignupDisplayHelper.GetBillingCycle(signup.MetadataJson);
+        var billingCycle = PendingSignupDisplayHelper.ResolveBillingCycle(signup.BillingCycle, signup.MetadataJson);
+        var amountDisplay = BillingCycleDisplayHelper.FormatAmountWithCycle(
+            signup.PaymentProvider, signup.Amount, signup.Currency, signup.BillingCycle, signup.MetadataJson);
         AppendSectionHtml(sb, "Tarif / Lizenz", [
             ("Planname", signup.PlanDisplayNameSnapshot ?? signup.PlanNameSnapshot ?? "—"),
             ("Kostenlos", isFree ? "Ja" : "Nein"),
-            ("Betrag", PendingSignupDisplayHelper.FormatAmount(signup.Amount, signup.Currency)),
-            ("Abrechnung", FormatBillingCycle(billingCycle)),
+            ("Abrechnung", isFree ? "Nicht erforderlich" : BillingCycleDisplayHelper.GetDisplayName(billingCycle)),
+            ("Betrag", isFree ? "Kostenlos" : amountDisplay),
+            ("Nächste Rechnung", BillingStatusDisplayHelper.FormatNextInvoiceDate(signup.NextInvoiceDate, isFree)),
+            ("Zahlungsart", isFree ? "—" : "Manuelle Rechnung / Rechnung folgt separat"),
             ("Lizenznummer", signup.ProvisionedLicenseNumber ?? license?.LicenseNumber ?? "—"),
             ("Lizenzstatus", license?.Status ?? "—"),
             ("Lizenz gültig bis", FormatDate(license?.ValidUntil))
@@ -190,8 +194,20 @@ public sealed class SignupNotificationService(
         sb.AppendLine("=== Tarif / Lizenz ===");
         sb.AppendLine($"Planname: {signup.PlanDisplayNameSnapshot ?? signup.PlanNameSnapshot ?? "—"}");
         sb.AppendLine($"Kostenlos: {(isFree ? "Ja" : "Nein")}");
-        sb.AppendLine($"Betrag: {PendingSignupDisplayHelper.FormatAmount(signup.Amount, signup.Currency)}");
-        sb.AppendLine($"Abrechnung: {FormatBillingCycle(PendingSignupDisplayHelper.GetBillingCycle(signup.MetadataJson))}");
+        if (isFree)
+        {
+            sb.AppendLine("Abrechnung: Nicht erforderlich");
+            sb.AppendLine("Betrag: Kostenlos");
+            sb.AppendLine("Nächste Rechnung: Nicht erforderlich");
+        }
+        else
+        {
+            var billingCycle = PendingSignupDisplayHelper.ResolveBillingCycle(signup.BillingCycle, signup.MetadataJson);
+            sb.AppendLine($"Abrechnung: {BillingCycleDisplayHelper.GetDisplayName(billingCycle)}");
+            sb.AppendLine($"Betrag: {BillingCycleDisplayHelper.FormatAmountWithCycle(signup.PaymentProvider, signup.Amount, signup.Currency, signup.BillingCycle, signup.MetadataJson)}");
+            sb.AppendLine($"Nächste Rechnung: {BillingStatusDisplayHelper.FormatNextInvoiceDate(signup.NextInvoiceDate, isFree: false)}");
+            sb.AppendLine("Zahlungsart: Manuelle Rechnung / Rechnung folgt separat");
+        }
         sb.AppendLine($"Lizenznummer: {signup.ProvisionedLicenseNumber ?? license?.LicenseNumber ?? "—"}");
         sb.AppendLine($"Lizenzstatus: {license?.Status ?? "—"}");
         sb.AppendLine($"Lizenz gültig bis: {FormatDate(license?.ValidUntil)}");
@@ -246,14 +262,6 @@ public sealed class SignupNotificationService(
 
     private static string FormatDate(DateTime? value) =>
         value?.ToLocalTime().ToString("d") ?? "—";
-
-    private static string FormatBillingCycle(string? cycle) => cycle switch
-    {
-        "Yearly" => "Jährlich",
-        "Monthly" => "Monatlich",
-        "None" => "—",
-        _ => cycle ?? "—"
-    };
 
     private async Task TryLogSystemAsync(
         string action,

@@ -4,6 +4,7 @@ using Dsms.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Dsms.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260609072413_AddPendingSignupBillingCycle")]
+    partial class AddPendingSignupBillingCycle
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -970,9 +973,6 @@ namespace Dsms.Web.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
-                    b.Property<string>("BillingNote")
-                        .HasColumnType("text");
-
                     b.Property<string>("BillingPostalCode")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
@@ -980,10 +980,6 @@ namespace Dsms.Web.Migrations
                     b.Property<string>("BillingReference")
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
-
-                    b.Property<string>("BillingStatus")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("BillingStreet")
                         .HasMaxLength(300)
@@ -1036,17 +1032,8 @@ namespace Dsms.Web.Migrations
                     b.Property<string>("InternalNote")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("InvoicePaidAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("InvoiceSentAt")
-                        .HasColumnType("datetime(6)");
-
                     b.Property<string>("MetadataJson")
                         .HasColumnType("text");
-
-                    b.Property<DateOnly?>("NextInvoiceDate")
-                        .HasColumnType("date");
 
                     b.Property<DateTime?>("PaidAt")
                         .HasColumnType("datetime(6)");

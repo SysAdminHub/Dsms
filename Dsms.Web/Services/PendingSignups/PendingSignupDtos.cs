@@ -19,6 +19,9 @@ public sealed class PendingSignupListDto
     public string? MetadataJson { get; init; }
     public string? BillingEmail { get; init; }
     public string? BillingCompanyName { get; init; }
+    public string? BillingCycle { get; init; }
+    public string? BillingStatus { get; init; }
+    public DateOnly? NextInvoiceDate { get; init; }
     public string? ExternalPaymentId { get; init; }
     public Guid? ProvisionedLicenseId { get; init; }
     public string? ProvisionedLicenseNumber { get; init; }
@@ -60,6 +63,7 @@ public sealed class PendingSignupDetailsDto
     public string? ExternalCheckoutUrl { get; init; }
     public decimal? Amount { get; init; }
     public string? Currency { get; init; }
+    public string? BillingCycle { get; init; }
 
     public DateTime? PaidAt { get; init; }
     public DateTime? ProvisionedAt { get; init; }
@@ -85,6 +89,12 @@ public sealed class PendingSignupDetailsDto
     public string? BillingCountry { get; init; }
     public string? BillingVatId { get; init; }
     public string? BillingReference { get; init; }
+
+    public string? BillingStatus { get; init; }
+    public DateTime? InvoiceSentAt { get; init; }
+    public DateTime? InvoicePaidAt { get; init; }
+    public DateOnly? NextInvoiceDate { get; init; }
+    public string? BillingNote { get; init; }
 }
 
 public class CreatePendingSignupDto
@@ -121,6 +131,16 @@ public sealed class CreatePublicPendingSignupDto : CreatePendingSignupDto
     public string? Currency { get; set; }
     public string? PaymentProvider { get; set; }
     public string? MetadataJson { get; set; }
+    public string? BillingCycle { get; set; }
+    public string? BillingStatus { get; set; }
+    public DateOnly? NextInvoiceDate { get; set; }
+}
+
+public sealed class UpdateBillingDetailsDto
+{
+    public Guid Id { get; set; }
+    public DateOnly? NextInvoiceDate { get; set; }
+    public string? BillingNote { get; set; }
 }
 
 public sealed class PendingSignupStatusUpdateDto

@@ -187,7 +187,7 @@ Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAn
 
 **Paid-Signup (Legacy-Route):** `/signup/paid` leitet auf die vereinheitlichte `/signup`-Seite weiter. Der frühere separate Paid-Signup-Flow (`PaidSignupService`, `Source = "PaidSignup"`) bleibt im Code für Kompatibilität, wird aber nicht mehr über eine eigene Seite angesteuert.
 
-**PendingSignup:** Historie und Zwischenspeicher für Registrierungen. Entity `PendingSignup` speichert Plan-Snapshots, Registrierungsdaten, Rechnungsdaten (Paid) und Provisioning-Ergebnis. Beim Public Signup wird der Eintrag erstellt und nach erfolgreicher Provisionierung auf Status Provisioned gesetzt. Superuser-Verwaltung unter `/platform/signups`. Mollie/Webhook und manuelle Rechnungsstellung noch nicht implementiert.
+**PendingSignup:** Historie und Zwischenspeicher für Registrierungen. Entity `PendingSignup` speichert Plan-Snapshots, Registrierungsdaten, Rechnungsdaten (Paid), Rechnungsverwaltung (`BillingStatus`, `NextInvoiceDate`, `InvoiceSentAt`, `InvoicePaidAt`, `BillingNote`) und Provisioning-Ergebnis. Beim Public Signup wird der Eintrag erstellt und nach erfolgreicher Provisionierung auf Status Provisioned gesetzt. Superuser-Verwaltung unter `/platform/signups` inkl. manueller Rechnungsaktionen (ohne automatische Lizenzverlängerung). Mollie/Webhook und PDF-Rechnungen noch nicht implementiert.
 
 Alle anderen Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `UpdatedAt`).
 
@@ -263,7 +263,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IPublicSignupService` / `PublicSignupService` | Scoped | Öffentlicher Signup mit Tarifauswahl → PendingSignup + direkte Provisionierung; interne Benachrichtigung via `ISignupNotificationService` |
 | `ISignupNotificationService` / `SignupNotificationService` | Scoped | Interne E-Mail nach erfolgreichem Public Signup; Empfänger aus `EmailSettings.SystemNotificationRecipientEmail` |
 | `IPaidSignupService` / `PaidSignupService` | Scoped | Legacy Paid-Signup-Service (nicht mehr über eigene Seite) |
-| `IPendingSignupService` / `PendingSignupService` | Scoped | Zwischenspeicher für ausstehende (bezahlte) Registrierungen; `CreatePublicAsync` für öffentlichen Paid-Signup |
+| `IPendingSignupService` / `PendingSignupService` | Scoped | Zwischenspeicher für ausstehende Registrierungen; Public Signup; Rechnungsverwaltung (NextInvoiceDate, BillingStatus-Aktionen) |
 | `ILogService` / `LogService` | Scoped | Zentrales Audit- und Systemprotokoll (`LogEntry`-Tabelle); siehe `Logging.md` |
 | `ILogQueryService` / `LogQueryService` | Scoped | Abfrage für Superuser-Protokolle und Admin-Auditlog mit Mandanten-/Lizenzfilter |
 | `ILicenseCreateGuard` / `LicenseCreateGuard` | Scoped | Lizenzlimit-Prüfung mit automatischer Audit-Protokollierung bei Blockierung |

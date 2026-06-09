@@ -4,7 +4,25 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- **Manuelle Rechnungsverwaltung für Registrierungen:**
+  - `BillingStatuses` (NotRequired, InvoicePending, InvoiceSent, Paid, PaymentOverdue, Cancelled) und `BillingStatusDisplayHelper`
+  - Neue Felder auf `PendingSignup`: `BillingStatus`, `InvoiceSentAt`, `InvoicePaidAt`, `NextInvoiceDate` (DateOnly), `BillingNote` (Migration `AddPendingSignupBillingManagement`)
+  - Beim Public Signup: Free → `NotRequired`, kein Datum; Paid monatlich → `NextInvoiceDate = Registrierung + 1 Monat`; Paid jährlich → + 1 Jahr
+  - `/platform/signups`: Spalten Rechnungsstatus und Nächste Rechnung; Filter Rechnungsstatus und Nächste Rechnung bis
+  - Detailseite `/platform/signups/{id}`: Abschnitt „Rechnung“, Bearbeitung Nächste Rechnung + interne Rechnungsnotiz, Aktionen (gesendet/bezahlt/überfällig/offen)
+  - Service-Methoden: `UpdateBillingDetailsAsync`, `MarkInvoiceSentAsync`, `MarkInvoicePaidAsync`, `MarkPaymentOverdueAsync`, `MarkInvoicePendingAsync` (nur Superuser, mit Auditlog)
+  - Interne Signup-E-Mail enthält „Nächste Rechnung am“
+  - **Keine** automatische Lizenzverlängerung bei Rechnungsaktionen
+
 ### Geändert
+
+- **Public Signup: Abrechnungszeitraum Monatlich/Jährlich:**
+  - `BillingCycles` (Monthly/Yearly) und `BillingCycleDisplayHelper`
+  - Auswahl im Signup-Formular bei kostenpflichtigen Plänen; Validierung und Amount nach Nutzerwahl
+  - Feld `BillingCycle` auf `PendingSignup` (Migration `AddPendingSignupBillingCycle`)
+  - Anzeige in `/platform/signups`, Detailseite und interner E-Mail
 
 - **Systembenachrichtigungen:** Empfänger nicht mehr in `appsettings.json`, sondern in `EmailSettings` unter `/platform/email/settings` (`SystemNotificationsEnabled`, `SystemNotificationRecipientEmail`); Migration `AddEmailSettingsSystemNotifications`
 
@@ -25,7 +43,7 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
   - Neuer Status `Provisioning` in `PendingSignupStatuses`
   - Automatische Lizenzlaufzeit beim Public Signup: 1 Monat (`ValidFrom` = UTC-Datum heute, `ValidUntil` = +1 Monat)
   - Billing: Free → `PaymentProvider = None`, Amount = 0; Paid → `PaymentProvider = ManualInvoice`, Amount = jährlicher Preis falls gesetzt, sonst monatlich
-  - `BillingStatus` und `BillingCycle` in `MetadataJson` (kein separates DB-Feld)
+  - `BillingStatus` und `BillingCycle` in `MetadataJson` (Legacy-Fallback); zusätzlich eigenes DB-Feld `BillingStatus` und Rechnungsverwaltungsfelder (s. unten)
   - Erfolgsseite `/signup/success` für Free und Paid (Query-Parameter `paid`, `planName`, `emailSent`)
   - **Ohne** Mollie, Online-Zahlung, automatische Rechnungserstellung
 

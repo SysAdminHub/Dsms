@@ -216,7 +216,8 @@ public class TenantService(
     {
         var path = relativePath.Trim('/').ToLowerInvariant();
 
-        if (path.StartsWith("account", StringComparison.Ordinal)
+        if (path == ""
+            || path.StartsWith("account", StringComparison.Ordinal)
             || path == "select-tenant"
             || path.StartsWith("tenants", StringComparison.Ordinal)
             || path.StartsWith("users", StringComparison.Ordinal)

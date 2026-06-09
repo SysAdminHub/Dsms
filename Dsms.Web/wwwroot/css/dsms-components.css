@@ -141,6 +141,18 @@
     white-space: nowrap;
 }
 
+.dsms-table-action-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.dsms-table-action-stack .btn {
+    width: 100%;
+    white-space: nowrap;
+}
+
 /* ---- Formulare ---- */
 .dsms-form-card .dsms-card-body {
     max-width: 42rem;

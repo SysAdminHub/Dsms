@@ -15,6 +15,7 @@
 }
 @if (_auditorLimit is not null)
 {
+    <br />
     <LicenseUsageBadge Check="_auditorLimit" />
 }
 @if (_adminLimit is not null)
@@ -79,19 +80,21 @@ else
                                 <StatusBadge Text="@(entry.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(entry.IsActive ? "success" : "default")" />
                             </td>
                             <td class="dsms-table-actions">
-                                <a class="btn btn-sm btn-outline-secondary" href="@($"users/edit/{entry.User.Id}")">Bearbeiten</a>
-                                <button type="button"
-                                        class="btn btn-sm btn-outline-primary ms-1"
-                                        disabled="@(_sendingUserId == entry.User.Id)"
-                                        @onclick="() => SendPasswordResetAsync(entry.User.Id)">
-                                    Passwortreset-Mail senden
-                                </button>
-                                <button type="button"
-                                        class="btn btn-sm btn-outline-secondary ms-1"
-                                        disabled="@(_sendingInviteUserId == entry.User.Id)"
-                                        @onclick="() => SendInvitationAsync(entry.User.Id)">
-                                    Einladung erneut senden
-                                </button>
+                                <div class="dsms-table-action-stack">
+                                    <a class="btn btn-sm btn-outline-secondary" href="@($"users/edit/{entry.User.Id}")">Bearbeiten</a>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            disabled="@(_sendingUserId == entry.User.Id)"
+                                            @onclick="() => SendPasswordResetAsync(entry.User.Id)">
+                                        Passwortreset-Mail senden
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary"
+                                            disabled="@(_sendingInviteUserId == entry.User.Id)"
+                                            @onclick="() => SendInvitationAsync(entry.User.Id)">
+                                        Einladung erneut senden
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     }

@@ -98,20 +98,22 @@ else
                                 <td>@FormatNextReview(item.NextReviewAt)</td>
                                 <td>@FormatDateColumn(item)</td>
                                 <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        <a class="btn btn-sm btn-outline-primary" href="@($"dsfa/{item.Id}")">Details</a>
-                                        @if (_canEdit)
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
                                         {
-                                            <a class="btn btn-sm btn-outline-secondary" href="@($"dsfa/edit/{item.Id}")">Bearbeiten</a>
+                                            <a class="btn btn-sm btn-outline-primary" href="@($"dsfa/{item.Id}")">Details</a>
+                                            @if (_canEdit)
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"dsfa/edit/{item.Id}")">Bearbeiten</a>
+                                            }
                                         }
-                                    }
-                                    <ArchiveListActions TEntity="DataProtectionImpactAssessment"
-                                                        EntityId="@item.Id"
-                                                        ItemName="@item.Title"
-                                                        EntityLabel="DSFA"
-                                                        CanEdit="@_canEdit"
-                                                        OnChanged="LoadDataAsync" />
+                                        <ArchiveListActions TEntity="DataProtectionImpactAssessment"
+                                                            EntityId="@item.Id"
+                                                            ItemName="@item.Title"
+                                                            EntityLabel="DSFA"
+                                                            CanEdit="@_canEdit"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -148,24 +150,44 @@ else
 
     private async Task LoadDataAsync()
     {
-        _showArchived = ArchiveView.ShowArchivedOnly;
-        _items = await Db.DataProtectionImpactAssessments
-            .OrderByDescending(d => _showArchived ? d.ArchivedAt : (d.UpdatedAt ?? d.CreatedAt))
-            .Select(d => new DsfaListRow
-            {
-                Id = d.Id,
-                Title = d.Title,
-                ProcessingActivityName = d.ProcessingActivity.Name,
-                Status = d.Status,
-                ResidualRisk = d.ResidualRisk,
-                Outcome = d.Outcome,
-                ResponsiblePerson = d.ResponsiblePerson,
-                NextReviewAt = d.NextReviewAt,
-                CreatedAt = d.CreatedAt,
-                UpdatedAt = d.UpdatedAt,
-                ArchivedAt = d.ArchivedAt
-            })
+        if (_tenantId is null) return;
+
+        // Lokale Variable: Global Query Filter liest ShowArchivedOnly zur Laufzeit –
+        // expliziter Filter vermeidet Timing-Probleme und Join-Probleme mit VVT-Archivfilter.
+        var showArchived = ArchiveView.ShowArchivedOnly;
+        _showArchived = showArchived;
+        var tenantId = _tenantId.Value;
+
+        var dpias = await Db.DataProtectionImpactAssessments
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(d => d.TenantId == tenantId && d.IsArchived == showArchived)
+            .OrderByDescending(d => showArchived ? d.ArchivedAt : (d.UpdatedAt ?? d.CreatedAt))
             .ToListAsync();
+
+        var paIds = dpias.Select(d => d.ProcessingActivityId).Distinct().ToList();
+        var paNames = paIds.Count == 0
+            ? new Dictionary<int, string>()
+            : await Db.ProcessingActivities
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(p => p.TenantId == tenantId && paIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.Name);
+
+        _items = dpias.Select(d => new DsfaListRow
+        {
+            Id = d.Id,
+            Title = d.Title,
+            ProcessingActivityName = paNames.GetValueOrDefault(d.ProcessingActivityId, "—"),
+            Status = d.Status,
+            ResidualRisk = d.ResidualRisk,
+            Outcome = d.Outcome,
+            ResponsiblePerson = d.ResponsiblePerson,
+            NextReviewAt = d.NextReviewAt,
+            CreatedAt = d.CreatedAt,
+            UpdatedAt = d.UpdatedAt,
+            ArchivedAt = d.ArchivedAt
+        }).ToList();
     }
 
     private string FormatDateColumn(DsfaListRow item) =>

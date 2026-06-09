@@ -58,10 +58,10 @@ else
                             <th>Bezeichnung</th>
                             <th>Kategorie</th>
                             <th>Schutzziel</th>
-                            <th>Umsetzungsstatus</th>
+                            <th>Status</th>
                             <th>Verantwortlich</th>
                             <th>Nächste Prüfung</th>
-                            <th>Verarbeitungstätigkeiten</th>
+                            <th>VTT</th>
                             @if (_showArchived)
                             {
                                 <th>Archiviert am</th>
@@ -95,20 +95,23 @@ else
                                 <td>@item.LinkedActivityCount</td>
                                 <td>@FormatDateColumn(item)</td>
                                 <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        <a class="btn btn-sm btn-outline-primary" href="@($"toms/{item.Id}")">Details</a>
-                                        @if (_canEdit)
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
                                         {
-                                            <a class="btn btn-sm btn-outline-secondary" href="@($"toms/edit/{item.Id}")">Bearbeiten</a>
+                                            <a class="btn btn-sm btn-outline-primary" href="@($"toms/{item.Id}")">Details</a>
+                                            @if (_canEdit)
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"toms/edit/{item.Id}")">Bearbeiten</a>
+                                            }
                                         }
-                                    }
-                                    <ArchiveListActions TEntity="Tom"
-                                                        EntityId="@item.Id"
-                                                        ItemName="@item.Title"
-                                                        EntityLabel="TOM"
-                                                        CanEdit="@_canEdit"
-                                                        OnChanged="LoadDataAsync" />
+
+                                        <ArchiveListActions TEntity="Tom"
+                                                            EntityId="@item.Id"
+                                                            ItemName="@item.Title"
+                                                            EntityLabel="TOM"
+                                                            CanEdit="@_canEdit"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }

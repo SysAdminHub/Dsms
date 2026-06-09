@@ -89,20 +89,22 @@ else
                                 <td>@(string.IsNullOrWhiteSpace(activity.Owner) ? "—" : activity.Owner)</td>
                                 <td>@FormatDateColumn(activity)</td>
                                 <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        <a class="btn btn-sm btn-outline-primary" href="@($"processing-activities/{activity.Id}")">Details</a>
-                                        @if (_canEdit)
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
                                         {
-                                            <a class="btn btn-sm btn-outline-secondary" href="@($"processing-activities/edit/{activity.Id}")">Bearbeiten</a>
+                                            <a class="btn btn-sm btn-outline-primary" href="@($"processing-activities/{activity.Id}")">Details</a>
+                                            @if (_canEdit)
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"processing-activities/edit/{activity.Id}")">Bearbeiten</a>
+                                            }
                                         }
-                                    }
-                                    <ArchiveListActions TEntity="ProcessingActivity"
-                                                        EntityId="@activity.Id"
-                                                        ItemName="@activity.Name"
-                                                        EntityLabel="Verarbeitungstätigkeit"
-                                                        CanEdit="@_canEdit"
-                                                        OnChanged="LoadDataAsync" />
+                                        <ArchiveListActions TEntity="ProcessingActivity"
+                                                            EntityId="@activity.Id"
+                                                            ItemName="@activity.Name"
+                                                            EntityLabel="Verarbeitungstätigkeit"
+                                                            CanEdit="@_canEdit"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }

@@ -1,5 +1,6 @@
 using Dsms.Web.Data;
 using Dsms.Web.Domain.Entities;
+using Dsms.Web.Domain.Enums;
 using Dsms.Web.Services.Logging;
 using Microsoft.EntityFrameworkCore;
 using ServiceProviderEntity = Dsms.Web.Domain.Entities.ServiceProvider;
@@ -39,6 +40,10 @@ public class ArchivingService(
         entity.ArchivedAt = DateTime.UtcNow;
         entity.ArchivedByUserId = userId;
         entity.UpdatedAt = DateTime.UtcNow;
+        if (entity is DataProtectionImpactAssessment dpia)
+        {
+            dpia.Status = DpiaStatus.Archived;
+        }
 
         await db.SaveChangesAsync(ct);
         await LogArchiveAsync(entity, ct);
@@ -66,6 +71,10 @@ public class ArchivingService(
         entity.ArchivedAt = null;
         entity.ArchivedByUserId = null;
         entity.UpdatedAt = DateTime.UtcNow;
+        if (entity is DataProtectionImpactAssessment dpia && dpia.Status == DpiaStatus.Archived)
+        {
+            dpia.Status = DpiaStatus.Draft;
+        }
 
         await db.SaveChangesAsync(ct);
         await LogRestoreAsync(entity, ct);

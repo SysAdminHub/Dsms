@@ -82,17 +82,19 @@ else
                                     <td>@(run.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
                                 }
                                 <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        <a class="btn btn-sm btn-outline-secondary" href="@($"audit-runs/edit/{run.Id}")">Bearbeiten</a>
-                                        <a class="btn btn-sm btn-primary" href="@($"audit-runs/answers/{run.Id}")">Fragen</a>
-                                    }
-                                    <ArchiveListActions TEntity="AuditRun"
-                                                        EntityId="@run.Id"
-                                                        ItemName="@run.Title"
-                                                        EntityLabel="Audit-Durchlauf"
-                                                        CanEdit="true"
-                                                        OnChanged="LoadDataAsync" />
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary" href="@($"audit-runs/edit/{run.Id}")">Bearbeiten</a>
+                                            <a class="btn btn-sm btn-primary" href="@($"audit-runs/answers/{run.Id}")">Audit durchführen</a>
+                                        }
+                                        <ArchiveListActions TEntity="AuditRun"
+                                                            EntityId="@run.Id"
+                                                            ItemName="@run.Title"
+                                                            EntityLabel="Audit-Durchlauf"
+                                                            CanEdit="true"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }

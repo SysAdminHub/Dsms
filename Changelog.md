@@ -17,6 +17,7 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Geändert
 
+- Tabellen-Aktionsspalten: Einheitliches vertikales Button-Layout über `dsms-table-action-stack` in Verarbeitungstätigkeiten, DSFA, Dienstleister, Audit-Vorlagen, Audit-Durchläufe, Maßnahmen, Dokumente, Benutzer und TOMs
 - `appsettings.json`: lokaler Default-ConnectionString auf `dsms_dev` vereinheitlicht; `Storage:UploadPath` ergänzt
 - `README.md`: Verweis auf `Production_Deployment.md`; lokaler Compose-Start nur `db`
 - `Architecture.md`: Docker-Deployment und Konfiguration aktualisiert
@@ -232,6 +233,12 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 - **Erinnerungen:** Zugriff auf `/admin/erinnerungen` nur noch für **Superuser** (Seite, Navigation, `ReminderService`)
 
 ### Behoben
+
+- **DSFA-Archivansicht:** Archivierte DSFAs erscheinen wieder in der Archiv-Liste
+  - Ursachen: (1) Join auf VVT unterlag dem Archiv-Query-Filter; (2) Status „Archiviert“ (DpiaStatus) und `IsArchived` waren nicht synchron
+  - Listenabfrage in `Dsfa/Index.razor` mit explizitem Mandanten-/Archiv-Filter und `IgnoreQueryFilters()` für VVT-Namen
+  - Synchronisation Status/`IsArchived` in `ArchivingService` (DSFA) und `Dsfa/Edit.razor`
+  - Migration `SyncDpiaStatusArchivedWithIsArchived` bereinigt bestehende Datensätze mit Status Archiviert ohne `IsArchived`
 
 - **Tenant-Export / Mandantenabfrage:** `InvalidCastException: Can't convert NULL to Int32` behoben
   - Export lädt Verknüpfungen jetzt mit separaten `IgnoreQueryFilters()`-Abfragen statt gefilterter EF-Includes

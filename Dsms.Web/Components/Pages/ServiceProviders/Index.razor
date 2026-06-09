@@ -113,20 +113,22 @@ else
                                 <td>@(string.IsNullOrWhiteSpace(item.ResponsiblePerson) ? "—" : item.ResponsiblePerson)</td>
                                 <td>@FormatDateColumn(item)</td>
                                 <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        <a class="btn btn-sm btn-outline-primary" href="@($"service-providers/{item.Id}")">Details</a>
-                                        @if (_canEdit)
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
                                         {
-                                            <a class="btn btn-sm btn-outline-secondary" href="@($"service-providers/edit/{item.Id}")">Bearbeiten</a>
+                                            <a class="btn btn-sm btn-outline-primary" href="@($"service-providers/{item.Id}")">Details</a>
+                                            @if (_canEdit)
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"service-providers/edit/{item.Id}")">Bearbeiten</a>
+                                            }
                                         }
-                                    }
-                                    <ArchiveListActions TEntity="DsmsServiceProvider"
-                                                        EntityId="@item.Id"
-                                                        ItemName="@item.Name"
-                                                        EntityLabel="Dienstleister"
-                                                        CanEdit="@_canEdit"
-                                                        OnChanged="LoadDataAsync" />
+                                        <ArchiveListActions TEntity="DsmsServiceProvider"
+                                                            EntityId="@item.Id"
+                                                            ItemName="@item.Name"
+                                                            EntityLabel="Dienstleister"
+                                                            CanEdit="@_canEdit"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }

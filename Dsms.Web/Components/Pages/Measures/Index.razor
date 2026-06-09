@@ -82,16 +82,18 @@ else
                                     <td>@(measure.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
                                 }
                                 <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        <a class="btn btn-sm btn-outline-secondary" href="@($"measures/edit/{measure.Id}")">Bearbeiten</a>
-                                    }
-                                    <ArchiveListActions TEntity="Measure"
-                                                        EntityId="@measure.Id"
-                                                        ItemName="@measure.Title"
-                                                        EntityLabel="Maßnahme"
-                                                        CanEdit="true"
-                                                        OnChanged="LoadDataAsync" />
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary" href="@($"measures/edit/{measure.Id}")">Bearbeiten</a>
+                                        }
+                                        <ArchiveListActions TEntity="Measure"
+                                                            EntityId="@measure.Id"
+                                                            ItemName="@measure.Title"
+                                                            EntityLabel="Maßnahme"
+                                                            CanEdit="true"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }

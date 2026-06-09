@@ -34,6 +34,15 @@ public sealed class PublicSignupFormDto
     public string AdminEmail { get; set; } = string.Empty;
     public bool AcceptTerms { get; set; }
 
+    public string BillingCompanyName { get; set; } = string.Empty;
+    public string BillingEmail { get; set; } = string.Empty;
+    public string BillingStreet { get; set; } = string.Empty;
+    public string BillingPostalCode { get; set; } = string.Empty;
+    public string BillingCity { get; set; } = string.Empty;
+    public string BillingCountry { get; set; } = string.Empty;
+    public string? BillingVatId { get; set; }
+    public string? BillingReference { get; set; }
+
     /// <summary>Honeypot-Feld – muss leer bleiben.</summary>
     public string? Website { get; set; }
 }
@@ -42,20 +51,19 @@ public sealed class PublicSignupSubmitResult
 {
     public bool Success { get; init; }
     public string? ErrorMessage { get; init; }
-    public bool IsFreeProvisioning { get; init; }
+    public bool IsPaidPlan { get; init; }
     public bool PasswordSetupEmailSent { get; init; }
+    public string? PlanDisplayName { get; init; }
 
-    public static PublicSignupSubmitResult FreeSucceeded(bool passwordSetupEmailSent) => new()
+    public static PublicSignupSubmitResult Succeeded(
+        bool isPaidPlan,
+        bool passwordSetupEmailSent,
+        string? planDisplayName) => new()
     {
         Success = true,
-        IsFreeProvisioning = true,
-        PasswordSetupEmailSent = passwordSetupEmailSent
-    };
-
-    public static PublicSignupSubmitResult PaidPendingSucceeded() => new()
-    {
-        Success = true,
-        IsFreeProvisioning = false
+        IsPaidPlan = isPaidPlan,
+        PasswordSetupEmailSent = passwordSetupEmailSent,
+        PlanDisplayName = planDisplayName
     };
 
     public static PublicSignupSubmitResult Failed(string message) => new()

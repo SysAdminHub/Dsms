@@ -6,6 +6,31 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Public Signup: Direkte Provisionierung für alle Pläne:**
+  - Free- und kostenpflichtige Pläne werden nach Absenden direkt provisioniert (License, Mandant, Admin, Passwortmail)
+  - Einheitlicher Flow in `PublicSignupService.SubmitWithProvisioningAsync`: PendingSignup → Provisioning → Status Provisioned/Failed
+  - `CreateForPublicSignupAsync`, `SetStatusForPublicSignupAsync`, `MarkAsProvisionedForPublicSignupAsync`, `MarkAsFailedForPublicSignupAsync` in `PendingSignupService`
+  - Neuer Status `Provisioning` in `PendingSignupStatuses`
+  - Automatische Lizenzlaufzeit beim Public Signup: 1 Monat (`ValidFrom` = UTC-Datum heute, `ValidUntil` = +1 Monat)
+  - Billing: Free → `PaymentProvider = None`, Amount = 0; Paid → `PaymentProvider = ManualInvoice`, Amount = jährlicher Preis falls gesetzt, sonst monatlich
+  - `BillingStatus` und `BillingCycle` in `MetadataJson` (kein separates DB-Feld)
+  - Erfolgsseite `/signup/success` für Free und Paid (Query-Parameter `paid`, `planName`, `emailSent`)
+  - **Ohne** Mollie, Online-Zahlung, automatische Rechnungserstellung
+
+### Hinzugefügt
+
+- **Signup: Rechnungsdaten bei kostenpflichtigen Plänen:**
+  - Rechnungsfelder in `PublicSignupFormDto` und bedingte Anzeige auf `/signup` (nur wenn `IsFree == false`)
+  - Validierung in `PublicSignupService` nur für kostenpflichtige Pläne
+  - Speicherung in `PendingSignup` (Migration `AddPendingSignupBillingFields`)
+  - Sinnvolle Vorausfüllung aus Unternehmens-/Admin-Daten beim Wechsel auf kostenpflichtigen Plan
+
+### Geändert
+
+- **Signup-Header:** Helle Schriftfarben auf blauem Hintergrund für Titel, Untertitel und „Tarif auswählen“
+
+### Hinzugefügt
+
 - **Öffentliche Registrierung mit Tarifauswahl:**
   - Neues Feld `IsPublicSignupEnabled` auf `SubscriptionPlan` (Migration `AddSubscriptionPlanIsPublicSignupEnabled`)
   - Bestehende aktive Free-Pläne werden per Migration auf öffentlich registrierbar gesetzt; bezahlte Pläne standardmäßig nicht

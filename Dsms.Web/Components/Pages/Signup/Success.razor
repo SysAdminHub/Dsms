@@ -10,7 +10,23 @@
     </div>
 
     <div class="alert alert-success dsms-alert">
-        <p class="mb-2">Wir haben Ihren kostenlosen Zugang erstellt.</p>
+        @if (_isPaid)
+        {
+            <p class="mb-2">
+                Wir haben Ihren Zugang
+                @if (!string.IsNullOrWhiteSpace(_planName))
+                {
+                    <span> für den Tarif <strong>@_planName</strong></span>
+                }
+                erstellt.
+            </p>
+            <p class="mb-2">Die Rechnung wird separat per E-Mail gestellt.</p>
+        }
+        else
+        {
+            <p class="mb-2">Wir haben Ihren kostenlosen Zugang erstellt.</p>
+        }
+
         @if (_emailSent)
         {
             <p class="mb-0">Sie erhalten in Kürze eine E-Mail, mit der Sie Ihr Passwort festlegen können.</p>
@@ -31,10 +47,20 @@
     [SupplyParameterFromQuery]
     public string? EmailSent { get; set; }
 
+    [SupplyParameterFromQuery]
+    public string? Paid { get; set; }
+
+    [SupplyParameterFromQuery(Name = "planName")]
+    public string? PlanName { get; set; }
+
     private bool _emailSent = true;
+    private bool _isPaid;
+    private string? _planName;
 
     protected override void OnInitialized()
     {
         _emailSent = !string.Equals(EmailSent, "false", StringComparison.OrdinalIgnoreCase);
+        _isPaid = string.Equals(Paid, "true", StringComparison.OrdinalIgnoreCase);
+        _planName = string.IsNullOrWhiteSpace(PlanName) ? null : Uri.UnescapeDataString(PlanName);
     }
 }

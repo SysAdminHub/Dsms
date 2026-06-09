@@ -58,4 +58,13 @@ public class PendingSignup
     public string? InternalNote { get; set; }
     public string? Source { get; set; }
     public string? MetadataJson { get; set; }
+
+    public string? BillingCompanyName { get; set; }
+    public string? BillingEmail { get; set; }
+    public string? BillingStreet { get; set; }
+    public string? BillingPostalCode { get; set; }
+    public string? BillingCity { get; set; }
+    public string? BillingCountry { get; set; }
+    public string? BillingVatId { get; set; }
+    public string? BillingReference { get; set; }
 }

@@ -203,6 +203,14 @@ article.content {
     margin-bottom: var(--dsms-space-6);
 }
 
+.dsms-public-signup-header.dsms-login-brand h1 {
+    color: #ffffff;
+}
+
+.dsms-public-signup-header.dsms-login-brand p {
+    color: rgba(255, 255, 255, 0.78);
+}
+
 .dsms-signup-alert-wrap {
     width: 100%;
     max-width: 720px;
@@ -215,7 +223,7 @@ article.content {
     font-size: var(--dsms-font-size-lg);
     font-weight: 600;
     margin: 0 0 var(--dsms-space-5);
-    color: var(--dsms-text);
+    color: #ffffff;
 }
 
 .dsms-signup-plan-row {

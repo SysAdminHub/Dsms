@@ -16,6 +16,21 @@ public interface IPendingSignupService
     /// <summary>Öffentlicher Paid-Signup ohne Superuser-Prüfung – nur aktive bezahlte Pläne.</summary>
     Task<Guid> CreatePublicAsync(CreatePendingSignupDto dto);
 
+    /// <summary>Öffentlicher Signup (Free oder Paid) ohne Superuser-Prüfung.</summary>
+    Task<Guid> CreateForPublicSignupAsync(CreatePublicPendingSignupDto dto);
+
+    Task<bool> SetStatusForPublicSignupAsync(Guid id, string status);
+
+    Task<bool> MarkAsProvisionedForPublicSignupAsync(
+        Guid id,
+        Guid licenseId,
+        string? licenseNumber,
+        int tenantId,
+        string? tenantName,
+        string adminUserId);
+
+    Task<bool> MarkAsFailedForPublicSignupAsync(Guid id, string errorMessage);
+
     Task<bool> UpdateStatusAsync(Guid id, string status, string? note = null);
 
     Task<bool> MarkAsPaidAsync(Guid id, string? externalPaymentId = null);

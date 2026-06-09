@@ -153,6 +153,48 @@
                         <InputText class="form-control" @bind-Value="_model.AdminEmail" autocomplete="email" />
                     </div>
 
+                    @if (!selectedPlan.IsFree)
+                    {
+                        <h5 class="mb-2 mt-2">Rechnungsdaten</h5>
+                        <p class="text-muted small mb-3">
+                            Die Rechnung wird separat per E-Mail gestellt. Online-Zahlung ist derzeit nicht erforderlich.
+                        </p>
+                        <div class="mb-3">
+                            <label class="form-label">Rechnungsempfänger / Firmenname *</label>
+                            <InputText class="form-control" @bind-Value="_model.BillingCompanyName" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Rechnungs-E-Mail *</label>
+                            <InputText class="form-control" @bind-Value="_model.BillingEmail" autocomplete="email" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Straße und Hausnummer *</label>
+                            <InputText class="form-control" @bind-Value="_model.BillingStreet" />
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Postleitzahl *</label>
+                                <InputText class="form-control" @bind-Value="_model.BillingPostalCode" />
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label">Ort *</label>
+                                <InputText class="form-control" @bind-Value="_model.BillingCity" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Land *</label>
+                            <InputText class="form-control" @bind-Value="_model.BillingCountry" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Umsatzsteuer-ID</label>
+                            <InputText class="form-control" @bind-Value="_model.BillingVatId" />
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label">Bestellnummer / Referenz</label>
+                            <InputText class="form-control" @bind-Value="_model.BillingReference" />
+                        </div>
+                    }
+
                     <div class="form-check mb-4">
                         <InputCheckbox class="form-check-input" @bind-Value="_model.AcceptTerms" id="acceptTerms" />
                         <label class="form-check-label" for="acceptTerms">
@@ -192,6 +234,7 @@
     {
         _publicPlans = (await PublicSignupService.GetPublicSignupPlansAsync()).ToList();
         ApplyDefaultSelection();
+        MaybeApplyBillingDefaults();
         _loading = false;
     }
 
@@ -234,6 +277,34 @@
 
         _model.SelectedPlanId = planId;
         _errorMessage = null;
+        MaybeApplyBillingDefaults();
+    }
+
+    private void MaybeApplyBillingDefaults()
+    {
+        var plan = _publicPlans.FirstOrDefault(p => p.Id == _model.SelectedPlanId);
+        if (plan is null || plan.IsFree)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.BillingCompanyName)
+            && !string.IsNullOrWhiteSpace(_model.CustomerName))
+        {
+            _model.BillingCompanyName = _model.CustomerName.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.BillingEmail))
+        {
+            if (!string.IsNullOrWhiteSpace(_model.CustomerEmail))
+            {
+                _model.BillingEmail = _model.CustomerEmail.Trim();
+            }
+            else if (!string.IsNullOrWhiteSpace(_model.AdminEmail))
+            {
+                _model.BillingEmail = _model.AdminEmail.Trim();
+            }
+        }
     }
 
     private async Task SubmitAsync()
@@ -261,15 +332,10 @@
                 return;
             }
 
-            if (result.IsFreeProvisioning)
-            {
-                var emailSent = result.PasswordSetupEmailSent ? "true" : "false";
-                Navigation.NavigateTo($"signup/success?emailSent={emailSent}");
-            }
-            else
-            {
-                Navigation.NavigateTo("signup/paid/success");
-            }
+            var emailSent = result.PasswordSetupEmailSent ? "true" : "false";
+            var paid = result.IsPaidPlan ? "true" : "false";
+            var planName = Uri.EscapeDataString(result.PlanDisplayName ?? string.Empty);
+            Navigation.NavigateTo($"signup/success?emailSent={emailSent}&paid={paid}&planName={planName}");
         }
         finally
         {

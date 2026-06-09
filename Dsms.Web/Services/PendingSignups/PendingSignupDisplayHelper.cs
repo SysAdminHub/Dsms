@@ -10,6 +10,7 @@ public static class PendingSignupDisplayHelper
     public static string StatusVariant(string status) => status switch
     {
         PendingSignupStatuses.Provisioned => "success",
+        PendingSignupStatuses.Provisioning => "warning",
         PendingSignupStatuses.Paid => "success",
         PendingSignupStatuses.PendingPayment => "warning",
         PendingSignupStatuses.Draft => "default",

@@ -85,6 +85,24 @@ public sealed class PendingSignupService(
     public Task<Guid> CreatePublicAsync(CreatePendingSignupDto dto) =>
         CreateInternalAsync(dto, requirePaidPlan: true);
 
+    public Task<Guid> CreateForPublicSignupAsync(CreatePublicPendingSignupDto dto) =>
+        CreatePublicSignupInternalAsync(dto);
+
+    public Task<bool> SetStatusForPublicSignupAsync(Guid id, string status) =>
+        UpdateStatusInternalAsync(id, status, requireSuperuser: false);
+
+    public Task<bool> MarkAsProvisionedForPublicSignupAsync(
+        Guid id,
+        Guid licenseId,
+        string? licenseNumber,
+        int tenantId,
+        string? tenantName,
+        string adminUserId) =>
+        MarkAsProvisionedInternalAsync(id, licenseId, licenseNumber, tenantId, tenantName, adminUserId, requireSuperuser: false);
+
+    public Task<bool> MarkAsFailedForPublicSignupAsync(Guid id, string errorMessage) =>
+        MarkAsFailedInternalAsync(id, errorMessage, requireSuperuser: false);
+
     private async Task<Guid> CreateInternalAsync(CreatePendingSignupDto dto, bool requirePaidPlan)
     {
         ValidateCreateDto(dto);
@@ -145,7 +163,105 @@ public sealed class PendingSignupService(
             Amount = plan.PriceMonthly ?? plan.PriceYearly,
             Currency = plan.Currency,
             Source = NormalizeOptional(dto.Source) ?? "Manual",
-            InternalNote = NormalizeOptional(dto.InternalNote)
+            InternalNote = NormalizeOptional(dto.InternalNote),
+            BillingCompanyName = NormalizeOptional(dto.BillingCompanyName),
+            BillingEmail = NormalizeOptional(dto.BillingEmail),
+            BillingStreet = NormalizeOptional(dto.BillingStreet),
+            BillingPostalCode = NormalizeOptional(dto.BillingPostalCode),
+            BillingCity = NormalizeOptional(dto.BillingCity),
+            BillingCountry = NormalizeOptional(dto.BillingCountry),
+            BillingVatId = NormalizeOptional(dto.BillingVatId),
+            BillingReference = NormalizeOptional(dto.BillingReference)
+        };
+
+        db.PendingSignups.Add(entity);
+        await db.SaveChangesAsync();
+
+        await TryLogAuditAsync(
+            action: "PendingSignupCreated",
+            description: "Registrierung wurde vorgemerkt.",
+            entity,
+            metadata: new { entity.PlanId, entity.PlanDisplayNameSnapshot, entity.CustomerName, entity.AdminEmail, entity.Source });
+
+        return entity.Id;
+    }
+
+    private async Task<Guid> CreatePublicSignupInternalAsync(CreatePublicPendingSignupDto dto)
+    {
+        ValidateCreateDto(dto);
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var plan = await db.SubscriptionPlans.FirstOrDefaultAsync(p => p.Id == dto.PlanId);
+        if (plan is null)
+        {
+            throw new InvalidOperationException("Bitte wählen Sie einen Tarif aus.");
+        }
+
+        if (!plan.IsActive)
+        {
+            throw new InvalidOperationException("Der ausgewählte Tarif ist nicht aktiv.");
+        }
+
+        if (!plan.IsPublicSignupEnabled)
+        {
+            throw new InvalidOperationException("Der ausgewählte Tarif ist nicht mehr verfügbar. Bitte wählen Sie einen anderen Tarif.");
+        }
+
+        var adminEmail = dto.AdminEmail.Trim();
+
+        if (await userManager.FindByEmailAsync(adminEmail) is not null)
+        {
+            throw new InvalidOperationException("Für diese E-Mail-Adresse existiert bereits ein Benutzer.");
+        }
+
+        if (await HasOpenPendingSignupAsync(db, adminEmail))
+        {
+            throw new InvalidOperationException("Für diese E-Mail-Adresse existiert bereits eine offene Registrierung.");
+        }
+
+        var customerEmail = NormalizeOptional(dto.CustomerEmail);
+        if (string.IsNullOrWhiteSpace(customerEmail))
+        {
+            customerEmail = adminEmail;
+        }
+
+        var entity = new PendingSignup
+        {
+            Id = Guid.NewGuid(),
+            CreatedAt = DateTime.UtcNow,
+            PlanId = plan.Id,
+            PlanNameSnapshot = plan.Name,
+            PlanDisplayNameSnapshot = plan.DisplayName,
+            PlanPriceMonthlySnapshot = plan.PriceMonthly,
+            PlanPriceYearlySnapshot = plan.PriceYearly,
+            CurrencySnapshot = plan.Currency,
+            CustomerName = dto.CustomerName.Trim(),
+            CustomerEmail = customerEmail,
+            TenantName = dto.TenantName.Trim(),
+            TenantLegalName = NormalizeOptional(dto.TenantLegalName),
+            TenantEmail = NormalizeOptional(dto.TenantEmail),
+            TenantPhone = NormalizeOptional(dto.TenantPhone),
+            TenantAddress = NormalizeOptional(dto.TenantAddress),
+            AdminEmail = adminEmail,
+            AdminDisplayName = dto.AdminDisplayName.Trim(),
+            AdminFirstName = NormalizeOptional(dto.AdminFirstName),
+            AdminLastName = NormalizeOptional(dto.AdminLastName),
+            Status = PendingSignupStatuses.Draft,
+            Amount = dto.Amount,
+            Currency = dto.Currency ?? plan.Currency,
+            PaymentProvider = NormalizeOptional(dto.PaymentProvider),
+            Source = NormalizeOptional(dto.Source) ?? "PublicSignup",
+            InternalNote = NormalizeOptional(dto.InternalNote),
+            MetadataJson = NormalizeOptional(dto.MetadataJson),
+            BillingCompanyName = NormalizeOptional(dto.BillingCompanyName),
+            BillingEmail = NormalizeOptional(dto.BillingEmail),
+            BillingStreet = NormalizeOptional(dto.BillingStreet),
+            BillingPostalCode = NormalizeOptional(dto.BillingPostalCode),
+            BillingCity = NormalizeOptional(dto.BillingCity),
+            BillingCountry = NormalizeOptional(dto.BillingCountry),
+            BillingVatId = NormalizeOptional(dto.BillingVatId),
+            BillingReference = NormalizeOptional(dto.BillingReference)
         };
 
         db.PendingSignups.Add(entity);
@@ -180,9 +296,21 @@ public sealed class PendingSignupService(
         }
     }
 
-    public async Task<bool> UpdateStatusAsync(Guid id, string status, string? note = null)
+    public Task<bool> UpdateStatusAsync(Guid id, string status, string? note = null)
     {
-        await EnsureSuperuserAsync();
+        return UpdateStatusInternalAsync(id, status, requireSuperuser: true, note);
+    }
+
+    private async Task<bool> UpdateStatusInternalAsync(
+        Guid id,
+        string status,
+        bool requireSuperuser,
+        string? note = null)
+    {
+        if (requireSuperuser)
+        {
+            await EnsureSuperuserAsync();
+        }
 
         if (!PendingSignupStatuses.IsValid(status))
         {
@@ -249,15 +377,29 @@ public sealed class PendingSignupService(
         return true;
     }
 
-    public async Task<bool> MarkAsProvisionedAsync(
+    public Task<bool> MarkAsProvisionedAsync(
         Guid id,
         Guid licenseId,
         string? licenseNumber,
         int tenantId,
         string? tenantName,
-        string adminUserId)
+        string adminUserId) =>
+        MarkAsProvisionedInternalAsync(id, licenseId, licenseNumber, tenantId, tenantName, adminUserId, requireSuperuser: true);
+
+    private async Task<bool> MarkAsProvisionedInternalAsync(
+        Guid id,
+        Guid licenseId,
+        string? licenseNumber,
+        int tenantId,
+        string? tenantName,
+        string adminUserId,
+        bool requireSuperuser)
     {
-        await EnsureSuperuserAsync();
+        if (requireSuperuser)
+        {
+            await EnsureSuperuserAsync();
+        }
+
         await using var db = await dbFactory.CreateDbContextAsync();
 
         var entity = await db.PendingSignups.FirstOrDefaultAsync(p => p.Id == id);
@@ -294,9 +436,19 @@ public sealed class PendingSignupService(
         return true;
     }
 
-    public async Task<bool> MarkAsFailedAsync(Guid id, string errorMessage)
+    public Task<bool> MarkAsFailedAsync(Guid id, string errorMessage) =>
+        MarkAsFailedInternalAsync(id, errorMessage, requireSuperuser: true);
+
+    private async Task<bool> MarkAsFailedInternalAsync(
+        Guid id,
+        string errorMessage,
+        bool requireSuperuser)
     {
-        await EnsureSuperuserAsync();
+        if (requireSuperuser)
+        {
+            await EnsureSuperuserAsync();
+        }
+
         await using var db = await dbFactory.CreateDbContextAsync();
 
         var entity = await db.PendingSignups.FirstOrDefaultAsync(p => p.Id == id);
@@ -565,7 +717,15 @@ public sealed class PendingSignupService(
         ProvisionedAdminUserId = p.ProvisionedAdminUserId,
         ErrorMessage = p.ErrorMessage,
         InternalNote = p.InternalNote,
-        MetadataJson = p.MetadataJson
+        MetadataJson = p.MetadataJson,
+        BillingCompanyName = p.BillingCompanyName,
+        BillingEmail = p.BillingEmail,
+        BillingStreet = p.BillingStreet,
+        BillingPostalCode = p.BillingPostalCode,
+        BillingCity = p.BillingCity,
+        BillingCountry = p.BillingCountry,
+        BillingVatId = p.BillingVatId,
+        BillingReference = p.BillingReference
     };
 
     private static string? NormalizeOptional(string? value) =>

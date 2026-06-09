@@ -72,9 +72,18 @@ public sealed class PendingSignupDetailsDto
     public string? ErrorMessage { get; init; }
     public string? InternalNote { get; init; }
     public string? MetadataJson { get; init; }
+
+    public string? BillingCompanyName { get; init; }
+    public string? BillingEmail { get; init; }
+    public string? BillingStreet { get; init; }
+    public string? BillingPostalCode { get; init; }
+    public string? BillingCity { get; init; }
+    public string? BillingCountry { get; init; }
+    public string? BillingVatId { get; init; }
+    public string? BillingReference { get; init; }
 }
 
-public sealed class CreatePendingSignupDto
+public class CreatePendingSignupDto
 {
     public Guid PlanId { get; set; }
     public string CustomerName { get; set; } = string.Empty;
@@ -90,6 +99,24 @@ public sealed class CreatePendingSignupDto
     public string? AdminLastName { get; set; }
     public string? Source { get; set; }
     public string? InternalNote { get; set; }
+
+    public string? BillingCompanyName { get; set; }
+    public string? BillingEmail { get; set; }
+    public string? BillingStreet { get; set; }
+    public string? BillingPostalCode { get; set; }
+    public string? BillingCity { get; set; }
+    public string? BillingCountry { get; set; }
+    public string? BillingVatId { get; set; }
+    public string? BillingReference { get; set; }
+}
+
+/// <summary>Öffentlicher Signup – Free und Paid, inkl. Billing-Metadaten.</summary>
+public sealed class CreatePublicPendingSignupDto : CreatePendingSignupDto
+{
+    public decimal? Amount { get; set; }
+    public string? Currency { get; set; }
+    public string? PaymentProvider { get; set; }
+    public string? MetadataJson { get; set; }
 }
 
 public sealed class PendingSignupStatusUpdateDto

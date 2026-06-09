@@ -183,11 +183,11 @@ Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAn
 
 **Provisioning:** `ProvisioningService.ProvisionCustomerAsync` erstellt in einer Transaktion License (über `PlanToLicenseMapper`), ersten Mandanten (`Tenant.LicenseId`) und Admin-Benutzer (`ApplicationUser.LicenseId`, Rolle `Admin`, `UserTenant`-Zuordnung). Nach dem Commit wird optional eine Passwortvergabe-Mail über `SendProvisioningWelcomeEmailAsync` versendet. Bei E-Mail-Fehler bleiben die angelegten Daten bestehen. Später für Free-Signup und Mollie-Webhook wiederverwendbar; Public Signup und Mollie noch nicht implementiert.
 
-**Public-Signup:** Öffentliche Route `/signup` (ohne Anmeldung, `LoginLayout`). Lädt aktive Pläne mit `IsActive == true` und `IsPublicSignupEnabled == true` über `GetPublicSignupPlansAsync()`. Tarifauswahl als Karten; Formular erst nach Planwahl. Free-Plan → `ProvisioningService` mit `Source = "PublicSignup"`, Erfolgsseite `/signup/success`. Bezahlter Plan → `PendingSignupService.CreatePublicAsync` mit `Source = "PublicSignup"`, Status Draft, Erfolgsseite `/signup/paid/success`. `/signup/paid` leitet auf `/signup?preferPaid=true` weiter. Kein Mollie, kein Auto-Login.
+**Public-Signup:** Öffentliche Route `/signup` (ohne Anmeldung, `PublicSignupLayout`). Lädt aktive Pläne mit `IsActive == true` und `IsPublicSignupEnabled == true` über `GetPublicSignupPlansAsync()`. Tarifauswahl als Karten; Formular erst nach Planwahl. Free- und kostenpflichtige Pläne: `PendingSignupService.CreateForPublicSignupAsync` → Status Draft/Provisioning → `ProvisioningService` mit `Source = "PublicSignup"` → Status Provisioned (oder Failed). Lizenzlaufzeit beim automatischen Public Signup: 1 Monat. Erfolgsseite `/signup/success`. Kostenpflichtige Pläne: Rechnungsdaten in `PendingSignup`, `PaymentProvider = ManualInvoice`, Rechnung manuell später. Kein Mollie, kein Auto-Login.
 
 **Paid-Signup (Legacy-Route):** `/signup/paid` leitet auf die vereinheitlichte `/signup`-Seite weiter. Der frühere separate Paid-Signup-Flow (`PaidSignupService`, `Source = "PaidSignup"`) bleibt im Code für Kompatibilität, wird aber nicht mehr über eine eigene Seite angesteuert.
 
-**PendingSignup:** Zwischenspeicher für bezahlte Registrierungen. Entity `PendingSignup` speichert Plan-Snapshots und Registrierungsdaten, erstellt aber **keine** License, keinen Tenant und keinen Admin. Superuser-Verwaltung unter `/platform/signups`. Geplanter Ablauf nach Paid-Signup: Mollie-Zahlung → Status PendingPayment/Paid → Webhook → `ProvisioningService` → Status Provisioned. Free-Signup nutzt weiterhin direkt `ProvisioningService`. Mollie/Webhook noch nicht implementiert.
+**PendingSignup:** Historie und Zwischenspeicher für Registrierungen. Entity `PendingSignup` speichert Plan-Snapshots, Registrierungsdaten, Rechnungsdaten (Paid) und Provisioning-Ergebnis. Beim Public Signup wird der Eintrag erstellt und nach erfolgreicher Provisionierung auf Status Provisioned gesetzt. Superuser-Verwaltung unter `/platform/signups`. Mollie/Webhook und manuelle Rechnungsstellung noch nicht implementiert.
 
 Alle anderen Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `UpdatedAt`).
 
@@ -260,7 +260,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ISubscriptionPlanService` / `SubscriptionPlanService` | Scoped | Tarifvorlagen-CRUD (Superuser); `GetPublicSignupPlansAsync()`, `GetPublicSignupPlanByIdAsync()` für Signup |
 | `IPlanToLicenseService` / `PlanToLicenseService` | Scoped | Erstellt neue `License` aus `SubscriptionPlan` (Werte werden kopiert, nicht verknüpft) |
 | `IProvisioningService` / `ProvisioningService` | Scoped | Provisioniert Kunde: License + Tenant + Admin + Passwortvergabe-Mail |
-| `IPublicSignupService` / `PublicSignupService` | Scoped | Öffentlicher Signup mit Tarifauswahl → Free: `ProvisioningService`, Paid: `PendingSignupService.CreatePublicAsync` |
+| `IPublicSignupService` / `PublicSignupService` | Scoped | Öffentlicher Signup mit Tarifauswahl → PendingSignup + direkte Provisionierung für Free und Paid |
 | `IPaidSignupService` / `PaidSignupService` | Scoped | Legacy Paid-Signup-Service (nicht mehr über eigene Seite) |
 | `IPendingSignupService` / `PendingSignupService` | Scoped | Zwischenspeicher für ausstehende (bezahlte) Registrierungen; `CreatePublicAsync` für öffentlichen Paid-Signup |
 | `ILogService` / `LogService` | Scoped | Zentrales Audit- und Systemprotokoll (`LogEntry`-Tabelle); siehe `Logging.md` |

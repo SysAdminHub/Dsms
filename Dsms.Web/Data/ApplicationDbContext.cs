@@ -135,6 +135,14 @@ public class ApplicationDbContext(
             e.Property(p => p.InternalNote).HasColumnType("text");
             e.Property(p => p.Source).HasMaxLength(100);
             e.Property(p => p.MetadataJson).HasColumnType("text");
+            e.Property(p => p.BillingCompanyName).HasMaxLength(200);
+            e.Property(p => p.BillingEmail).HasMaxLength(255);
+            e.Property(p => p.BillingStreet).HasMaxLength(300);
+            e.Property(p => p.BillingPostalCode).HasMaxLength(20);
+            e.Property(p => p.BillingCity).HasMaxLength(100);
+            e.Property(p => p.BillingCountry).HasMaxLength(100);
+            e.Property(p => p.BillingVatId).HasMaxLength(50);
+            e.Property(p => p.BillingReference).HasMaxLength(100);
             e.Property(p => p.Status).HasDefaultValue(PendingSignupStatuses.Draft);
             e.HasIndex(p => p.CreatedAt);
             e.HasIndex(p => p.Status);

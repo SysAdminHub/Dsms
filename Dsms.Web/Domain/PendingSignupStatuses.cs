@@ -4,6 +4,7 @@ namespace Dsms.Web.Domain;
 public static class PendingSignupStatuses
 {
     public const string Draft = "Draft";
+    public const string Provisioning = "Provisioning";
     public const string PendingPayment = "PendingPayment";
     public const string Paid = "Paid";
     public const string Provisioned = "Provisioned";
@@ -14,6 +15,7 @@ public static class PendingSignupStatuses
     public static readonly IReadOnlyList<string> All =
     [
         Draft,
+        Provisioning,
         PendingPayment,
         Paid,
         Provisioned,
@@ -36,6 +38,7 @@ public static class PendingSignupStatuses
     public static readonly IReadOnlyList<string> Open =
     [
         Draft,
+        Provisioning,
         PendingPayment,
         Paid
     ];
@@ -46,6 +49,7 @@ public static class PendingSignupStatuses
     public static string GetDisplayName(string status) => status switch
     {
         Draft => "Entwurf",
+        Provisioning => "Wird provisioniert",
         PendingPayment => "Zahlung ausstehend",
         Paid => "Bezahlt",
         Provisioned => "Provisioniert",

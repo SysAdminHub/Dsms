@@ -271,6 +271,8 @@ else
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
 
@@ -291,8 +293,11 @@ else
     private List<ProcessingActivity> _availableActivities = [];
 
     private HashSet<int> _selectedActivityIds = [];
-
-
+    private TomImplementationStatus? _previousStatus;
+    private string? _previousTitle;
+    private TomCategory? _previousCategory;
+    private string? _previousOwner;
+    private DateOnly? _previousNextReviewAt;
 
     protected override async Task OnInitializedAsync()
 
@@ -339,6 +344,11 @@ else
 
 
             _model = existing;
+            _previousStatus = existing.ImplementationStatus;
+            _previousTitle = existing.Title;
+            _previousCategory = existing.Category;
+            _previousOwner = existing.Owner;
+            _previousNextReviewAt = existing.NextReviewAt;
 
             _validFrom = existing.ValidFrom?.ToDateTime(TimeOnly.MinValue);
 
@@ -450,8 +460,7 @@ else
 
             var limitCheck = await LicenseService.CanCreateTomAsync(_tenantId.Value);
 
-            if (!limitCheck.IsAllowed)
-
+            if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "Tom"))
             {
 
                 _saveError = limitCheck.Message;
@@ -493,6 +502,8 @@ else
 
 
             await Db.SaveChangesAsync();
+
+            await ComplianceAuditLog.LogTomCreatedAsync(_model.Id, _model.Title, _tenantId.Value);
 
             Navigation.NavigateTo($"toms/{_model.Id}");
 
@@ -551,6 +562,11 @@ else
 
 
         await Db.SaveChangesAsync();
+
+        var changes = ComplianceAuditDiffBuilder.ForTom(
+            _previousTitle, _previousCategory, _previousStatus, _previousOwner, _previousNextReviewAt, _model);
+        await ComplianceAuditLog.LogTomUpdatedAsync(
+            _model.Id, _model.Title, _tenantId.Value, changes);
 
         Navigation.NavigateTo($"toms/{_model.Id}");
 

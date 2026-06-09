@@ -84,12 +84,16 @@ else
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
     private LicenseLimitCheckResult? _createLimit;
     private string? _saveError;
     private AuditRun _model = new() { Status = AuditRunStatus.Draft };
     private List<AuditTemplate> _templates = [];
+    private AuditRunStatus? _previousStatus;
+    private string? _previousTitle;
 
     protected override async Task OnInitializedAsync()
     {
@@ -103,6 +107,8 @@ else
             _model = await Db.AuditRuns
                 .Include(r => r.Documents)
                 .FirstAsync(r => r.Id == Id && r.TenantId == _tenantId);
+            _previousStatus = _model.Status;
+            _previousTitle = _model.Title;
         }
         else
         {
@@ -124,7 +130,7 @@ else
             if (_tenantId is int tenantId)
             {
                 var limitCheck = await LicenseService.CanCreateActiveAuditAsync(tenantId);
-                if (!limitCheck.IsAllowed)
+                if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "AuditRun"))
                 {
                     _saveError = limitCheck.Message;
                     return;
@@ -147,6 +153,15 @@ else
 
             await TemplateService.CreateAnswerSnapshotsAsync(_model, template);
             await Db.SaveChangesAsync();
+
+            if (_tenantId is int tid)
+            {
+                await ComplianceAuditLog.LogAuditCreatedAsync(_model.Id, _model.Title, tid);
+                if (_model.Status == AuditRunStatus.InProgress)
+                {
+                    await ComplianceAuditLog.LogAuditStartedAsync(_model.Id, _model.Title, tid);
+                }
+            }
         }
         else
         {
@@ -163,6 +178,24 @@ else
 
             _model.UpdatedAt = DateTime.UtcNow;
             await Db.SaveChangesAsync();
+
+            if (_tenantId is int tid)
+            {
+                var changes = ComplianceAuditDiffBuilder.ForAuditRun(_previousTitle, _previousStatus, _model);
+                await ComplianceAuditLog.LogAuditUpdatedAsync(_model.Id, _model.Title, tid, changes);
+
+                if (_previousStatus != _model.Status)
+                {
+                    if (_model.Status == AuditRunStatus.InProgress)
+                    {
+                        await ComplianceAuditLog.LogAuditStartedAsync(_model.Id, _model.Title, tid);
+                    }
+                    else if (_model.Status == AuditRunStatus.Completed)
+                    {
+                        await ComplianceAuditLog.LogAuditCompletedAsync(_model.Id, _model.Title, tid);
+                    }
+                }
+            }
         }
 
         Navigation.NavigateTo("audit-runs");

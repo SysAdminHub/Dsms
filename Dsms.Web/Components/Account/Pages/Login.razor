@@ -12,6 +12,7 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<Login> Logger
+@inject Dsms.Web.Services.Logging.ILogService LogService
 
 <PageTitle>Anmelden</PageTitle>
 
@@ -47,6 +48,8 @@
 
     <div class="text-center mt-3">
         <a href="passwort-vergessen">Passwort vergessen?</a>
+        <span class="mx-2">·</span>
+        <a href="signup">Kostenlos registrieren</a>
     </div>
 </div>
 
@@ -85,6 +88,15 @@
         var user = await SignInManager.UserManager.FindByEmailAsync(Input.Email);
         if (user is not null && !user.IsActive)
         {
+            try
+            {
+                await LogService.LogLoginFailedAsync(Input.Email, "AccountInactive");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Login-Securitylog konnte nicht geschrieben werden.");
+            }
+
             errorMessage = "Dieses Benutzerkonto ist deaktiviert. Bitte wenden Sie sich an einen Administrator.";
             return;
         }
@@ -97,6 +109,18 @@
 
         if (result.Succeeded)
         {
+            if (user is not null)
+            {
+                try
+                {
+                    await LogService.LogLoginSuccessfulAsync(user);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Login-Auditlog konnte nicht geschrieben werden.");
+                }
+            }
+
             RedirectManager.RedirectTo(ReturnUrl);
             return;
         }
@@ -117,8 +141,26 @@
 
         if (result.IsLockedOut)
         {
+            try
+            {
+                await LogService.LogLoginFailedAsync(Input.Email, "LockedOut");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Login-Securitylog konnte nicht geschrieben werden.");
+            }
+
             RedirectManager.RedirectTo("Account/Lockout", forceLoad: true);
             return;
+        }
+
+        try
+        {
+            await LogService.LogLoginFailedAsync(Input.Email, "InvalidCredentials");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Login-Securitylog konnte nicht geschrieben werden.");
         }
 
         errorMessage = "Anmeldung fehlgeschlagen. E-Mail oder Passwort prüfen.";

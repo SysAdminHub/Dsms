@@ -144,6 +144,45 @@ public sealed class PasswordResetService(
         };
     }
 
+    public async Task<PasswordResetAdminResult> SendProvisioningWelcomeEmailAsync(string userId, string tenantName)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null || !user.IsActive)
+        {
+            return FailAdmin("Benutzer nicht gefunden oder inaktiv.");
+        }
+
+        if (user.Email is null)
+        {
+            return FailAdmin("Willkommensmail konnte nicht gesendet werden. Benutzer hat keine E-Mail-Adresse.");
+        }
+
+        if (await IsRateLimitedAsync("invite", user.Email))
+        {
+            return FailAdmin(
+                $"Für diesen Benutzer wurde kürzlich bereits eine Willkommensmail versendet. Bitte {SelfServiceCooldownMinutes} Minuten warten.");
+        }
+
+        var sendResult = await SendWelcomeEmailAsync(user, tenantName);
+        await MarkRateLimitedAsync("invite", user.Email);
+
+        if (!sendResult.Succeeded)
+        {
+            logger.LogWarning(
+                "Provisioning-Willkommensmail für Benutzer {UserId} fehlgeschlagen: {Detail}",
+                userId,
+                sendResult.DetailMessage ?? sendResult.Message);
+
+            return FailAdmin("Die Passwortvergabe-Mail konnte nicht versendet werden.");
+        }
+
+        return new PasswordResetAdminResult
+        {
+            Succeeded = true,
+            Message = "Willkommensmail wurde gesendet."
+        };
+    }
+
     public async Task<PasswordResetChangeResult> ChangePasswordAsync(
         string? email,
         string? userId,

@@ -9,7 +9,13 @@ obj/
 ## Datenbank / Uploads (lokal)
 Dsms.Web/Data/app.db*
 Dsms.Web/Data/Uploads/
+Dsms.Web/DataProtection-Keys/
 
 ## Secrets
 appsettings.*.local.json
+appsettings.Production.json
 secrets.json
+
+.env
+*.env
+!.env.example

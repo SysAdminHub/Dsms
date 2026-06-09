@@ -3,6 +3,7 @@ using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
 using Dsms.Web.Services.Licenses;
+using Dsms.Web.Services.Logging;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,7 +16,9 @@ public sealed class AuditTemplateService(
     ICurrentUserContext currentUser,
     UserManager<ApplicationUser> userManager,
     ArchiveViewContextAccessor archiveView,
-    ILicenseService licenseService) : IAuditTemplateService
+    ILicenseService licenseService,
+    ILicenseCreateGuard licenseCreateGuard,
+    IComplianceAuditLogService complianceAuditLog) : IAuditTemplateService
 {
     public async Task<bool> CanViewAsync(AuditTemplate template, CancellationToken ct = default)
     {
@@ -248,6 +251,12 @@ public sealed class AuditTemplateService(
         template.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(ct);
+
+        if (template.TenantId is int tenantId)
+        {
+            await complianceAuditLog.LogAuditTemplatePublishedToCommunityAsync(template.Id, template.Title, tenantId);
+        }
+
         return new AuditTemplateOperationResult(true, AuditTemplateLabels.SubmitSuccess);
     }
 
@@ -360,7 +369,7 @@ public sealed class AuditTemplateService(
         }
 
         var limitCheck = await licenseService.CanCreateCustomAuditTemplateAsync(tenantId.Value);
-        if (!limitCheck.IsAllowed)
+        if (!await licenseCreateGuard.IsAllowedAsync(limitCheck, "AuditTemplate"))
         {
             return new AuditTemplateOperationResult(false, limitCheck.Message);
         }
@@ -389,6 +398,10 @@ public sealed class AuditTemplateService(
 
         db.AuditTemplates.Add(copy);
         await db.SaveChangesAsync(ct);
+
+        await complianceAuditLog.LogAuditTemplateImportedAsync(
+            copy.Id, copy.Title, tenantId.Value, sourceId);
+
         return new AuditTemplateOperationResult(true, null);
     }
 
@@ -412,6 +425,7 @@ public sealed class AuditTemplateService(
         template.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(ct);
+        await complianceAuditLog.LogAuditTemplateArchivedAsync(template.Id, template.Title, template.TenantId);
         return new ArchiveOperationResult(true, warnings);
     }
 
@@ -432,6 +446,7 @@ public sealed class AuditTemplateService(
         template.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(ct);
+        await complianceAuditLog.LogAuditTemplateRestoredAsync(template.Id, template.Title, template.TenantId);
         return new ArchiveOperationResult(true, []);
     }
 

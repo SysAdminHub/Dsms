@@ -32,6 +32,8 @@ public sealed class EmailSettingsService(
             SenderName = settings.SenderName,
             Encryption = settings.Encryption,
             IsEnabled = settings.IsEnabled,
+            SystemNotificationsEnabled = settings.SystemNotificationsEnabled,
+            SystemNotificationRecipientEmail = settings.SystemNotificationRecipientEmail,
             UpdatedAt = settings.UpdatedAt,
             UpdatedByDisplay = updatedByDisplay
         };
@@ -55,6 +57,10 @@ public sealed class EmailSettingsService(
         settings.SenderName = string.IsNullOrWhiteSpace(model.SenderName) ? null : model.SenderName.Trim();
         settings.Encryption = model.Encryption;
         settings.IsEnabled = model.IsEnabled;
+        settings.SystemNotificationsEnabled = model.SystemNotificationsEnabled;
+        settings.SystemNotificationRecipientEmail = string.IsNullOrWhiteSpace(model.SystemNotificationRecipientEmail)
+            ? null
+            : model.SystemNotificationRecipientEmail.Trim();
 
         if (!string.IsNullOrWhiteSpace(model.NewSmtpPassword))
         {
@@ -134,6 +140,21 @@ public sealed class EmailSettingsService(
         if (!IsValidEmail(model.SenderEmail))
         {
             return EmailOperationResult.Fail("Absender-Email muss eine gültige Emailadresse sein.");
+        }
+
+        if (model.SystemNotificationsEnabled)
+        {
+            if (string.IsNullOrWhiteSpace(model.SystemNotificationRecipientEmail))
+            {
+                return EmailOperationResult.Fail(
+                    "Bitte geben Sie eine gültige Empfängeradresse für Systembenachrichtigungen ein.");
+            }
+
+            if (!IsValidEmail(model.SystemNotificationRecipientEmail))
+            {
+                return EmailOperationResult.Fail(
+                    "Bitte geben Sie eine gültige Empfängeradresse für Systembenachrichtigungen ein.");
+            }
         }
 
         return EmailOperationResult.Ok();

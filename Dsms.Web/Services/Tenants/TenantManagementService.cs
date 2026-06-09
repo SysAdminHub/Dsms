@@ -2,6 +2,7 @@ using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Services.Licenses;
+using Dsms.Web.Services.Logging;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,7 +12,9 @@ public sealed class TenantManagementService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
     IUserAccessService access,
     UserManager<ApplicationUser> userManager,
-    ILicenseService licenseService) : ITenantManagementService
+    ILicenseService licenseService,
+    ILogService logService,
+    ILicenseCreateGuard licenseCreateGuard) : ITenantManagementService
 {
     public async Task<IReadOnlyList<TenantListItemDto>> ListTenantsAsync()
     {
@@ -72,7 +75,7 @@ public sealed class TenantManagementService(
         }
 
         var limitCheck = await licenseService.CanCreateTenantAsync(model.LicenseId.Value);
-        if (!limitCheck.IsAllowed)
+        if (!await licenseCreateGuard.IsAllowedAsync(limitCheck, "Tenant"))
         {
             return TenantOperationResult.Fail(limitCheck.Message);
         }
@@ -93,6 +96,17 @@ public sealed class TenantManagementService(
 
         db.Tenants.Add(tenant);
         await db.SaveChangesAsync();
+
+        await logService.LogAuditAsync(
+            action: "TenantCreated",
+            description: "Mandant wurde erstellt.",
+            entityType: "Tenant",
+            entityId: tenant.Id.ToString(),
+            entityName: tenant.Name,
+            tenantId: tenant.Id,
+            licenseId: tenant.LicenseId,
+            newValues: new { tenant.Name, tenant.LegalName, tenant.IsActive, tenant.LicenseId });
+
         return TenantOperationResult.Ok();
     }
 
@@ -119,6 +133,9 @@ public sealed class TenantManagementService(
         }
 
         var previousLicenseId = tenant.LicenseId;
+        var oldName = tenant.Name;
+        var oldLegalName = tenant.LegalName;
+        var oldIsActive = tenant.IsActive;
         tenant.Name = model.Name.Trim();
         tenant.LegalName = string.IsNullOrWhiteSpace(model.LegalName) ? null : model.LegalName.Trim();
         tenant.IsActive = model.IsActive;
@@ -127,8 +144,30 @@ public sealed class TenantManagementService(
 
         await db.SaveChangesAsync();
 
+        await logService.LogAuditAsync(
+            action: "TenantUpdated",
+            description: "Mandant wurde geändert.",
+            entityType: "Tenant",
+            entityId: tenant.Id.ToString(),
+            entityName: tenant.Name,
+            tenantId: tenant.Id,
+            licenseId: tenant.LicenseId,
+            oldValues: new { Name = oldName, LegalName = oldLegalName, IsActive = oldIsActive, LicenseId = previousLicenseId },
+            newValues: new { tenant.Name, tenant.LegalName, tenant.IsActive, tenant.LicenseId });
+
         if (previousLicenseId != model.LicenseId)
         {
+            await logService.LogAuditAsync(
+                action: "TenantLicenseChanged",
+                description: "Lizenzzuordnung des Mandanten wurde geändert.",
+                entityType: "Tenant",
+                entityId: tenant.Id.ToString(),
+                entityName: tenant.Name,
+                tenantId: tenant.Id,
+                licenseId: tenant.LicenseId,
+                oldValues: new { LicenseId = previousLicenseId },
+                newValues: new { tenant.LicenseId });
+
             await SyncTenantUserLicenseIdsAsync(tenantId, model.LicenseId);
         }
 

@@ -2,6 +2,7 @@ using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Services.Licenses;
+using Dsms.Web.Services.Logging;
 using Dsms.Web.Services.PasswordReset;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +16,9 @@ public class UserManagementService(
     IUserAccessService access,
     ICurrentUserContext currentUser,
     IPasswordResetService passwordReset,
-    ILicenseService licenseService) : IUserManagementService
+    ILicenseService licenseService,
+    ILogService logService,
+    ILicenseCreateGuard licenseCreateGuard) : IUserManagementService
 {
     /// <inheritdoc />
     public async Task<IReadOnlyList<UserListItem>> ListUsersAsync(bool includeInactive)
@@ -196,6 +199,16 @@ public class UserManagementService(
         await userManager.AddToRoleAsync(user, model.Role);
         await SyncUserTenantsAsync(user.Id, tenantIds);
 
+        await logService.LogAuditAsync(
+            action: "UserCreated",
+            description: "Benutzer wurde erstellt.",
+            entityType: "ApplicationUser",
+            entityId: user.Id,
+            entityName: user.Email,
+            tenantId: tenantIds.FirstOrDefault() > 0 ? tenantIds.FirstOrDefault() : null,
+            licenseId: resolvedLicenseId,
+            newValues: new { user.DisplayName, user.Email, model.Role, TenantIds = tenantIds });
+
         var inviteResult = await passwordReset.SendWelcomeInvitationAsync(user.Id);
         if (inviteResult.Succeeded)
         {
@@ -242,6 +255,11 @@ public class UserManagementService(
             return UserOperationResult.Fail("Für diese Rolle ist mindestens ein Mandant erforderlich.");
         }
 
+        var oldLicenseId = user.LicenseId;
+        var oldIsActive = user.IsActive;
+        var oldRole = (await userManager.GetRolesAsync(user)).FirstOrDefault();
+        var oldTenantIds = await GetUserTenantIdsAsync(userId);
+
         user.DisplayName = model.DisplayName.Trim();
         user.TenantId = tenantIds.FirstOrDefault();
         user.IsActive = model.IsActive;
@@ -260,6 +278,41 @@ public class UserManagementService(
         await userManager.RemoveFromRolesAsync(user, currentRoles);
         await userManager.AddToRoleAsync(user, model.Role);
 
+        await logService.LogAuditAsync(
+            action: "UserUpdated",
+            description: "Benutzer wurde geändert.",
+            entityType: "ApplicationUser",
+            entityId: user.Id,
+            entityName: user.Email,
+            tenantId: tenantIds.FirstOrDefault() > 0 ? tenantIds.FirstOrDefault() : null,
+            licenseId: user.LicenseId,
+            oldValues: new { oldRole, oldIsActive, LicenseId = oldLicenseId, TenantIds = oldTenantIds },
+            newValues: new { Role = model.Role, model.IsActive, user.LicenseId, TenantIds = tenantIds });
+
+        if (oldLicenseId != user.LicenseId)
+        {
+            await logService.LogAuditAsync(
+                action: "UserLicenseChanged",
+                description: "Lizenzzuordnung des Benutzers wurde geändert.",
+                entityType: "ApplicationUser",
+                entityId: user.Id,
+                entityName: user.Email,
+                licenseId: user.LicenseId,
+                oldValues: new { LicenseId = oldLicenseId },
+                newValues: new { user.LicenseId });
+        }
+
+        if (oldIsActive && !model.IsActive)
+        {
+            await logService.LogAuditAsync(
+                action: "UserDeactivated",
+                description: "Benutzer wurde deaktiviert.",
+                entityType: "ApplicationUser",
+                entityId: user.Id,
+                entityName: user.Email,
+                licenseId: user.LicenseId);
+        }
+
         return UserOperationResult.Ok();
     }
 
@@ -277,8 +330,20 @@ public class UserManagementService(
             return UserOperationResult.Fail("Keine Berechtigung.");
         }
 
+        var wasActive = user.IsActive;
         user.IsActive = isActive;
         var result = await userManager.UpdateAsync(user);
+        if (result.Succeeded && wasActive && !isActive)
+        {
+            await logService.LogAuditAsync(
+                action: "UserDeactivated",
+                description: "Benutzer wurde deaktiviert.",
+                entityType: "ApplicationUser",
+                entityId: user.Id,
+                entityName: user.Email,
+                licenseId: user.LicenseId);
+        }
+
         return result.Succeeded ? UserOperationResult.Ok() : UserOperationResult.FromIdentity(result);
     }
 
@@ -302,9 +367,12 @@ public class UserManagementService(
             }
 
             var check = await licenseService.CanCreateAdminAsync(adminLicenseId.Value);
-            return check.IsAllowed
-                ? UserOperationResult.Ok()
-                : UserOperationResult.Fail(check.Message);
+            if (!await licenseCreateGuard.IsAllowedAsync(check, "ApplicationUser"))
+            {
+                return UserOperationResult.Fail(check.Message);
+            }
+
+            return UserOperationResult.Ok();
         }
 
         foreach (var tenantId in tenantIds)
@@ -315,7 +383,7 @@ public class UserManagementService(
                 _ => await licenseService.CanCreateUserAsync(tenantId)
             };
 
-            if (!check.IsAllowed)
+            if (!await licenseCreateGuard.IsAllowedAsync(check, "ApplicationUser"))
             {
                 return UserOperationResult.Fail(check.Message);
             }

@@ -1,0 +1,235 @@
+@* Auditlog für Kunden-Admins – nur sichtbare Audit-Einträge der eigenen Lizenz. *@
+@page "/admin/auditlog"
+@attribute [Authorize(Roles = DsmsRoles.Admin)]
+@rendermode InteractiveServer
+
+<PageTitle>Auditlog</PageTitle>
+
+@if (_loading)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_status is AdminAuditLogStatus.NoLicenseAssigned or AdminAuditLogStatus.LicenseNotFound)
+{
+    <PageHeader Title="Auditlog" />
+    <div class="alert alert-warning dsms-alert">@_message</div>
+}
+else if (_status == AdminAuditLogStatus.Unauthorized)
+{
+    <PageHeader Title="Auditlog" />
+    <div class="alert alert-danger dsms-alert">@_message</div>
+}
+else
+{
+    <PageHeader Title="Auditlog" Subtitle="Fachliche Benutzeraktionen Ihrer Lizenz" />
+
+    <div class="dsms-card dsms-form-card mb-4">
+        <div class="dsms-card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label">Von</label>
+                    <InputDate class="form-control" @bind-Value="_filterFrom" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Bis</label>
+                    <InputDate class="form-control" @bind-Value="_filterTo" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Mandant</label>
+                    <select class="form-select" @bind="_tenantId">
+                        <option value="">Alle Mandanten</option>
+                        @foreach (var t in _tenants)
+                        {
+                            <option value="@t.Id">@t.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Entitätstyp</label>
+                    <input class="form-control" @bind="_entityType" placeholder="z. B. Tenant" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Aktion</label>
+                    <input class="form-control" @bind="_action" placeholder="z. B. UserCreated" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Suchtext</label>
+                    <input class="form-control" @bind="_searchText" placeholder="Beschreibung …" />
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-outline-primary w-100" @onclick="LoadAsync">Anwenden</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_data?.Items.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">Keine Audit-Einträge gefunden.</div>
+    }
+    else if (_data is not null)
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Datum/Zeit</th>
+                            <th>Aktion</th>
+                            <th>Beschreibung</th>
+                            <th>Benutzer</th>
+                            <th>Mandant</th>
+                            <th>Entitätstyp</th>
+                            <th>Entitätsname</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _data.Items)
+                        {
+                            <tr>
+                                <td>@item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                <td><code class="small">@item.Action</code></td>
+                                <td>@item.Description</td>
+                                <td>@(item.UserDisplayName ?? item.UserEmail ?? "–")</td>
+                                <td>@(item.TenantName ?? "–")</td>
+                                <td>@(item.EntityType ?? "–")</td>
+                                <td>@(item.EntityName ?? "–")</td>
+                                <td class="dsms-table-actions">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => ShowDetailsAsync(item.Id)">Details</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <span class="text-muted">@_data.TotalCount Einträge · Seite @_data.Page</span>
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_data.Page <= 1)" @onclick="PrevPage">Zurück</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_data.Page * _data.PageSize >= _data.TotalCount)" @onclick="NextPage">Weiter</button>
+            </div>
+        </div>
+    }
+}
+
+@if (_details is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,.4);">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Audit-Details</h5>
+                    <button type="button" class="btn-close" @onclick="CloseDetails"></button>
+                </div>
+                <div class="modal-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Zeitpunkt</dt>
+                        <dd class="col-sm-9">@_details.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</dd>
+                        <dt class="col-sm-3">Aktion</dt>
+                        <dd class="col-sm-9"><code>@_details.Action</code></dd>
+                        <dt class="col-sm-3">Beschreibung</dt>
+                        <dd class="col-sm-9">@_details.Description</dd>
+                        <dt class="col-sm-3">Benutzer</dt>
+                        <dd class="col-sm-9">@(_details.UserDisplayName ?? "–") · @(_details.UserEmail ?? "–")</dd>
+                        <dt class="col-sm-3">Mandant</dt>
+                        <dd class="col-sm-9">@(_details.TenantName ?? "–")</dd>
+                        <dt class="col-sm-3">Entität</dt>
+                        <dd class="col-sm-9">@(_details.EntityType ?? "–") / @(_details.EntityName ?? "–")</dd>
+                        @if (!string.IsNullOrEmpty(_details.OldValuesJson) || !string.IsNullOrEmpty(_details.NewValuesJson) || !string.IsNullOrEmpty(_details.MetadataJson))
+                        {
+                            <dt class="col-sm-3">Änderungen</dt>
+                            <dd class="col-sm-9">
+                                <LogEntryChangesView OldValuesJson="@_details.OldValuesJson"
+                                                     NewValuesJson="@_details.NewValuesJson"
+                                                     MetadataJson="@_details.MetadataJson" />
+                            </dd>
+                        }
+                        @if (AuditLogChangeParser.HasDisplayableMetadata(_details.MetadataJson))
+                        {
+                            <dt class="col-sm-3">Zusatzinfos</dt>
+                            <dd class="col-sm-9"><pre class="small bg-light p-2 rounded">@_details.MetadataJson</pre></dd>
+                        }
+                    </dl>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseDetails">Schließen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private ILogQueryService LogQueryService { get; set; } = null!;
+
+    private bool _loading = true;
+    private AdminAuditLogStatus _status;
+    private string? _message;
+    private LogQueryResult? _data;
+    private LogEntryDetailsDto? _details;
+    private IReadOnlyList<TenantFilterOption> _tenants = [];
+
+    private DateTime? _filterFrom;
+    private DateTime? _filterTo;
+    private string _tenantId = "";
+    private string _entityType = "";
+    private string _action = "";
+    private string _searchText = "";
+    private int _page = 1;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _page = 1;
+        await FetchAsync();
+        _loading = false;
+    }
+
+    private async Task FetchAsync()
+    {
+        int? tenantFilter = int.TryParse(_tenantId, out var tid) ? tid : null;
+        var result = await LogQueryService.GetAdminAuditLogsAsync(new LogQueryFilter
+        {
+            From = _filterFrom,
+            To = _filterTo,
+            TenantId = tenantFilter,
+            EntityType = string.IsNullOrWhiteSpace(_entityType) ? null : _entityType,
+            Action = string.IsNullOrWhiteSpace(_action) ? null : _action,
+            SearchText = string.IsNullOrWhiteSpace(_searchText) ? null : _searchText,
+            Page = _page
+        });
+
+        _status = result.Status;
+        _message = result.Message;
+        _data = result.Data;
+        _tenants = result.Tenants;
+    }
+
+    private async Task ShowDetailsAsync(Guid id) =>
+        _details = await LogQueryService.GetAdminAuditLogDetailsAsync(id);
+
+    private void CloseDetails() => _details = null;
+
+    private async Task PrevPage()
+    {
+        if (_page > 1)
+        {
+            _page--;
+            await FetchAsync();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (_data is not null && _page * _data.PageSize < _data.TotalCount)
+        {
+            _page++;
+            await FetchAsync();
+        }
+    }
+}

@@ -1,0 +1,380 @@
+@page "/platform/plans/edit"
+@page "/platform/plans/edit/{Id:guid}"
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<PageTitle>@(_isNew ? "Plan anlegen" : "Plan bearbeiten")</PageTitle>
+
+<PageHeader Title="@(_isNew ? "Plan anlegen" : "Plan bearbeiten")"
+            Subtitle="Tarifvorlage für spätere Kundenlizenzen. Änderungen wirken sich nicht auf bestehende Lizenzen aus." />
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+}
+
+<div class="dsms-card dsms-form-card">
+    <div class="dsms-card-body">
+        <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="alert alert-danger dsms-alert" />
+
+            <h5 class="mb-3">Basisdaten</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label">Name *</label>
+                    <InputText class="form-control" @bind-Value="_model.Name" placeholder="z. B. pro" />
+                    <div class="form-text">Technischer eindeutiger Name (z. B. free, basic, pro)</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Anzeigename *</label>
+                    <InputText class="form-control" @bind-Value="_model.DisplayName" placeholder="z. B. Pro" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Sortierung</label>
+                    <InputNumber class="form-control" @bind-Value="_model.SortOrder" min="0" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Beschreibung</label>
+                    <InputTextArea class="form-control" rows="2" @bind-Value="_model.Description" />
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <InputCheckbox class="form-check-input" @bind-Value="_model.IsActive" id="isActive" />
+                        <label class="form-check-label" for="isActive">Aktiv</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <InputCheckbox class="form-check-input" @bind-Value="_model.IsFree" id="isFree" />
+                        <label class="form-check-label" for="isFree">Kostenlos</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check mt-4">
+                        <InputCheckbox class="form-check-input" @bind-Value="_model.IsPublicSignupEnabled" id="isPublicSignupEnabled" />
+                        <label class="form-check-label" for="isPublicSignupEnabled">Öffentlich registrierbar</label>
+                    </div>
+                    <div class="form-text">Wenn aktiviert, wird dieser Plan auf der öffentlichen Registrierungsseite angezeigt.</div>
+                </div>
+            </div>
+
+            <h5 class="mb-3">Preise</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label">Preis monatlich</label>
+                    <input type="text" class="form-control" @bind="_priceMonthlyText" placeholder="Leer = nicht festgelegt" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Preis jährlich</label>
+                    <input type="text" class="form-control" @bind="_priceYearlyText" placeholder="Leer = nicht festgelegt" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Währung *</label>
+                    <InputText class="form-control" @bind-Value="_model.Currency" />
+                </div>
+            </div>
+
+            <h5 class="mb-3">Externe Billing-Felder</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label">ExternalProductId</label>
+                    <InputText class="form-control" @bind-Value="_model.ExternalProductId" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">ExternalMonthlyPriceId</label>
+                    <InputText class="form-control" @bind-Value="_model.ExternalMonthlyPriceId" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">ExternalYearlyPriceId</label>
+                    <InputText class="form-control" @bind-Value="_model.ExternalYearlyPriceId" />
+                </div>
+            </div>
+
+            <h5 class="mb-3">Lizenzweite Limits</h5>
+            <p class="text-muted small">Leer lassen = unbegrenzt</p>
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <label class="form-label">Max. Mandanten</label>
+                    <input type="number" class="form-control" min="0" @bind="_maxTenantsText" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Max. Admins</label>
+                    <input type="number" class="form-control" min="0" @bind="_maxAdminsText" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Max. Speicher (MB)</label>
+                    <input type="number" class="form-control" min="0" @bind="_maxStorageMbText" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Max. E-Mail-Erinnerungen / Monat</label>
+                    <input type="number" class="form-control" min="0" @bind="_maxEmailRemindersText" />
+                </div>
+            </div>
+
+            <h5 class="mb-3">Limits pro Mandant</h5>
+            <p class="text-muted small">Leer lassen = unbegrenzt</p>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label">Max. Benutzer pro Mandant</label>
+                    <input type="number" class="form-control" min="0" @bind="_maxUsersPerTenantText" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Max. Auditoren pro Mandant</label>
+                    <input type="number" class="form-control" min="0" @bind="_maxAuditorsPerTenantText" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Max. eigene Auditvorlagen pro Mandant</label>
+                    <input type="number" class="form-control" min="0" @bind="_maxCustomTemplatesText" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Max. laufende Audits pro Mandant</label>
+                    <input type="number" class="form-control" min="0" @bind="_maxActiveAuditsText" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Max. Verarbeitungstätigkeiten pro Mandant</label>
+                    <input type="number" class="form-control" min="0" @bind="_maxProcessingActivitiesText" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Max. DSFA pro Mandant</label>
+                    <input type="number" class="form-control" min="0" @bind="_maxDpiaText" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Max. TOMs pro Mandant</label>
+                    <input type="number" class="form-control" min="0" @bind="_maxTomsText" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Max. Dienstleister pro Mandant</label>
+                    <input type="number" class="form-control" min="0" @bind="_maxProcessorsText" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Max. laufende Maßnahmen pro Mandant</label>
+                    <input type="number" class="form-control" min="0" @bind="_maxActiveMeasuresText" />
+                </div>
+            </div>
+
+            <h5 class="mb-3">Interne Notiz</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-12">
+                    <InputTextArea class="form-control" rows="3" @bind-Value="_model.InternalNote" />
+                </div>
+            </div>
+
+            <div class="dsms-form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                <a class="btn btn-outline-secondary" href="@(_isNew ? "platform/plans" : $"platform/plans/{Id}")">Abbrechen</a>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    [Inject] private ISubscriptionPlanService PlanService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private SubscriptionPlanEditDto _model = new();
+    private bool _isNew = true;
+    private bool _saving;
+    private string? _errorMessage;
+
+    private string? _priceMonthlyText;
+    private string? _priceYearlyText;
+    private string? _maxTenantsText;
+    private string? _maxAdminsText;
+    private string? _maxStorageMbText;
+    private string? _maxEmailRemindersText;
+    private string? _maxUsersPerTenantText;
+    private string? _maxAuditorsPerTenantText;
+    private string? _maxCustomTemplatesText;
+    private string? _maxActiveAuditsText;
+    private string? _maxProcessingActivitiesText;
+    private string? _maxDpiaText;
+    private string? _maxTomsText;
+    private string? _maxProcessorsText;
+    private string? _maxActiveMeasuresText;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id is Guid planId)
+        {
+            _isNew = false;
+            var details = await PlanService.GetPlanByIdAsync(planId);
+            if (details is null)
+            {
+                Navigation.NavigateTo("platform/plans");
+                return;
+            }
+
+            _model = new SubscriptionPlanEditDto
+            {
+                Id = details.Id,
+                Name = details.Name,
+                DisplayName = details.DisplayName,
+                Description = details.Description,
+                IsActive = details.IsActive,
+                IsFree = details.IsFree,
+                IsPublicSignupEnabled = details.IsPublicSignupEnabled,
+                SortOrder = details.SortOrder,
+                Currency = details.Currency,
+                ExternalProductId = details.ExternalProductId,
+                ExternalMonthlyPriceId = details.ExternalMonthlyPriceId,
+                ExternalYearlyPriceId = details.ExternalYearlyPriceId,
+                InternalNote = details.InternalNote
+            };
+
+            _priceMonthlyText = ToDecimalText(details.PriceMonthly);
+            _priceYearlyText = ToDecimalText(details.PriceYearly);
+            _maxTenantsText = ToText(details.MaxTenants);
+            _maxAdminsText = ToText(details.MaxAdmins);
+            _maxStorageMbText = ToText(details.MaxStorageMb);
+            _maxEmailRemindersText = ToText(details.MaxEmailRemindersPerMonth);
+            _maxUsersPerTenantText = ToText(details.MaxUsersPerTenant);
+            _maxAuditorsPerTenantText = ToText(details.MaxAuditorsPerTenant);
+            _maxCustomTemplatesText = ToText(details.MaxCustomAuditTemplatesPerTenant);
+            _maxActiveAuditsText = ToText(details.MaxActiveAuditsPerTenant);
+            _maxProcessingActivitiesText = ToText(details.MaxProcessingActivitiesPerTenant);
+            _maxDpiaText = ToText(details.MaxDpiaPerTenant);
+            _maxTomsText = ToText(details.MaxTomsPerTenant);
+            _maxProcessorsText = ToText(details.MaxProcessorsPerTenant);
+            _maxActiveMeasuresText = ToText(details.MaxActiveMeasuresPerTenant);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(_model.Name))
+        {
+            _errorMessage = "Name ist erforderlich.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.DisplayName))
+        {
+            _errorMessage = "Anzeigename ist erforderlich.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.Currency))
+        {
+            _errorMessage = "Währung ist erforderlich.";
+            return;
+        }
+
+        if (!TryApplyPrices(out var priceError))
+        {
+            _errorMessage = priceError;
+            return;
+        }
+
+        ApplyLimitsToModel();
+        _saving = true;
+
+        try
+        {
+            if (_isNew)
+            {
+                var id = await PlanService.CreatePlanAsync(_model);
+                Navigation.NavigateTo($"platform/plans/{id}");
+            }
+            else if (Id is Guid planId)
+            {
+                var ok = await PlanService.UpdatePlanAsync(planId, _model);
+                if (!ok)
+                {
+                    _errorMessage = "Tarif wurde nicht gefunden.";
+                    return;
+                }
+
+                Navigation.NavigateTo($"platform/plans/{planId}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private bool TryApplyPrices(out string? errorMessage)
+    {
+        errorMessage = null;
+
+        if (!TryParseNullableDecimal(_priceMonthlyText, out var monthly, out errorMessage))
+        {
+            return false;
+        }
+
+        if (!TryParseNullableDecimal(_priceYearlyText, out var yearly, out errorMessage))
+        {
+            return false;
+        }
+
+        if (monthly is < 0)
+        {
+            errorMessage = "Preis monatlich darf nicht negativ sein.";
+            return false;
+        }
+
+        if (yearly is < 0)
+        {
+            errorMessage = "Preis jährlich darf nicht negativ sein.";
+            return false;
+        }
+
+        _model.PriceMonthly = monthly;
+        _model.PriceYearly = yearly;
+        return true;
+    }
+
+    private void ApplyLimitsToModel()
+    {
+        _model.MaxTenants = ParseNullableInt(_maxTenantsText);
+        _model.MaxAdmins = ParseNullableInt(_maxAdminsText);
+        _model.MaxStorageMb = ParseNullableInt(_maxStorageMbText);
+        _model.MaxEmailRemindersPerMonth = ParseNullableInt(_maxEmailRemindersText);
+        _model.MaxUsersPerTenant = ParseNullableInt(_maxUsersPerTenantText);
+        _model.MaxAuditorsPerTenant = ParseNullableInt(_maxAuditorsPerTenantText);
+        _model.MaxCustomAuditTemplatesPerTenant = ParseNullableInt(_maxCustomTemplatesText);
+        _model.MaxActiveAuditsPerTenant = ParseNullableInt(_maxActiveAuditsText);
+        _model.MaxProcessingActivitiesPerTenant = ParseNullableInt(_maxProcessingActivitiesText);
+        _model.MaxDpiaPerTenant = ParseNullableInt(_maxDpiaText);
+        _model.MaxTomsPerTenant = ParseNullableInt(_maxTomsText);
+        _model.MaxProcessorsPerTenant = ParseNullableInt(_maxProcessorsText);
+        _model.MaxActiveMeasuresPerTenant = ParseNullableInt(_maxActiveMeasuresText);
+    }
+
+    private static string? ToText(int? value) => value?.ToString();
+
+    private static string? ToDecimalText(decimal? value) =>
+        value.HasValue ? value.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
+
+    private static int? ParseNullableInt(string? text) =>
+        string.IsNullOrWhiteSpace(text) ? null : int.TryParse(text, out var value) ? value : null;
+
+    private static bool TryParseNullableDecimal(string? text, out decimal? value, out string? errorMessage)
+    {
+        errorMessage = null;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            value = null;
+            return true;
+        }
+
+        if (decimal.TryParse(text, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.CurrentCulture, out var parsed)
+            || decimal.TryParse(text, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out parsed))
+        {
+            value = parsed;
+            return true;
+        }
+
+        value = null;
+        errorMessage = "Ungültiger Preis.";
+        return false;
+    }
+}

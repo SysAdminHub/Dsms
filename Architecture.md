@@ -120,10 +120,14 @@ Connection String-Schlüssel: **`DefaultConnection`**
 
 | Datei | Datenbankname (Beispiel) |
 |-------|--------------------------|
-| `appsettings.json` | `dsms` |
+| `appsettings.json` | `dsms_dev` (lokaler Fallback, `changeme`) |
 | `appsettings.Development.json` | `dsms_dev` |
 
-Docker Compose (`docker-compose.yml`) legt `dsms_dev` mit Root-Passwort `changeme` an – muss mit dem Connection String übereinstimmen.
+Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnection")`.
+
+**Production (Docker):** Connection String über Environment Variable `ConnectionStrings__DefaultConnection` (in `docker-compose.yml` aus `.env`-Variablen). Siehe [Production_Deployment.md](./Production_Deployment.md).
+
+**Lokale Entwicklung:** `docker compose up -d db` startet nur MySQL; Passwörter in `.env` (aus `.env.example`).
 
 ### DbContext
 
@@ -132,6 +136,7 @@ Docker Compose (`docker-compose.yml`) legt `dsms_dev` mit Root-Passwort `changem
 | DbSet | Entity |
 |-------|--------|
 | `Licenses` | `License` (Guid-Id, kaufmännische/technische Kundeneinheit; Limit-Felder, `null` = unbegrenzt) |
+| `SubscriptionPlans` | `SubscriptionPlan` (Guid-Id, Tarifvorlage; Limit-Felder, `null` = unbegrenzt; Änderungen wirken nicht auf bestehende Lizenzen) |
 | `Tenants` | `Tenant` (inkl. `LicenseId`, `IsDeletionRequested`, `DeletionRequestedAt`, `DeletionRequestedByUserId`, `DeletionScheduledAt`) |
 | `AuditTemplates` | `AuditTemplate` |
 | `AuditQuestions` | `AuditQuestion` |
@@ -175,6 +180,18 @@ Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `To
 Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen.
 
 **`License`** ist eine eigenständige Entity mit **`Guid Id`** (nicht `EntityBase`). Enthält Kundendaten, Status, Gültigkeit und Limit-Felder (lizenzweit und pro Mandant). `LicenseNumber` wird automatisch vergeben (Format `LIC-{Jahr}-{Sequenz}`).
+
+**`SubscriptionPlan`** ist eine Tarifvorlage mit **`Guid Id`** (nicht `EntityBase`). Enthält Anzeigenamen, Preise, optionale externe Billing-IDs, `IsPublicSignupEnabled` (öffentliche Registrierungsseite) und dieselben Limit-Felder wie `License`. `null` = unbegrenzt. Änderungen an Plänen **ändern bestehende Lizenzen nicht**; beim Signup werden Planwerte in eine neue `License` kopiert über `PlanToLicenseMapper` / `ProvisioningService`.
+
+**Plan-to-License Mapping:** `PlanToLicenseService` lädt einen aktiven `SubscriptionPlan`, kopiert alle Limit-Felder 1:1 (`null` bleibt `null`) und setzt `License.PlanName` auf `SubscriptionPlan.DisplayName`. Beispiel: Plan „Pro“ mit `MaxUsersPerTenant = 25` → License „Muster GmbH“ mit `MaxUsersPerTenant = 25`. Wird der Plan später auf 50 geändert, bleibt die bestehende License bei 25.
+
+**Provisioning:** `ProvisioningService.ProvisionCustomerAsync` erstellt in einer Transaktion License (über `PlanToLicenseMapper`), ersten Mandanten (`Tenant.LicenseId`) und Admin-Benutzer (`ApplicationUser.LicenseId`, Rolle `Admin`, `UserTenant`-Zuordnung). Nach dem Commit wird optional eine Passwortvergabe-Mail über `SendProvisioningWelcomeEmailAsync` versendet. Bei E-Mail-Fehler bleiben die angelegten Daten bestehen. Später für Free-Signup und Mollie-Webhook wiederverwendbar; Public Signup und Mollie noch nicht implementiert.
+
+**Public-Signup:** Öffentliche Route `/signup` (ohne Anmeldung, `PublicSignupLayout`). Lädt aktive Pläne mit `IsActive == true` und `IsPublicSignupEnabled == true` über `GetPublicSignupPlansAsync()`. Tarifauswahl als Karten; Formular erst nach Planwahl. Free- und kostenpflichtige Pläne: `PendingSignupService.CreateForPublicSignupAsync` → Status Draft/Provisioning → `ProvisioningService` mit `Source = "PublicSignup"` → Status Provisioned (oder Failed). Lizenzlaufzeit beim automatischen Public Signup: 1 Monat. Erfolgsseite `/signup/success`. Kostenpflichtige Pläne: Rechnungsdaten in `PendingSignup`, `PaymentProvider = ManualInvoice`, Rechnung manuell später. Kein Mollie, kein Auto-Login.
+
+**Paid-Signup (Legacy-Route):** `/signup/paid` leitet auf die vereinheitlichte `/signup`-Seite weiter. Der frühere separate Paid-Signup-Flow (`PaidSignupService`, `Source = "PaidSignup"`) bleibt im Code für Kompatibilität, wird aber nicht mehr über eine eigene Seite angesteuert.
+
+**PendingSignup:** Historie und Zwischenspeicher für Registrierungen. Entity `PendingSignup` speichert Plan-Snapshots, Registrierungsdaten, Rechnungsdaten (Paid), Rechnungsverwaltung (`BillingStatus`, `NextInvoiceDate`, `InvoiceSentAt`, `InvoicePaidAt`, `BillingNote`) und Provisioning-Ergebnis. Beim Public Signup wird der Eintrag erstellt und nach erfolgreicher Provisionierung auf Status Provisioned gesetzt. Superuser-Verwaltung unter `/platform/signups` inkl. manueller Rechnungsaktionen (ohne automatische Lizenzverlängerung). Mollie/Webhook und PDF-Rechnungen noch nicht implementiert.
 
 Alle anderen Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `UpdatedAt`).
 
@@ -223,7 +240,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IUserManagementService` / `UserManagementService` | Scoped | Benutzerliste, Anlegen, Bearbeiten, Deaktivieren inkl. serverseitiger Validierung |
 | `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, DSFA, VVT-Verknüpfungen) |
 | `ProcessingActivityRelationsService` | Scoped | Laden/Speichern von VVT-Verknüpfungen, Warnhinweise, Mandantenvalidierung |
-| `DocumentStorageService` | Scoped | Speichern von Upload-Dateien unter `Data/Uploads/{tenantId}/` (unverändert) |
+| `DocumentStorageService` | Scoped | Speichern von Upload-Dateien unter `Storage:UploadPath` (Default: `Data/Uploads/{tenantId}/`) |
 | `ITenantExportService` / `TenantExportService` | Scoped | Vollständiger Mandanten-Export als ZIP (JSON-DTOs + Dokumentdateien) |
 | `ITenantDeletionService` / `TenantDeletionService` | Scoped | Löschanforderung markieren (`IsDeletionRequested`); Abbrechen nur Superuser |
 | `TenantDataEndpoints` | Minimal API | `POST /tenant-daten/export` – ZIP-Download mit serverseitiger Berechtigungsprüfung |
@@ -237,13 +254,25 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IdentityRevalidatingAuthenticationStateProvider` | Scoped | Auth-State-Revalidierung für Blazor |
 | `IdentityNoOpEmailSender` | Singleton | Identity-Stub (Passwort-Reset etc. noch ohne Workflow-Anbindung) |
 | `IEmailService` / `EmailService` | Scoped | Zentraler SMTP-Versand via MailKit |
-| `IEmailSettingsService` / `EmailSettingsService` | Scoped | SMTP-Einstellungen CRUD + Testmail (nur Superuser) |
+| `IEmailSettingsService` / `EmailSettingsService` | Scoped | SMTP-Einstellungen CRUD + Testmail + Systembenachrichtigungen (nur Superuser) |
 | `IEmailTemplateService` / `EmailTemplateService` | Scoped | Vorlagen CRUD, Vorschau, Testmail aus Vorlage (nur Superuser) |
 | `IEmailTemplateRenderer` / `EmailTemplateRenderer` | Scoped | Platzhalterersetzung `{{VariableName}}` |
 | `IEmailSecretProtector` / `EmailSecretProtector` | Scoped | SMTP-Passwort-Schutz via ASP.NET Data Protection |
 | `IPasswordResetService` / `PasswordResetService` | Scoped | Passwortreset und Willkommens-Einladungen via Identity-Token + `IEmailService`; Rate Limit über `IDistributedCache` |
 | `IReminderService` / `ReminderService` | Scoped | Manuelle Erinnerungsvorschau und Sammelversand an Mandanten-Admins (kein Background-Job, keine History) |
-| `ILicenseService` / `LicenseService` | Scoped | Lizenz-CRUD, Usage-Counts und Limit-Anzeige für Superuser (noch ohne Limit-Durchsetzung) |
+| `ILicenseService` / `LicenseService` | Scoped | Lizenz-CRUD, Usage-Counts, Limit-Prüfung und -Durchsetzung |
+| `ISubscriptionPlanService` / `SubscriptionPlanService` | Scoped | Tarifvorlagen-CRUD (Superuser); `GetPublicSignupPlansAsync()`, `GetPublicSignupPlanByIdAsync()` für Signup |
+| `IPlanToLicenseService` / `PlanToLicenseService` | Scoped | Erstellt neue `License` aus `SubscriptionPlan` (Werte werden kopiert, nicht verknüpft) |
+| `IProvisioningService` / `ProvisioningService` | Scoped | Provisioniert Kunde: License + Tenant + Admin + Passwortvergabe-Mail |
+| `IPublicSignupService` / `PublicSignupService` | Scoped | Öffentlicher Signup mit Tarifauswahl → PendingSignup + direkte Provisionierung; interne Benachrichtigung via `ISignupNotificationService` |
+| `ISignupNotificationService` / `SignupNotificationService` | Scoped | Interne E-Mail nach erfolgreichem Public Signup; Empfänger aus `EmailSettings.SystemNotificationRecipientEmail` |
+| `IPaidSignupService` / `PaidSignupService` | Scoped | Legacy Paid-Signup-Service (nicht mehr über eigene Seite) |
+| `IPendingSignupService` / `PendingSignupService` | Scoped | Zwischenspeicher für ausstehende Registrierungen; Public Signup; Rechnungsverwaltung (NextInvoiceDate, BillingStatus-Aktionen) |
+| `ILogService` / `LogService` | Scoped | Zentrales Audit- und Systemprotokoll (`LogEntry`-Tabelle); siehe `Logging.md` |
+| `ILogQueryService` / `LogQueryService` | Scoped | Abfrage für Superuser-Protokolle und Admin-Auditlog mit Mandanten-/Lizenzfilter |
+| `ILicenseCreateGuard` / `LicenseCreateGuard` | Scoped | Lizenzlimit-Prüfung mit automatischer Audit-Protokollierung bei Blockierung |
+
+Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 
 ## Authentifizierung und Berechtigungen
 
@@ -263,7 +292,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 
 | Rolle | Typische Rechte (aus `[Authorize]`, NavMenu, `IUserAccessService`) |
 |-------|---------------------------------------------------------------------|
-| **Superuser** | Plattform: alle Mandanten (`/tenants`), Lizenzen (`/platform/licenses`), Email (`/platform/email/*`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
+| **Superuser** | Plattform: alle Mandanten (`/tenants`), Lizenzen (`/platform/licenses`), Tarife (`/platform/plans`), Email (`/platform/email/*`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
 | **Admin** | Benutzer im eigenen Mandant; **keine** Mandantenverwaltung; Compliance wie bisher für `TenantId` |
 | **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, DSFA, TOMs und Dienstleister anlegen/bearbeiten; **keine** Benutzerverwaltung |
 | **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen |
@@ -282,7 +311,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 - `ArchiveViewContextAccessor.ShowArchivedOnly` wird über `ArchiveViewToggle` in Listenansichten umgeschaltet
 - Archivieren/Wiederherstellen: `IArchivingService` mit `IgnoreQueryFilters()` und expliziter `TenantId`-Prüfung
 - Admin-Abfragen (Benutzer-/Mandantenverwaltung): `IgnoreQueryFilters()` wo nötig
-- `/tenants`, `/platform/licenses` und `/platform/email/*` nur Superuser; `/users` gefiltert über `UserManagementService`
+- `/tenants`, `/platform/licenses`, `/platform/plans` und `/platform/email/*` nur Superuser; `/users` gefiltert über `UserManagementService`
 - `/passwort-vergessen` und `/passwort-zuruecksetzen` öffentlich (ohne Mandantenauswahl)
 - `/admin/erinnerungen` nur Superuser ohne Mandantenauswahl (alle aktiven Mandanten)
 - Email-Routen sind von der Mandantenauswahl ausgenommen (`TenantService.IsTenantRequiredForRoute`)
@@ -295,8 +324,11 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 
 | Datei | Inhalt |
 |-------|--------|
-| `appsettings.json` | Connection String Produktion/Default, Logging |
+| `appsettings.json` | Lokaler Connection-String-Fallback (`dsms_dev`/`changeme`), `Storage:UploadPath`, Logging |
 | `appsettings.Development.json` | `dsms_dev`, detaillierter EF-Logging |
+| `.env.example` / `.env` | Docker-Production-Secrets (nur `.env.example` im Repo) |
+| `docker-compose.yml` | App + MySQL 8, Volumes, Environment Variables |
+| `Dsms.Web/Dockerfile` | Multi-Stage Production-Image (Port 8080) |
 | `Properties/launchSettings.json` | `https://localhost:7245`, `http://localhost:5295` |
 | `Dsms.Web.csproj` | `UserSecretsId` für lokale Secrets |
 
@@ -423,12 +455,15 @@ Die Login-Seite ist an das DSMS-Design angepasst; viele Manage-/Register-Seiten 
 ## Deployment-Hinweise (aus Code)
 
 - MySQL 8 erforderlich
-- Connection String und Upload-Ordner `Data/Uploads` beschreibbar
-- HTTPS empfohlen (`UseHttpsRedirection`, HSTS in Production)
+- Connection String über `ConnectionStrings__DefaultConnection` (Production) oder `appsettings.json` (lokal)
+- Upload-Ordner `Data/Uploads` (konfigurierbar via `Storage:UploadPath` / `Storage__UploadPath`) – Docker-Volume `/app/Data/Uploads`
+- Data Protection Keys persistent unter `DataProtection-Keys` (Docker-Volume `/app/DataProtection-Keys`)
+- HTTPS empfohlen (`UseHttpsRedirection`, HSTS in Production) – typisch per Reverse Proxy
 - **Annahme:** Einzelinstanz-Deployment; Blazor Server und SignalR erfordern Sticky Sessions bei Skalierung – im Code nicht dokumentiert
 
 ## Verwandte Dokumentation
 
 - [Project_Overview.md](./Project_Overview.md) – fachliche Gesamtübersicht
 - [README.md](./README.md) – Schnellstart für Entwickler
+- [Production_Deployment.md](./Production_Deployment.md) – Docker-Production-Deployment
 - [Changelog.md](./Changelog.md) – Änderungshistorie

@@ -32,6 +32,7 @@ public static class DatabaseSeeder
 
         await db.Database.MigrateAsync();
         await EmailTemplateSeeder.SeedAsync(db);
+        await SubscriptionPlanSeeder.SeedAsync(db);
         await SeedRolesAsync(roleManager);
 
         var demoLicense = await EnsureDemoLicenseAsync(db);

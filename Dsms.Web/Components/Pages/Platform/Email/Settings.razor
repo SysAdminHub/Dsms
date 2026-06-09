@@ -89,6 +89,25 @@ else
                     <label class="form-check-label" for="emailEnabled">Aktiviert</label>
                 </div>
 
+                <hr class="my-4" />
+
+                <h5 class="mb-2">Systembenachrichtigungen</h5>
+                <p class="text-muted small mb-3">
+                    Hier legen Sie fest, ob interne Benachrichtigungen der Plattform versendet werden sollen
+                    und an welche Adresse diese gesendet werden.
+                </p>
+                <div class="form-check mb-3">
+                    <InputCheckbox class="form-check-input" @bind-Value="_model.SystemNotificationsEnabled" id="systemNotificationsEnabled" />
+                    <label class="form-check-label" for="systemNotificationsEnabled">Systembenachrichtigungen aktivieren</label>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Empfängeradresse für Systembenachrichtigungen</label>
+                    <InputText class="form-control" @bind-Value="_model.SystemNotificationRecipientEmail" placeholder="z. B. admin@example.com" />
+                    <div class="form-text text-muted">
+                        An diese Adresse werden interne Hinweise wie neue öffentliche Registrierungen gesendet.
+                    </div>
+                </div>
+
                 @if (_model.UpdatedAt is not null)
                 {
                     <p class="text-muted small">

@@ -223,8 +223,13 @@ public class TenantService(
             || path.StartsWith("admin/erinnerungen", StringComparison.Ordinal)
             || path.StartsWith("platform/email", StringComparison.Ordinal)
             || path.StartsWith("platform/licenses", StringComparison.Ordinal)
+            || path.StartsWith("platform/plans", StringComparison.Ordinal)
+            || path.StartsWith("platform/provisioning", StringComparison.Ordinal)
+            || path.StartsWith("platform/signups", StringComparison.Ordinal)
             || path == "passwort-vergessen"
             || path == "passwort-zuruecksetzen"
+            || path == "signup"
+            || path.StartsWith("signup/", StringComparison.Ordinal)
             || path == "not-found"
             || path == "error")
         {
@@ -286,4 +291,4 @@ public class TenantService(
         }
     }
 }
-
+

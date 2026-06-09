@@ -79,6 +79,11 @@ public sealed class LicenseDetailsDto
     public string CustomerName { get; init; } = string.Empty;
     public string? CustomerEmail { get; init; }
     public string PlanName { get; init; } = string.Empty;
+    public string? PlanDisplayName { get; init; }
+    public string? PlanDescription { get; init; }
+    public string? BillingCycleDisplay { get; init; }
+    public string? AmountDisplay { get; init; }
+    public string? NextInvoiceDateDisplay { get; init; }
     public string Status { get; init; } = string.Empty;
     public DateTime? ValidFrom { get; init; }
     public DateTime? ValidUntil { get; init; }

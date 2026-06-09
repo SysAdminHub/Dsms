@@ -16,6 +16,8 @@
 
 
 
+<div class="dsms-sidebar-inner">
+
 <div class="dsms-sidebar-header">
 
     <a class="dsms-sidebar-brand" href="">
@@ -38,7 +40,7 @@
 
 
 
-<div class="nav-scrollable">
+<div class="nav-scrollable dsms-sidebar-scroll">
 
     <nav class="nav flex-column dsms-nav">
 
@@ -217,8 +219,6 @@
 
                 </div>
 
-                <div class="dsms-sidebar-version">@ApplicationInfo.VersionDisplay</div>
-
             </Authorized>
 
             <NotAuthorized>
@@ -234,6 +234,16 @@
         </AuthorizeView>
 
     </nav>
+
+</div>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="dsms-sidebar-footer">
+            <div class="dsms-sidebar-version">@ApplicationInfo.VersionDisplay</div>
+        </div>
+    </Authorized>
+</AuthorizeView>
 
 </div>
 

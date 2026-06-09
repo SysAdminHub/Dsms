@@ -39,6 +39,8 @@ Stattdessen:
 - `appsettings.json` enthält nur unkritische Defaults und Platzhalter
 - Production-Werte kommen aus Environment Variables (über `.env` + `docker-compose.yml`)
 
+Die in der Sidebar angezeigte Version wird aus `Application:Version` in `appsettings.json` gelesen (kein Secret; darf im Repository stehen). Für Production kann der Wert bei Bedarf über `Application__Version` als Environment Variable überschrieben werden.
+
 ## 5. Lokaler Default-ConnectionString (Entwicklung)
 
 In `Dsms.Web/appsettings.json` bleibt dieser Fallback für lokales `dotnet run` erhalten:

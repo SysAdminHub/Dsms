@@ -99,6 +99,15 @@
     font-family: inherit;
 }
 
+.dsms-sidebar-version {
+    margin-top: var(--dsms-space-4);
+    padding: var(--dsms-space-3) var(--dsms-space-3) 0;
+    font-size: var(--dsms-font-size-xs);
+    color: rgba(255, 255, 255, 0.55);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    user-select: none;
+}
+
 .nav-scrollable {
     display: block;
     height: calc(100vh - 4.5rem);

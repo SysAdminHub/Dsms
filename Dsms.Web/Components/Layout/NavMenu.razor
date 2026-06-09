@@ -12,6 +12,8 @@
 
 @inject IUserAccessService UserAccess
 
+@inject IApplicationInfoService ApplicationInfo
+
 
 
 <div class="dsms-sidebar-header">
@@ -214,6 +216,8 @@
                     </form>
 
                 </div>
+
+                <div class="dsms-sidebar-version">@ApplicationInfo.VersionDisplay</div>
 
             </Authorized>
 

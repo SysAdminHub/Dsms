@@ -4,6 +4,10 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- **Sidebar-Versionsanzeige:** Anwendungsversion aus `Application:Version` in `appsettings.json`, Anzeige unten in der Sidebar für angemeldete Benutzer (`IApplicationInfoService`).
+
 ### Behoben
 
 - **Auditor: reine Leserolle im Mandantenbereich**

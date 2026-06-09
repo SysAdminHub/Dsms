@@ -4,6 +4,10 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Behoben
+
+- **Lizenz-Nutzungszählung auf `/users`:** `CountRoleUsersForTenantAsync` zählte Benutzer doppelt, wenn sie sowohl in `UserTenants` als auch über Legacy-`TenantId` am Mandanten verknüpft waren. Die Zählung nutzt jetzt dieselbe Distinct-Logik wie die Admin-Lizenzübersicht (`CountUsersByRolePerTenantAsync`).
+
 ### Hinzugefügt
 
 - **Docker-Production-Deployment (Open Source):**

@@ -9,18 +9,22 @@
     <a class="btn btn-primary" href="users/create">Neuer Benutzer</a>
 </PageHeader>
 
-@if (_userLimit is not null)
+@if (_userLimit is not null || _auditorLimit is not null || _adminLimit is not null)
 {
-    <LicenseUsageBadge Check="_userLimit" />
-}
-@if (_auditorLimit is not null)
-{
-    <br />
-    <LicenseUsageBadge Check="_auditorLimit" />
-}
-@if (_adminLimit is not null)
-{
-    <LicenseUsageBadge Check="_adminLimit" />
+    <div class="d-flex flex-column gap-2 mb-3">
+        @if (_userLimit is not null)
+        {
+            <LicenseUsageBadge Check="_userLimit" />
+        }
+        @if (_auditorLimit is not null)
+        {
+            <LicenseUsageBadge Check="_auditorLimit" />
+        }
+        @if (_adminLimit is not null)
+        {
+            <LicenseUsageBadge Check="_adminLimit" />
+        }
+    </div>
 }
 
 @if (!string.IsNullOrEmpty(_successMessage))

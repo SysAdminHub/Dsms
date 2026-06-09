@@ -28,6 +28,21 @@ public interface IUserAccessService
     /// <summary>Rollen, die der aktuelle Benutzer beim Anlegen/Bearbeiten zuweisen darf.</summary>
     Task<IReadOnlyList<string>> GetAssignableRolesAsync();
 
+    /// <summary>True, wenn der Benutzer die reine Prüferrolle Auditor hat (ohne Admin/Superuser).</summary>
+    Task<bool> IsAuditorAsync();
+
+    /// <summary>
+    /// Bearbeitung von Compliance-Stammdaten (VVT, DSFA, TOMs, Dienstleister, Audit-Durchläufe, Vorlagen).
+    /// Admin und Superuser; nicht Auditor.
+    /// </summary>
+    Task<bool> CanEditComplianceContentAsync();
+
+    /// <summary>
+    /// Bearbeitung operativer Mandanteninhalte (Maßnahmen, Audit-Antworten, Dokumente).
+    /// Admin, User und Superuser; nicht Auditor.
+    /// </summary>
+    Task<bool> CanEditTenantOperationalContentAsync();
+
     /// <summary>True, wenn die Rolle Superuser ist (plattformweit, kein Mandant erforderlich).</summary>
     static bool RoleRequiresNoTenant(string role) => role == Domain.DsmsRoles.Superuser;
 }

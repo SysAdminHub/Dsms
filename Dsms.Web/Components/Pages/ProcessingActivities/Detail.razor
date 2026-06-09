@@ -486,6 +486,7 @@ else
 @code {
     [Parameter] public int Id { get; set; }
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ProcessingActivityRelationsService Relations { get; set; } = null!;
 
     private int? _tenantId;
@@ -502,8 +503,7 @@ else
             return;
         }
 
-        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
-            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
         _snapshot = await Relations.GetSnapshotAsync(_tenantId.Value, Id);
         _loaded = true;

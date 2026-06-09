@@ -14,11 +14,17 @@ namespace Dsms.Web.Services;
 public class ArchivingService(
     ApplicationDbContext db,
     ICurrentUserContext currentUser,
+    IUserAccessService userAccess,
     IComplianceAuditLogService complianceAuditLog) : IArchivingService
 {
     public async Task<ArchiveOperationResult> ArchiveAsync<TEntity>(int id, CancellationToken ct = default)
         where TEntity : ArchivableEntityBase, ITenantEntity
     {
+        if (await userAccess.IsAuditorAsync())
+        {
+            return new ArchiveOperationResult(false, [], "Keine Berechtigung zum Archivieren.");
+        }
+
         var tenantId = await currentUser.GetTenantIdAsync();
         if (tenantId is null)
         {
@@ -53,6 +59,11 @@ public class ArchivingService(
     public async Task<ArchiveOperationResult> RestoreAsync<TEntity>(int id, CancellationToken ct = default)
         where TEntity : ArchivableEntityBase, ITenantEntity
     {
+        if (await userAccess.IsAuditorAsync())
+        {
+            return new ArchiveOperationResult(false, [], "Keine Berechtigung zum Wiederherstellen.");
+        }
+
         var tenantId = await currentUser.GetTenantIdAsync();
         if (tenantId is null)
         {

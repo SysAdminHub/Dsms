@@ -249,6 +249,7 @@ else
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
 
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
 
 
 
@@ -283,9 +284,7 @@ else
 
 
 
-        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
-
-            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
 
 

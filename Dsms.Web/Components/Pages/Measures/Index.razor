@@ -15,7 +15,7 @@ else
     <PageHeader Title="Maßnahmen" Subtitle="@GetSubtitle()">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
-            @if (!_showArchived)
+            @if (_canEdit && !_showArchived)
             {
                 @if (_createLimit is { IsAllowed: false })
                 {
@@ -29,7 +29,7 @@ else
         </div>
     </PageHeader>
 
-    @if (!_showArchived && _createLimit is not null)
+    @if (_canEdit && !_showArchived && _createLimit is not null)
     {
         <LicenseUsageBadge Check="_createLimit" />
         <LicenseLimitAlert Check="_createLimit" />
@@ -83,7 +83,7 @@ else
                                 }
                                 <td class="dsms-table-actions">
                                     <div class="dsms-table-action-stack">
-                                        @if (!_showArchived)
+                                        @if (_canEdit && !_showArchived)
                                         {
                                             <a class="btn btn-sm btn-outline-secondary" href="@($"measures/edit/{measure.Id}")">Bearbeiten</a>
                                         }
@@ -91,7 +91,7 @@ else
                                                             EntityId="@measure.Id"
                                                             ItemName="@measure.Title"
                                                             EntityLabel="Maßnahme"
-                                                            CanEdit="true"
+                                                            CanEdit="@_canEdit"
                                                             OnChanged="LoadDataAsync" />
                                     </div>
                                 </td>
@@ -109,10 +109,12 @@ else
     public int? AuditAnswerId { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _canEdit;
     private bool _showArchived;
     private LicenseLimitCheckResult? _createLimit;
     private List<Measure>? _measures;
@@ -123,6 +125,7 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
+        _canEdit = await UserAccess.CanEditTenantOperationalContentAsync();
         _createLimit = await LicenseService.CanCreateMeasureAsync(_tenantId.Value);
 
         if (AuditAnswerId is int answerId)

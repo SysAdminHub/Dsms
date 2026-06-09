@@ -94,6 +94,7 @@
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private DocumentLinksService LinksService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
 
     [Parameter] public EventCallback OnSaved { get; set; }
 
@@ -118,6 +119,11 @@
 
     public async Task ShowAsync(int documentId)
     {
+        if (!await UserAccess.CanEditTenantOperationalContentAsync())
+        {
+            return;
+        }
+
         _documentId = documentId;
         _visible = true;
         _loading = true;
@@ -166,6 +172,13 @@
     {
         if (_tenantId is null || _document is null || _saving)
             return;
+
+        if (!await UserAccess.CanEditTenantOperationalContentAsync())
+        {
+            _message = "Keine Berechtigung zum Bearbeiten.";
+            _isError = true;
+            return;
+        }
 
         _saving = true;
         _message = null;

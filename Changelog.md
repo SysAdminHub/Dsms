@@ -6,6 +6,17 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Behoben
 
+- **Auditor: reine Leserolle im Mandantenbereich**
+  - Neue Rollen-Konstanten `ComplianceEditor` (nur Admin) und `ComplianceViewer` (Admin, Auditor, User)
+  - `IUserAccessService`: `IsAuditorAsync`, `CanEditComplianceContentAsync`, `CanEditTenantOperationalContentAsync`
+  - Auditor aus allen Bearbeitungs-Routen entfernt (VVT, DSFA, TOMs, Dienstleister, Audit-Durchläufe, Verknüpfungen)
+  - Listen/Detailseiten: Bearbeiten/Archivieren-Buttons nur noch für berechtigte Rollen
+  - Maßnahmen, Dokumente, Audit-Antworten: Auditor sieht Inhalte, kann aber nicht speichern/hochladen/archivieren
+  - Audit-Antworten (`/audit-runs/answers/{id}`): Lesemodus für Auditor mit deaktivierten Eingaben
+  - Serverseitig: `ArchivingService`, `AuditTemplateService`, `DocumentUploadComponent`, `DocumentLinksEditModal`, `Measures/Edit`, `AuditRuns/Answers`
+
+### Behoben
+
 - **Lizenz-Nutzungszählung auf `/users`:** `CountRoleUsersForTenantAsync` zählte Benutzer doppelt, wenn sie sowohl in `UserTenants` als auch über Legacy-`TenantId` am Mandanten verknüpft waren. Die Zählung nutzt jetzt dieselbe Distinct-Logik wie die Admin-Lizenzübersicht (`CountUsersByRolePerTenantAsync`).
 
 ### Hinzugefügt

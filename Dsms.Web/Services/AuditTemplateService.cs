@@ -53,8 +53,7 @@ public sealed class AuditTemplateService(
             return true;
         }
 
-        return await currentUser.IsInRoleAsync(DsmsRoles.Admin)
-            || await currentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        return await access.CanEditComplianceContentAsync();
     }
 
     public async Task<bool> CanArchiveAsync(AuditTemplate template, CancellationToken ct = default)
@@ -80,8 +79,7 @@ public sealed class AuditTemplateService(
             return true;
         }
 
-        return await currentUser.IsInRoleAsync(DsmsRoles.Admin)
-            || await currentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        return await access.CanEditComplianceContentAsync();
     }
 
     public Task<bool> CanCreateOfficialTemplateAsync(CancellationToken ct = default) =>
@@ -118,8 +116,7 @@ public sealed class AuditTemplateService(
             return true;
         }
 
-        return await currentUser.IsInRoleAsync(DsmsRoles.Admin)
-            || await currentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        return await access.CanEditComplianceContentAsync();
     }
 
     public async Task<bool> CanCopyToTenantAsync(AuditTemplate template, CancellationToken ct = default)

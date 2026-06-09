@@ -127,6 +127,7 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
@@ -141,8 +142,7 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
-        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
-            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
         _createLimit = await LicenseService.CanCreateDpiaAsync(_tenantId.Value);
         await LoadDataAsync();

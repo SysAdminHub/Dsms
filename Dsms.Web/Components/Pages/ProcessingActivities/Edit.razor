@@ -1,10 +1,10 @@
 @*
     Anlegen und Bearbeiten von Verarbeitungstätigkeiten.
-    Nur Admin und Auditor; Speichern und Laden immer mit TenantId-Filter.
+    Nur Admin; Speichern und Laden immer mit TenantId-Filter.
 *@
 @page "/processing-activities/edit"
 @page "/processing-activities/edit/{Id:int}"
-@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+@attribute [Authorize(Roles = DsmsRoles.ComplianceEditor)]
 @rendermode InteractiveServer
 
 <PageTitle>Verarbeitungstätigkeit bearbeiten</PageTitle>

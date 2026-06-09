@@ -1,12 +1,12 @@
 @*
     Anlegen und Bearbeiten von DSFA inkl. Zuordnung zu einer Verarbeitungstätigkeit.
-    Nur Admin und Auditor; Speichern und Laden immer mit TenantId-Filter.
+    Nur Admin; Speichern und Laden immer mit TenantId-Filter.
 *@
 
 @page "/dsfa/edit"
 @page "/dsfa/edit/{Id:int}"
 
-@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+@attribute [Authorize(Roles = DsmsRoles.ComplianceEditor)]
 
 @rendermode InteractiveServer
 

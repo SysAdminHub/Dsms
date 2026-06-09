@@ -50,6 +50,7 @@
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private DocumentStorageService Storage { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private IBrowserFile? _selectedFile;
@@ -79,6 +80,13 @@
     {
         if (_selectedFile is null || _uploading)
             return;
+
+        if (!await UserAccess.CanEditTenantOperationalContentAsync())
+        {
+            _message = "Keine Berechtigung zum Hochladen von Dokumenten.";
+            _isError = true;
+            return;
+        }
 
         _uploading = true;
         _message = null;

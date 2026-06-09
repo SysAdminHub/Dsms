@@ -294,8 +294,10 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 |-------|---------------------------------------------------------------------|
 | **Superuser** | Plattform: alle Mandanten (`/tenants`), Lizenzen (`/platform/licenses`), Tarife (`/platform/plans`), Email (`/platform/email/*`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
 | **Admin** | Benutzer im eigenen Mandant; **keine** Mandantenverwaltung; Compliance wie bisher für `TenantId` |
-| **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, DSFA, TOMs und Dienstleister anlegen/bearbeiten; **keine** Benutzerverwaltung |
-| **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen |
+| **Auditor** | Compliance-Inhalte **nur lesen** (Listen, Details, Audit-Antworten im Lesemodus, Dokument-Download); **kein** Anlegen/Bearbeiten/Archivieren; **keine** Benutzerverwaltung |
+| **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen (VVT, DSFA, TOMs, Dienstleister, Audit-Durchläufe) |
+
+**Rollen-Konstanten für Autorisierung:** `DsmsRoles.ComplianceEditor` (nur Admin) für Stammdaten-Bearbeitung; `DsmsRoles.ComplianceViewer` (Admin, Auditor, User) für lesenden Zugriff. Zentrale Prüfungen über `IUserAccessService.CanEditComplianceContentAsync()` (Stammdaten) und `CanEditTenantOperationalContentAsync()` (Maßnahmen, Audit-Antworten, Dokumente).
 
 **Unterschied Superuser vs. Admin:** Superuser ist mandantenunabhängig (`TenantId` null) und global; Admin ist strikt an einen `TenantId` gebunden. Beide dürfen Benutzer verwalten, aber nur der Superuser sieht fremde Mandanten und darf Superuser anlegen.
 
@@ -382,9 +384,9 @@ dotnet ef database update
 | Audit-Antworten | `ProcessingActivityAuditAnswer` | Many-to-Many – keine `ProcessingActivityId` auf `AuditAnswer`, da Antworten über Durchlauf mandantenbezogen bleiben |
 | DSFA | `DataProtectionImpactAssessment` (1:n zu `ProcessingActivity`) | Pflicht-FK; `TenantId` + Indexe; Cascade beim Löschen der VVT |
 
-**Seiten:** `ProcessingActivities/Detail.razor`, `ProcessingActivities/Links.razor` (`[Authorize(Roles = Admin,Auditor)]`); DSFA: `Dsfa/Index.razor`, `Dsfa/Detail.razor`, `Dsfa/Edit.razor`.
+**Seiten:** `ProcessingActivities/Detail.razor`, `ProcessingActivities/Links.razor` (`[Authorize(Roles = ComplianceEditor)]`); DSFA: `Dsfa/Index.razor`, `Dsfa/Detail.razor`, `Dsfa/Edit.razor`.
 
-**Routen DSFA:** `/dsfa`, `/dsfa/{Id}`, `/dsfa/edit`, `/dsfa/edit/{Id}` (Bearbeitung nur Admin/Auditor).
+**Routen DSFA:** `/dsfa`, `/dsfa/{Id}`, `/dsfa/edit`, `/dsfa/edit/{Id}` (Bearbeitung nur Admin).
 
 **Mandantenschutz:** Alle Lade- und Speicheroperationen in `ProcessingActivityRelationsService` prüfen `TenantId` der Hauptentität und jeder referenzierten ID.
 

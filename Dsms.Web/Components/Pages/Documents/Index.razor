@@ -18,7 +18,7 @@ else
         <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
     </PageHeader>
 
-    @if (!_showArchived)
+    @if (_canEdit && !_showArchived)
     {
         <div class="dsms-card mb-4">
             <div class="dsms-card-header">Datei hochladen</div>
@@ -149,7 +149,7 @@ else
                                         <DocumentActions DocumentId="@doc.Id"
                                                          FileName="@doc.FileName"
                                                          ContentType="@doc.ContentType" />
-                                        @if (!_showArchived)
+                                        @if (_canEdit && !_showArchived)
                                         {
                                             <button type="button"
                                                     class="btn btn-sm btn-outline-secondary"
@@ -161,7 +161,7 @@ else
                                                             EntityId="@doc.Id"
                                                             ItemName="@doc.FileName"
                                                             EntityLabel="Dokument"
-                                                            CanEdit="true"
+                                                            CanEdit="@_canEdit"
                                                             OnChanged="LoadDataAsync" />
                                     </div>
                                 </td>
@@ -179,10 +179,12 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
 
     private DocumentLinksEditModal? _linksModal;
     private int? _tenantId;
+    private bool _canEdit;
     private bool _showArchived;
     private List<EvidenceDocument>? _documents;
     private List<AuditRun> _auditRuns = [];
@@ -201,6 +203,7 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
+        _canEdit = await UserAccess.CanEditTenantOperationalContentAsync();
         await LoadDataAsync();
     }
 
@@ -231,4 +234,4 @@ else
     private static string FormatSize(long bytes) =>
         bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024.0:F1} KB";
 }
-
+

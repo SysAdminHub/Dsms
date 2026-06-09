@@ -6,6 +6,33 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Docker-Production-Deployment (Open Source):**
+  - `docker-compose.yml` – App-Service `dsms`, MySQL 8 `db`, Volumes für DB/Uploads/Data-Protection-Keys
+  - `.env.example` mit Platzhalterwerten; `.env` in `.gitignore`
+  - `Production_Deployment.md` – Anleitung für produktiven Docker-Betrieb
+  - `Dsms.Web/Dockerfile` – Multi-Stage Release-Build (Port 8080)
+  - Data Protection Keys persistent (`DataProtection-Keys` + Docker-Volume)
+  - Upload-Pfad konfigurierbar (`Storage:UploadPath`, Default `Data/Uploads`)
+  - Production Connection String über `ConnectionStrings__DefaultConnection`
+
+### Geändert
+
+- `appsettings.json`: lokaler Default-ConnectionString auf `dsms_dev` vereinheitlicht; `Storage:UploadPath` ergänzt
+- `README.md`: Verweis auf `Production_Deployment.md`; lokaler Compose-Start nur `db`
+- `Architecture.md`: Docker-Deployment und Konfiguration aktualisiert
+
+### Hinzugefügt
+
+- **Admin-Lizenzübersicht: Upgrade-Anfrage (`/admin/license`):**
+  - Erweiterte Tarif-/Billing-Anzeige in „Lizenzdaten“ (Plan-Anzeigename, Beschreibung, Abrechnung, Betrag, Nächste Rechnung – falls verfügbar)
+  - Button „Upgrade anfragen“ mit aufklappbarem Formular (Zieltarif oder individuelles Upgrade)
+  - `IUpgradeRequestService` / `UpgradeRequestService` – Validierung, interne E-Mail an Systembenachrichtigungsadresse, Audit-/Systemlog
+  - Zielpläne: aktive kostenpflichtige Pläne außer aktuellem Tarif (`GetActivePaidPlansAsync`)
+  - Tarifinfo im Formular mit Preisen, Beschreibung und kompakten Limits; Preise auch in der internen Upgrade-Mail
+  - **Keine** automatische Lizenz-/Planänderung, **keine** Zahlung, **keine** Rechnung
+
+### Hinzugefügt
+
 - **Manuelle Rechnungsverwaltung für Registrierungen:**
   - `BillingStatuses` (NotRequired, InvoicePending, InvoiceSent, Paid, PaymentOverdue, Cancelled) und `BillingStatusDisplayHelper`
   - Neue Felder auf `PendingSignup`: `BillingStatus`, `InvoiceSentAt`, `InvoicePaidAt`, `NextInvoiceDate` (DateOnly), `BillingNote` (Migration `AddPendingSignupBillingManagement`)

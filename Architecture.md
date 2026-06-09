@@ -120,10 +120,14 @@ Connection String-Schlüssel: **`DefaultConnection`**
 
 | Datei | Datenbankname (Beispiel) |
 |-------|--------------------------|
-| `appsettings.json` | `dsms` |
+| `appsettings.json` | `dsms_dev` (lokaler Fallback, `changeme`) |
 | `appsettings.Development.json` | `dsms_dev` |
 
-Docker Compose (`docker-compose.yml`) legt `dsms_dev` mit Root-Passwort `changeme` an – muss mit dem Connection String übereinstimmen.
+Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnection")`.
+
+**Production (Docker):** Connection String über Environment Variable `ConnectionStrings__DefaultConnection` (in `docker-compose.yml` aus `.env`-Variablen). Siehe [Production_Deployment.md](./Production_Deployment.md).
+
+**Lokale Entwicklung:** `docker compose up -d db` startet nur MySQL; Passwörter in `.env` (aus `.env.example`).
 
 ### DbContext
 
@@ -236,7 +240,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IUserManagementService` / `UserManagementService` | Scoped | Benutzerliste, Anlegen, Bearbeiten, Deaktivieren inkl. serverseitiger Validierung |
 | `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, DSFA, VVT-Verknüpfungen) |
 | `ProcessingActivityRelationsService` | Scoped | Laden/Speichern von VVT-Verknüpfungen, Warnhinweise, Mandantenvalidierung |
-| `DocumentStorageService` | Scoped | Speichern von Upload-Dateien unter `Data/Uploads/{tenantId}/` (unverändert) |
+| `DocumentStorageService` | Scoped | Speichern von Upload-Dateien unter `Storage:UploadPath` (Default: `Data/Uploads/{tenantId}/`) |
 | `ITenantExportService` / `TenantExportService` | Scoped | Vollständiger Mandanten-Export als ZIP (JSON-DTOs + Dokumentdateien) |
 | `ITenantDeletionService` / `TenantDeletionService` | Scoped | Löschanforderung markieren (`IsDeletionRequested`); Abbrechen nur Superuser |
 | `TenantDataEndpoints` | Minimal API | `POST /tenant-daten/export` – ZIP-Download mit serverseitiger Berechtigungsprüfung |
@@ -320,8 +324,11 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 
 | Datei | Inhalt |
 |-------|--------|
-| `appsettings.json` | Connection String Produktion/Default, Logging |
+| `appsettings.json` | Lokaler Connection-String-Fallback (`dsms_dev`/`changeme`), `Storage:UploadPath`, Logging |
 | `appsettings.Development.json` | `dsms_dev`, detaillierter EF-Logging |
+| `.env.example` / `.env` | Docker-Production-Secrets (nur `.env.example` im Repo) |
+| `docker-compose.yml` | App + MySQL 8, Volumes, Environment Variables |
+| `Dsms.Web/Dockerfile` | Multi-Stage Production-Image (Port 8080) |
 | `Properties/launchSettings.json` | `https://localhost:7245`, `http://localhost:5295` |
 | `Dsms.Web.csproj` | `UserSecretsId` für lokale Secrets |
 
@@ -448,12 +455,15 @@ Die Login-Seite ist an das DSMS-Design angepasst; viele Manage-/Register-Seiten 
 ## Deployment-Hinweise (aus Code)
 
 - MySQL 8 erforderlich
-- Connection String und Upload-Ordner `Data/Uploads` beschreibbar
-- HTTPS empfohlen (`UseHttpsRedirection`, HSTS in Production)
+- Connection String über `ConnectionStrings__DefaultConnection` (Production) oder `appsettings.json` (lokal)
+- Upload-Ordner `Data/Uploads` (konfigurierbar via `Storage:UploadPath` / `Storage__UploadPath`) – Docker-Volume `/app/Data/Uploads`
+- Data Protection Keys persistent unter `DataProtection-Keys` (Docker-Volume `/app/DataProtection-Keys`)
+- HTTPS empfohlen (`UseHttpsRedirection`, HSTS in Production) – typisch per Reverse Proxy
 - **Annahme:** Einzelinstanz-Deployment; Blazor Server und SignalR erfordern Sticky Sessions bei Skalierung – im Code nicht dokumentiert
 
 ## Verwandte Dokumentation
 
 - [Project_Overview.md](./Project_Overview.md) – fachliche Gesamtübersicht
 - [README.md](./README.md) – Schnellstart für Entwickler
+- [Production_Deployment.md](./Production_Deployment.md) – Docker-Production-Deployment
 - [Changelog.md](./Changelog.md) – Änderungshistorie

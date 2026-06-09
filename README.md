@@ -16,10 +16,10 @@ Einfaches Grundgerüst für ein Datenschutzmanagementsystem als **Blazor Server*
 "DefaultConnection": "Server=localhost;Port=3306;Database=dsms_dev;User=root;Password=IHR_PASSWORT;CharSet=utf8mb4;"
 ```
 
-2. **MySQL starten** (optional per Docker):
+2. **MySQL starten** (optional per Docker – nur Datenbank, App lokal mit `dotnet run`):
 
 ```bash
-docker compose up -d
+docker compose up -d db
 ```
 
 Oder Datenbank manuell anlegen:
@@ -98,6 +98,10 @@ cd Dsms.Web
 dotnet ef migrations add MeinMigrationName
 dotnet ef database update
 ```
+
+## Production Deployment (Docker)
+
+Für den produktiven Betrieb mit Docker Compose, Volumes und Environment Variables siehe **[Production_Deployment.md](Production_Deployment.md)**.
 
 ## Hinweise
 

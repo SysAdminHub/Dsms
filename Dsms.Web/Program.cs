@@ -13,9 +13,11 @@ using Dsms.Web.Services.PendingSignups;
 using Dsms.Web.Services.Provisioning;
 using Dsms.Web.Services.Signup;
 using Dsms.Web.Services.SubscriptionPlans;
+using Dsms.Web.Services.UpgradeRequests;
 using Dsms.Web.Services.Tenants;
 using Dsms.Web.Services.Logging;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -58,7 +60,10 @@ builder.Services.AddScoped<DocumentStorageService>();
 builder.Services.AddScoped<DocumentLinksService>();
 builder.Services.AddScoped<ITenantExportService, TenantExportService>();
 builder.Services.AddScoped<ITenantDeletionService, TenantDeletionService>();
-builder.Services.AddDataProtection();
+var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys");
+Directory.CreateDirectory(dataProtectionKeysPath);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
 builder.Services.AddScoped<IEmailSecretProtector, EmailSecretProtector>();
 builder.Services.AddScoped<IEmailTemplateRenderer, EmailTemplateRenderer>();
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -71,6 +76,7 @@ builder.Services.AddScoped<IPlanToLicenseService, PlanToLicenseService>();
 builder.Services.AddScoped<IProvisioningService, ProvisioningService>();
 builder.Services.AddScoped<IPublicSignupService, PublicSignupService>();
 builder.Services.AddScoped<ISignupNotificationService, SignupNotificationService>();
+builder.Services.AddScoped<IUpgradeRequestService, UpgradeRequestService>();
 builder.Services.AddScoped<IPaidSignupService, PaidSignupService>();
 builder.Services.AddScoped<IPendingSignupService, PendingSignupService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
@@ -124,6 +130,9 @@ builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 var app = builder.Build();
+
+var uploadPath = app.Configuration["Storage:UploadPath"] ?? "Data/Uploads";
+Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, uploadPath));
 
 if (app.Environment.IsDevelopment())
 {

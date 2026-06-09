@@ -1,14 +1,46 @@
 services:
-  mysql:
+  db:
     image: mysql:8.0
     container_name: dsms-mysql
-    ports:
-      - "3306:3306"
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: changeme
-      MYSQL_DATABASE: dsms_dev
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
       - dsms_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+
+  dsms:
+    build:
+      context: .
+      dockerfile: Dsms.Web/Dockerfile
+    image: ${DSMS_IMAGE:-dsms:latest}
+    container_name: dsms-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: ${ASPNETCORE_URLS:-http://+:8080}
+      ConnectionStrings__DefaultConnection: Server=db;Port=3306;Database=${MYSQL_DATABASE};User=${MYSQL_USER};Password=${MYSQL_PASSWORD};CharSet=utf8mb4;
+      Storage__UploadPath: ${STORAGE_UPLOAD_PATH:-Data/Uploads}
+    ports:
+      - "${DSMS_PORT:-8080}:8080"
+    volumes:
+      - dsms_uploads:/app/Data/Uploads
+      - dsms_dataprotection:/app/DataProtection-Keys
 
 volumes:
   dsms_mysql_data:
+  dsms_uploads:
+  dsms_dataprotection:

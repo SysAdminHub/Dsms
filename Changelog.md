@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Geändert
+
+- **Sidebar-Branding:** Logo-Bild und DC-Kürzel in der Sidebar entfernt; oben links nur noch der Produktname „Datenschutz-Cloud“. Logo über `AppBranding:LogoUrl` bleibt auf Login-/Auth-Seiten erhalten.
+
+- **Logo-Branding in der UI:** Sichtbares Kürzel „DC“ (Login, Passwort-Seiten, Registrierung) wird durch das Logo-Bild `/datenschutz-cloud-logo.png` ersetzt, sofern `AppBranding:LogoUrl` gesetzt ist. Fallback auf `ShortName` bleibt erhalten. Wiederverwendbare Komponente `BrandLogo`. Favicon und technische Namen unverändert.
+
 ### Hinzugefügt
 
 - **Feedback senden:** Dezenter Sidebar-Link im Bereich „Konto“ (`FeedbackButton`) öffnet ein Modal mit Kategorie, Betreff und Nachricht. Versand per `IFeedbackService` an `AppBranding.SupportEmail` über den zentralen E-Mail-Service und Vorlage `FeedbackMessageToSupport`. Enthält Benutzer-, Mandanten-, Seiten- und Versionskontext. Keine Datenbankpersistenz.

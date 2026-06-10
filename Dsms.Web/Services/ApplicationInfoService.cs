@@ -22,6 +22,8 @@ public sealed class ApplicationInfoService(
 
     public string ShortName => _branding.ShortName;
 
+    public string LogoUrl => _branding.LogoUrl;
+
     public string Tagline => _branding.Tagline;
 
     public string Description => _branding.Description;

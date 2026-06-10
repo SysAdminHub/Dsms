@@ -9,6 +9,9 @@ public sealed class AppBrandingOptions
 
     public string ShortName { get; set; } = "DC";
 
+    /// <summary>Öffentlicher Pfad zum Logo-Bild (z. B. <c>/datenschutz-cloud-logo.png</c>). Leer = Fallback auf <see cref="ShortName"/>.</summary>
+    public string LogoUrl { get; set; } = "";
+
     public string Tagline { get; set; } = "Datenschutzmanagement einfach verwalten";
 
     public string Description { get; set; } =

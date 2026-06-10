@@ -27,19 +27,6 @@
     opacity: 0.92;
 }
 
-.dsms-sidebar-logo {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: var(--dsms-radius-sm);
-    background: var(--dsms-primary);
-    font-size: var(--dsms-font-size-sm);
-    font-weight: 700;
-    letter-spacing: -0.03em;
-}
-
 .dsms-sidebar-title {
     font-size: var(--dsms-font-size-base);
     font-weight: 600;

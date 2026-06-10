@@ -15,6 +15,9 @@ public interface IApplicationInfoService
 
     string ShortName { get; }
 
+    /// <summary>Logo-Pfad aus <c>AppBranding:LogoUrl</c>; leer wenn kein Bild konfiguriert ist.</summary>
+    string LogoUrl { get; }
+
     string Tagline { get; }
 
     string Description { get; }

@@ -178,6 +178,15 @@ article.content {
     margin-bottom: var(--dsms-space-4);
 }
 
+.dsms-auth-brand-logo {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 1rem;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto var(--dsms-space-4);
+}
+
 /* Öffentliche Registrierung (/signup) – optisch an Login-Seite angelehnt */
 .dsms-public-signup-layout {
     min-height: 100vh;

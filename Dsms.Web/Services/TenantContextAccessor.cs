@@ -1,11 +1,12 @@
 namespace Dsms.Web.Services;
 
 /// <summary>
-/// Scoped-Halter für die aktuelle Mandanten-ID im laufenden Request/Circuit.
-/// Wird von <see cref="TenantContextService"/> befüllt und von EF Global Query Filters gelesen.
+/// Scoped-Laufzeit-Cache für die aktuelle Mandanten-ID im laufenden Request/Circuit.
+/// Die autoritative Quelle ist die ASP.NET-Session (<see cref="TenantContextService"/>);
+/// bei leerem Cache wird der Mandant daraus wiederhergestellt.
 /// </summary>
 public class TenantContextAccessor
 {
-    /// <summary>Aktuell gewählter Mandant; null wenn noch keiner gesetzt wurde.</summary>
+    /// <summary>Gecachte Mandanten-ID; null wenn noch kein Cache-Eintrag vorliegt.</summary>
     public int? CurrentTenantId { get; set; }
 }

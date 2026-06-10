@@ -308,7 +308,8 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 - **Global Query Filters** in `ApplicationDbContext.ApplyTenantQueryFilters()`:
   - Mandant: `TenantId == TenantContextAccessor.CurrentTenantId` (ohne gesetzten Kontext: keine Zeilen)
   - Archiv: `IsArchived == ArchiveViewContextAccessor.ShowArchivedOnly` (Standard: nur aktive Einträge)
-- `TenantContextAccessor` wird pro Request/Circuit über `TenantInitializationMiddleware` / `TenantContextService` befüllt
+- `TenantContextAccessor` ist ein **Scoped-Cache**; die ASP.NET-Session (Key `Dsms.CurrentTenantId`) ist die persistente Quelle
+- Pro Request/Circuit: `TenantInitializationMiddleware` und `TenantService.EnsureTenantContextAsync()` laden bei leerem Cache aus der Session (Recovery nach Circuit-Verlust, inkl. Zugriffsprüfung)
 - **Mandantenwechsel:** Persistenz in ASP.NET-Session; aus interaktiven Blazor-Komponenten nur per HTTP-Redirect auf `GET /tenant/switch/{tenantId}` (Session ist nach Circuit-Start nicht mehr beschreibbar)
 - `ArchiveViewContextAccessor.ShowArchivedOnly` wird über `ArchiveViewToggle` in Listenansichten umgeschaltet
 - Archivieren/Wiederherstellen: `IArchivingService` mit `IgnoreQueryFilters()` und expliziter `TenantId`-Prüfung

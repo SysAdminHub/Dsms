@@ -6,6 +6,14 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Mandanten-Recovery für Blazor Server:** `ITenantService.EnsureTenantContextAsync()` stellt den Mandant aus der Session wieder her, wenn der Circuit-Cache (`TenantContextAccessor`) leer ist; Zugriffsprüfung inklusive. Genutzt von `TenantContextGate`, `TenantSwitcher` und Middleware.
+
+### Behoben
+
+- **Mandant nach Inaktivität verloren:** `_contextInitialized` in `TenantService` entfernt – leerer Accessor löst erneutes Session-Laden aus. `TenantContextGate` und `TenantSwitcher` synchronisieren den UI-State nach Recovery.
+
+### Hinzugefügt
+
 - **Sidebar-Versionsanzeige:** Anwendungsversion aus `Application:Version` in `appsettings.json`, Anzeige unten in der Sidebar für angemeldete Benutzer (`IApplicationInfoService`).
 
 ### Behoben

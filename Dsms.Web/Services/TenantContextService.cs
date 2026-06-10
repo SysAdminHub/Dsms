@@ -1,7 +1,8 @@
 namespace Dsms.Web.Services;
 
 /// <summary>
-/// Speichert <c>CurrentTenantId</c> in Session und Scoped Accessor.
+/// Persistiert <c>CurrentTenantId</c> in der Session und hält einen Scoped-Cache im Accessor.
+/// Bei leerem Cache wird aus der Session gelesen; die Session bleibt die autoritative Quelle.
 /// Alle Session-Operationen sind fehlertolerant (kein Circuit-Abbruch bei F5/Prerender).
 /// </summary>
 public class TenantContextService(

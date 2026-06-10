@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Mandanten-Stammdaten für Admins unter `/tenant-daten`:** Mandanten-Admins und Superuser können DSGVO-Stammdaten (Verantwortlicher, DSB) des aktuellen Mandanten bearbeiten (`ITenantComplianceInfoService`). TenantId wird serverseitig ermittelt; Lizenz- und Plattformfelder bleiben gesperrt. Audit-Log-Aktion `TenantComplianceInfoUpdated`.
+
+- **Mandanten-Stammdaten für VVT (Art. 30 DSGVO):** Zentrale Angaben zum Verantwortlichen und zur Datenschutzbeauftragten Person auf `Tenant` (Wiederverwendung von `LegalName` als Name des Verantwortlichen). Bearbeitung in `/tenants/edit`, Export in `tenant.json` des Mandanten-ZIP. Migration `AddTenantControllerAndDpoFields`.
+
+### Hinzugefügt
+
 - **Mandanten-Recovery für Blazor Server:** `ITenantService.EnsureTenantContextAsync()` stellt den Mandant aus der Session wieder her, wenn der Circuit-Cache (`TenantContextAccessor`) leer ist; Zugriffsprüfung inklusive. Genutzt von `TenantContextGate`, `TenantSwitcher` und Middleware.
 
 ### Behoben

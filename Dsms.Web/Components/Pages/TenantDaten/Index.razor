@@ -1,11 +1,12 @@
-@* Tenant-Daten: Export und Löschanforderung für Superuser und Mandanten-Admin. *@
+@* Tenant-Daten: Stammdaten, Export und Löschanforderung für Superuser und Mandanten-Admin. *@
 @page "/tenant-daten"
 @attribute [Authorize(Roles = DsmsRoles.TenantDataManagement)]
 @rendermode InteractiveServer
 
 <PageTitle>Tenant-Daten</PageTitle>
 
-<PageHeader Title="Tenant-Daten" Subtitle="Datenexport und Löschanforderung für den aktuellen Mandanten" />
+<PageHeader Title="Tenant-Daten"
+            Subtitle="Mandanten-Stammdaten, Datenexport und Löschanforderung für den aktuellen Mandanten" />
 
 @if (!_authorized)
 {
@@ -36,14 +37,99 @@ else
         <div class="alert @(_messageIsError ? "alert-danger" : "alert-success")" role="alert">@_message</div>
     }
 
+    <div class="dsms-card dsms-form-card mb-4">
+        <div class="dsms-card-body">
+            <h2 class="h5 mb-2">Mandanten-Stammdaten</h2>
+            <p class="text-muted mb-3">
+                Zentrale Angaben für das Verzeichnis von Verarbeitungstätigkeiten (Art. 30 DSGVO).
+                Mandant: <strong>@_tenant.Name</strong>
+            </p>
+
+            <EditForm Model="_complianceModel" OnValidSubmit="SaveComplianceInfoAsync" class="dsms-form">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger dsms-alert" />
+
+                <h5 class="dsms-form-section">Angaben zum Verantwortlichen</h5>
+                <div class="mb-3">
+                    <label class="form-label">Name des Verantwortlichen / der Organisation</label>
+                    <InputText class="form-control" @bind-Value="_complianceModel.LegalName" />
+                </div>
+                <div class="row">
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Straße</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.Street" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Hausnummer</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.HouseNumber" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Postleitzahl</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.PostalCode" />
+                    </div>
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Ort</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.City" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Telefon</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.Phone" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">E-Mail-Adresse</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.Email" />
+                    </div>
+                    <div class="col-12 mb-3">
+                        <label class="form-label">Internet-Adresse / Website</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.Website" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Datenschutzbeauftragte Person</h5>
+                <p class="form-text text-muted">Alle Angaben sind optional. Leer lassen, wenn kein Datenschutzbeauftragter benannt ist.</p>
+                <div class="mb-3">
+                    <label class="form-label">Name</label>
+                    <InputText class="form-control" @bind-Value="_complianceModel.DpoName" />
+                </div>
+                <div class="row">
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Straße</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.DpoStreet" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Hausnummer</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.DpoHouseNumber" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Postleitzahl</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.DpoPostalCode" />
+                    </div>
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Ort</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.DpoCity" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Telefon</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.DpoPhone" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">E-Mail-Adresse</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.DpoEmail" />
+                    </div>
+                </div>
+
+                <div class="dsms-form-actions">
+                    <button type="submit" class="btn btn-primary" disabled="@_busy">Stammdaten speichern</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+
     <div class="dsms-card mb-4">
         <div class="dsms-card-body">
             <h2 class="h5 mb-2">Tenant-Daten exportieren</h2>
             <p class="text-muted mb-3">
                 Laden Sie alle fachlichen Daten dieses Mandanten inklusive Dokumenten als ZIP-Datei herunter.
-            </p>
-            <p class="mb-3">
-                <strong>Mandant:</strong> @_tenant.Name
             </p>
             <form action="tenant-daten/export" method="post">
                 <AntiforgeryToken />
@@ -115,10 +201,12 @@ else
 @code {
     [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ITenantService TenantService { get; set; } = null!;
+    [Inject] private ITenantComplianceInfoService ComplianceInfoService { get; set; } = null!;
     [Inject] private ITenantDeletionService DeletionService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
 
     private Domain.Entities.Tenant? _tenant;
+    private TenantComplianceInfoSaveModel _complianceModel = new();
     private bool _authorized;
     private bool _isSuperuser;
     private bool _showDeletionConfirm;
@@ -138,6 +226,61 @@ else
 
         _isSuperuser = await UserAccess.IsSuperuserAsync();
         _tenant = await TenantService.GetCurrentTenantAsync();
+        await LoadComplianceModelAsync();
+    }
+
+    private async Task LoadComplianceModelAsync()
+    {
+        var info = await ComplianceInfoService.GetForCurrentTenantAsync();
+        if (info is null)
+        {
+            return;
+        }
+
+        _complianceModel = new TenantComplianceInfoSaveModel
+        {
+            LegalName = info.LegalName,
+            Street = info.Street,
+            HouseNumber = info.HouseNumber,
+            PostalCode = info.PostalCode,
+            City = info.City,
+            Phone = info.Phone,
+            Email = info.Email,
+            Website = info.Website,
+            DpoName = info.DpoName,
+            DpoStreet = info.DpoStreet,
+            DpoHouseNumber = info.DpoHouseNumber,
+            DpoPostalCode = info.DpoPostalCode,
+            DpoCity = info.DpoCity,
+            DpoPhone = info.DpoPhone,
+            DpoEmail = info.DpoEmail
+        };
+    }
+
+    private async Task SaveComplianceInfoAsync()
+    {
+        _busy = true;
+        _message = null;
+
+        try
+        {
+            var result = await ComplianceInfoService.UpdateForCurrentTenantAsync(_complianceModel);
+            if (!result.Succeeded)
+            {
+                _message = result.ErrorMessage;
+                _messageIsError = true;
+                return;
+            }
+
+            _message = "Die Mandanten-Stammdaten wurden gespeichert.";
+            _messageIsError = false;
+            _tenant = await TenantService.GetCurrentTenantAsync();
+            await LoadComplianceModelAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private void ShowDeletionConfirm()

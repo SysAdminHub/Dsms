@@ -82,6 +82,7 @@ builder.Services.AddScoped<IPaidSignupService, PaidSignupService>();
 builder.Services.AddScoped<IPendingSignupService, PendingSignupService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
 builder.Services.AddScoped<ITenantManagementService, TenantManagementService>();
+builder.Services.AddScoped<ITenantComplianceInfoService, TenantComplianceInfoService>();
 builder.Services.AddScoped<ILogService, LogService>();
 builder.Services.AddScoped<ILogQueryService, LogQueryService>();
 builder.Services.AddScoped<ILicenseCreateGuard, LicenseCreateGuard>();

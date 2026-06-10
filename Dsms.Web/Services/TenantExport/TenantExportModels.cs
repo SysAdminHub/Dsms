@@ -19,6 +19,20 @@ public sealed class TenantExportDto
     public int Id { get; init; }
     public string Name { get; init; } = string.Empty;
     public string? LegalName { get; init; }
+    public string? Street { get; init; }
+    public string? HouseNumber { get; init; }
+    public string? PostalCode { get; init; }
+    public string? City { get; init; }
+    public string? Phone { get; init; }
+    public string? Email { get; init; }
+    public string? Website { get; init; }
+    public string? DpoName { get; init; }
+    public string? DpoStreet { get; init; }
+    public string? DpoHouseNumber { get; init; }
+    public string? DpoPostalCode { get; init; }
+    public string? DpoCity { get; init; }
+    public string? DpoPhone { get; init; }
+    public string? DpoEmail { get; init; }
     public bool IsActive { get; init; }
     public bool IsDeletionRequested { get; init; }
     public DateTime? DeletionRequestedAt { get; init; }

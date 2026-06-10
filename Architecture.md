@@ -137,7 +137,7 @@ Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnec
 |-------|--------|
 | `Licenses` | `License` (Guid-Id, kaufmännische/technische Kundeneinheit; Limit-Felder, `null` = unbegrenzt) |
 | `SubscriptionPlans` | `SubscriptionPlan` (Guid-Id, Tarifvorlage; Limit-Felder, `null` = unbegrenzt; Änderungen wirken nicht auf bestehende Lizenzen) |
-| `Tenants` | `Tenant` (inkl. `LicenseId`, `IsDeletionRequested`, `DeletionRequestedAt`, `DeletionRequestedByUserId`, `DeletionScheduledAt`) |
+| `Tenants` | `Tenant` (inkl. `LicenseId`, Verantwortlichen-Stammdaten für VVT: `LegalName`, `Street`, `HouseNumber`, `PostalCode`, `City`, `Phone`, `Email`, `Website`, DSB-Felder `Dpo*`, Löschfelder `IsDeletionRequested`, `DeletionRequestedAt`, `DeletionRequestedByUserId`, `DeletionScheduledAt`) |
 | `AuditTemplates` | `AuditTemplate` |
 | `AuditQuestions` | `AuditQuestion` |
 | `AuditRuns` | `AuditRun` |
@@ -242,6 +242,8 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ProcessingActivityRelationsService` | Scoped | Laden/Speichern von VVT-Verknüpfungen, Warnhinweise, Mandantenvalidierung |
 | `DocumentStorageService` | Scoped | Speichern von Upload-Dateien unter `Storage:UploadPath` (Default: `Data/Uploads/{tenantId}/`) |
 | `ITenantExportService` / `TenantExportService` | Scoped | Vollständiger Mandanten-Export als ZIP (JSON-DTOs + Dokumentdateien) |
+| `ITenantComplianceInfoService` / `TenantComplianceInfoService` | Scoped | DSGVO-Mandanten-Stammdaten lesen/speichern für aktuellen Mandanten (Admin/Superuser via `/tenant-daten`); TenantId serverseitig |
+| `ITenantManagementService` / `TenantManagementService` | Scoped | Plattformweite Mandantenverwaltung (nur Superuser, `/tenants/edit`) |
 | `ITenantDeletionService` / `TenantDeletionService` | Scoped | Löschanforderung markieren (`IsDeletionRequested`); Abbrechen nur Superuser |
 | `TenantDataEndpoints` | Minimal API | `POST /tenant-daten/export` – ZIP-Download mit serverseitiger Berechtigungsprüfung |
 | `DocumentUploadValidation` | Static | Dateityp-, MIME- und Größenprüfung für Uploads (PDF, DOCX, XLSX, JPG, PNG; max. 10 MB) |

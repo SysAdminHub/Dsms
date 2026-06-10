@@ -74,6 +74,12 @@ public sealed class TenantManagementService(
             return TenantOperationResult.Fail("Name ist erforderlich.");
         }
 
+        var validationError = TenantComplianceFields.Validate(TenantComplianceFields.FromSaveModel(model));
+        if (validationError is not null)
+        {
+            return validationError;
+        }
+
         var limitCheck = await licenseService.CanCreateTenantAsync(model.LicenseId.Value);
         if (!await licenseCreateGuard.IsAllowedAsync(limitCheck, "Tenant"))
         {
@@ -88,11 +94,10 @@ public sealed class TenantManagementService(
 
         var tenant = new Tenant
         {
-            Name = model.Name.Trim(),
-            LegalName = string.IsNullOrWhiteSpace(model.LegalName) ? null : model.LegalName.Trim(),
             IsActive = model.IsActive,
             LicenseId = model.LicenseId
         };
+        ApplySaveModel(tenant, model);
 
         db.Tenants.Add(tenant);
         await db.SaveChangesAsync();
@@ -105,7 +110,7 @@ public sealed class TenantManagementService(
             entityName: tenant.Name,
             tenantId: tenant.Id,
             licenseId: tenant.LicenseId,
-            newValues: new { tenant.Name, tenant.LegalName, tenant.IsActive, tenant.LicenseId });
+            newValues: SnapshotTenantValues(tenant));
 
         return TenantOperationResult.Ok();
     }
@@ -117,6 +122,12 @@ public sealed class TenantManagementService(
         if (string.IsNullOrWhiteSpace(model.Name))
         {
             return TenantOperationResult.Fail("Name ist erforderlich.");
+        }
+
+        var validationError = TenantComplianceFields.Validate(TenantComplianceFields.FromSaveModel(model));
+        if (validationError is not null)
+        {
+            return validationError;
         }
 
         await using var db = await dbFactory.CreateDbContextAsync();
@@ -133,11 +144,8 @@ public sealed class TenantManagementService(
         }
 
         var previousLicenseId = tenant.LicenseId;
-        var oldName = tenant.Name;
-        var oldLegalName = tenant.LegalName;
-        var oldIsActive = tenant.IsActive;
-        tenant.Name = model.Name.Trim();
-        tenant.LegalName = string.IsNullOrWhiteSpace(model.LegalName) ? null : model.LegalName.Trim();
+        var oldValues = SnapshotTenantValues(tenant);
+        ApplySaveModel(tenant, model);
         tenant.IsActive = model.IsActive;
         tenant.LicenseId = model.LicenseId;
         tenant.UpdatedAt = DateTime.UtcNow;
@@ -152,8 +160,8 @@ public sealed class TenantManagementService(
             entityName: tenant.Name,
             tenantId: tenant.Id,
             licenseId: tenant.LicenseId,
-            oldValues: new { Name = oldName, LegalName = oldLegalName, IsActive = oldIsActive, LicenseId = previousLicenseId },
-            newValues: new { tenant.Name, tenant.LegalName, tenant.IsActive, tenant.LicenseId });
+            oldValues: oldValues,
+            newValues: SnapshotTenantValues(tenant, tenant.IsActive, tenant.LicenseId));
 
         if (previousLicenseId != model.LicenseId)
         {
@@ -217,4 +225,32 @@ public sealed class TenantManagementService(
             throw new UnauthorizedAccessException("Keine Berechtigung für die Mandantenverwaltung.");
         }
     }
+
+    private static void ApplySaveModel(Tenant tenant, TenantSaveModel model) =>
+        TenantComplianceFields.Apply(tenant, model);
+
+    private static object SnapshotTenantValues(
+        Tenant tenant,
+        bool? isActive = null,
+        Guid? licenseId = null) => new
+    {
+        tenant.Name,
+        tenant.LegalName,
+        tenant.Street,
+        tenant.HouseNumber,
+        tenant.PostalCode,
+        tenant.City,
+        tenant.Phone,
+        tenant.Email,
+        tenant.Website,
+        tenant.DpoName,
+        tenant.DpoStreet,
+        tenant.DpoHouseNumber,
+        tenant.DpoPostalCode,
+        tenant.DpoCity,
+        tenant.DpoPhone,
+        tenant.DpoEmail,
+        IsActive = isActive ?? tenant.IsActive,
+        LicenseId = licenseId ?? tenant.LicenseId
+    };
 }

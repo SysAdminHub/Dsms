@@ -13,7 +13,7 @@ public interface IUserAccessService
     Task<bool> CanManageUsersAsync();
     Task<bool> CanManageTenantsAsync();
 
-    /// <summary>Export und Löschanforderung: Superuser oder Mandanten-Admin mit Zugriff auf aktuellen Mandanten.</summary>
+    /// <summary>Export, Löschanforderung und DSGVO-Stammdaten: Superuser oder Mandanten-Admin mit Zugriff auf aktuellen Mandanten.</summary>
     Task<bool> CanManageTenantDataAsync();
 
     /// <summary>Aktive Mandanten-ID aus dem Mandantenkontext (Session); null wenn keiner gewählt.</summary>

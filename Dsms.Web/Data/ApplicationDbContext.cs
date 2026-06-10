@@ -171,6 +171,20 @@ public class ApplicationDbContext(
         {
             e.Property(t => t.Name).HasMaxLength(200).IsRequired();
             e.Property(t => t.LegalName).HasMaxLength(300);
+            e.Property(t => t.Street).HasMaxLength(300);
+            e.Property(t => t.HouseNumber).HasMaxLength(20);
+            e.Property(t => t.PostalCode).HasMaxLength(20);
+            e.Property(t => t.City).HasMaxLength(100);
+            e.Property(t => t.Phone).HasMaxLength(50);
+            e.Property(t => t.Email).HasMaxLength(255);
+            e.Property(t => t.Website).HasMaxLength(500);
+            e.Property(t => t.DpoName).HasMaxLength(200);
+            e.Property(t => t.DpoStreet).HasMaxLength(300);
+            e.Property(t => t.DpoHouseNumber).HasMaxLength(20);
+            e.Property(t => t.DpoPostalCode).HasMaxLength(20);
+            e.Property(t => t.DpoCity).HasMaxLength(100);
+            e.Property(t => t.DpoPhone).HasMaxLength(50);
+            e.Property(t => t.DpoEmail).HasMaxLength(255);
             e.Property(t => t.DeletionRequestedByUserId).HasMaxLength(450);
             e.Property(t => t.IsActive).HasDefaultValue(true);
             e.Property(t => t.IsDeletionRequested).HasDefaultValue(false);

@@ -8,12 +8,12 @@
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="Verarbeitungstätigkeiten" />
+    <PageHeader Title="Verarbeitungstätigkeiten" HelpKey="processing-activities" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="Verarbeitungstätigkeiten" Subtitle="Verzeichnis von Verarbeitungstätigkeiten (Art. 30 DSGVO)">
+    <PageHeader Title="Verarbeitungstätigkeiten" HelpKey="processing-activities" Subtitle="Verzeichnis von Verarbeitungstätigkeiten (Art. 30 DSGVO)">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (_canEdit && !_showArchived)

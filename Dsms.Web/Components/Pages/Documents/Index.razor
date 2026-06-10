@@ -9,12 +9,12 @@
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="Dokumente" />
+    <PageHeader Title="Dokumente" HelpKey="documents" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="Dokumente" Subtitle="Nachweise zu Audits, Maßnahmen, Dienstleistern, Verarbeitungstätigkeiten und DSFA">
+    <PageHeader Title="Dokumente" HelpKey="documents" Subtitle="Nachweise zu Audits, Maßnahmen, Dienstleistern, Verarbeitungstätigkeiten und DSFA">
         <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
     </PageHeader>
 

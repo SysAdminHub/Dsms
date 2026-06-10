@@ -7,12 +7,12 @@
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="Audit-Vorlagen" />
+    <PageHeader Title="Audit-Vorlagen" HelpKey="audit-templates" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="Audit-Vorlagen" Subtitle="Wiederverwendbare Fragenkataloge für Audits">
+    <PageHeader Title="Audit-Vorlagen" HelpKey="audit-templates" Subtitle="Wiederverwendbare Fragenkataloge für Audits">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (!_showArchived)

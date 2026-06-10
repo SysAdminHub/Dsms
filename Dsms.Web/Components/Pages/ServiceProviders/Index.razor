@@ -10,12 +10,12 @@
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="Dienstleister" />
+    <PageHeader Title="Dienstleister" HelpKey="service-providers" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="Dienstleister" Subtitle="Auftragsverarbeiter und externe Dienstleister">
+    <PageHeader Title="Dienstleister" HelpKey="service-providers" Subtitle="Auftragsverarbeiter und externe Dienstleister">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (_canEdit && !_showArchived)

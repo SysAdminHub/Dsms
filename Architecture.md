@@ -63,7 +63,7 @@ c:\code\DS\
     │   ├── App.razor, Routes.razor
     │   ├── Layout/                # MainLayout, NavMenu, LoginLayout
     │   ├── Pages/                 # Fachseiten (inkl. ProcessingActivities/, Toms/, ServiceProviders/)
-    │   ├── Shared/                # PageHeader, StatusBadge, DocumentUploadComponent, DocumentActions, DocumentLinksEditModal
+    │   ├── Shared/                # PageHeader, PageHelpButton, StatusBadge, DocumentUploadComponent, …
     │   └── Account/               # Identity UI + Endpunkte
     ├── wwwroot/                   # CSS, Bootstrap, favicon
     ├── Properties/launchSettings.json
@@ -155,6 +155,7 @@ Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnec
 | `DataProtectionImpactAssessments` | `DataProtectionImpactAssessment` |
 | `EmailSettings` | `EmailSettings` (plattformweit, kein Mandantenfilter) |
 | `EmailTemplates` | `EmailTemplate` (plattformweit, eindeutiger `TemplateKey`) |
+| `PageHelpContents` | `PageHelpContent` (plattformweit, eindeutiger `Key`; Hilfetexte für Fachseiten) |
 
 Zusätzlich alle **ASP.NET Identity**-Standardtabellen (`AspNetUsers`, `AspNetRoles`, …).
 
@@ -240,6 +241,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IUserManagementService` / `UserManagementService` | Scoped | Benutzerliste, Anlegen, Bearbeiten, Deaktivieren inkl. serverseitiger Validierung |
 | `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, DSFA, VVT-Verknüpfungen) |
 | `ITenantOnboardingService` / `TenantOnboardingService` | Scoped | Mandanten-Checkliste „Erste Schritte“ auf dem Dashboard (Standardaufgaben anlegen, manuelles Abhaken) |
+| `IPageHelpContentService` / `PageHelpContentService` | Scoped | Globale Hilfetexte für Fachseiten (Lesen für alle Angemeldeten; Bearbeiten nur Superuser) |
 | `ProcessingActivityRelationsService` | Scoped | Laden/Speichern von VVT-Verknüpfungen, Warnhinweise, Mandantenvalidierung |
 | `DocumentStorageService` | Scoped | Speichern von Upload-Dateien unter `Storage:UploadPath` (Default: `Data/Uploads/{tenantId}/`) |
 | `ITenantExportService` / `TenantExportService` | Scoped | Vollständiger Mandanten-Export als ZIP (JSON-DTOs + Dokumentdateien) |

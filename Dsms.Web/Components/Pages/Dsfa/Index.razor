@@ -10,12 +10,12 @@
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="DSFA" />
+    <PageHeader Title="DSFA" HelpKey="dsfa" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="DSFA" Subtitle="Datenschutz-Folgenabschätzungen">
+    <PageHeader Title="DSFA" HelpKey="dsfa" Subtitle="Datenschutz-Folgenabschätzungen">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (_canEdit && !_showArchived)

@@ -7,12 +7,12 @@
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="Audit-Durchläufe" />
+    <PageHeader Title="Audit-Durchläufe" HelpKey="audit-runs" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="Audit-Durchläufe" Subtitle="Laufende und abgeschlossene Datenschutz-Audits">
+    <PageHeader Title="Audit-Durchläufe" HelpKey="audit-runs" Subtitle="Laufende und abgeschlossene Datenschutz-Audits">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (_canEdit && !_showArchived)

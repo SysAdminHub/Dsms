@@ -43,6 +43,7 @@ public class ApplicationDbContext(
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
     public DbSet<LogEntry> LogEntries => Set<LogEntry>();
     public DbSet<TenantOnboardingTask> TenantOnboardingTasks => Set<TenantOnboardingTask>();
+    public DbSet<PageHelpContent> PageHelpContents => Set<PageHelpContent>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -456,6 +457,18 @@ public class ApplicationDbContext(
             e.Property(t => t.TextContent).HasColumnType("text");
             e.Property(t => t.UpdatedByUserId).HasMaxLength(450);
             e.HasIndex(t => t.TemplateKey).IsUnique();
+        });
+
+        builder.Entity<PageHelpContent>(e =>
+        {
+            e.ToTable("PageHelpContents");
+            e.Property(h => h.Key).HasMaxLength(100).IsRequired();
+            e.Property(h => h.Title).HasMaxLength(200).IsRequired();
+            e.Property(h => h.LegalReference).HasMaxLength(500);
+            e.Property(h => h.ShortDescription).HasMaxLength(500);
+            e.Property(h => h.Content).HasColumnType("text").IsRequired();
+            e.Property(h => h.UpdatedByUserId).HasMaxLength(450);
+            e.HasIndex(h => h.Key).IsUnique();
         });
 
         builder.Entity<TenantOnboardingTask>(e =>

@@ -14,6 +14,13 @@
     margin-bottom: var(--dsms-space-6);
 }
 
+.dsms-page-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--dsms-space-2);
+}
+
 .dsms-page-title {
     font-size: var(--dsms-font-size-2xl);
     font-weight: 600;
@@ -21,6 +28,71 @@
     line-height: var(--dsms-line-height-tight);
     color: var(--dsms-text);
     margin: 0;
+}
+
+.dsms-page-help-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: 1px solid var(--dsms-border);
+    border-radius: 50%;
+    background: var(--dsms-surface);
+    color: var(--dsms-text-muted);
+    font-size: var(--dsms-font-size-xs);
+    font-weight: 700;
+    font-style: italic;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.dsms-page-help-btn:hover {
+    color: var(--dsms-primary);
+    border-color: var(--dsms-primary);
+    background: #f8fafc;
+}
+
+.dsms-page-help-btn:focus-visible {
+    outline: 2px solid var(--dsms-primary);
+    outline-offset: 2px;
+}
+
+.dsms-page-help-intro {
+    font-size: var(--dsms-font-size-base);
+    color: var(--dsms-text-secondary);
+    margin-bottom: var(--dsms-space-4);
+}
+
+.dsms-page-help-section {
+    margin-bottom: var(--dsms-space-4);
+}
+
+.dsms-page-help-section-title {
+    font-size: var(--dsms-font-size-sm);
+    font-weight: 600;
+    color: var(--dsms-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: var(--dsms-space-2);
+}
+
+.dsms-page-help-content p {
+    margin-bottom: var(--dsms-space-3);
+}
+
+.dsms-page-help-content p:last-child {
+    margin-bottom: 0;
+}
+
+.dsms-page-help-disclaimer {
+    margin-top: var(--dsms-space-4);
+    padding-top: var(--dsms-space-4);
+    border-top: 1px solid var(--dsms-border);
+    font-size: var(--dsms-font-size-sm);
+    color: var(--dsms-text-muted);
 }
 
 .dsms-page-subtitle {

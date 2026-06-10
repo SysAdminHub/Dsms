@@ -7,12 +7,12 @@
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="Maßnahmen" />
+    <PageHeader Title="Maßnahmen" HelpKey="measures" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="Maßnahmen" Subtitle="@GetSubtitle()">
+    <PageHeader Title="Maßnahmen" HelpKey="measures" Subtitle="@GetSubtitle()">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (_canEdit && !_showArchived)

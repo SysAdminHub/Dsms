@@ -41,9 +41,11 @@
 }
 
 .dsms-sidebar-title {
-    font-size: var(--dsms-font-size-lg);
+    font-size: var(--dsms-font-size-base);
     font-weight: 600;
     letter-spacing: -0.02em;
+    line-height: 1.25;
+    white-space: nowrap;
 }
 
 .navbar-toggler {

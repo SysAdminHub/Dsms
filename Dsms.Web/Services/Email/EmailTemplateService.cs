@@ -4,6 +4,9 @@ using Dsms.Web.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
+using Dsms.Web.Configuration;
+using Microsoft.Extensions.Options;
+
 namespace Dsms.Web.Services.Email;
 
 public sealed class EmailTemplateService(
@@ -12,8 +15,10 @@ public sealed class EmailTemplateService(
     ICurrentUserContext currentUser,
     UserManager<ApplicationUser> userManager,
     IEmailTemplateRenderer templateRenderer,
-    IEmailService emailService) : IEmailTemplateService
+    IEmailService emailService,
+    IOptions<AppBrandingOptions> brandingOptions) : IEmailTemplateService
 {
+    private readonly AppBrandingOptions _branding = brandingOptions.Value;
     public async Task<IReadOnlyList<EmailTemplate>> ListAsync()
     {
         await EnsureSuperuserAsync();
@@ -98,7 +103,7 @@ public sealed class EmailTemplateService(
             return EmailOperationResult.Fail("Vorlage wurde nicht gefunden.");
         }
 
-        var variables = EmailTemplateSampleData.AsDictionary();
+        var variables = EmailTemplateSampleData.AsDictionary(_branding);
         var rendered = templateRenderer.Render(template.Subject, template.HtmlContent, template.TextContent, variables);
 
         var result = await emailService.SendEmailAsync(
@@ -124,7 +129,7 @@ public sealed class EmailTemplateService(
     }
 
     public RenderedEmail GetPreview(EmailTemplateEditModel model) =>
-        templateRenderer.Render(model.Subject, model.HtmlContent, model.TextContent, EmailTemplateSampleData.AsDictionary());
+        templateRenderer.Render(model.Subject, model.HtmlContent, model.TextContent, EmailTemplateSampleData.AsDictionary(_branding));
 
     private async Task<EmailTemplateEditModel> MapToEditModelAsync(EmailTemplate template)
     {

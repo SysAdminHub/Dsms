@@ -4,6 +4,10 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Geändert
+
+- **Sichtbares Produkt-Branding:** Der sichtbare Produktname wurde von „DSMS“ auf **Datenschutz-Cloud** umgestellt. Zentrale Konfiguration unter `AppBranding` in `appsettings.json` (`AppBrandingOptions`). Betrifft Sidebar, Topbar, Login, Browser-Titel (`BrandedPageTitle`), Versionsanzeige, E-Mail-Vorlagen/Platzhalter, Mandanten-Export-Metadaten und interne Systemmails. Technische Projektnamen (z. B. `Dsms.Web`) und Favicon unverändert.
+
 ### Hinzugefügt
 
 - **Mandanten-Stammdaten für Admins unter `/tenant-daten`:** Mandanten-Admins und Superuser können DSGVO-Stammdaten (Verantwortlicher, DSB) des aktuellen Mandanten bearbeiten (`ITenantComplianceInfoService`). TenantId wird serverseitig ermittelt; Lizenz- und Plattformfelder bleiben gesperrt. Audit-Log-Aktion `TenantComplianceInfoUpdated`.

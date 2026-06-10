@@ -1,5 +1,6 @@
 using Dsms.Web.Components;
 using Dsms.Web.Components.Account;
+using Dsms.Web.Configuration;
 using Dsms.Web.Data;
 using Dsms.Web.Data.Seed;
 using Dsms.Web.Services;
@@ -22,6 +23,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<AppBrandingOptions>(
+    builder.Configuration.GetSection(AppBrandingOptions.SectionName));
 
 // --- Blazor Server (interaktive Komponenten) ---
 builder.Services.AddRazorComponents()

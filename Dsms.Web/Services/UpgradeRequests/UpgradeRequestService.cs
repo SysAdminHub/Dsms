@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Dsms.Web.Configuration;
 using Dsms.Web.Data;
 using Dsms.Web.Services.Email;
 using Dsms.Web.Services.Licenses;
@@ -7,6 +8,7 @@ using Dsms.Web.Services.Logging;
 using Dsms.Web.Services.PendingSignups;
 using Dsms.Web.Services.SubscriptionPlans;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Dsms.Web.Services.UpgradeRequests;
 
@@ -16,8 +18,10 @@ public sealed class UpgradeRequestService(
     IEmailService emailService,
     ICurrentUserContext currentUser,
     ILogService logService,
-    ILogger<UpgradeRequestService> logger) : IUpgradeRequestService
+    ILogger<UpgradeRequestService> logger,
+    IOptions<AppBrandingOptions> brandingOptions) : IUpgradeRequestService
 {
+    private readonly AppBrandingOptions _branding = brandingOptions.Value;
     private const string ValidationMessage = "Bitte wählen Sie ein gewünschtes Upgrade aus.";
     private const string SystemDisabledMessage =
         "Die Upgrade-Anfrage konnte nicht versendet werden, da Systembenachrichtigungen deaktiviert sind.";
@@ -186,12 +190,13 @@ public sealed class UpgradeRequestService(
             isIndividual);
     }
 
-    private static string BuildSubject(LicenseDetailsDto license, bool isIndividual)
+    private string BuildSubject(LicenseDetailsDto license, bool isIndividual)
     {
         var customer = license.CustomerName.Trim();
+        var productName = _branding.ProductName;
         return isIndividual
-            ? $"DSMS individuelles Upgrade angefragt: {customer}"
-            : $"DSMS Upgrade-Anfrage: {customer}";
+            ? $"{productName} individuelles Upgrade angefragt: {customer}"
+            : $"{productName} Upgrade-Anfrage: {customer}";
     }
 
     private static string BuildHtmlBody(

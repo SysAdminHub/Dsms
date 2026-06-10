@@ -1,9 +1,11 @@
 using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Dsms.Web.Configuration;
 using Dsms.Web.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Dsms.Web.Services.TenantExport;
 
@@ -11,8 +13,10 @@ public class TenantExportService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
     UserManager<ApplicationUser> userManager,
     DocumentStorageService documentStorage,
-    ILogger<TenantExportService> logger) : ITenantExportService
+    ILogger<TenantExportService> logger,
+    IOptions<AppBrandingOptions> brandingOptions) : ITenantExportService
 {
+    private readonly AppBrandingOptions _branding = brandingOptions.Value;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -56,6 +60,7 @@ public class TenantExportService(
             ExportCreatedByEmail = exportUser?.Email,
             TenantId = tenantId,
             TenantName = tenant.Name,
+            ApplicationName = _branding.ProductName,
             Warnings = warnings
         };
 
@@ -92,7 +97,7 @@ public class TenantExportService(
         }
 
         zipStream.Position = 0;
-        var fileName = BuildZipFileName(tenant.Name);
+        var fileName = BuildZipFileName(tenant.Name, _branding.ProductName);
 
         logger.LogInformation("Tenant-Export erstellt: TenantId={TenantId}, UserId={UserId}, Size={Size}",
             tenantId, userId, zipStream.Length);
@@ -669,7 +674,7 @@ public class TenantExportService(
         ?? doc.AuditRunId
         ?? doc.MeasureId;
 
-    private static string BuildZipFileName(string tenantName)
+    private static string BuildZipFileName(string tenantName, string productName)
     {
         var safe = SanitizeFileName(tenantName);
         if (string.IsNullOrWhiteSpace(safe))
@@ -677,8 +682,14 @@ public class TenantExportService(
             safe = "tenant";
         }
 
+        var productSlug = SanitizeFileName(productName).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(productSlug))
+        {
+            productSlug = "export";
+        }
+
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmm");
-        return $"dsms-tenant-export-{safe}-{timestamp}.zip";
+        return $"{productSlug}-tenant-export-{safe}-{timestamp}.zip";
     }
 
     private static string SanitizeFileName(string name)

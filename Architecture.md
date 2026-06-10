@@ -329,7 +329,7 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 
 | Datei | Inhalt |
 |-------|--------|
-| `appsettings.json` | Lokaler Connection-String-Fallback (`dsms_dev`/`changeme`), `Storage:UploadPath`, Logging |
+| `appsettings.json` | Lokaler Connection-String-Fallback (`dsms_dev`/`changeme`), `Application:Version`, `AppBranding` (sichtbarer Produktname, URLs, Tagline), `Storage:UploadPath`, Logging |
 | `appsettings.Development.json` | `dsms_dev`, detaillierter EF-Logging |
 | `.env.example` / `.env` | Docker-Production-Secrets (nur `.env.example` im Repo) |
 | `docker-compose.yml` | App + MySQL 8, Volumes, Environment Variables |

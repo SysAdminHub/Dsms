@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@inject IApplicationInfoService ApplicationInfo
 
 <div class="page">
     <div class="sidebar">
@@ -8,7 +9,7 @@
     <main>
         <div class="dsms-topbar">
             <span class="dsms-topbar-title">
-                <strong>DSMS</strong> · Datenschutz-Management
+                <strong>@ApplicationInfo.ProductName</strong> · Datenschutz-Management
             </span>
             <div class="dsms-topbar-actions">
                 <TenantSwitcher />

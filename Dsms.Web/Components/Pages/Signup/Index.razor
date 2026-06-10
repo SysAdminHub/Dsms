@@ -1,12 +1,13 @@
 @page "/signup"
 @layout PublicSignupLayout
 @rendermode InteractiveServer
+@inject IApplicationInfoService ApplicationInfo
 
-<PageTitle>Registrieren</PageTitle>
+<BrandedPageTitle Title="Registrieren" />
 
 <div class="dsms-public-signup-page">
     <header class="dsms-public-signup-header dsms-login-brand">
-        <div class="dsms-login-logo">DS</div>
+        <div class="dsms-login-logo">@ApplicationInfo.ShortName</div>
         <h1>Registrieren</h1>
         <p>Wählen Sie einen Tarif und erstellen Sie Ihren Zugang zum Datenschutzmanagementsystem.</p>
     </header>

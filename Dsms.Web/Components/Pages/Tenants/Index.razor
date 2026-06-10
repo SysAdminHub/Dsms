@@ -3,7 +3,7 @@
 @attribute [Authorize(Roles = DsmsRoles.Superuser)]
 @rendermode InteractiveServer
 
-<PageTitle>Mandanten</PageTitle>
+<BrandedPageTitle Title="Mandanten" />
 
 <PageHeader Title="Mandanten" Subtitle="Organisationseinheiten der Plattform verwalten">
     @if (_createLimit is { IsAllowed: false })

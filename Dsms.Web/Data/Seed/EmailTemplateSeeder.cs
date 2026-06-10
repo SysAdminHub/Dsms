@@ -47,7 +47,7 @@ public static class EmailTemplateSeeder
             """);
 
         await SeedTemplateIfMissingAsync(db, EmailTemplateKeys.TestEmail, "Testmail",
-            "DSMS Testmail",
+            "{{AppName}} Testmail",
             """
             <p>Hallo,</p>
             <p>dies ist eine Testmail aus {{AppName}}.</p>

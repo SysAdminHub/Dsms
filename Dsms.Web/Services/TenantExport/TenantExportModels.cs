@@ -7,7 +7,7 @@ public sealed class ExportInfoDto
     public string? ExportCreatedByEmail { get; init; }
     public int TenantId { get; init; }
     public string TenantName { get; init; } = string.Empty;
-    public string ApplicationName { get; init; } = "DSMS";
+    public string ApplicationName { get; init; } = "Datenschutz-Cloud";
     public string ExportVersion { get; init; } = "1.0";
     public string SecurityNote { get; init; } =
         "Dieser Export enthält keine Passwort-Hashes, Tokens, Secrets oder SMTP-Passwörter.";

@@ -33,7 +33,7 @@ public static class SubscriptionPlanSeeder
         Id = Guid.NewGuid(),
         Name = "free",
         DisplayName = "Free",
-        Description = "Kostenloser Einstieg zum Testen des DSMS.",
+        Description = "Kostenloser Einstieg zum Testen der Datenschutz-Cloud.",
         IsActive = true,
         IsFree = true,
         IsPublicSignupEnabled = true,

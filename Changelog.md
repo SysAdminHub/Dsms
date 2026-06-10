@@ -6,6 +6,14 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Feedback senden:** Dezenter Sidebar-Link im Bereich „Konto“ (`FeedbackButton`) öffnet ein Modal mit Kategorie, Betreff und Nachricht. Versand per `IFeedbackService` an `AppBranding.SupportEmail` über den zentralen E-Mail-Service und Vorlage `FeedbackMessageToSupport`. Enthält Benutzer-, Mandanten-, Seiten- und Versionskontext. Keine Datenbankpersistenz.
+
+### Behoben
+
+- **Feedback senden (Sidebar):** `@onclick` funktionierte nicht, weil `NavMenu`/`MainLayout` statisch gerendert werden. `FeedbackButton` nutzt jetzt `InteractiveServerRenderMode` (wie `TenantSwitcher`). Button-Styling an `nav-link`/`dsms-nav-logout` angeglichen — gleiche Optik wie „Abmelden“.
+
+- **Feedback-Modal (Layout):** Modal wurde in der Sidebar gerendert und lag im Stacking Context unter der sticky Topbar. Eigenes Fixed-Overlay (`dsms-feedback-modal-backdrop`, `z-index: 2000`) über der gesamten Viewport-Fläche.
+
 - **Seiten-Hilfe (Info-Button):** Zentraler Hilfetext für Fachseiten über `PageHelpContent` (plattformweit, eindeutiger `Key`). Wiederverwendbare Komponente `PageHelpButton` neben dem Seitentitel in `PageHeader` (`HelpKey`). Modal mit rechtlichem Bezug, Kurzbeschreibung und Erklärungstext (Plaintext, absatzweise). Superuser können Texte direkt im Modal bearbeiten; andere Rollen nur lesen. Standardtexte per `PageHelpContentSeeder` (idempotent, überschreibt keine Anpassungen). Migration `AddPageHelpContents`. Integriert auf: Verarbeitungstätigkeiten, TOMs, DSFA, Dienstleister, Audit-Vorlagen, Audit-Durchläufe, Maßnahmen, Dokumente, Tenant-Daten, Benutzer, Meine Lizenz.
 
 - **Dashboard „Erste Schritte“:** Einklappbare Checkliste mit sechs mandantenbezogenen Standardaufgaben (`TenantOnboardingTask`, `ITenantOnboardingService`). Manuelles Abhaken, Fortschrittsanzeige, Links zu Modulen. Einklapp-Zustand per localStorage. Migration `AddTenantOnboardingTasks`.

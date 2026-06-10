@@ -111,6 +111,11 @@
     font-family: inherit;
 }
 
+.nav-item ::deep .dsms-nav-logout:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
 .dsms-sidebar-version {
     padding: var(--dsms-space-3);
     font-size: var(--dsms-font-size-xs);

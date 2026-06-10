@@ -87,6 +87,76 @@
     margin-bottom: 0;
 }
 
+.dsms-feedback-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.dsms-feedback-modal-dialog {
+    width: min(100%, 640px);
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100vh - 2rem);
+    margin: auto;
+    flex-shrink: 0;
+}
+
+.dsms-feedback-modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 2rem);
+    background: var(--dsms-surface);
+    border: 1px solid var(--dsms-border);
+    border-radius: var(--dsms-radius-md);
+    box-shadow: var(--dsms-shadow-lg);
+    overflow: hidden;
+}
+
+.dsms-feedback-modal-body {
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.dsms-feedback-modal-content .modal-header {
+    padding: var(--dsms-space-5) var(--dsms-space-6) var(--dsms-space-4);
+}
+
+.dsms-feedback-modal-content .modal-body {
+    padding: var(--dsms-space-3) var(--dsms-space-6) var(--dsms-space-5);
+}
+
+.dsms-feedback-modal-content .modal-footer {
+    padding: var(--dsms-space-4) var(--dsms-space-6) var(--dsms-space-5);
+    gap: var(--dsms-space-2);
+}
+
+@media (max-width: 640.98px) {
+    .dsms-feedback-modal-backdrop {
+        align-items: flex-start;
+        padding-top: 5rem;
+        padding-bottom: 1rem;
+    }
+}
+
+.dsms-feedback-intro {
+    font-size: var(--dsms-font-size-base);
+    color: var(--dsms-text-secondary);
+    margin-bottom: var(--dsms-space-4);
+}
+
+.dsms-feedback-textarea {
+    min-height: 8rem;
+    resize: vertical;
+}
+
 .dsms-page-help-disclaimer {
     margin-top: var(--dsms-space-4);
     padding-top: var(--dsms-space-4);

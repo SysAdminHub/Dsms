@@ -54,6 +54,35 @@ public static class EmailTemplateSeeder
             <p>Wenn diese Email angekommen ist, funktioniert der zentrale Emailversand.</p>
             <p>Viele Grüße<br/>{{AppName}}</p>
             """);
+
+        await SeedTemplateIfMissingAsync(db, EmailTemplateKeys.FeedbackMessageToSupport, "Feedback an Support",
+            "[{{ProductName}} Feedback] {{Category}}: {{Subject}}",
+            """
+            <div style="font-family: sans-serif; line-height: 1.5;">
+            <h2>Feedback-Nachricht</h2>
+            <h3>Nachricht</h3>
+            <table style="border-collapse: collapse;">
+            <tr><td style="padding: 2px 12px 2px 0; vertical-align: top;"><strong>Kategorie:</strong></td><td>{{Category}}</td></tr>
+            <tr><td style="padding: 2px 12px 2px 0; vertical-align: top;"><strong>Betreff:</strong></td><td>{{Subject}}</td></tr>
+            </table>
+            <p style="margin-top: 1rem;"><strong>Nachricht:</strong></p>
+            <p>{{Message}}</p>
+            <h3>Absender</h3>
+            <table style="border-collapse: collapse;">
+            <tr><td style="padding: 2px 12px 2px 0; vertical-align: top;"><strong>E-Mail:</strong></td><td>{{UserEmail}}</td></tr>
+            <tr><td style="padding: 2px 12px 2px 0; vertical-align: top;"><strong>Name:</strong></td><td>{{UserName}}</td></tr>
+            <tr><td style="padding: 2px 12px 2px 0; vertical-align: top;"><strong>Rolle:</strong></td><td>{{UserRole}}</td></tr>
+            </table>
+            <h3>Kontext</h3>
+            <table style="border-collapse: collapse;">
+            <tr><td style="padding: 2px 12px 2px 0; vertical-align: top;"><strong>Mandant:</strong></td><td>{{TenantName}}</td></tr>
+            <tr><td style="padding: 2px 12px 2px 0; vertical-align: top;"><strong>Tenant-ID:</strong></td><td>{{TenantId}}</td></tr>
+            <tr><td style="padding: 2px 12px 2px 0; vertical-align: top;"><strong>Seite:</strong></td><td>{{CurrentUrl}}</td></tr>
+            <tr><td style="padding: 2px 12px 2px 0; vertical-align: top;"><strong>Version:</strong></td><td>{{AppVersion}}</td></tr>
+            <tr><td style="padding: 2px 12px 2px 0; vertical-align: top;"><strong>Zeitpunkt:</strong></td><td>{{CreatedAt}}</td></tr>
+            </table>
+            </div>
+            """);
     }
 
     private static async Task SeedTemplateIfMissingAsync(

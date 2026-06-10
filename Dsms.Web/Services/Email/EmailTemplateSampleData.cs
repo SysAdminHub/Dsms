@@ -20,6 +20,14 @@ public static class EmailTemplateSampleData
             ["ReminderText"] = "Bitte prüfe die offene Maßnahme im Datenschutzmanagementsystem.",
             ["DueDate"] = "31.12.2026",
             ["ActionLink"] = "https://example.com/measures/1",
-            ["SupportEmail"] = branding.SupportEmail
+            ["SupportEmail"] = branding.SupportEmail,
+            ["Category"] = "Fehler melden",
+            ["Subject"] = "Beispiel-Betreff",
+            ["Message"] = "Beispiel-Nachricht des Benutzers.",
+            ["UserRole"] = "Admin",
+            ["TenantId"] = "1",
+            ["CurrentUrl"] = "https://example.com/processing-activities",
+            ["AppVersion"] = "1.0.1",
+            ["CreatedAt"] = "10.06.2026 14:30"
         };
 }

@@ -271,6 +271,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IProvisioningService` / `ProvisioningService` | Scoped | Provisioniert Kunde: License + Tenant + Admin + Passwortvergabe-Mail |
 | `IPublicSignupService` / `PublicSignupService` | Scoped | Öffentlicher Signup mit Tarifauswahl → PendingSignup + direkte Provisionierung; interne Benachrichtigung via `ISignupNotificationService` |
 | `ISignupNotificationService` / `SignupNotificationService` | Scoped | Interne E-Mail nach erfolgreichem Public Signup; Empfänger aus `EmailSettings.SystemNotificationRecipientEmail` |
+| `IFeedbackService` / `FeedbackService` | Scoped | Benutzer-Feedback per E-Mail an `AppBranding.SupportEmail`; Vorlage `FeedbackMessageToSupport`; keine DB-Persistenz |
 | `IPaidSignupService` / `PaidSignupService` | Scoped | Legacy Paid-Signup-Service (nicht mehr über eigene Seite) |
 | `IPendingSignupService` / `PendingSignupService` | Scoped | Zwischenspeicher für ausstehende Registrierungen; Public Signup; Rechnungsverwaltung (NextInvoiceDate, BillingStatus-Aktionen) |
 | `ILogService` / `LogService` | Scoped | Zentrales Audit- und Systemprotokoll (`LogEntry`-Tabelle); siehe `Logging.md` |

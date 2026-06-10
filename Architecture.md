@@ -177,7 +177,7 @@ Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `To
 
 **`AuditTemplate`** erbt nur von `ArchivableEntityBase` (nicht `ITenantEntity`): `TenantId` bei eigenen Vorlagen gesetzt, bei globalen Vorlagen (`Official`, `Community`) `null`. Zusätzlich `CommunityStatus` und Prüffelder für Einreichungen. Sichtbarkeit: eigene Mandantenvorlagen + globale `Official`/`Community` über Query Filter. Community-Freigabe erstellt separate globale Kopie; Ursprungsvorlage bleibt beim Mandanten (`CommunityStatus = Approved`).
 
-Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen.
+Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen, **`TenantOnboardingTask`** (mandantenbezogene Dashboard-Checkliste „Erste Schritte“; eindeutiger Index `TenantId` + `Key`).
 
 **`License`** ist eine eigenständige Entity mit **`Guid Id`** (nicht `EntityBase`). Enthält Kundendaten, Status, Gültigkeit und Limit-Felder (lizenzweit und pro Mandant). `LicenseNumber` wird automatisch vergeben (Format `LIC-{Jahr}-{Sequenz}`).
 
@@ -239,6 +239,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IUserAccessService` / `UserAccessService` | Scoped | Zentrale Berechtigungen (Superuser vs. Admin, Mandantenzugriff, bearbeitbare Benutzer) |
 | `IUserManagementService` / `UserManagementService` | Scoped | Benutzerliste, Anlegen, Bearbeiten, Deaktivieren inkl. serverseitiger Validierung |
 | `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, DSFA, VVT-Verknüpfungen) |
+| `ITenantOnboardingService` / `TenantOnboardingService` | Scoped | Mandanten-Checkliste „Erste Schritte“ auf dem Dashboard (Standardaufgaben anlegen, manuelles Abhaken) |
 | `ProcessingActivityRelationsService` | Scoped | Laden/Speichern von VVT-Verknüpfungen, Warnhinweise, Mandantenvalidierung |
 | `DocumentStorageService` | Scoped | Speichern von Upload-Dateien unter `Storage:UploadPath` (Default: `Data/Uploads/{tenantId}/`) |
 | `ITenantExportService` / `TenantExportService` | Scoped | Vollständiger Mandanten-Export als ZIP (JSON-DTOs + Dokumentdateien) |

@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- **Dashboard „Erste Schritte“:** Einklappbare Checkliste mit sechs mandantenbezogenen Standardaufgaben (`TenantOnboardingTask`, `ITenantOnboardingService`). Manuelles Abhaken, Fortschrittsanzeige, Links zu Modulen. Einklapp-Zustand per localStorage. Migration `AddTenantOnboardingTasks`.
+
+### Geändert
+
+- **Dashboard „Erste Schritte“ (UI):** Kompakteres Card-Layout im Stil der Upgrade-Card — kleinerer Header, Fortschritts-Badge, dezente 6px-Progressbar, Aufgabenzeilen ohne Bulletpoints, kurze Beschreibungstexte nur in der Anzeige. Halbe Breite auf Desktop im Zwei-Spalten-Grid neben „Offene Maßnahmen“.
+
 ### Geändert
 
 - **Sichtbares Produkt-Branding:** Der sichtbare Produktname wurde von „DSMS“ auf **Datenschutz-Cloud** umgestellt. Zentrale Konfiguration unter `AppBranding` in `appsettings.json` (`AppBrandingOptions`). Betrifft Sidebar, Topbar, Login, Browser-Titel (`BrandedPageTitle`), Versionsanzeige, E-Mail-Vorlagen/Platzhalter, Mandanten-Export-Metadaten und interne Systemmails. Technische Projektnamen (z. B. `Dsms.Web`) und Favicon unverändert.

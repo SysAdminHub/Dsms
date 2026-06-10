@@ -1,4 +1,4 @@
-@*
+﻿@*
     Startseite nach Login: Kennzahlen und Kurzlisten aus DashboardService (mandantenbezogen).
     Mandantenauswahl bei fehlendem Kontext direkt im Dashboard.
 *@
@@ -169,6 +169,8 @@ else if (_summary is not null)
     </div>
 
     <div class="dsms-split-grid">
+        <OnboardingTasksPanel />
+
         <div class="dsms-card">
             <div class="dsms-card-header">Offene Maßnahmen</div>
             @if (_summary.RecentMeasures.Count == 0)

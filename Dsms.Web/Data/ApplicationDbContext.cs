@@ -42,6 +42,7 @@ public class ApplicationDbContext(
     public DbSet<EmailSettings> EmailSettings => Set<EmailSettings>();
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
     public DbSet<LogEntry> LogEntries => Set<LogEntry>();
+    public DbSet<TenantOnboardingTask> TenantOnboardingTasks => Set<TenantOnboardingTask>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -457,6 +458,22 @@ public class ApplicationDbContext(
             e.HasIndex(t => t.TemplateKey).IsUnique();
         });
 
+        builder.Entity<TenantOnboardingTask>(e =>
+        {
+            e.ToTable("TenantOnboardingTasks");
+            e.Property(t => t.Key).HasMaxLength(100).IsRequired();
+            e.Property(t => t.Title).HasMaxLength(200).IsRequired();
+            e.Property(t => t.Description).HasColumnType("text").IsRequired();
+            e.Property(t => t.TargetUrl).HasMaxLength(500).IsRequired();
+            e.Property(t => t.CompletedByUserId).HasMaxLength(450);
+            e.HasOne(t => t.Tenant)
+                .WithMany()
+                .HasForeignKey(t => t.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(t => t.TenantId);
+            e.HasIndex(t => new { t.TenantId, t.Key }).IsUnique();
+        });
+
         builder.Entity<LogEntry>(e =>
         {
             e.ToTable("LogEntries");
@@ -538,6 +555,10 @@ public class ApplicationDbContext(
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 
         builder.Entity<ProcessingActivityAuditAnswer>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<TenantOnboardingTask>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
     }

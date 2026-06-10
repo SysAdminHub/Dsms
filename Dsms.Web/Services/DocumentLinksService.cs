@@ -16,7 +16,8 @@ public record DocumentLinksDto(
     int? MeasureId,
     int? ServiceProviderId,
     int? ProcessingActivityId,
-    int? DataProtectionImpactAssessmentId);
+    int? DataProtectionImpactAssessmentId,
+    int? PrivacyIncidentId);
 
 /// <summary>
 /// Aktualisiert optionale Verknüpfungen eines Nachweisdokuments (nur FK-Felder, nicht die Datei).
@@ -70,11 +71,19 @@ public class DocumentLinksService(ApplicationDbContext db)
                 return (UpdateDocumentLinksResult.InvalidTenantReference, "Die gewählte DSFA gehört nicht zu Ihrem Mandanten.");
         }
 
+        if (links.PrivacyIncidentId.HasValue)
+        {
+            var ok = await db.PrivacyIncidents.AnyAsync(i => i.Id == links.PrivacyIncidentId && i.TenantId == tenantId, ct);
+            if (!ok)
+                return (UpdateDocumentLinksResult.InvalidTenantReference, "Der gewählte Datenschutzvorfall gehört nicht zu Ihrem Mandanten.");
+        }
+
         document.AuditRunId = links.AuditRunId;
         document.MeasureId = links.MeasureId;
         document.ServiceProviderId = links.ServiceProviderId;
         document.ProcessingActivityId = links.ProcessingActivityId;
         document.DataProtectionImpactAssessmentId = links.DataProtectionImpactAssessmentId;
+        document.PrivacyIncidentId = links.PrivacyIncidentId;
         document.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(ct);

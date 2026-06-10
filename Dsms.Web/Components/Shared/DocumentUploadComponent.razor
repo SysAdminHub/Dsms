@@ -44,6 +44,7 @@
     [Parameter] public int? ServiceProviderId { get; set; }
     [Parameter] public int? ProcessingActivityId { get; set; }
     [Parameter] public int? DataProtectionImpactAssessmentId { get; set; }
+    [Parameter] public int? PrivacyIncidentId { get; set; }
     [Parameter] public EventCallback OnUploaded { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
@@ -136,6 +137,17 @@
                 }
             }
 
+            if (PrivacyIncidentId.HasValue)
+            {
+                var incidentOk = await Db.PrivacyIncidents.AnyAsync(i => i.Id == PrivacyIncidentId);
+                if (!incidentOk)
+                {
+                    _message = "Der gewählte Datenschutzvorfall gehört nicht zu Ihrem Mandanten.";
+                    _isError = true;
+                    return;
+                }
+            }
+
             await using var stream = file.OpenReadStream(DocumentUploadValidation.MaxFileSizeBytes);
             var path = await Storage.SaveAsync(TenantId, file.Name, stream);
 
@@ -151,6 +163,7 @@
                 ServiceProviderId = ServiceProviderId,
                 ProcessingActivityId = ProcessingActivityId,
                 DataProtectionImpactAssessmentId = DataProtectionImpactAssessmentId,
+                PrivacyIncidentId = PrivacyIncidentId,
                 UploadedByUserId = await CurrentUser.GetUserIdAsync()
             };
 

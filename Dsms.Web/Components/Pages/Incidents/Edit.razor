@@ -1,0 +1,674 @@
+@page "/incidents/edit"
+@page "/incidents/edit/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Datenschutzvorfall" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Datenschutzvorfall" HelpKey="privacy-incidents" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_accessDenied)
+{
+    <PageHeader Title="Datenschutzvorfall" HelpKey="privacy-incidents" />
+    <div class="alert alert-warning dsms-alert">Keine Berechtigung zum Bearbeiten von Datenschutzvorfällen.</div>
+    <a class="btn btn-outline-secondary" href="incidents">Zurück zur Übersicht</a>
+}
+else if (_notFound)
+{
+    <PageHeader Title="Datenschutzvorfall" HelpKey="privacy-incidents" />
+    <div class="alert alert-warning dsms-alert">Vorfall nicht gefunden oder kein Zugriff.</div>
+    <a class="btn btn-outline-secondary" href="incidents">Zurück zur Übersicht</a>
+}
+else
+{
+    <PageHeader Title="@(_model.Id == 0 ? "Neuer Datenschutzvorfall" : "Datenschutzvorfall bearbeiten")"
+                HelpKey="privacy-incidents"
+                Subtitle="@(_model.Id > 0 ? _model.IncidentNumber : null)" />
+
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+                <ValidationSummary class="alert alert-danger dsms-alert" />
+
+                <h5 class="dsms-form-section">Basisdaten</h5>
+                <div class="row">
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Titel *</label>
+                        <InputText class="form-control" @bind-Value="_model.Title" />
+                    </div>
+                    @if (_model.Id > 0)
+                    {
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Vorfallsnummer</label>
+                            <input class="form-control" value="@_model.IncidentNumber" readonly />
+                        </div>
+                    }
+                </div>
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Status</label>
+                        <InputSelect class="form-select" @bind-Value="_model.Status">
+                            @foreach (var status in Enum.GetValues<PrivacyIncidentStatus>())
+                            {
+                                <option value="@status">@PrivacyIncidentLabels.GetStatusLabel(status)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Schweregrad</label>
+                        <InputSelect class="form-select" @bind-Value="_model.Severity">
+                            @foreach (var severity in Enum.GetValues<PrivacyIncidentSeverity>())
+                            {
+                                <option value="@severity">@PrivacyIncidentLabels.GetSeverityLabel(severity)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Quelle</label>
+                        <InputSelect class="form-select" @bind-Value="_model.Source">
+                            @foreach (var source in Enum.GetValues<PrivacyIncidentSource>())
+                            {
+                                <option value="@source">@PrivacyIncidentLabels.GetSourceLabel(source)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Unsere Rolle</label>
+                        <InputSelect class="form-select" @bind-Value="_model.OwnRole">
+                            @foreach (var role in Enum.GetValues<PrivacyIncidentOwnRole>())
+                            {
+                                <option value="@role">@PrivacyIncidentLabels.GetOwnRoleLabel(role)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Kenntnisnahme</label>
+                        <InputDate TValue="DateTime?" class="form-control" @bind-Value="_discoveredAt" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Vorfallsdatum</label>
+                        <InputDate TValue="DateTime?" class="form-control" @bind-Value="_occurredAt" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Meldung an uns</label>
+                        <InputDate TValue="DateTime?" class="form-control" @bind-Value="_reportedToUsAt" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Verantwortlich</label>
+                        <InputText class="form-control" @bind-Value="_model.ResponsiblePerson" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Interne Referenz</label>
+                        <InputText class="form-control" @bind-Value="_model.InternalReference" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Beschreibung</h5>
+                <div class="mb-3">
+                    <label class="form-label">Was ist passiert?</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.Description" rows="3" />
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Wie wurde der Vorfall entdeckt?</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.HowDetected" rows="2" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Ursache</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.Cause" rows="2" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Betroffene Systeme</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.AffectedSystems" rows="2" />
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_incidentStillActive" id="incident-active" />
+                            <label class="form-check-label" for="incident-active">Vorfall noch aktiv</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Gestoppt am</label>
+                        <InputDate TValue="DateTime?" class="form-control" @bind-Value="_incidentStoppedAt" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Art der Verletzung</h5>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.ConfidentialityAffected" id="confidentiality" />
+                            <label class="form-check-label" for="confidentiality">Vertraulichkeit betroffen</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.IntegrityAffected" id="integrity" />
+                            <label class="form-check-label" for="integrity">Integrität betroffen</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.AvailabilityAffected" id="availability" />
+                            <label class="form-check-label" for="availability">Verfügbarkeit betroffen</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Beschreibung der Verletzung</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.BreachTypeDescription" rows="2" />
+                </div>
+
+                <h5 class="dsms-form-section">Betroffene Daten</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Datenkategorien</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.AffectedDataCategories" rows="2" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Personengruppen</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.AffectedPersonGroups" rows="2" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Anzahl Personen (ca.)</label>
+                        <InputNumber class="form-control" @bind-Value="_model.ApproxAffectedPersons" />
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Anzahl Datensätze (ca.)</label>
+                        <InputNumber class="form-control" @bind-Value="_model.ApproxAffectedRecords" />
+                    </div>
+                    <div class="col-md-6 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.SpecialCategoriesAffected" id="special-categories" />
+                            <label class="form-check-label" for="special-categories">Besondere Kategorien betroffen</label>
+                        </div>
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Risiko / Folgen</h5>
+                <div class="mb-3">
+                    <label class="form-label">Wahrscheinliche Folgen</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.LikelyConsequences" rows="2" />
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Risiko-Level</label>
+                        <InputSelect class="form-select" @bind-Value="_model.RiskLevel">
+                            @foreach (var level in Enum.GetValues<PrivacyIncidentRiskLevel>())
+                            {
+                                <option value="@level">@PrivacyIncidentLabels.GetRiskLevelLabel(level)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Begründung</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.RiskAssessmentReason" rows="2" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Meldebewertung</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Meldung an Behörde erforderlich?</label>
+                        <InputSelect class="form-select" @bind-Value="_model.SupervisoryAuthorityNotificationRequired">
+                            @foreach (var decision in Enum.GetValues<DecisionStatus>())
+                            {
+                                <option value="@decision">@PrivacyIncidentLabels.GetDecisionStatusLabel(decision)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Behörde</label>
+                        <InputText class="form-control" @bind-Value="_model.SupervisoryAuthorityName" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Gemeldet am</label>
+                        <InputDate TValue="DateTime?" class="form-control" @bind-Value="_authorityNotifiedAt" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Begründung Meldepflicht</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.SupervisoryAuthorityNotificationReason" rows="2" />
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Aktenzeichen</label>
+                        <InputText class="form-control" @bind-Value="_model.SupervisoryAuthorityReference" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Verzögerungsbegründung</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.NotificationDelayReason" rows="2" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Betroffenenbenachrichtigung</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Benachrichtigung erforderlich?</label>
+                        <InputSelect class="form-select" @bind-Value="_model.DataSubjectsNotificationRequired">
+                            @foreach (var decision in Enum.GetValues<DecisionStatus>())
+                            {
+                                <option value="@decision">@PrivacyIncidentLabels.GetDecisionStatusLabel(decision)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Benachrichtigt am</label>
+                        <InputDate TValue="DateTime?" class="form-control" @bind-Value="_dataSubjectsNotifiedAt" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Methode</label>
+                        <InputText class="form-control" @bind-Value="_model.DataSubjectsNotificationMethod" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Begründung</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.DataSubjectsNotificationReason" rows="2" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Zusammenfassung</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.DataSubjectsNotificationSummary" rows="2" />
+                </div>
+
+                @if (_model.Id > 0)
+                {
+                    <h5 class="dsms-form-section">Verknüpfungen</h5>
+                    <p class="form-text text-muted">Nur Einträge des eigenen Mandanten.</p>
+
+                    <div class="mb-4">
+                        <label class="form-label">Verarbeitungstätigkeiten</label>
+                        @if (_processingActivities.Count == 0)
+                        {
+                            <div class="alert alert-info dsms-alert mb-0">Keine Verarbeitungstätigkeiten vorhanden.</div>
+                        }
+                        else
+                        {
+                            <div class="dsms-checkbox-list">
+                                @foreach (var pa in _processingActivities)
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="@($"pa-{pa.Id}")"
+                                               checked="@_selectedProcessingActivityIds.Contains(pa.Id)"
+                                               @onchange="e => TogglePa(pa.Id, (bool)e.Value!)" />
+                                        <label class="form-check-label" for="@($"pa-{pa.Id}")">@pa.Name</label>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Dienstleister</label>
+                        @if (_serviceProviders.Count == 0)
+                        {
+                            <div class="alert alert-info dsms-alert mb-0">Keine Dienstleister vorhanden.</div>
+                        }
+                        else
+                        {
+                            <div class="dsms-checkbox-list">
+                                @foreach (var sp in _serviceProviders)
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="@($"sp-{sp.Id}")"
+                                               checked="@_selectedServiceProviderIds.Contains(sp.Id)"
+                                               @onchange="e => ToggleSp(sp.Id, (bool)e.Value!)" />
+                                        <label class="form-check-label" for="@($"sp-{sp.Id}")">@sp.Name</label>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Maßnahmen</label>
+                        <p class="form-text text-muted mb-2">
+                            Dokumentieren Sie konkrete Aufgaben, Abhilfe- und Präventionsmaßnahmen im Modul Maßnahmen.
+                        </p>
+                        @if (_canCreateMeasure)
+                        {
+                            <div class="mb-3">
+                                <a class="btn btn-sm btn-outline-secondary"
+                                   href="@($"measures/edit?privacyIncidentId={_model.Id}")">
+                                    + Maßnahme aus Vorfall erstellen
+                                </a>
+                            </div>
+                        }
+                        <p class="form-text text-muted mb-2">Bereits vorhandene Maßnahmen verknüpfen:</p>
+                        @if (_measures.Count == 0)
+                        {
+                            <div class="alert alert-info dsms-alert mb-0">Keine Maßnahmen vorhanden.</div>
+                        }
+                        else
+                        {
+                            <div class="dsms-checkbox-list">
+                                @foreach (var measure in _measures)
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="@($"m-{measure.Id}")"
+                                               checked="@_selectedMeasureIds.Contains(measure.Id)"
+                                               @onchange="e => ToggleMeasure(measure.Id, (bool)e.Value!)" />
+                                        <label class="form-check-label" for="@($"m-{measure.Id}")">@measure.Title</label>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Relevante TOMs</label>
+                        @if (_toms.Count == 0)
+                        {
+                            <div class="alert alert-info dsms-alert mb-0">Keine TOMs vorhanden.</div>
+                        }
+                        else
+                        {
+                            <div class="dsms-checkbox-list">
+                                @foreach (var tom in _toms)
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="@($"tom-{tom.Id}")"
+                                               checked="@_selectedTomIds.Contains(tom.Id)"
+                                               @onchange="e => ToggleTom(tom.Id, (bool)e.Value!)" />
+                                        <label class="form-check-label" for="@($"tom-{tom.Id}")">
+                                            @tom.Title
+                                            <span class="text-muted">(@TomLabels.GetCategoryLabel(tom.Category))</span>
+                                        </label>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_linkSaveError))
+                {
+                    <div class="alert alert-danger dsms-alert">@_linkSaveError</div>
+                }
+
+                <div class="dsms-form-actions">
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                    <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"incidents/{_model.Id}" : "incidents")">Abbrechen</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+
+    @if (_model.Id > 0)
+    {
+        <LinkedDocumentsSection PrivacyIncidentId="_model.Id" />
+    }
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private PrivacyIncidentRelationsService Relations { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _accessDenied;
+    private bool _notFound;
+    private bool _canCreateMeasure;
+    private string? _linkSaveError;
+    private PrivacyIncident _model = new() { Status = PrivacyIncidentStatus.Draft };
+    private DateTime? _discoveredAt;
+    private DateTime? _occurredAt;
+    private DateTime? _reportedToUsAt;
+    private DateTime? _incidentStoppedAt;
+    private DateTime? _authorityNotifiedAt;
+    private DateTime? _dataSubjectsNotifiedAt;
+    private bool _incidentStillActive;
+    private List<ProcessingActivity> _processingActivities = [];
+    private List<DsmsServiceProvider> _serviceProviders = [];
+    private List<Measure> _measures = [];
+    private List<Tom> _toms = [];
+    private HashSet<int> _selectedProcessingActivityIds = [];
+    private HashSet<int> _selectedServiceProviderIds = [];
+    private HashSet<int> _selectedMeasureIds = [];
+    private HashSet<int> _selectedTomIds = [];
+    private PrivacyIncidentStatus? _previousStatus;
+    private string? _previousTitle;
+    private PrivacyIncidentSeverity? _previousSeverity;
+    private PrivacyIncidentRiskLevel? _previousRiskLevel;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        var isCreate = Id is null or 0;
+        if (isCreate)
+        {
+            if (!await UserAccess.CanCreatePrivacyIncidentsAsync())
+            {
+                _accessDenied = true;
+                return;
+            }
+        }
+        else if (!await UserAccess.CanEditPrivacyIncidentsAsync())
+        {
+            _accessDenied = true;
+            return;
+        }
+
+        _canCreateMeasure = await UserAccess.CanEditTenantOperationalContentAsync();
+
+        _processingActivities = await Db.ProcessingActivities.OrderBy(p => p.Name).ToListAsync();
+        _serviceProviders = await Db.ServiceProviders.OrderBy(s => s.Name).ToListAsync();
+        _measures = await Db.Measures.OrderBy(m => m.Title).ToListAsync();
+        _toms = await Db.Toms.OrderBy(t => t.Title).ToListAsync();
+
+        if (Id is int editId and > 0)
+        {
+            var existing = await Db.PrivacyIncidents.FirstOrDefaultAsync(i => i.Id == editId);
+            if (existing is null)
+            {
+                _notFound = true;
+                return;
+            }
+
+            _model = existing;
+            _discoveredAt = existing.DiscoveredAt;
+            _occurredAt = existing.OccurredAt;
+            _reportedToUsAt = existing.ReportedToUsAt;
+            _incidentStoppedAt = existing.IncidentStoppedAt;
+            _authorityNotifiedAt = existing.SupervisoryAuthorityNotifiedAt;
+            _dataSubjectsNotifiedAt = existing.DataSubjectsNotifiedAt;
+            _incidentStillActive = existing.IncidentStillActive ?? false;
+
+            _previousStatus = existing.Status;
+            _previousTitle = existing.Title;
+            _previousSeverity = existing.Severity;
+            _previousRiskLevel = existing.RiskLevel;
+
+            _selectedProcessingActivityIds = (await Db.PrivacyIncidentProcessingActivities
+                .Where(l => l.PrivacyIncidentId == editId)
+                .Select(l => l.ProcessingActivityId)
+                .ToListAsync()).ToHashSet();
+
+            _selectedServiceProviderIds = (await Db.PrivacyIncidentServiceProviders
+                .Where(l => l.PrivacyIncidentId == editId)
+                .Select(l => l.ServiceProviderId)
+                .ToListAsync()).ToHashSet();
+
+            _selectedMeasureIds = (await Db.PrivacyIncidentMeasures
+                .Where(l => l.PrivacyIncidentId == editId)
+                .Select(l => l.MeasureId)
+                .ToListAsync()).ToHashSet();
+
+            _selectedTomIds = (await Db.PrivacyIncidentToms
+                .Where(l => l.PrivacyIncidentId == editId)
+                .Select(l => l.TomId)
+                .ToListAsync()).ToHashSet();
+        }
+    }
+
+    private void TogglePa(int id, bool selected)
+    {
+        if (selected) _selectedProcessingActivityIds.Add(id);
+        else _selectedProcessingActivityIds.Remove(id);
+    }
+
+    private void ToggleSp(int id, bool selected)
+    {
+        if (selected) _selectedServiceProviderIds.Add(id);
+        else _selectedServiceProviderIds.Remove(id);
+    }
+
+    private void ToggleMeasure(int id, bool selected)
+    {
+        if (selected) _selectedMeasureIds.Add(id);
+        else _selectedMeasureIds.Remove(id);
+    }
+
+    private void ToggleTom(int id, bool selected)
+    {
+        if (selected) _selectedTomIds.Add(id);
+        else _selectedTomIds.Remove(id);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_tenantId is null) return;
+
+        var isCreate = _model.Id == 0;
+        if (isCreate && !await UserAccess.CanCreatePrivacyIncidentsAsync())
+        {
+            _accessDenied = true;
+            return;
+        }
+
+        if (!isCreate && !await UserAccess.CanEditPrivacyIncidentsAsync())
+        {
+            _accessDenied = true;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.Title))
+        {
+            _linkSaveError = "Bitte geben Sie einen Titel ein.";
+            return;
+        }
+
+        _linkSaveError = null;
+        var userId = await CurrentUser.GetUserIdAsync();
+        var now = DateTime.UtcNow;
+
+        _model.DiscoveredAt = _discoveredAt;
+        _model.OccurredAt = _occurredAt;
+        _model.ReportedToUsAt = _reportedToUsAt;
+        _model.IncidentStoppedAt = _incidentStoppedAt;
+        _model.SupervisoryAuthorityNotifiedAt = _authorityNotifiedAt;
+        _model.DataSubjectsNotifiedAt = _dataSubjectsNotifiedAt;
+        _model.IncidentStillActive = _incidentStillActive;
+
+        if (isCreate)
+        {
+            _model.TenantId = _tenantId.Value;
+            _model.IncidentNumber = await PrivacyIncidentRelationsService.GenerateIncidentNumberAsync(Db, _tenantId.Value);
+            _model.CreatedByUserId = userId;
+            _model.CreatedAt = now;
+            Db.PrivacyIncidents.Add(_model);
+            await Db.SaveChangesAsync();
+
+            await ComplianceAuditLog.LogPrivacyIncidentCreatedAsync(_model.Id, _model.Title, _tenantId.Value);
+            Navigation.NavigateTo($"incidents/{_model.Id}");
+            return;
+        }
+
+        var tracked = await Db.PrivacyIncidents.FirstOrDefaultAsync(i => i.Id == _model.Id && i.TenantId == _tenantId);
+        if (tracked is null)
+        {
+            _notFound = true;
+            return;
+        }
+
+        tracked.Title = _model.Title.Trim();
+        tracked.Status = _model.Status;
+        tracked.Severity = _model.Severity;
+        tracked.Source = _model.Source;
+        tracked.OwnRole = _model.OwnRole;
+        tracked.DiscoveredAt = _model.DiscoveredAt;
+        tracked.OccurredAt = _model.OccurredAt;
+        tracked.ReportedToUsAt = _model.ReportedToUsAt;
+        tracked.ResponsiblePerson = _model.ResponsiblePerson;
+        tracked.InternalReference = _model.InternalReference;
+        tracked.Description = _model.Description;
+        tracked.HowDetected = _model.HowDetected;
+        tracked.Cause = _model.Cause;
+        tracked.AffectedSystems = _model.AffectedSystems;
+        tracked.IncidentStillActive = _model.IncidentStillActive;
+        tracked.IncidentStoppedAt = _model.IncidentStoppedAt;
+        tracked.ConfidentialityAffected = _model.ConfidentialityAffected;
+        tracked.IntegrityAffected = _model.IntegrityAffected;
+        tracked.AvailabilityAffected = _model.AvailabilityAffected;
+        tracked.BreachTypeDescription = _model.BreachTypeDescription;
+        tracked.AffectedDataCategories = _model.AffectedDataCategories;
+        tracked.AffectedPersonGroups = _model.AffectedPersonGroups;
+        tracked.ApproxAffectedPersons = _model.ApproxAffectedPersons;
+        tracked.ApproxAffectedRecords = _model.ApproxAffectedRecords;
+        tracked.SpecialCategoriesAffected = _model.SpecialCategoriesAffected;
+        tracked.LikelyConsequences = _model.LikelyConsequences;
+        tracked.RiskLevel = _model.RiskLevel;
+        tracked.RiskAssessmentReason = _model.RiskAssessmentReason;
+        tracked.SupervisoryAuthorityNotificationRequired = _model.SupervisoryAuthorityNotificationRequired;
+        tracked.SupervisoryAuthorityNotificationReason = _model.SupervisoryAuthorityNotificationReason;
+        tracked.SupervisoryAuthorityName = _model.SupervisoryAuthorityName;
+        tracked.SupervisoryAuthorityNotifiedAt = _model.SupervisoryAuthorityNotifiedAt;
+        tracked.SupervisoryAuthorityReference = _model.SupervisoryAuthorityReference;
+        tracked.NotificationDelayReason = _model.NotificationDelayReason;
+        tracked.DataSubjectsNotificationRequired = _model.DataSubjectsNotificationRequired;
+        tracked.DataSubjectsNotificationReason = _model.DataSubjectsNotificationReason;
+        tracked.DataSubjectsNotifiedAt = _model.DataSubjectsNotifiedAt;
+        tracked.DataSubjectsNotificationMethod = _model.DataSubjectsNotificationMethod;
+        tracked.DataSubjectsNotificationSummary = _model.DataSubjectsNotificationSummary;
+        tracked.UpdatedAt = now;
+        tracked.UpdatedByUserId = userId;
+
+        var changes = ComplianceAuditDiffBuilder.ForPrivacyIncident(
+            _previousTitle, _previousStatus, _previousSeverity, _previousRiskLevel, tracked);
+
+        await Db.SaveChangesAsync();
+
+        if (changes.Count > 0)
+        {
+            await ComplianceAuditLog.LogPrivacyIncidentUpdatedAsync(tracked.Id, tracked.Title, _tenantId.Value, changes);
+        }
+
+        if (_previousStatus.HasValue && _previousStatus != tracked.Status)
+        {
+            await ComplianceAuditLog.LogPrivacyIncidentStatusChangedAsync(
+                tracked.Id, tracked.Title, _tenantId.Value, _previousStatus.Value, tracked.Status);
+        }
+
+        var (linkOk, linkError) = await Relations.SaveLinksAsync(
+            tracked.Id,
+            _tenantId.Value,
+            _selectedProcessingActivityIds,
+            _selectedServiceProviderIds,
+            _selectedMeasureIds,
+            _selectedTomIds);
+
+        if (!linkOk)
+        {
+            _linkSaveError = linkError;
+            return;
+        }
+
+        Navigation.NavigateTo($"incidents/{tracked.Id}");
+    }
+}

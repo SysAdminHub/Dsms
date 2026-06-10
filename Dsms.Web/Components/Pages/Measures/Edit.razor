@@ -14,13 +14,13 @@ else if (!_canEdit)
 {
     <PageHeader Title="Maßnahme" />
     <div class="alert alert-warning dsms-alert">Keine Berechtigung zum Bearbeiten von Maßnahmen.</div>
-    <a class="btn btn-outline-secondary" href="measures">Zurück zur Übersicht</a>
+    <a class="btn btn-outline-secondary" href="@GetCancelHref()">Zurück</a>
 }
 else if (!string.IsNullOrEmpty(_prefillError))
 {
     <PageHeader Title="Maßnahme anlegen" />
     <div class="alert alert-warning dsms-alert">@_prefillError</div>
-    <a class="btn btn-outline-secondary" href="measures">Zurück zur Übersicht</a>
+    <a class="btn btn-outline-secondary" href="@GetCancelHref()">Zurück</a>
 }
 else
 {
@@ -102,7 +102,7 @@ else
 
                 <div class="dsms-form-actions">
                     <button type="submit" class="btn btn-primary" disabled="@(_model.Id == 0 && _createLimit is { IsAllowed: false })">Speichern</button>
-                    <a class="btn btn-outline-secondary" href="measures">Abbrechen</a>
+                    <a class="btn btn-outline-secondary" href="@GetCancelHref()">Abbrechen</a>
                 </div>
             </EditForm>
         </div>
@@ -120,11 +120,14 @@ else
     public int? AuditRunId { get; set; }
     [SupplyParameterFromQuery(Name = "auditAnswerId")]
     public int? AuditAnswerId { get; set; }
+    [SupplyParameterFromQuery(Name = "privacyIncidentId")]
+    public int? PrivacyIncidentId { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private ProcessingActivityRelationsService Relations { get; set; } = null!;
+    [Inject] private PrivacyIncidentRelationsService IncidentRelations { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
     [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
@@ -143,6 +146,7 @@ else
     private MeasureStatus? _previousStatus;
     private string? _previousTitle;
     private DateOnly? _previousDueDate;
+    private int? _linkedPrivacyIncidentId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -182,7 +186,14 @@ else
         {
             _model.TenantId = _tenantId.Value;
             _createLimit = await LicenseService.CanCreateMeasureAsync(_tenantId.Value);
-            await TryPrefillFromAuditAnswerAsync();
+            if (PrivacyIncidentId is int)
+            {
+                await TryPrefillFromPrivacyIncidentAsync();
+            }
+            else
+            {
+                await TryPrefillFromAuditAnswerAsync();
+            }
         }
     }
 
@@ -217,6 +228,51 @@ else
         var title = prefix + questionText.Trim();
         return title.Length <= 200 ? title : title[..197] + "...";
     }
+
+    private async Task TryPrefillFromPrivacyIncidentAsync()
+    {
+        if (PrivacyIncidentId is not int incidentId || _tenantId is not int tenantId)
+            return;
+
+        var incident = await Db.PrivacyIncidents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == incidentId && i.TenantId == tenantId);
+
+        if (incident is null)
+        {
+            _prefillError = "Der angegebene Datenschutzvorfall ist ungültig oder gehört nicht zu Ihrem Mandanten.";
+            return;
+        }
+
+        _linkedPrivacyIncidentId = incident.Id;
+        _model.Status = MeasureStatus.Open;
+        _model.Title = BuildMeasureTitleFromIncident(incident);
+        _model.Description = BuildMeasureDescriptionFromIncident(incident);
+    }
+
+    private static string BuildMeasureTitleFromIncident(PrivacyIncident incident)
+    {
+        var title = $"Maßnahme zu Vorfall {incident.IncidentNumber}: {incident.Title.Trim()}";
+        return title.Length <= 200 ? title : title[..197] + "...";
+    }
+
+    private static string BuildMeasureDescriptionFromIncident(PrivacyIncident incident)
+    {
+        return string.Join(Environment.NewLine, new[]
+        {
+            $"Diese Maßnahme wurde aus dem Datenschutzvorfall {incident.IncidentNumber} erstellt.",
+            "",
+            "Vorfall:",
+            incident.Title.Trim(),
+            "",
+            "Bitte dokumentieren Sie die erforderlichen Abhilfe- oder Präventionsmaßnahmen."
+        });
+    }
+
+    private string GetCancelHref() =>
+        (_linkedPrivacyIncidentId ?? PrivacyIncidentId) is int id
+            ? $"incidents/{id}"
+            : "measures";
 
     private static string BuildMeasureDescription(AuditAnswer answer)
     {
@@ -295,6 +351,18 @@ else
                 }
             }
 
+            var incidentIdForLink = _linkedPrivacyIncidentId ?? PrivacyIncidentId;
+            if (incidentIdForLink is int linkedIncidentId && _tenantId is int measureTenantForIncident)
+            {
+                var incidentValid = await Db.PrivacyIncidents
+                    .AnyAsync(i => i.Id == linkedIncidentId && i.TenantId == measureTenantForIncident);
+                if (!incidentValid)
+                {
+                    _linkSaveError = "Der Datenschutzvorfall ist ungültig oder gehört nicht zu Ihrem Mandanten.";
+                    return;
+                }
+            }
+
             Db.Measures.Add(_model);
         }
         else
@@ -339,7 +407,27 @@ else
             }
         }
 
-        Navigation.NavigateTo("measures");
+        var returnIncidentId = _linkedPrivacyIncidentId ?? PrivacyIncidentId;
+        if (isNew && returnIncidentId is int incidentId && _tenantId is int incidentTenantId)
+        {
+            var (linkOk, linkError) = await IncidentRelations.LinkMeasureToIncidentAsync(
+                incidentId, _model.Id, incidentTenantId);
+
+            if (!linkOk)
+            {
+                _linkSaveError = linkError ?? "Verknüpfung zum Datenschutzvorfall fehlgeschlagen.";
+                return;
+            }
+        }
+
+        if (returnIncidentId is int id)
+        {
+            Navigation.NavigateTo($"incidents/{id}");
+        }
+        else
+        {
+            Navigation.NavigateTo("measures");
+        }
     }
 
     private void TogglePa(int id, bool selected)

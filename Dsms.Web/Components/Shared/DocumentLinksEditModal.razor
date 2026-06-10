@@ -70,6 +70,16 @@
                                     }
                                 </InputSelect>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Datenschutzvorfall (optional)</label>
+                                <InputSelect class="form-select" @bind-Value="_privacyIncidentId">
+                                    <option value="">— keiner —</option>
+                                    @foreach (var incident in _privacyIncidents)
+                                    {
+                                        <option value="@incident.Id">@incident.IncidentNumber – @incident.Title</option>
+                                    }
+                                </InputSelect>
+                            </div>
                         </div>
 
                         @if (!string.IsNullOrEmpty(_message))
@@ -109,11 +119,13 @@
     private List<DsmsServiceProvider> _serviceProviders = [];
     private List<ProcessingActivity> _processingActivities = [];
     private List<DataProtectionImpactAssessment> _dpiaAssessments = [];
+    private List<PrivacyIncident> _privacyIncidents = [];
     private int? _auditRunId;
     private int? _measureId;
     private int? _serviceProviderId;
     private int? _processingActivityId;
     private int? _dpiaId;
+    private int? _privacyIncidentId;
     private string? _message;
     private bool _isError;
 
@@ -158,12 +170,14 @@
         _serviceProviderId = _document.ServiceProviderId;
         _processingActivityId = _document.ProcessingActivityId;
         _dpiaId = _document.DataProtectionImpactAssessmentId;
+        _privacyIncidentId = _document.PrivacyIncidentId;
 
         _auditRuns = await Db.AuditRuns.OrderBy(r => r.Title).ToListAsync();
         _measures = await Db.Measures.OrderBy(m => m.Title).ToListAsync();
         _serviceProviders = await Db.ServiceProviders.OrderBy(s => s.Name).ToListAsync();
         _processingActivities = await Db.ProcessingActivities.OrderBy(p => p.Name).ToListAsync();
         _dpiaAssessments = await Db.DataProtectionImpactAssessments.OrderBy(d => d.Title).ToListAsync();
+        _privacyIncidents = await Db.PrivacyIncidents.OrderByDescending(i => i.CreatedAt).ToListAsync();
 
         _loading = false;
     }
@@ -191,7 +205,8 @@
                 _measureId,
                 _serviceProviderId,
                 _processingActivityId,
-                _dpiaId);
+                _dpiaId,
+                _privacyIncidentId);
 
             var (result, errorMessage) = await LinksService.UpdateLinksAsync(_documentId, _tenantId.Value, links);
 

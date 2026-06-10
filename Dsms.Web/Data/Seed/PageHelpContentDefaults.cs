@@ -95,6 +95,26 @@ public static class PageHelpContentDefaults
             Erfassen Sie Status, Fälligkeit und Verantwortlichkeiten. Verknüpfen Sie Maßnahmen mit Audits, Verarbeitungstätigkeiten oder Dokumenten, damit der Kontext nachvollziehbar bleibt.
             """),
         new(
+            Domain.PageHelpContentKeys.PrivacyIncidents,
+            "Datenschutzvorfälle",
+            "Art. 33 DSGVO, Art. 34 DSGVO",
+            "Dokumentieren, bewerten und verfolgen Sie Datenschutzvorfälle und Datenschutzpannen.",
+            """
+            In diesem Bereich dokumentieren Sie Datenschutzvorfälle, unabhängig davon, ob eine Meldung an die Aufsichtsbehörde erforderlich ist.
+
+            Ein Datenschutzvorfall kann zum Beispiel ein Fehlversand, Datenverlust, unberechtigter Zugriff, Ransomware, falsche Berechtigung oder eine Meldung eines Dienstleisters sein.
+
+            Dokumentieren Sie, was passiert ist, wann der Vorfall bekannt wurde, welche Daten und Personen betroffen sind und welche Folgen möglich sind.
+
+            Prüfen Sie außerdem, ob eine Meldung an die Aufsichtsbehörde oder eine Benachrichtigung betroffener Personen erforderlich ist.
+
+            Konkrete Aufgaben, Abhilfe- und Präventionsmaßnahmen werden als Maßnahmen dokumentiert und mit dem Vorfall verknüpft. Aus einem Vorfall heraus können direkt Maßnahmen erstellt werden. Vorhandene Maßnahmen können zusätzlich verknüpft werden.
+
+            Verknüpfen Sie relevante TOMs, um nachvollziehbar zu machen, welche Schutzmaßnahmen betroffen waren oder angepasst werden müssen.
+
+            Diese Informationen dienen der allgemeinen Orientierung und ersetzen keine Rechtsberatung.
+            """),
+        new(
             Domain.PageHelpContentKeys.Documents,
             "Dokumente und Nachweise",
             "DSGVO Rechenschaftspflicht, Art. 5 Abs. 2 DSGVO",

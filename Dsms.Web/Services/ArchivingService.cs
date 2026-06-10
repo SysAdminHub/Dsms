@@ -102,6 +102,7 @@ public class ArchivingService(
         AuditRun audit => complianceAuditLog.LogAuditArchivedAsync(audit.Id, audit.Title, audit.TenantId),
         Measure measure => complianceAuditLog.LogMeasureArchivedAsync(measure.Id, measure.Title, measure.TenantId),
         EvidenceDocument doc => complianceAuditLog.LogEvidenceDocumentArchivedAsync(doc.Id, doc.FileName, doc.TenantId),
+        PrivacyIncident incident => complianceAuditLog.LogPrivacyIncidentArchivedAsync(incident.Id, incident.Title, incident.TenantId),
         _ => Task.CompletedTask
     };
 
@@ -114,6 +115,7 @@ public class ArchivingService(
         ServiceProviderEntity sp => complianceAuditLog.LogProcessorRestoredAsync(sp.Id, sp.Name, sp.TenantId),
         Measure measure => complianceAuditLog.LogMeasureRestoredAsync(measure.Id, measure.Title, measure.TenantId),
         EvidenceDocument doc => complianceAuditLog.LogEvidenceDocumentRestoredAsync(doc.Id, doc.FileName, doc.TenantId),
+        PrivacyIncident incident => complianceAuditLog.LogPrivacyIncidentRestoredAsync(incident.Id, incident.Title, incident.TenantId),
         _ => Task.CompletedTask
     };
 
@@ -130,6 +132,7 @@ public class ArchivingService(
             nameof(AuditRun) => await GetAuditRunWarningsAsync(id, ct),
             nameof(Measure) => await GetMeasureWarningsAsync(id, ct),
             nameof(EvidenceDocument) => [],
+            nameof(PrivacyIncident) => await GetPrivacyIncidentWarningsAsync(id, ct),
             _ => []
         };
     }
@@ -212,6 +215,28 @@ public class ArchivingService(
 
         var answerCount = await db.AuditAnswers.CountAsync(a => a.AuditRunId == id, ct);
         if (answerCount > 0) warnings.Add($"{answerCount} Audit-Antwort(en)");
+
+        return warnings;
+    }
+
+    private async Task<IReadOnlyList<string>> GetPrivacyIncidentWarningsAsync(int id, CancellationToken ct)
+    {
+        var warnings = new List<string>();
+
+        var paCount = await db.PrivacyIncidentProcessingActivities.CountAsync(l => l.PrivacyIncidentId == id, ct);
+        if (paCount > 0) warnings.Add($"{paCount} verknüpfte Verarbeitungstätigkeit(en)");
+
+        var spCount = await db.PrivacyIncidentServiceProviders.CountAsync(l => l.PrivacyIncidentId == id, ct);
+        if (spCount > 0) warnings.Add($"{spCount} verknüpfte Dienstleister");
+
+        var measureCount = await db.PrivacyIncidentMeasures.CountAsync(l => l.PrivacyIncidentId == id, ct);
+        if (measureCount > 0) warnings.Add($"{measureCount} verknüpfte Maßnahme(n)");
+
+        var tomCount = await db.PrivacyIncidentToms.CountAsync(l => l.PrivacyIncidentId == id, ct);
+        if (tomCount > 0) warnings.Add($"{tomCount} verknüpfte TOM(s)");
+
+        var docCount = await db.EvidenceDocuments.CountAsync(d => d.PrivacyIncidentId == id, ct);
+        if (docCount > 0) warnings.Add($"{docCount} verknüpfte Dokument(e)");
 
         return warnings;
     }

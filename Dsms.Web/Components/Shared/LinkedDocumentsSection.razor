@@ -65,6 +65,7 @@
     [Parameter] public int? ServiceProviderId { get; set; }
     [Parameter] public int? ProcessingActivityId { get; set; }
     [Parameter] public int? DataProtectionImpactAssessmentId { get; set; }
+    [Parameter] public int? PrivacyIncidentId { get; set; }
     [Parameter] public IReadOnlyList<int>? ProcessingActivityIds { get; set; }
 
     private bool _loading = true;
@@ -100,6 +101,10 @@
         else if (DataProtectionImpactAssessmentId.HasValue)
         {
             query = query.Where(d => d.DataProtectionImpactAssessmentId == DataProtectionImpactAssessmentId);
+        }
+        else if (PrivacyIncidentId.HasValue)
+        {
+            query = query.Where(d => d.PrivacyIncidentId == PrivacyIncidentId);
         }
         else if (ProcessingActivityIds is { Count: > 0 })
         {

@@ -66,6 +66,7 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ITenantOnboardingService, TenantOnboardingService>();
 builder.Services.AddScoped<IPageHelpContentService, PageHelpContentService>();
 builder.Services.AddScoped<ProcessingActivityRelationsService>();
+builder.Services.AddScoped<PrivacyIncidentRelationsService>();
 builder.Services.AddScoped<DocumentStorageService>();
 builder.Services.AddScoped<DocumentLinksService>();
 builder.Services.AddScoped<ITenantExportService, TenantExportService>();

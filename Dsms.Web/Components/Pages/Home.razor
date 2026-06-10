@@ -74,6 +74,22 @@ else if (_summary is not null)
             <div class="dsms-stat-label">Offene Maßnahmen</div>
             <div class="dsms-stat-value">@_summary.OpenMeasuresCount</div>
         </div>
+        <div class="dsms-stat-card dsms-stat-card--warning">
+            <div class="dsms-stat-label">Offene Vorfälle</div>
+            <div class="dsms-stat-value">@_summary.OpenPrivacyIncidentsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--primary">
+            <div class="dsms-stat-label">Vorfälle in Prüfung</div>
+            <div class="dsms-stat-value">@_summary.PrivacyIncidentsInReviewCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">Meldepflichtige Vorfälle</div>
+            <div class="dsms-stat-value">@_summary.NotificationRequiredPrivacyIncidentsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">Vorfälle Risiko hoch/kritisch</div>
+            <div class="dsms-stat-value">@_summary.HighRiskPrivacyIncidentsCount</div>
+        </div>
         <div class="dsms-stat-card dsms-stat-card--primary">
             <div class="dsms-stat-label">Laufende Audits</div>
             <div class="dsms-stat-value">@_summary.ActiveAuditsCount</div>

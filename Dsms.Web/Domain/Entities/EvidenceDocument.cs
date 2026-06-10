@@ -31,5 +31,9 @@ public class EvidenceDocument : ArchivableEntityBase, ITenantEntity
     public int? DataProtectionImpactAssessmentId { get; set; }
     public DataProtectionImpactAssessment? DataProtectionImpactAssessment { get; set; }
 
+    /// <summary>Optionale Zuordnung zu einem Datenschutzvorfall.</summary>
+    public int? PrivacyIncidentId { get; set; }
+    public PrivacyIncident? PrivacyIncident { get; set; }
+
     public string? UploadedByUserId { get; set; }
 }

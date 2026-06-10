@@ -136,6 +136,22 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
     public Task LogEvidenceDocumentRestoredAsync(int id, string fileName, int tenantId) =>
         LogAsync("EvidenceDocumentRestored", "Nachweisdokument wurde wiederhergestellt.", "EvidenceDocument", id, fileName, tenantId);
 
+    public Task LogPrivacyIncidentCreatedAsync(int id, string title, int tenantId) =>
+        LogAsync("PrivacyIncidentCreated", "Datenschutzvorfall wurde erstellt.", "PrivacyIncident", id, title, tenantId);
+
+    public Task LogPrivacyIncidentUpdatedAsync(int id, string title, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("PrivacyIncidentUpdated", "Datenschutzvorfall wurde geändert.", "PrivacyIncident", id, title, tenantId, changes);
+
+    public Task LogPrivacyIncidentArchivedAsync(int id, string title, int tenantId) =>
+        LogAsync("PrivacyIncidentArchived", "Datenschutzvorfall wurde archiviert.", "PrivacyIncident", id, title, tenantId);
+
+    public Task LogPrivacyIncidentRestoredAsync(int id, string title, int tenantId) =>
+        LogAsync("PrivacyIncidentRestored", "Datenschutzvorfall wurde wiederhergestellt.", "PrivacyIncident", id, title, tenantId);
+
+    public Task LogPrivacyIncidentStatusChangedAsync(int id, string title, int tenantId, object oldStatus, object newStatus) =>
+        LogStatusChangeAsync("PrivacyIncidentStatusChanged", "Status des Datenschutzvorfalls wurde geändert.",
+            "PrivacyIncident", id, title, tenantId, oldStatus, newStatus);
+
     private Task LogUpdateAsync(
         string action,
         string description,

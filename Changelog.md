@@ -6,6 +6,18 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Geändert
 
+- **Datenschutzvorfälle – Maßnahmen-UI:** Abschnitt „Maßnahmen / Abschluss“ mit Freitextfeldern (Sofort-/Abhilfe-/Präventionsmaßnahmen, Abschlusszusammenfassung, Abgeschlossen am) aus Bearbeitungs- und Detailseite entfernt. Maßnahmen werden nur noch über verknüpfte Maßnahmen im Modul Maßnahmen dokumentiert. Datenbankfelder bleiben erhalten; PageHelp-Standardtext angepasst.
+
+### Hinzugefügt
+
+- **Datenschutzvorfälle – Maßnahme aus Vorfall (Audit-Muster):** Button auf Detail- und Bearbeitungsseite (`measures/edit?privacyIncidentId=`), Vorausfüllung und automatische `PrivacyIncidentMeasures`-Verknüpfung analog Audit-Antworten; Rücknavigation zum Vorfall; Checkboxen für bestehende Maßnahmen bleiben erhalten.
+
+- **Datenschutzvorfälle – TOM-Verknüpfung und Maßnahmen aus Vorfall:** Many-to-Many `PrivacyIncidentToms`; TOM-Auswahl auf Bearbeitungsseite; Anzeige auf Detailseite; Button „Maßnahme aus Vorfall erstellen“ mit Vorausfüllung über `measures/edit?privacyIncidentId=` und automatischer Verknüpfung; Tenant-Export `LinkedTomIds`. Migration `AddPrivacyIncidentToms`.
+
+- **Modul Datenschutzvorfälle (`/incidents`):** Mandantenbezogenes Vorfallregister mit Liste, Detail, Anlegen (Admin/Superuser) und Bearbeiten (Admin/Superuser/User). Entity `PrivacyIncident` inkl. Meldebewertung, Risiko, Verknüpfungen zu VVT/Dienstleistern/Maßnahmen und Dokumenten (`EvidenceDocument.PrivacyIncidentId`). Rollenlogik über `CanCreatePrivacyIncidentsAsync` / `CanEditPrivacyIncidentsAsync`. Sidebar-Menüpunkt „Vorfälle“, PageHelp `privacy-incidents`, Dashboard-Kennzahlen, Tenant-Export `privacy-incidents.json`, Compliance-Auditlog. Migration `AddPrivacyIncidents`.
+
+### Geändert
+
 - **Sidebar-Branding:** Logo-Bild und DC-Kürzel in der Sidebar entfernt; oben links nur noch der Produktname „Datenschutz-Cloud“. Logo über `AppBranding:LogoUrl` bleibt auf Login-/Auth-Seiten erhalten.
 
 - **Logo-Branding in der UI:** Sichtbares Kürzel „DC“ (Login, Passwort-Seiten, Registrierung) wird durch das Logo-Bild `/datenschutz-cloud-logo.png` ersetzt, sofern `AppBranding:LogoUrl` gesetzt ist. Fallback auf `ShortName` bleibt erhalten. Wiederverwendbare Komponente `BrandLogo`. Favicon und technische Namen unverändert.

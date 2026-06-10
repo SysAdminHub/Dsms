@@ -54,4 +54,10 @@ public interface IComplianceAuditLogService
     Task LogEvidenceDocumentUploadedAsync(int id, string fileName, int tenantId);
     Task LogEvidenceDocumentArchivedAsync(int id, string fileName, int tenantId);
     Task LogEvidenceDocumentRestoredAsync(int id, string fileName, int tenantId);
+
+    Task LogPrivacyIncidentCreatedAsync(int id, string title, int tenantId);
+    Task LogPrivacyIncidentUpdatedAsync(int id, string title, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes);
+    Task LogPrivacyIncidentArchivedAsync(int id, string title, int tenantId);
+    Task LogPrivacyIncidentRestoredAsync(int id, string title, int tenantId);
+    Task LogPrivacyIncidentStatusChangedAsync(int id, string title, int tenantId, object oldStatus, object newStatus);
 }

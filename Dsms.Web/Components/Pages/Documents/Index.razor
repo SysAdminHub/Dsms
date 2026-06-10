@@ -14,7 +14,7 @@
 }
 else
 {
-    <PageHeader Title="Dokumente" HelpKey="documents" Subtitle="Nachweise zu Audits, Maßnahmen, Dienstleistern, Verarbeitungstätigkeiten und DSFA">
+    <PageHeader Title="Dokumente" HelpKey="documents" Subtitle="Nachweise zu Audits, Maßnahmen, Dienstleistern, Verarbeitungstätigkeiten, DSFA und Datenschutzvorfällen">
         <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
     </PageHeader>
 
@@ -29,6 +29,7 @@ else
                                          ServiceProviderId="_selectedServiceProviderId"
                                          ProcessingActivityId="_selectedProcessingActivityId"
                                          DataProtectionImpactAssessmentId="_selectedDpiaId"
+                                         PrivacyIncidentId="_selectedPrivacyIncidentId"
                                          OnUploaded="LoadDataAsync">
                     <div class="row g-3">
                         <div class="col-md-6">
@@ -78,6 +79,16 @@ else
                                 @foreach (var dpia in _dpiaAssessments)
                                 {
                                     <option value="@dpia.Id">@dpia.Title</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Datenschutzvorfall (optional)</label>
+                            <InputSelect class="form-select" @bind-Value="_selectedPrivacyIncidentId">
+                                <option value="">— keiner —</option>
+                                @foreach (var incident in _privacyIncidents)
+                                {
+                                    <option value="@incident.Id">@incident.IncidentNumber – @incident.Title</option>
                                 }
                             </InputSelect>
                         </div>
@@ -134,8 +145,10 @@ else
                                     @if (doc.ServiceProviderId.HasValue) { <StatusBadge Text="@($"Dienstleister #{doc.ServiceProviderId}")" Variant="warning" /> }
                                     @if (doc.ProcessingActivityId.HasValue) { <StatusBadge Text="@($"VVT #{doc.ProcessingActivityId}")" Variant="primary" /> }
                                     @if (doc.DataProtectionImpactAssessmentId.HasValue) { <StatusBadge Text="@($"DSFA #{doc.DataProtectionImpactAssessmentId}")" Variant="warning" /> }
+                                    @if (doc.PrivacyIncidentId.HasValue) { <StatusBadge Text="@($"Vorfall #{doc.PrivacyIncidentId}")" Variant="danger" /> }
                                     @if (!doc.AuditRunId.HasValue && !doc.MeasureId.HasValue && !doc.ServiceProviderId.HasValue
-                                         && !doc.ProcessingActivityId.HasValue && !doc.DataProtectionImpactAssessmentId.HasValue)
+                                         && !doc.ProcessingActivityId.HasValue && !doc.DataProtectionImpactAssessmentId.HasValue
+                                         && !doc.PrivacyIncidentId.HasValue)
                                     {
                                         <span class="text-muted">—</span>
                                     }
@@ -192,11 +205,13 @@ else
     private List<DsmsServiceProvider> _serviceProviders = [];
     private List<ProcessingActivity> _processingActivities = [];
     private List<DataProtectionImpactAssessment> _dpiaAssessments = [];
+    private List<PrivacyIncident> _privacyIncidents = [];
     private int? _selectedAuditRunId;
     private int? _selectedMeasureId;
     private int? _selectedServiceProviderId;
     private int? _selectedProcessingActivityId;
     private int? _selectedDpiaId;
+    private int? _selectedPrivacyIncidentId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -222,6 +237,7 @@ else
             _serviceProviders = await Db.ServiceProviders.OrderBy(s => s.Name).ToListAsync();
             _processingActivities = await Db.ProcessingActivities.OrderBy(p => p.Name).ToListAsync();
             _dpiaAssessments = await Db.DataProtectionImpactAssessments.OrderBy(d => d.Title).ToListAsync();
+            _privacyIncidents = await Db.PrivacyIncidents.OrderByDescending(i => i.CreatedAt).ToListAsync();
         }
     }
 

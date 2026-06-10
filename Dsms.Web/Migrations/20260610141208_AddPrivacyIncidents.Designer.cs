@@ -4,6 +4,7 @@ using Dsms.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Dsms.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260610141208_AddPrivacyIncidents")]
+    partial class AddPrivacyIncidents
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1495,38 +1498,6 @@ namespace Dsms.Web.Migrations
                     b.ToTable("PrivacyIncidentServiceProviders", (string)null);
                 });
 
-            modelBuilder.Entity("Dsms.Web.Domain.Entities.PrivacyIncidentTom", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("PrivacyIncidentId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TomId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("TomId");
-
-                    b.HasIndex("PrivacyIncidentId", "TomId")
-                        .IsUnique();
-
-                    b.ToTable("PrivacyIncidentToms", (string)null);
-                });
-
             modelBuilder.Entity("Dsms.Web.Domain.Entities.ProcessingActivity", b =>
                 {
                     b.Property<int>("Id")
@@ -2670,33 +2641,6 @@ namespace Dsms.Web.Migrations
                     b.Navigation("Tenant");
                 });
 
-            modelBuilder.Entity("Dsms.Web.Domain.Entities.PrivacyIncidentTom", b =>
-                {
-                    b.HasOne("Dsms.Web.Domain.Entities.PrivacyIncident", "PrivacyIncident")
-                        .WithMany("TomLinks")
-                        .HasForeignKey("PrivacyIncidentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Dsms.Web.Domain.Entities.Tom", "Tom")
-                        .WithMany()
-                        .HasForeignKey("TomId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("PrivacyIncident");
-
-                    b.Navigation("Tenant");
-
-                    b.Navigation("Tom");
-                });
-
             modelBuilder.Entity("Dsms.Web.Domain.Entities.ProcessingActivity", b =>
                 {
                     b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
@@ -3015,8 +2959,6 @@ namespace Dsms.Web.Migrations
                     b.Navigation("ProcessingActivityLinks");
 
                     b.Navigation("ServiceProviderLinks");
-
-                    b.Navigation("TomLinks");
                 });
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.ProcessingActivity", b =>

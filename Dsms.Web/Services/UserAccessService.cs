@@ -142,5 +142,19 @@ public class UserAccessService(
             || await currentUser.IsInRoleAsync(DsmsRoles.Admin)
             || await currentUser.IsInRoleAsync(DsmsRoles.User);
     }
+
+    /// <inheritdoc />
+    public async Task<bool> CanCreatePrivacyIncidentsAsync()
+    {
+        if (await IsAuditorAsync())
+        {
+            return false;
+        }
+
+        return await IsSuperuserAsync() || await currentUser.IsInRoleAsync(DsmsRoles.Admin);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> CanEditPrivacyIncidentsAsync() => await CanEditTenantOperationalContentAsync();
 }
 

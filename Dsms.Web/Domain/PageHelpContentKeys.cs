@@ -10,6 +10,7 @@ public static class PageHelpContentKeys
     public const string AuditTemplates = "audit-templates";
     public const string AuditRuns = "audit-runs";
     public const string Measures = "measures";
+    public const string PrivacyIncidents = "privacy-incidents";
     public const string Documents = "documents";
     public const string TenantData = "tenant-data";
     public const string Users = "users";
@@ -24,6 +25,7 @@ public static class PageHelpContentKeys
         AuditTemplates,
         AuditRuns,
         Measures,
+        PrivacyIncidents,
         Documents,
         TenantData,
         Users,

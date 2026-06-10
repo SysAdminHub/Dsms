@@ -153,6 +153,10 @@ Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnec
 | `ProcessingActivityMeasures` | `ProcessingActivityMeasure` |
 | `ProcessingActivityAuditAnswers` | `ProcessingActivityAuditAnswer` |
 | `DataProtectionImpactAssessments` | `DataProtectionImpactAssessment` |
+| `PrivacyIncidents` | `PrivacyIncident` |
+| `PrivacyIncidentProcessingActivities` | `PrivacyIncidentProcessingActivity` |
+| `PrivacyIncidentServiceProviders` | `PrivacyIncidentServiceProvider` |
+| `PrivacyIncidentMeasures` | `PrivacyIncidentMeasure` |
 | `EmailSettings` | `EmailSettings` (plattformweit, kein Mandantenfilter) |
 | `EmailTemplates` | `EmailTemplate` (plattformweit, eindeutiger `TemplateKey`) |
 | `PageHelpContents` | `PageHelpContent` (plattformweit, eindeutiger `Key`; Hilfetexte für Fachseiten) |
@@ -174,7 +178,7 @@ Archivierbare Module erben von **`ArchivableEntityBase`** (`EntityBase` + `IArch
 - `ArchivedAt` (DateTime?, optional)
 - `ArchivedByUserId` (string?, Identity-User-ID)
 
-Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `Tom`, `ServiceProvider`, `AuditTemplate`, `AuditRun`, `Measure`, `EvidenceDocument`.
+Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `Tom`, `ServiceProvider`, `AuditTemplate`, `AuditRun`, `Measure`, `PrivacyIncident`, `EvidenceDocument`.
 
 **`AuditTemplate`** erbt nur von `ArchivableEntityBase` (nicht `ITenantEntity`): `TenantId` bei eigenen Vorlagen gesetzt, bei globalen Vorlagen (`Official`, `Community`) `null`. Zusätzlich `CommunityStatus` und Prüffelder für Einreichungen. Sichtbarkeit: eigene Mandantenvorlagen + globale `Official`/`Community` über Query Filter. Community-Freigabe erstellt separate globale Kopie; Ursprungsvorlage bleibt beim Mandanten (`CommunityStatus = Approved`).
 
@@ -217,6 +221,11 @@ Tenant
  ├── Tom ←──→ ServiceProvider (ServiceProviderTom)
  ├── ServiceProvider ── EvidenceDocument (optional)
  ├── DataProtectionImpactAssessment ── EvidenceDocument (optional)
+ ├── PrivacyIncident ←──→ ProcessingActivity (PrivacyIncidentProcessingActivity)
+ │        ←──→ ServiceProvider (PrivacyIncidentServiceProvider)
+ │        ←──→ Measure (PrivacyIncidentMeasure)
+ │        ←──→ Tom (PrivacyIncidentTom)
+ │        ── EvidenceDocument (PrivacyIncidentId, optional)
  └── Tom
 
 ApplicationUser.TenantId → logische Zuordnung (kein EF-FK auf Tenants)
@@ -239,7 +248,8 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ICurrentUserContext` / `CurrentUserContext` | Scoped | User-ID, TenantId, Rollenprüfung via `AuthenticationStateProvider` + `UserManager` |
 | `IUserAccessService` / `UserAccessService` | Scoped | Zentrale Berechtigungen (Superuser vs. Admin, Mandantenzugriff, bearbeitbare Benutzer) |
 | `IUserManagementService` / `UserManagementService` | Scoped | Benutzerliste, Anlegen, Bearbeiten, Deaktivieren inkl. serverseitiger Validierung |
-| `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, DSFA, VVT-Verknüpfungen) |
+| `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, DSFA, VVT-Verknüpfungen, Datenschutzvorfälle) |
+| `PrivacyIncidentRelationsService` | Scoped | Many-to-Many-Sync und Vorfallsnummern-Generierung (`INC-{Jahr}-{Sequenz}` pro Mandant) |
 | `ITenantOnboardingService` / `TenantOnboardingService` | Scoped | Mandanten-Checkliste „Erste Schritte“ auf dem Dashboard (Standardaufgaben anlegen, manuelles Abhaken) |
 | `IPageHelpContentService` / `PageHelpContentService` | Scoped | Globale Hilfetexte für Fachseiten (Lesen für alle Angemeldeten; Bearbeiten nur Superuser) |
 | `ProcessingActivityRelationsService` | Scoped | Laden/Speichern von VVT-Verknüpfungen, Warnhinweise, Mandantenvalidierung |
@@ -303,7 +313,7 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 | **Auditor** | Compliance-Inhalte **nur lesen** (Listen, Details, Audit-Antworten im Lesemodus, Dokument-Download); **kein** Anlegen/Bearbeiten/Archivieren; **keine** Benutzerverwaltung |
 | **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen (VVT, DSFA, TOMs, Dienstleister, Audit-Durchläufe) |
 
-**Rollen-Konstanten für Autorisierung:** `DsmsRoles.ComplianceEditor` (nur Admin) für Stammdaten-Bearbeitung; `DsmsRoles.ComplianceViewer` (Admin, Auditor, User) für lesenden Zugriff. Zentrale Prüfungen über `IUserAccessService.CanEditComplianceContentAsync()` (Stammdaten) und `CanEditTenantOperationalContentAsync()` (Maßnahmen, Audit-Antworten, Dokumente).
+**Rollen-Konstanten für Autorisierung:** `DsmsRoles.ComplianceEditor` (nur Admin) für Stammdaten-Bearbeitung; `DsmsRoles.ComplianceViewer` (Admin, Auditor, User) für lesenden Zugriff. Zentrale Prüfungen über `IUserAccessService.CanEditComplianceContentAsync()` (Stammdaten) und `CanEditTenantOperationalContentAsync()` (Maßnahmen, Audit-Antworten, Dokumente). **Datenschutzvorfälle:** `CanCreatePrivacyIncidentsAsync()` (Admin/Superuser), `CanEditPrivacyIncidentsAsync()` (Admin/Superuser/User); Auditor nur Lesen.
 
 **Unterschied Superuser vs. Admin:** Superuser ist mandantenunabhängig (`TenantId` null) und global; Admin ist strikt an einen `TenantId` gebunden. Beide dürfen Benutzer verwalten, aber nur der Superuser sieht fremde Mandanten und darf Superuser anlegen.
 

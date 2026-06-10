@@ -49,6 +49,7 @@ public class TenantExportService(
         var toms = await LoadTomsAsync(db, tenantId, ct);
         var processors = await LoadProcessorsAsync(db, tenantId, ct);
         var measures = await LoadMeasuresAsync(db, tenantId, ct);
+        var privacyIncidents = await LoadPrivacyIncidentsAsync(db, tenantId, ct);
         var auditTemplates = await LoadAuditTemplatesAsync(db, tenantId, ct);
         var auditRuns = await LoadAuditRunsAsync(db, tenantId, ct);
         var (documents, fileEntries) = await LoadDocumentsAsync(db, tenantId, warnings, ct);
@@ -75,6 +76,7 @@ public class TenantExportService(
             AddJsonEntry(archive, "toms.json", toms);
             AddJsonEntry(archive, "processors.json", processors);
             AddJsonEntry(archive, "measures.json", measures);
+            AddJsonEntry(archive, "privacy-incidents.json", privacyIncidents);
             AddJsonEntry(archive, "audit-templates.json", auditTemplates);
             AddJsonEntry(archive, "audit-runs.json", auditRuns);
             AddJsonEntry(archive, "documents/metadata.json", documents);
@@ -436,6 +438,100 @@ public class TenantExportService(
         }).ToList();
     }
 
+    private static async Task<IReadOnlyList<PrivacyIncidentExportDto>> LoadPrivacyIncidentsAsync(
+        ApplicationDbContext db, int tenantId, CancellationToken ct)
+    {
+        var items = await db.PrivacyIncidents
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(i => i.TenantId == tenantId)
+            .ToListAsync(ct);
+
+        var paLinks = await db.PrivacyIncidentProcessingActivities
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(l => l.TenantId == tenantId)
+            .ToListAsync(ct);
+
+        var spLinks = await db.PrivacyIncidentServiceProviders
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(l => l.TenantId == tenantId)
+            .ToListAsync(ct);
+
+        var measureLinks = await db.PrivacyIncidentMeasures
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(l => l.TenantId == tenantId)
+            .ToListAsync(ct);
+
+        var tomLinks = await db.PrivacyIncidentToms
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(l => l.TenantId == tenantId)
+            .ToListAsync(ct);
+
+        return items.Select(i => new PrivacyIncidentExportDto
+        {
+            Id = i.Id,
+            IncidentNumber = i.IncidentNumber,
+            Title = i.Title,
+            Status = i.Status.ToString(),
+            Severity = i.Severity.ToString(),
+            Source = i.Source.ToString(),
+            OwnRole = i.OwnRole.ToString(),
+            DiscoveredAt = i.DiscoveredAt,
+            OccurredAt = i.OccurredAt,
+            ReportedToUsAt = i.ReportedToUsAt,
+            ResponsiblePerson = i.ResponsiblePerson,
+            InternalReference = i.InternalReference,
+            Description = i.Description,
+            HowDetected = i.HowDetected,
+            Cause = i.Cause,
+            AffectedSystems = i.AffectedSystems,
+            IncidentStillActive = i.IncidentStillActive,
+            IncidentStoppedAt = i.IncidentStoppedAt,
+            ConfidentialityAffected = i.ConfidentialityAffected,
+            IntegrityAffected = i.IntegrityAffected,
+            AvailabilityAffected = i.AvailabilityAffected,
+            BreachTypeDescription = i.BreachTypeDescription,
+            AffectedDataCategories = i.AffectedDataCategories,
+            AffectedPersonGroups = i.AffectedPersonGroups,
+            ApproxAffectedPersons = i.ApproxAffectedPersons,
+            ApproxAffectedRecords = i.ApproxAffectedRecords,
+            SpecialCategoriesAffected = i.SpecialCategoriesAffected,
+            LikelyConsequences = i.LikelyConsequences,
+            RiskLevel = i.RiskLevel.ToString(),
+            RiskAssessmentReason = i.RiskAssessmentReason,
+            SupervisoryAuthorityNotificationRequired = i.SupervisoryAuthorityNotificationRequired.ToString(),
+            SupervisoryAuthorityNotificationReason = i.SupervisoryAuthorityNotificationReason,
+            SupervisoryAuthorityName = i.SupervisoryAuthorityName,
+            SupervisoryAuthorityNotifiedAt = i.SupervisoryAuthorityNotifiedAt,
+            SupervisoryAuthorityReference = i.SupervisoryAuthorityReference,
+            NotificationDelayReason = i.NotificationDelayReason,
+            DataSubjectsNotificationRequired = i.DataSubjectsNotificationRequired.ToString(),
+            DataSubjectsNotificationReason = i.DataSubjectsNotificationReason,
+            DataSubjectsNotifiedAt = i.DataSubjectsNotifiedAt,
+            DataSubjectsNotificationMethod = i.DataSubjectsNotificationMethod,
+            DataSubjectsNotificationSummary = i.DataSubjectsNotificationSummary,
+            ImmediateActions = i.ImmediateActions,
+            RemediationActions = i.RemediationActions,
+            PreventiveActions = i.PreventiveActions,
+            ClosureSummary = i.ClosureSummary,
+            ClosedAt = i.ClosedAt,
+            CreatedByUserId = i.CreatedByUserId,
+            UpdatedByUserId = i.UpdatedByUserId,
+            IsArchived = i.IsArchived,
+            ArchivedAt = i.ArchivedAt,
+            CreatedAt = i.CreatedAt,
+            UpdatedAt = i.UpdatedAt,
+            LinkedProcessingActivityIds = paLinks.Where(l => l.PrivacyIncidentId == i.Id).Select(l => l.ProcessingActivityId).ToList(),
+            LinkedServiceProviderIds = spLinks.Where(l => l.PrivacyIncidentId == i.Id).Select(l => l.ServiceProviderId).ToList(),
+            LinkedMeasureIds = measureLinks.Where(l => l.PrivacyIncidentId == i.Id).Select(l => l.MeasureId).ToList(),
+            LinkedTomIds = tomLinks.Where(l => l.PrivacyIncidentId == i.Id).Select(l => l.TomId).ToList()
+        }).ToList();
+    }
+
     private static async Task<IReadOnlyList<AuditTemplateExportDto>> LoadAuditTemplatesAsync(
         ApplicationDbContext db, int tenantId, CancellationToken ct)
     {
@@ -664,6 +760,7 @@ public class TenantExportService(
         if (doc.ServiceProviderId.HasValue) return "ServiceProvider";
         if (doc.AuditRunId.HasValue) return "AuditRun";
         if (doc.MeasureId.HasValue) return "Measure";
+        if (doc.PrivacyIncidentId.HasValue) return "PrivacyIncident";
         return null;
     }
 
@@ -672,7 +769,8 @@ public class TenantExportService(
         ?? doc.DataProtectionImpactAssessmentId
         ?? doc.ServiceProviderId
         ?? doc.AuditRunId
-        ?? doc.MeasureId;
+        ?? doc.MeasureId
+        ?? doc.PrivacyIncidentId;
 
     private static string BuildZipFileName(string tenantName, string productName)
     {

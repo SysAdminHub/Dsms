@@ -12,7 +12,8 @@ public sealed class PendingSignupService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
     IUserAccessService access,
     UserManager<ApplicationUser> userManager,
-    ILogService logService) : IPendingSignupService
+    ILogService logService,
+    ICurrentUserContext currentUser) : IPendingSignupService
 {
     public async Task<IReadOnlyList<PendingSignupListDto>> GetAllAsync(
         string? search = null,
@@ -289,6 +290,18 @@ public sealed class PendingSignupService(
             DiscountAmount = dto.DiscountAmount,
             FinalAmount = dto.FinalAmount
         };
+
+        var (currentAmount, currentCurrency, currentCycle) = PendingSignupDisplayHelper.ResolveInitialCurrentBilling(
+            entity.PaymentProvider,
+            entity.Amount,
+            entity.FinalAmount,
+            entity.Currency,
+            entity.BillingCycle,
+            entity.DiscountTypeSnapshot,
+            entity.OriginalAmount);
+        entity.CurrentBillingAmount = currentAmount;
+        entity.CurrentBillingCurrency = currentCurrency;
+        entity.CurrentBillingCycle = currentCycle;
 
         db.PendingSignups.Add(entity);
         await db.SaveChangesAsync();
@@ -581,9 +594,25 @@ public sealed class PendingSignupService(
 
         if (IsPaidSignup(entity))
         {
+            ValidateBillingDetailsUpdate(dto);
+
             var oldDate = entity.NextInvoiceDate;
+            var oldAmount = entity.CurrentBillingAmount;
+            var oldCycle = entity.CurrentBillingCycle;
+            var oldNote = entity.BillingNote;
+
             entity.NextInvoiceDate = dto.NextInvoiceDate;
             entity.BillingNote = NormalizeOptional(dto.BillingNote);
+
+            if (dto.CurrentBillingAmount is not null)
+            {
+                entity.CurrentBillingAmount = dto.CurrentBillingAmount;
+                entity.CurrentBillingCurrency = NormalizeOptional(dto.CurrentBillingCurrency) ?? entity.Currency;
+                entity.CurrentBillingCycle = NormalizeOptional(dto.CurrentBillingCycle) ?? entity.BillingCycle;
+                entity.CurrentBillingAmountUpdatedAt = DateTime.UtcNow;
+                entity.CurrentBillingAmountUpdatedByUserId = await currentUser.GetUserIdAsync();
+            }
+
             entity.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
 
@@ -591,7 +620,16 @@ public sealed class PendingSignupService(
                 entity,
                 "PendingSignupBillingDetailsUpdated",
                 "Rechnungsdetails wurden aktualisiert.",
-                new { OldNextInvoiceDate = oldDate, NewNextInvoiceDate = entity.NextInvoiceDate, BillingNoteUpdated = dto.BillingNote is not null });
+                new
+                {
+                    OldNextInvoiceDate = oldDate,
+                    NewNextInvoiceDate = entity.NextInvoiceDate,
+                    OldCurrentBillingAmount = oldAmount,
+                    NewCurrentBillingAmount = entity.CurrentBillingAmount,
+                    OldCurrentBillingCycle = oldCycle,
+                    NewCurrentBillingCycle = entity.CurrentBillingCycle,
+                    BillingNoteChanged = oldNote != entity.BillingNote
+                });
             return true;
         }
 
@@ -679,6 +717,24 @@ public sealed class PendingSignupService(
 
     private static bool IsPaidSignup(PendingSignup entity) =>
         !PendingSignupDisplayHelper.IsFreeSignup(entity.PaymentProvider, entity.Amount);
+
+    private static void ValidateBillingDetailsUpdate(UpdateBillingDetailsDto dto)
+    {
+        if (dto.CurrentBillingAmount is < 0)
+        {
+            throw new InvalidOperationException("Der aktuell gültige Betrag darf nicht negativ sein.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.CurrentBillingCurrency) && dto.CurrentBillingCurrency.Trim().Length > 10)
+        {
+            throw new InvalidOperationException("Die Währung ist ungültig.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.CurrentBillingCycle) && !BillingCycles.IsValid(dto.CurrentBillingCycle))
+        {
+            throw new InvalidOperationException("Die Abrechnung ist ungültig.");
+        }
+    }
 
     private Task TryLogBillingAuditAsync(
         PendingSignup entity,
@@ -815,6 +871,10 @@ public sealed class PendingSignupService(
         Amount = p.Amount,
         Currency = p.Currency,
         DiscountCodeSnapshot = p.DiscountCodeSnapshot,
+        DiscountTypeSnapshot = p.DiscountTypeSnapshot,
+        DiscountFreeMonthsSnapshot = p.DiscountFreeMonthsSnapshot,
+        FinalAmount = p.FinalAmount,
+        OriginalAmount = p.OriginalAmount,
         PaymentProvider = p.PaymentProvider,
         MetadataJson = p.MetadataJson,
         BillingEmail = p.BillingEmail,
@@ -822,6 +882,9 @@ public sealed class PendingSignupService(
         BillingCycle = p.BillingCycle,
         BillingStatus = p.BillingStatus,
         NextInvoiceDate = p.NextInvoiceDate,
+        CurrentBillingAmount = p.CurrentBillingAmount,
+        CurrentBillingCurrency = p.CurrentBillingCurrency,
+        CurrentBillingCycle = p.CurrentBillingCycle,
         ExternalPaymentId = p.ExternalPaymentId,
         ProvisionedLicenseId = p.ProvisionedLicenseId,
         ProvisionedLicenseNumber = p.ProvisionedLicenseNumber,
@@ -894,7 +957,11 @@ public sealed class PendingSignupService(
         InvoiceSentAt = p.InvoiceSentAt,
         InvoicePaidAt = p.InvoicePaidAt,
         NextInvoiceDate = p.NextInvoiceDate,
-        BillingNote = p.BillingNote
+        BillingNote = p.BillingNote,
+        CurrentBillingAmount = p.CurrentBillingAmount,
+        CurrentBillingCurrency = p.CurrentBillingCurrency,
+        CurrentBillingCycle = p.CurrentBillingCycle,
+        CurrentBillingAmountUpdatedAt = p.CurrentBillingAmountUpdatedAt
     };
 
     private static string? NormalizeOptional(string? value) =>

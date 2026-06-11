@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Registrierungen:** Editierbare aktuelle Abrechnungsdaten für Superuser (aktuell gültiger Betrag, Währung, Abrechnungszeitraum). Der historische Plan-Snapshot bleibt unverändert. Migration `AddPendingSignupCurrentBillingAmount`.
+
 - **Öffentliche Registrierung / Provisioning:** Rabattcodes werden beim erfolgreichen Public-Signup-Provisioning final eingelöst. Nach erfolgreicher Provisionierung wird der Nutzungszähler erhöht und die Einlösung protokolliert (`DiscountCodeRedeemed`). Migration `AddPendingSignupDiscountRedemptionFields`.
 
 - **Öffentliche Registrierung / Provisioning:** Rabattcodes vom Typ „Kostenlose Monate“ setzen beim Provisioning die Lizenzlaufzeit auf die konfigurierte kostenlose Laufzeit und verschieben das nächste Rechnungsdatum entsprechend.
@@ -19,6 +21,12 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 - **Tarif-/Planverwaltung:** Optionale Sonderpreise für monatliche und jährliche Preise ergänzt. Pläne können ein frei editierbares Angebots-Badge anzeigen, z. B. „Limitiertes Angebot“. Migration `AddSubscriptionPlanPromotionalPrices`.
 
 ### Geändert
+
+- **Registrierungsdetails (Superuser):** Trennung von Plan-Snapshot, Signup-Betrag/Rabatt und aktueller Abrechnungsbasis. Bei kostenlosen Startmonaten ist der spätere aktuell gültige Folgepreis sichtbar und editierbar.
+
+- **Interne Signup-Benachrichtigung:** Enthält nun Informationen zu verwendeten Rabattcodes, Rabattbetrag, finalem Betrag, kostenlosen Monaten und aktuell gültigem Folgepreis.
+
+- **Registrierungsdetails (Superuser):** Kostenpflichtige Pläne mit kostenlosen Monaten werden transparenter dargestellt: statt dauerhaft „Kostenlos“ werden „Heute zu zahlen“, kostenlose Laufzeit, nächste Rechnung und Folgeabrechnung angezeigt.
 
 - **Öffentliche Registrierung / Provisioning:** Public Signup berücksichtigt gespeicherte Rabatt-Snapshots konsistent. Prozent- und Betragsrabatte behalten die berechneten Finalbeträge; kostenlose Monate werden erst beim erfolgreichen Provisioning final angewendet.
 

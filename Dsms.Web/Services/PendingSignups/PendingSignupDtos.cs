@@ -16,6 +16,10 @@ public sealed class PendingSignupListDto
     public decimal? Amount { get; init; }
     public string? Currency { get; init; }
     public string? DiscountCodeSnapshot { get; init; }
+    public string? DiscountTypeSnapshot { get; init; }
+    public int? DiscountFreeMonthsSnapshot { get; init; }
+    public decimal? FinalAmount { get; init; }
+    public decimal? OriginalAmount { get; init; }
     public string? PaymentProvider { get; init; }
     public string? MetadataJson { get; init; }
     public string? BillingEmail { get; init; }
@@ -23,6 +27,9 @@ public sealed class PendingSignupListDto
     public string? BillingCycle { get; init; }
     public string? BillingStatus { get; init; }
     public DateOnly? NextInvoiceDate { get; init; }
+    public decimal? CurrentBillingAmount { get; init; }
+    public string? CurrentBillingCurrency { get; init; }
+    public string? CurrentBillingCycle { get; init; }
     public string? ExternalPaymentId { get; init; }
     public Guid? ProvisionedLicenseId { get; init; }
     public string? ProvisionedLicenseNumber { get; init; }
@@ -107,6 +114,10 @@ public sealed class PendingSignupDetailsDto
     public DateTime? InvoicePaidAt { get; init; }
     public DateOnly? NextInvoiceDate { get; init; }
     public string? BillingNote { get; init; }
+    public decimal? CurrentBillingAmount { get; init; }
+    public string? CurrentBillingCurrency { get; init; }
+    public string? CurrentBillingCycle { get; init; }
+    public DateTime? CurrentBillingAmountUpdatedAt { get; init; }
 }
 
 public class CreatePendingSignupDto
@@ -163,6 +174,9 @@ public sealed class UpdateBillingDetailsDto
     public Guid Id { get; set; }
     public DateOnly? NextInvoiceDate { get; set; }
     public string? BillingNote { get; set; }
+    public decimal? CurrentBillingAmount { get; set; }
+    public string? CurrentBillingCurrency { get; set; }
+    public string? CurrentBillingCycle { get; set; }
 }
 
 public sealed class PendingSignupStatusUpdateDto

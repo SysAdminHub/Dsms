@@ -417,6 +417,9 @@ public sealed class ProvisioningService(
         pending.FinalAmount = 0m;
         pending.BillingStatus = BillingStatuses.NotRequired;
         pending.NextInvoiceDate = today.AddMonths(freeMonths);
+        pending.CurrentBillingAmount ??= pending.OriginalAmount;
+        pending.CurrentBillingCurrency ??= pending.Currency;
+        pending.CurrentBillingCycle ??= pending.BillingCycle;
 
         var code = pending.DiscountCodeSnapshot ?? discountCode.Code;
         pending.BillingNote = $"Rabattcode {code}: {freeMonths} Monate kostenlos. Erste Rechnung ab Monat {freeMonths + 1}.";

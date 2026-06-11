@@ -60,11 +60,8 @@ else
                         <dd class="col-sm-8">@FormatPrice(_signup.PlanPriceMonthlySnapshot, _signup.CurrencySnapshot)</dd>
                         <dt class="col-sm-4">Preis jährlich</dt>
                         <dd class="col-sm-8">@FormatPrice(_signup.PlanPriceYearlySnapshot, _signup.CurrencySnapshot)</dd>
-                        <dt class="col-sm-4">Abrechnung</dt>
-                        <dd class="col-sm-8">@BillingCycleDisplayHelper.GetDisplayName(_signup.BillingCycle, _signup.MetadataJson, _isFreeSignup)</dd>
-                        <dt class="col-sm-4">Betrag</dt>
-                        <dd class="col-sm-8">@BillingCycleDisplayHelper.FormatAmountWithCycle(_signup.PaymentProvider, _signup.Amount, _signup.Currency, _signup.BillingCycle, _signup.MetadataJson)</dd>
                     </dl>
+                    <p class="text-muted small mb-0">Historischer Plan-Snapshot zum Zeitpunkt der Registrierung.</p>
                 </div>
             </div>
 
@@ -106,6 +103,15 @@ else
                             <dd class="col-sm-8">@FormatPrice(_signup.DiscountAmount, _signup.Currency)</dd>
                             <dt class="col-sm-4">Finaler Betrag</dt>
                             <dd class="col-sm-8">@FormatPrice(_signup.FinalAmount ?? _signup.Amount, _signup.Currency)</dd>
+                            <dt class="col-sm-4">Heute zu zahlen</dt>
+                            <dd class="col-sm-8">@PendingSignupDisplayHelper.FormatTodayAmountDisplay(_signup.PaymentProvider, _signup.FinalAmount, _signup.Amount, _signup.Currency, _signup.DiscountTypeSnapshot)</dd>
+                            <dt class="col-sm-4">Nächste Rechnung</dt>
+                            <dd class="col-sm-8">@BillingStatusDisplayHelper.FormatNextInvoiceDate(_signup.NextInvoiceDate, _isFreeSignup)</dd>
+                            @if (!string.IsNullOrEmpty(_followUpBilling))
+                            {
+                                <dt class="col-sm-4">Folgeabrechnung</dt>
+                                <dd class="col-sm-8">@_followUpBilling</dd>
+                            }
                             <dt class="col-sm-4">Eingelöst am</dt>
                             <dd class="col-sm-8">
                                 @if (_signup.DiscountRedeemedAt.HasValue)
@@ -147,34 +153,53 @@ else
                             <dd class="col-sm-8">
                                 <StatusBadge Text="Nicht erforderlich" Variant="default" />
                             </dd>
-                            <dt class="col-sm-4">Abrechnung</dt>
-                            <dd class="col-sm-8">Nicht erforderlich</dd>
                             <dt class="col-sm-4">Betrag</dt>
                             <dd class="col-sm-8">Kostenlos</dd>
-                            <dt class="col-sm-4">Nächste Rechnung am</dt>
-                            <dd class="col-sm-8">Nicht erforderlich</dd>
                         </dl>
                     }
                     else
                     {
+                        <h6 class="mb-3">Registrierung beim Signup</h6>
                         <dl class="row mb-0">
+                            <dt class="col-sm-4">Gewählte Abrechnung</dt>
+                            <dd class="col-sm-8">@BillingCycleDisplayHelper.GetDisplayName(_signup.BillingCycle, _signup.MetadataJson, isFree: false)</dd>
+                            <dt class="col-sm-4">Heute zu zahlen</dt>
+                            <dd class="col-sm-8">@PendingSignupDisplayHelper.FormatTodayAmountDisplay(_signup.PaymentProvider, _signup.FinalAmount, _signup.Amount, _signup.Currency, _signup.DiscountTypeSnapshot)</dd>
+                            @if (_hasDiscount)
+                            {
+                                <dt class="col-sm-4">Regulärer Betrag</dt>
+                                <dd class="col-sm-8">@FormatPrice(_signup.OriginalAmount, _signup.Currency)</dd>
+                                <dt class="col-sm-4">Finaler Signup-Betrag</dt>
+                                <dd class="col-sm-8">@FormatPrice(_signup.FinalAmount ?? _signup.Amount, _signup.Currency)</dd>
+                            }
+                        </dl>
+
+                        <hr class="my-4" />
+
+                        <h6 class="mb-3">Aktuelle Abrechnung</h6>
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Aktuell gültiger Betrag</dt>
+                            <dd class="col-sm-8">@_currentBillingDisplay</dd>
+                            <dt class="col-sm-4">Aktuelle Abrechnung</dt>
+                            <dd class="col-sm-8">@BillingCycleDisplayHelper.GetDisplayName(_signup.CurrentBillingCycle ?? _signup.BillingCycle, _signup.MetadataJson, isFree: false)</dd>
+                            <dt class="col-sm-4">Nächste Rechnung am</dt>
+                            <dd class="col-sm-8">@BillingStatusDisplayHelper.FormatNextInvoiceDate(_signup.NextInvoiceDate, isFree: false)</dd>
                             <dt class="col-sm-4">Rechnungsstatus</dt>
                             <dd class="col-sm-8">
                                 <StatusBadge Text="@PendingSignupDisplayHelper.GetBillingStatusDisplay(_signup.BillingStatus, _signup.MetadataJson, _signup.PaymentProvider, _signup.Amount)"
                                              Variant="@PendingSignupDisplayHelper.BillingStatusBadgeVariant(_signup.BillingStatus, _signup.MetadataJson, _signup.PaymentProvider, _signup.Amount)" />
                             </dd>
-                            <dt class="col-sm-4">Abrechnung</dt>
-                            <dd class="col-sm-8">@BillingCycleDisplayHelper.GetDisplayName(_signup.BillingCycle, _signup.MetadataJson, isFree: false)</dd>
-                            <dt class="col-sm-4">Betrag</dt>
-                            <dd class="col-sm-8">@BillingCycleDisplayHelper.FormatAmountWithCycle(_signup.PaymentProvider, _signup.Amount, _signup.Currency, _signup.BillingCycle, _signup.MetadataJson)</dd>
-                            <dt class="col-sm-4">Nächste Rechnung am</dt>
-                            <dd class="col-sm-8">@BillingStatusDisplayHelper.FormatNextInvoiceDate(_signup.NextInvoiceDate, isFree: false)</dd>
                             <dt class="col-sm-4">Rechnung gesendet am</dt>
                             <dd class="col-sm-8">@BillingStatusDisplayHelper.FormatInvoiceTimestamp(_signup.InvoiceSentAt)</dd>
                             <dt class="col-sm-4">Bezahlt am</dt>
                             <dd class="col-sm-8">@BillingStatusDisplayHelper.FormatInvoiceTimestamp(_signup.InvoicePaidAt)</dd>
                             <dt class="col-sm-4">Interne Rechnungsnotiz</dt>
                             <dd class="col-sm-8">@(_signup.BillingNote ?? "—")</dd>
+                            @if (_signup.CurrentBillingAmountUpdatedAt.HasValue)
+                            {
+                                <dt class="col-sm-4">Preis zuletzt geändert</dt>
+                                <dd class="col-sm-8">@_signup.CurrentBillingAmountUpdatedAt.Value.ToLocalTime().ToString("g")</dd>
+                            }
                         </dl>
 
                         <hr class="my-4" />
@@ -282,6 +307,23 @@ else
                     }
                     else
                     {
+                        <p class="text-muted small">Der aktuell gültige Betrag dient der internen Übersicht und manuellen Abrechnung. Der ursprüngliche Plan-Snapshot bleibt unverändert.</p>
+                        <div class="mb-3">
+                            <label class="form-label">Aktuell gültiger Betrag</label>
+                            <InputNumber class="form-control" @bind-Value="_currentBillingAmount" TValue="decimal?" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Währung</label>
+                            <InputText class="form-control" @bind-Value="_currentBillingCurrency" maxlength="10" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Aktuelle Abrechnung</label>
+                            <select class="form-select" @bind="_currentBillingCycle">
+                                <option value="">—</option>
+                                <option value="@BillingCycles.Monthly">Monatlich</option>
+                                <option value="@BillingCycles.Yearly">Jährlich</option>
+                            </select>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label">Nächste Rechnung am</label>
                             <InputDate class="form-control" @bind-Value="_nextInvoiceDate" TValue="DateOnly?" />
@@ -290,7 +332,7 @@ else
                             <label class="form-label">Interne Rechnungsnotiz</label>
                             <InputTextArea class="form-control" rows="3" @bind-Value="_billingNote" />
                         </div>
-                        <button type="button" class="btn btn-outline-primary w-100 mb-3" disabled="@_saving" @onclick="SaveBillingDetailsAsync">Speichern</button>
+                        <button type="button" class="btn btn-outline-primary w-100 mb-3" disabled="@_saving" @onclick="SaveBillingDetailsAsync">Rechnungsdaten speichern</button>
 
                         <div class="d-grid gap-2">
                             <button type="button" class="btn btn-outline-info" disabled="@_saving" @onclick="MarkInvoiceSentAsync">Rechnung als gesendet markieren</button>
@@ -349,6 +391,12 @@ else
     private PendingSignupDetailsDto? _signup;
     private LicenseDetailsDto? _license;
     private bool _isFreeSignup;
+    private bool _hasDiscount;
+    private string _followUpBilling = string.Empty;
+    private string _currentBillingDisplay = string.Empty;
+    private decimal? _currentBillingAmount;
+    private string? _currentBillingCurrency;
+    private string? _currentBillingCycle;
     private bool _hasCompleteBillingData;
     private bool _loading = true;
     private bool _saving;
@@ -373,6 +421,14 @@ else
             _newStatus = _signup.Status;
             _internalNote = _signup.InternalNote;
             _isFreeSignup = PendingSignupDisplayHelper.IsFreeSignup(_signup.PaymentProvider, _signup.Amount);
+            _hasDiscount = PendingSignupDisplayHelper.HasDiscountCode(_signup.DiscountCodeSnapshot);
+            _followUpBilling = PendingSignupDisplayHelper.GetFollowUpBillingDisplay(
+                _signup.BillingCycle,
+                _signup.MetadataJson,
+                _signup.DiscountTypeSnapshot,
+                _signup.DiscountFreeMonthsSnapshot,
+                _signup.OriginalAmount,
+                _signup.Currency);
             _hasCompleteBillingData = PendingSignupDisplayHelper.HasCompleteBillingAddress(
                 _signup.BillingEmail,
                 _signup.BillingCompanyName,
@@ -380,6 +436,25 @@ else
                 _signup.BillingPostalCode,
                 _signup.BillingCity,
                 _signup.BillingCountry);
+            _currentBillingDisplay = PendingSignupDisplayHelper.FormatCurrentBillingDisplay(
+                _signup.CurrentBillingAmount,
+                _signup.CurrentBillingCurrency,
+                _signup.CurrentBillingCycle,
+                _signup.FinalAmount,
+                _signup.Amount,
+                _signup.Currency,
+                _signup.BillingCycle,
+                _signup.MetadataJson,
+                _signup.DiscountTypeSnapshot,
+                _signup.OriginalAmount);
+            _currentBillingAmount = PendingSignupDisplayHelper.ResolveEffectiveCurrentBillingAmount(
+                _signup.CurrentBillingAmount,
+                _signup.FinalAmount,
+                _signup.Amount,
+                _signup.DiscountTypeSnapshot,
+                _signup.OriginalAmount);
+            _currentBillingCurrency = _signup.CurrentBillingCurrency ?? _signup.Currency ?? "EUR";
+            _currentBillingCycle = _signup.CurrentBillingCycle ?? _signup.BillingCycle;
             _nextInvoiceDate = _signup.NextInvoiceDate;
             _billingNote = _signup.BillingNote;
             _resolvedBillingStatus = BillingStatusDisplayHelper.ResolveBillingStatus(
@@ -456,7 +531,10 @@ else
             {
                 Id = Id,
                 NextInvoiceDate = _nextInvoiceDate,
-                BillingNote = _billingNote
+                BillingNote = _billingNote,
+                CurrentBillingAmount = _currentBillingAmount,
+                CurrentBillingCurrency = _currentBillingCurrency,
+                CurrentBillingCycle = _currentBillingCycle
             });
             if (!ok)
             {
@@ -570,25 +648,10 @@ else
         return DiscountCodeLabels.GetTypeLabel(type);
     }
 
-    private static string FormatDiscountValue(PendingSignupDetailsDto signup)
-    {
-        if (signup.DiscountFreeMonthsSnapshot.HasValue)
-        {
-            var months = signup.DiscountFreeMonthsSnapshot.Value;
-            return $"{months} Monat{(months == 1 ? "" : "e")} kostenlos";
-        }
-
-        if (string.Equals(signup.DiscountTypeSnapshot, nameof(DiscountCodeType.Percentage), StringComparison.Ordinal)
-            && signup.DiscountValueSnapshot.HasValue)
-        {
-            return $"{signup.DiscountValueSnapshot.Value.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("de-DE"))} %";
-        }
-
-        if (signup.DiscountValueSnapshot.HasValue)
-        {
-            return FormatPrice(signup.DiscountValueSnapshot, signup.Currency);
-        }
-
-        return "—";
-    }
+    private static string FormatDiscountValue(PendingSignupDetailsDto signup) =>
+        PendingSignupDisplayHelper.GetDiscountDisplayText(
+            signup.DiscountTypeSnapshot,
+            signup.DiscountValueSnapshot,
+            signup.DiscountFreeMonthsSnapshot,
+            signup.Currency);
 }

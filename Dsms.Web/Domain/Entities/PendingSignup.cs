@@ -86,4 +86,11 @@ public class PendingSignup
     public DateTime? InvoicePaidAt { get; set; }
     public DateOnly? NextInvoiceDate { get; set; }
     public string? BillingNote { get; set; }
+
+    /// <summary>Aktuell gültiger Abrechnungspreis (kann vom Signup-Snapshot abweichen).</summary>
+    public decimal? CurrentBillingAmount { get; set; }
+    public string? CurrentBillingCurrency { get; set; }
+    public string? CurrentBillingCycle { get; set; }
+    public DateTime? CurrentBillingAmountUpdatedAt { get; set; }
+    public string? CurrentBillingAmountUpdatedByUserId { get; set; }
 }

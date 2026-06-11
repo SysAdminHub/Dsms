@@ -119,9 +119,10 @@ else
                             </td>
                             <td>@(item.PlanDisplayNameSnapshot ?? "—")</td>
                             <td class="small">@(item.Source ?? "—")</td>
-                            <td>
-                                @BillingCycleDisplayHelper.FormatAmountWithCycle(item.PaymentProvider, item.Amount, item.Currency, item.BillingCycle, item.MetadataJson)
-                                @if (!string.IsNullOrWhiteSpace(item.DiscountCodeSnapshot))
+                            <td class="small" style="white-space: pre-line">
+                                @PendingSignupDisplayHelper.FormatListPriceSummary(item)
+                                @if (!string.IsNullOrWhiteSpace(item.DiscountCodeSnapshot)
+                                    && !PendingSignupDisplayHelper.IsFreeMonthsDiscount(item.DiscountTypeSnapshot))
                                 {
                                     <div class="text-muted small">
                                         Rabatt: @item.DiscountCodeSnapshot

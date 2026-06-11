@@ -189,6 +189,10 @@ public class ApplicationDbContext(
             e.Property(p => p.BillingCycle).HasMaxLength(20);
             e.Property(p => p.BillingStatus).HasMaxLength(50);
             e.Property(p => p.BillingNote).HasColumnType("text");
+            e.Property(p => p.CurrentBillingAmount).HasPrecision(18, 2);
+            e.Property(p => p.CurrentBillingCurrency).HasMaxLength(10);
+            e.Property(p => p.CurrentBillingCycle).HasMaxLength(20);
+            e.Property(p => p.CurrentBillingAmountUpdatedByUserId).HasMaxLength(450);
             e.Property(p => p.Status).HasDefaultValue(PendingSignupStatuses.Draft);
             e.HasIndex(p => p.CreatedAt);
             e.HasIndex(p => p.Status);

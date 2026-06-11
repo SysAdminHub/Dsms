@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Text.Json;
 using Dsms.Web.Domain;
+using Dsms.Web.Domain.Enums;
 
 namespace Dsms.Web.Services.PendingSignups;
 
@@ -33,9 +35,242 @@ public static class PendingSignupDisplayHelper
             : $"{amount.Value:N2} {currency}";
     }
 
+    /// <summary>Echter kostenloser Tarif (nicht kostenpflichtiger Plan mit Rabatt).</summary>
     public static bool IsFreeSignup(string? paymentProvider, decimal? amount) =>
-        string.Equals(paymentProvider, "None", StringComparison.OrdinalIgnoreCase)
-        || amount == 0;
+        string.Equals(paymentProvider, "None", StringComparison.OrdinalIgnoreCase);
+
+    public static bool HasDiscountCode(string? discountCodeSnapshot) =>
+        !string.IsNullOrWhiteSpace(discountCodeSnapshot);
+
+    public static bool IsFreeMonthsDiscount(string? discountTypeSnapshot) =>
+        string.Equals(discountTypeSnapshot, nameof(DiscountCodeType.FreeMonths), StringComparison.Ordinal);
+
+    public static string GetDiscountDisplayText(
+        string? discountTypeSnapshot,
+        decimal? discountValueSnapshot,
+        int? discountFreeMonthsSnapshot,
+        string? currency)
+    {
+        if (string.IsNullOrWhiteSpace(discountTypeSnapshot))
+        {
+            return "—";
+        }
+
+        if (IsFreeMonthsDiscount(discountTypeSnapshot) && discountFreeMonthsSnapshot is > 0)
+        {
+            var months = discountFreeMonthsSnapshot.Value;
+            return $"{months} Monat{(months == 1 ? "" : "e")} kostenlos";
+        }
+
+        if (string.Equals(discountTypeSnapshot, nameof(DiscountCodeType.Percentage), StringComparison.Ordinal)
+            && discountValueSnapshot is > 0)
+        {
+            return $"{discountValueSnapshot.Value.ToString("0.##", CultureInfo.GetCultureInfo("de-DE"))} % Rabatt";
+        }
+
+        if (discountValueSnapshot is > 0)
+        {
+            return $"{FormatAmount(discountValueSnapshot, currency)} Rabatt";
+        }
+
+        return "—";
+    }
+
+    public static string FormatTodayAmountDisplay(
+        string? paymentProvider,
+        decimal? finalAmount,
+        decimal? amount,
+        string? currency,
+        string? discountTypeSnapshot)
+    {
+        if (IsFreeSignup(paymentProvider, amount))
+        {
+            return "Kostenlos";
+        }
+
+        var today = finalAmount ?? amount ?? 0m;
+        var formatted = FormatAmount(today, currency);
+
+        if (IsFreeMonthsDiscount(discountTypeSnapshot))
+        {
+            return $"{formatted} für kostenlose Startlaufzeit";
+        }
+
+        if (today == 0m && !string.IsNullOrWhiteSpace(discountTypeSnapshot))
+        {
+            return $"Heute zu zahlen: {formatted}";
+        }
+
+        return formatted;
+    }
+
+    public static string GetFollowUpBillingDisplay(
+        string? billingCycle,
+        string? metadataJson,
+        string? discountTypeSnapshot,
+        int? discountFreeMonthsSnapshot,
+        decimal? originalAmount,
+        string? currency)
+    {
+        if (!IsFreeMonthsDiscount(discountTypeSnapshot)
+            || discountFreeMonthsSnapshot is not > 0
+            || !originalAmount.HasValue)
+        {
+            return string.Empty;
+        }
+
+        var cycle = ResolveBillingCycle(billingCycle, metadataJson);
+        var startMonth = discountFreeMonthsSnapshot.Value + 1;
+        var amount = FormatAmount(originalAmount, currency);
+
+        return cycle switch
+        {
+            BillingCycles.Yearly => $"Jahresrechnung ab Monat {startMonth}: {amount} / Jahr",
+            BillingCycles.Monthly => $"Monatsrechnung ab Monat {startMonth}: {amount} / Monat",
+            _ => $"Reguläre Rechnung ab Monat {startMonth}: {amount}"
+        };
+    }
+
+    public static string FormatSignupAmountDisplay(
+        string? paymentProvider,
+        decimal? amount,
+        decimal? finalAmount,
+        string? currency,
+        string? billingCycle,
+        string? metadataJson,
+        string? discountTypeSnapshot,
+        string? discountCodeSnapshot)
+    {
+        if (IsFreeSignup(paymentProvider, amount))
+        {
+            return "Kostenlos";
+        }
+
+        if (IsFreeMonthsDiscount(discountTypeSnapshot) || (HasDiscountCode(discountCodeSnapshot) && (finalAmount ?? amount) == 0m))
+        {
+            return FormatTodayAmountDisplay(paymentProvider, finalAmount, amount, currency, discountTypeSnapshot);
+        }
+
+        return BillingCycleDisplayHelper.FormatAmountWithCycle(
+            paymentProvider, amount, currency, billingCycle, metadataJson);
+    }
+
+    public static (decimal? Amount, string? Currency, string? Cycle) ResolveInitialCurrentBilling(
+        string? paymentProvider,
+        decimal? amount,
+        decimal? finalAmount,
+        string? currency,
+        string? billingCycle,
+        string? discountTypeSnapshot,
+        decimal? originalAmount)
+    {
+        if (IsFreeSignup(paymentProvider, amount))
+        {
+            return (0m, currency, null);
+        }
+
+        var normalizedCycle = string.IsNullOrWhiteSpace(billingCycle) ? null : billingCycle.Trim();
+
+        if (IsFreeMonthsDiscount(discountTypeSnapshot))
+        {
+            return (originalAmount, currency, normalizedCycle);
+        }
+
+        return (finalAmount ?? amount, currency, normalizedCycle);
+    }
+
+    public static decimal? ResolveEffectiveCurrentBillingAmount(
+        decimal? currentBillingAmount,
+        decimal? finalAmount,
+        decimal? amount,
+        string? discountTypeSnapshot,
+        decimal? originalAmount)
+    {
+        if (currentBillingAmount.HasValue)
+        {
+            return currentBillingAmount;
+        }
+
+        if (IsFreeMonthsDiscount(discountTypeSnapshot))
+        {
+            return originalAmount;
+        }
+
+        return finalAmount ?? amount;
+    }
+
+    public static string FormatCurrentBillingDisplay(
+        decimal? currentBillingAmount,
+        string? currentBillingCurrency,
+        string? currentBillingCycle,
+        decimal? finalAmount,
+        decimal? amount,
+        string? currency,
+        string? billingCycle,
+        string? metadataJson,
+        string? discountTypeSnapshot,
+        decimal? originalAmount)
+    {
+        var effectiveAmount = ResolveEffectiveCurrentBillingAmount(
+            currentBillingAmount,
+            finalAmount,
+            amount,
+            discountTypeSnapshot,
+            originalAmount);
+
+        if (!effectiveAmount.HasValue)
+        {
+            return "—";
+        }
+
+        var effectiveCurrency = currentBillingCurrency ?? currency;
+        var effectiveCycle = !string.IsNullOrWhiteSpace(currentBillingCycle)
+            ? currentBillingCycle
+            : ResolveBillingCycle(billingCycle, metadataJson);
+
+        var amountStr = FormatAmount(effectiveAmount, effectiveCurrency);
+        var suffix = effectiveCycle switch
+        {
+            BillingCycles.Monthly => "/ Monat",
+            BillingCycles.Yearly => "/ Jahr",
+            _ => string.Empty
+        };
+
+        return string.IsNullOrEmpty(suffix) ? amountStr : $"{amountStr} {suffix}";
+    }
+
+    public static string FormatListPriceSummary(PendingSignupListDto item)
+    {
+        if (IsFreeSignup(item.PaymentProvider, item.Amount))
+        {
+            return "Kostenlos";
+        }
+
+        var currentDisplay = FormatCurrentBillingDisplay(
+            item.CurrentBillingAmount,
+            item.CurrentBillingCurrency,
+            item.CurrentBillingCycle,
+            item.FinalAmount,
+            item.Amount,
+            item.Currency,
+            item.BillingCycle,
+            item.MetadataJson,
+            item.DiscountTypeSnapshot,
+            item.OriginalAmount);
+
+        if (IsFreeMonthsDiscount(item.DiscountTypeSnapshot) && item.DiscountFreeMonthsSnapshot is > 0)
+        {
+            var today = FormatAmount(item.FinalAmount ?? item.Amount ?? 0m, item.Currency);
+            return $"{today} heute · danach {currentDisplay}";
+        }
+
+        if (item.NextInvoiceDate.HasValue)
+        {
+            return $"{currentDisplay}\nNächste Rechnung: {item.NextInvoiceDate.Value:d}";
+        }
+
+        return currentDisplay;
+    }
 
     public static bool HasBillingData(string? billingEmail, string? billingCompanyName) =>
         !string.IsNullOrWhiteSpace(billingEmail)

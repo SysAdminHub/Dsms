@@ -90,6 +90,7 @@ builder.Services.AddScoped<IPublicSignupService, PublicSignupService>();
 builder.Services.AddScoped<ISignupNotificationService, SignupNotificationService>();
 builder.Services.AddScoped<IUpgradeRequestService, UpgradeRequestService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
+builder.Services.AddScoped<FeedbackModalState>();
 builder.Services.AddScoped<IPaidSignupService, PaidSignupService>();
 builder.Services.AddScoped<IPendingSignupService, PendingSignupService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();

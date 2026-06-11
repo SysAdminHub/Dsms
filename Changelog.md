@@ -54,6 +54,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Behoben
 
+- **Feedback-Modal:** Overlay-/Z-Index-Problem behoben, sodass Dashboard-Donut-Charts und andere Seiteninhalte nicht mehr über dem Feedback-Dialog liegen. Das Modal wird nun im MainLayout gerendert (außerhalb der Sidebar) und nutzt erhöhte z-index-Werte.
+
 - **Öffentliche Registrierung / Provisioning:** Rabattcodes werden nicht mehr nur anhand der Preisvorschau betrachtet, sondern vor der Provisionierung erneut serverseitig validiert. Einlösung und `CurrentRedemptions` erfolgen erst nach erfolgreichem Provisioning.
 
 - **Archivansicht Audit-Durchläufe:** Archivierte Audit-Durchläufe werden wieder zuverlässig im Archiv angezeigt. Ursache war ein `Include` auf `AuditTemplate`, dessen Global Query Filter in der Archivansicht nur archivierte Vorlagen zulässt – mandantensichere Abfrage mit `IgnoreQueryFilters()` und separater Vorlagen-Titel-Auflösung wie bei DSFA.

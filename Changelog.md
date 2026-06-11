@@ -6,9 +6,25 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Öffentliche Registrierung / Provisioning:** Rabattcodes werden beim erfolgreichen Public-Signup-Provisioning final eingelöst. Nach erfolgreicher Provisionierung wird der Nutzungszähler erhöht und die Einlösung protokolliert (`DiscountCodeRedeemed`). Migration `AddPendingSignupDiscountRedemptionFields`.
+
+- **Öffentliche Registrierung / Provisioning:** Rabattcodes vom Typ „Kostenlose Monate“ setzen beim Provisioning die Lizenzlaufzeit auf die konfigurierte kostenlose Laufzeit und verschieben das nächste Rechnungsdatum entsprechend.
+
+- **Öffentliche Registrierung:** Rabattcode-Feld ergänzt. Rabattcodes werden serverseitig gegen Plan, Abrechnung, Gültigkeit und Nutzungslimit geprüft und in der Preisvorschau berücksichtigt.
+
+- **PendingSignup:** Speichert angewendete Rabattinformationen als Snapshot für spätere Rechnung und Provisioning. Migration `AddPendingSignupDiscountFields`.
+
+- **Rabattcodes:** Rabattcode-Grundmodell für SaaS-Aktionen ergänzt: Superuser können Rabattcodes mit Typ, Wert, Planbindung, Gültigkeit und Nutzungslimit im Plattformbereich verwalten. Noch keine Anwendung in der öffentlichen Registrierung. Migration `AddDiscountCodes`.
+
 - **Tarif-/Planverwaltung:** Optionale Sonderpreise für monatliche und jährliche Preise ergänzt. Pläne können ein frei editierbares Angebots-Badge anzeigen, z. B. „Limitiertes Angebot“. Migration `AddSubscriptionPlanPromotionalPrices`.
 
 ### Geändert
+
+- **Öffentliche Registrierung / Provisioning:** Public Signup berücksichtigt gespeicherte Rabatt-Snapshots konsistent. Prozent- und Betragsrabatte behalten die berechneten Finalbeträge; kostenlose Monate werden erst beim erfolgreichen Provisioning final angewendet.
+
+- **Öffentliche Registrierung:** Preisvorschau für Rabattcodes mit kostenlosen Monaten transparenter dargestellt. Neben „Heute zu zahlen“ werden kostenlose Laufzeit und die anschließende Monats- bzw. Jahresrechnung angezeigt.
+
+- **Öffentliche Registrierung:** Public Signup berücksichtigt bei der Betragsermittlung aktive Sonderpreise und angewendete Rabattcodes. Der finale Betrag wird als effektiver Signup-Betrag gespeichert.
 
 - **Öffentliche Registrierung:** Sonderpreis-Ribbon auf Tarifkarten optisch vergrößert und mit auffälligerem Aktionsstil hervorgehoben.
 
@@ -29,6 +45,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 - **Audit-Durchläufe:** Audit-Durchläufe können als „Abgeschlossen“ markiert werden (`AuditRunStatus.Completed` im Bearbeiten-Formular und Button „Audit abschließen“ auf der Antwortseite); Listen-, Detail- und Dashboard-Anzeige berücksichtigen den Abschlussstatus mit deutschen Labels (`AuditRunLabels`).
 
 ### Behoben
+
+- **Öffentliche Registrierung / Provisioning:** Rabattcodes werden nicht mehr nur anhand der Preisvorschau betrachtet, sondern vor der Provisionierung erneut serverseitig validiert. Einlösung und `CurrentRedemptions` erfolgen erst nach erfolgreichem Provisioning.
 
 - **Archivansicht Audit-Durchläufe:** Archivierte Audit-Durchläufe werden wieder zuverlässig im Archiv angezeigt. Ursache war ein `Include` auf `AuditTemplate`, dessen Global Query Filter in der Archivansicht nur archivierte Vorlagen zulässt – mandantensichere Abfrage mit `IgnoreQueryFilters()` und separater Vorlagen-Titel-Auflösung wie bei DSFA.
 

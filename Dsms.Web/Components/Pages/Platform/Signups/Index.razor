@@ -119,7 +119,19 @@ else
                             </td>
                             <td>@(item.PlanDisplayNameSnapshot ?? "—")</td>
                             <td class="small">@(item.Source ?? "—")</td>
-                            <td>@BillingCycleDisplayHelper.FormatAmountWithCycle(item.PaymentProvider, item.Amount, item.Currency, item.BillingCycle, item.MetadataJson)</td>
+                            <td>
+                                @BillingCycleDisplayHelper.FormatAmountWithCycle(item.PaymentProvider, item.Amount, item.Currency, item.BillingCycle, item.MetadataJson)
+                                @if (!string.IsNullOrWhiteSpace(item.DiscountCodeSnapshot))
+                                {
+                                    <div class="text-muted small">
+                                        Rabatt: @item.DiscountCodeSnapshot
+                                        @if (item.Status == PendingSignupStatuses.Provisioned)
+                                        {
+                                            <StatusBadge Text="eingelöst" Variant="success" />
+                                        }
+                                    </div>
+                                }
+                            </td>
                             <td>
                                 <StatusBadge Text="@PendingSignupDisplayHelper.GetBillingStatusDisplay(item.BillingStatus, item.MetadataJson, item.PaymentProvider, item.Amount)"
                                              Variant="@PendingSignupDisplayHelper.BillingStatusBadgeVariant(item.BillingStatus, item.MetadataJson, item.PaymentProvider, item.Amount)" />

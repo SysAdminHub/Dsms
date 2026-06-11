@@ -19,6 +19,9 @@ public sealed class ProvisionCustomerRequestDto
 
     public bool SendWelcomeEmail { get; set; } = true;
     public string? Source { get; set; }
+
+    /// <summary>Verknüpfter PendingSignup für Public Signup (Rabattcode-Einlösung).</summary>
+    public Guid? PendingSignupId { get; set; }
 }
 
 public sealed class ProvisionCustomerResultDto

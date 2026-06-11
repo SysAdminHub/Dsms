@@ -21,6 +21,7 @@ public class ApplicationDbContext(
 {
     public DbSet<License> Licenses => Set<License>();
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+    public DbSet<DiscountCode> DiscountCodes => Set<DiscountCode>();
     public DbSet<PendingSignup> PendingSignups => Set<PendingSignup>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<UserTenant> UserTenants => Set<UserTenant>();
@@ -113,6 +114,30 @@ public class ApplicationDbContext(
             e.HasIndex(p => p.SortOrder);
         });
 
+        builder.Entity<DiscountCode>(e =>
+        {
+            e.ToTable("DiscountCodes");
+            e.HasKey(d => d.Id);
+            e.Property(d => d.Code).HasMaxLength(64).IsRequired();
+            e.Property(d => d.Name).HasMaxLength(200).IsRequired();
+            e.Property(d => d.Description).HasColumnType("text");
+            e.Property(d => d.InternalNote).HasColumnType("text");
+            e.Property(d => d.AppliesToBillingCycle).HasMaxLength(20);
+            e.Property(d => d.PercentageValue).HasPrecision(5, 2);
+            e.Property(d => d.FixedAmountValue).HasPrecision(18, 2);
+            e.Property(d => d.IsActive).HasDefaultValue(true);
+            e.Property(d => d.CurrentRedemptions).HasDefaultValue(0);
+            e.Property(d => d.CreatedByUserId).HasMaxLength(450);
+            e.Property(d => d.UpdatedByUserId).HasMaxLength(450);
+            e.HasIndex(d => d.Code).IsUnique();
+            e.HasIndex(d => d.IsActive);
+            e.HasIndex(d => d.AppliesToPlanId);
+            e.HasOne(d => d.AppliesToPlan)
+                .WithMany()
+                .HasForeignKey(d => d.AppliesToPlanId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
         builder.Entity<PendingSignup>(e =>
         {
             e.ToTable("PendingSignups");
@@ -139,6 +164,13 @@ public class ApplicationDbContext(
             e.Property(p => p.PlanPriceMonthlySnapshot).HasPrecision(18, 2);
             e.Property(p => p.PlanPriceYearlySnapshot).HasPrecision(18, 2);
             e.Property(p => p.Amount).HasPrecision(18, 2);
+            e.Property(p => p.DiscountCodeSnapshot).HasMaxLength(64);
+            e.Property(p => p.DiscountNameSnapshot).HasMaxLength(200);
+            e.Property(p => p.DiscountTypeSnapshot).HasMaxLength(50);
+            e.Property(p => p.DiscountValueSnapshot).HasPrecision(18, 2);
+            e.Property(p => p.OriginalAmount).HasPrecision(18, 2);
+            e.Property(p => p.DiscountAmount).HasPrecision(18, 2);
+            e.Property(p => p.FinalAmount).HasPrecision(18, 2);
             e.Property(p => p.ProvisionedLicenseNumber).HasMaxLength(50);
             e.Property(p => p.ProvisionedTenantName).HasMaxLength(200);
             e.Property(p => p.ProvisionedAdminUserId).HasMaxLength(450);

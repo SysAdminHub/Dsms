@@ -1,3 +1,5 @@
+using Dsms.Web.Domain.Enums;
+
 namespace Dsms.Web.Services.Signup;
 
 public sealed class PublicSignupPlanDto
@@ -10,6 +12,8 @@ public sealed class PublicSignupPlanDto
     public decimal? PriceMonthly { get; init; }
     public decimal? PriceYearly { get; init; }
     public string Currency { get; init; } = "EUR";
+    public decimal? EffectiveMonthlyPrice { get; init; }
+    public decimal? EffectiveYearlyPrice { get; init; }
     public bool IsPromotionalPriceEnabled { get; init; }
     public decimal? PromotionalMonthlyPrice { get; init; }
     public decimal? PromotionalYearlyPrice { get; init; }
@@ -52,6 +56,16 @@ public sealed class PublicSignupFormDto
 
     /// <summary>Abrechnungszeitraum bei kostenpflichtigen Plänen (<see cref="BillingCycles"/>).</summary>
     public string? BillingCycle { get; set; }
+
+    public string? DiscountCodeInput { get; set; }
+    public Guid? AppliedDiscountCodeId { get; set; }
+    public string? AppliedDiscountCode { get; set; }
+    public string? AppliedDiscountName { get; set; }
+    public DiscountCodeType? AppliedDiscountType { get; set; }
+    public string? AppliedDiscountDisplayText { get; set; }
+    public decimal? OriginalAmount { get; set; }
+    public decimal? DiscountAmount { get; set; }
+    public decimal? FinalAmount { get; set; }
 }
 
 public sealed class PublicSignupSubmitResult

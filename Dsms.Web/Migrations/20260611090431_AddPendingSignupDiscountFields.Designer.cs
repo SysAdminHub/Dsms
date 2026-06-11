@@ -4,6 +4,7 @@ using Dsms.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Dsms.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260611090431_AddPendingSignupDiscountFields")]
+    partial class AddPendingSignupDiscountFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1179,9 +1182,6 @@ namespace Dsms.Web.Migrations
                     b.Property<string>("DiscountNameSnapshot")
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
-
-                    b.Property<DateTime?>("DiscountRedeemedAt")
-                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("DiscountTypeSnapshot")
                         .HasMaxLength(50)

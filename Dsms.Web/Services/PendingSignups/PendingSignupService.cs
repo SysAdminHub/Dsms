@@ -278,7 +278,16 @@ public sealed class PendingSignupService(
             BillingVatId = NormalizeOptional(dto.BillingVatId),
             BillingReference = NormalizeOptional(dto.BillingReference),
             BillingStatus = NormalizeOptional(dto.BillingStatus),
-            NextInvoiceDate = dto.NextInvoiceDate
+            NextInvoiceDate = dto.NextInvoiceDate,
+            DiscountCodeId = dto.DiscountCodeId,
+            DiscountCodeSnapshot = NormalizeOptional(dto.DiscountCodeSnapshot),
+            DiscountNameSnapshot = NormalizeOptional(dto.DiscountNameSnapshot),
+            DiscountTypeSnapshot = NormalizeOptional(dto.DiscountTypeSnapshot),
+            DiscountValueSnapshot = dto.DiscountValueSnapshot,
+            DiscountFreeMonthsSnapshot = dto.DiscountFreeMonthsSnapshot,
+            OriginalAmount = dto.OriginalAmount,
+            DiscountAmount = dto.DiscountAmount,
+            FinalAmount = dto.FinalAmount
         };
 
         db.PendingSignups.Add(entity);
@@ -805,6 +814,7 @@ public sealed class PendingSignupService(
         Source = p.Source,
         Amount = p.Amount,
         Currency = p.Currency,
+        DiscountCodeSnapshot = p.DiscountCodeSnapshot,
         PaymentProvider = p.PaymentProvider,
         MetadataJson = p.MetadataJson,
         BillingEmail = p.BillingEmail,
@@ -849,6 +859,16 @@ public sealed class PendingSignupService(
         Amount = p.Amount,
         Currency = p.Currency,
         BillingCycle = p.BillingCycle,
+        DiscountCodeId = p.DiscountCodeId,
+        DiscountCodeSnapshot = p.DiscountCodeSnapshot,
+        DiscountNameSnapshot = p.DiscountNameSnapshot,
+        DiscountTypeSnapshot = p.DiscountTypeSnapshot,
+        DiscountValueSnapshot = p.DiscountValueSnapshot,
+        DiscountFreeMonthsSnapshot = p.DiscountFreeMonthsSnapshot,
+        OriginalAmount = p.OriginalAmount,
+        DiscountAmount = p.DiscountAmount,
+        FinalAmount = p.FinalAmount,
+        DiscountRedeemedAt = p.DiscountRedeemedAt,
         PaidAt = p.PaidAt,
         ProvisionedAt = p.ProvisionedAt,
         CancelledAt = p.CancelledAt,

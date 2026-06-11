@@ -86,6 +86,56 @@ else
                 </div>
             </div>
 
+            @if (!string.IsNullOrWhiteSpace(_signup.DiscountCodeSnapshot))
+            {
+                <div class="dsms-card mb-4">
+                    <div class="dsms-card-header"><strong>Rabattcode</strong></div>
+                    <div class="dsms-card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Code</dt>
+                            <dd class="col-sm-8"><code>@_signup.DiscountCodeSnapshot</code></dd>
+                            <dt class="col-sm-4">Name</dt>
+                            <dd class="col-sm-8">@(_signup.DiscountNameSnapshot ?? "—")</dd>
+                            <dt class="col-sm-4">Typ</dt>
+                            <dd class="col-sm-8">@FormatDiscountType(_signup.DiscountTypeSnapshot)</dd>
+                            <dt class="col-sm-4">Wert</dt>
+                            <dd class="col-sm-8">@FormatDiscountValue(_signup)</dd>
+                            <dt class="col-sm-4">Originalbetrag</dt>
+                            <dd class="col-sm-8">@FormatPrice(_signup.OriginalAmount, _signup.Currency)</dd>
+                            <dt class="col-sm-4">Rabattbetrag</dt>
+                            <dd class="col-sm-8">@FormatPrice(_signup.DiscountAmount, _signup.Currency)</dd>
+                            <dt class="col-sm-4">Finaler Betrag</dt>
+                            <dd class="col-sm-8">@FormatPrice(_signup.FinalAmount ?? _signup.Amount, _signup.Currency)</dd>
+                            <dt class="col-sm-4">Eingelöst am</dt>
+                            <dd class="col-sm-8">
+                                @if (_signup.DiscountRedeemedAt.HasValue)
+                                {
+                                    @_signup.DiscountRedeemedAt.Value.ToLocalTime().ToString("g")
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Noch nicht eingelöst</span>
+                                }
+                            </dd>
+                            @if (_signup.DiscountFreeMonthsSnapshot is int freeMonths && freeMonths > 0)
+                            {
+                                <dt class="col-sm-4">Lizenzlaufzeit</dt>
+                                <dd class="col-sm-8">
+                                    @if (_signup.DiscountRedeemedAt.HasValue)
+                                    {
+                                        <span>Lizenzlaufzeit wurde durch den Rabattcode auf @freeMonths Monat@(freeMonths == 1 ? "" : "e") gesetzt.</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">Wird beim Provisioning auf @freeMonths Monat@(freeMonths == 1 ? "" : "e") gesetzt.</span>
+                                    }
+                                </dd>
+                            }
+                        </dl>
+                    </div>
+                </div>
+            }
+
             <div class="dsms-card mb-4">
                 <div class="dsms-card-header"><strong>Rechnung</strong></div>
                 <div class="dsms-card-body">
@@ -508,4 +558,37 @@ else
 
     private static string FormatLicenseDate(DateTime? value) =>
         value?.ToLocalTime().ToString("d") ?? "—";
+
+    private static string FormatDiscountType(string? typeSnapshot)
+    {
+        if (string.IsNullOrWhiteSpace(typeSnapshot)
+            || !Enum.TryParse<DiscountCodeType>(typeSnapshot, out var type))
+        {
+            return typeSnapshot ?? "—";
+        }
+
+        return DiscountCodeLabels.GetTypeLabel(type);
+    }
+
+    private static string FormatDiscountValue(PendingSignupDetailsDto signup)
+    {
+        if (signup.DiscountFreeMonthsSnapshot.HasValue)
+        {
+            var months = signup.DiscountFreeMonthsSnapshot.Value;
+            return $"{months} Monat{(months == 1 ? "" : "e")} kostenlos";
+        }
+
+        if (string.Equals(signup.DiscountTypeSnapshot, nameof(DiscountCodeType.Percentage), StringComparison.Ordinal)
+            && signup.DiscountValueSnapshot.HasValue)
+        {
+            return $"{signup.DiscountValueSnapshot.Value.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("de-DE"))} %";
+        }
+
+        if (signup.DiscountValueSnapshot.HasValue)
+        {
+            return FormatPrice(signup.DiscountValueSnapshot, signup.Currency);
+        }
+
+        return "—";
+    }
 }

@@ -4,6 +4,7 @@ using Dsms.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Dsms.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260611084837_AddDiscountCodes")]
+    partial class AddDiscountCodes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1162,35 +1165,6 @@ namespace Dsms.Web.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
-                    b.Property<decimal?>("DiscountAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid?>("DiscountCodeId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("DiscountCodeSnapshot")
-                        .HasMaxLength(64)
-                        .HasColumnType("varchar(64)");
-
-                    b.Property<int?>("DiscountFreeMonthsSnapshot")
-                        .HasColumnType("int");
-
-                    b.Property<string>("DiscountNameSnapshot")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<DateTime?>("DiscountRedeemedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("DiscountTypeSnapshot")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<decimal?>("DiscountValueSnapshot")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<string>("ErrorMessage")
                         .HasColumnType("text");
 
@@ -1208,10 +1182,6 @@ namespace Dsms.Web.Migrations
                     b.Property<DateTime?>("FailedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<decimal?>("FinalAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<string>("InternalNote")
                         .HasColumnType("text");
 
@@ -1226,10 +1196,6 @@ namespace Dsms.Web.Migrations
 
                     b.Property<DateOnly?>("NextInvoiceDate")
                         .HasColumnType("date");
-
-                    b.Property<decimal?>("OriginalAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("PaidAt")
                         .HasColumnType("datetime(6)");

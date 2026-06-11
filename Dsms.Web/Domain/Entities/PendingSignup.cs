@@ -42,6 +42,18 @@ public class PendingSignup
     public string? Currency { get; set; }
     public string? BillingCycle { get; set; }
 
+    public Guid? DiscountCodeId { get; set; }
+    public string? DiscountCodeSnapshot { get; set; }
+    public string? DiscountNameSnapshot { get; set; }
+    public string? DiscountTypeSnapshot { get; set; }
+    public decimal? DiscountValueSnapshot { get; set; }
+    public int? DiscountFreeMonthsSnapshot { get; set; }
+    public decimal? OriginalAmount { get; set; }
+    public decimal? DiscountAmount { get; set; }
+    public decimal? FinalAmount { get; set; }
+    /// <summary>Zeitpunkt der finalen Rabattcode-Einlösung nach erfolgreicher Provisionierung.</summary>
+    public DateTime? DiscountRedeemedAt { get; set; }
+
     public DateTime? PaidAt { get; set; }
     public DateTime? ProvisionedAt { get; set; }
     public DateTime? CancelledAt { get; set; }

@@ -1,6 +1,8 @@
 using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
+using Dsms.Web.Domain.Enums;
+using Dsms.Web.Services.DiscountCodes;
 using Dsms.Web.Services.Licenses;
 using Dsms.Web.Services.Logging;
 using Dsms.Web.Services.PasswordReset;
@@ -14,7 +16,8 @@ public sealed class ProvisioningService(
     UserManager<ApplicationUser> userManager,
     RoleManager<IdentityRole> roleManager,
     ILogService logService,
-    IPasswordResetService passwordReset) : IProvisioningService
+    IPasswordResetService passwordReset,
+    IDiscountCodeValidationService discountCodeValidation) : IProvisioningService
 {
     public async Task<ProvisionCustomerResultDto> ProvisionCustomerAsync(ProvisionCustomerRequestDto dto)
     {
@@ -51,6 +54,34 @@ public sealed class ProvisioningService(
             if (!plan.IsActive)
             {
                 return ProvisionCustomerResultDto.Fail("Der ausgewählte Tarif ist nicht aktiv.");
+            }
+
+            PendingSignup? pendingSignup = null;
+            DiscountCodeValidationResult? discountValidation = null;
+
+            if (dto.PendingSignupId.HasValue)
+            {
+                pendingSignup = await db.PendingSignups
+                    .FirstOrDefaultAsync(p => p.Id == dto.PendingSignupId.Value);
+
+                if (pendingSignup is null)
+                {
+                    return ProvisionCustomerResultDto.Fail("Die Registrierung wurde nicht gefunden.");
+                }
+
+                if (pendingSignup.DiscountCodeId.HasValue && !pendingSignup.DiscountRedeemedAt.HasValue)
+                {
+                    discountValidation = await discountCodeValidation.ValidateForProvisioningAsync(dto.PendingSignupId.Value);
+                    if (!discountValidation.IsValid)
+                    {
+                        await TryLogDiscountRedemptionFailedAsync(
+                            pendingSignup,
+                            discountValidation.ErrorMessage ?? "Rabattcode ungültig.");
+                        return ProvisionCustomerResultDto.Fail(
+                            discountValidation.ErrorMessage
+                                ?? "Der Rabattcode ist nicht mehr gültig. Bitte wenden Sie sich an den Support.");
+                    }
+                }
             }
 
             var licenseDto = BuildLicenseDto(dto);
@@ -124,10 +155,68 @@ public sealed class ProvisioningService(
                     AssignedAt = DateTime.UtcNow
                 });
 
+                DiscountCode? redeemedDiscountCode = null;
+                if (pendingSignup is not null
+                    && discountValidation?.IsApplied == true
+                    && !pendingSignup.DiscountRedeemedAt.HasValue)
+                {
+                    redeemedDiscountCode = await db.DiscountCodes
+                        .FirstOrDefaultAsync(d => d.Id == pendingSignup.DiscountCodeId!.Value);
+
+                    if (redeemedDiscountCode is null)
+                    {
+                        await transaction.RollbackAsync();
+                        await TryLogDiscountRedemptionFailedAsync(pendingSignup, "Rabattcode nicht gefunden.");
+                        return ProvisionCustomerResultDto.Fail(
+                            "Der Rabattcode ist nicht mehr gültig. Bitte wenden Sie sich an den Support.");
+                    }
+
+                    if (redeemedDiscountCode.MaxRedemptions.HasValue
+                        && redeemedDiscountCode.CurrentRedemptions >= redeemedDiscountCode.MaxRedemptions.Value)
+                    {
+                        await transaction.RollbackAsync();
+                        await TryLogDiscountRedemptionFailedAsync(pendingSignup, "Nutzungslimit erreicht.");
+                        return ProvisionCustomerResultDto.Fail(
+                            "Der Rabattcode ist nicht mehr gültig. Bitte wenden Sie sich an den Support.");
+                    }
+
+                    redeemedDiscountCode.CurrentRedemptions++;
+                    redeemedDiscountCode.UpdatedAt = DateTime.UtcNow;
+
+                    pendingSignup.DiscountRedeemedAt = DateTime.UtcNow;
+                    pendingSignup.UpdatedAt = DateTime.UtcNow;
+
+                    if (redeemedDiscountCode.DiscountType == DiscountCodeType.FreeMonths)
+                    {
+                        ApplyFreeMonthsBilling(pendingSignup, redeemedDiscountCode);
+                    }
+
+                    await db.SaveChangesAsync();
+                }
+
                 await db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 await TryLogCustomerProvisionedAsync(plan, license, tenant, admin, dto.Source);
+
+                if (redeemedDiscountCode is not null && pendingSignup is not null && discountValidation is not null)
+                {
+                    await TryLogDiscountCodeRedeemedAsync(
+                        pendingSignup,
+                        redeemedDiscountCode,
+                        discountValidation,
+                        license,
+                        tenant);
+
+                    if (redeemedDiscountCode.DiscountType == DiscountCodeType.FreeMonths)
+                    {
+                        await TryLogLicenseValidityAdjustedByDiscountCodeAsync(
+                            pendingSignup,
+                            redeemedDiscountCode,
+                            license,
+                            tenant);
+                    }
+                }
 
                 var passwordSetupEmailSent = false;
                 if (dto.SendWelcomeEmail)
@@ -307,6 +396,122 @@ public sealed class ProvisioningService(
                     dto.AdminEmail,
                     dto.Source,
                     Errors = errors
+                });
+        }
+        catch
+        {
+            // Protokollierung darf Fachfunktion nicht blockieren.
+        }
+    }
+
+    private static void ApplyFreeMonthsBilling(PendingSignup pending, DiscountCode discountCode)
+    {
+        var freeMonths = discountCode.FreeMonths ?? pending.DiscountFreeMonthsSnapshot ?? 0;
+        if (freeMonths <= 0)
+        {
+            return;
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        pending.Amount = 0m;
+        pending.FinalAmount = 0m;
+        pending.BillingStatus = BillingStatuses.NotRequired;
+        pending.NextInvoiceDate = today.AddMonths(freeMonths);
+
+        var code = pending.DiscountCodeSnapshot ?? discountCode.Code;
+        pending.BillingNote = $"Rabattcode {code}: {freeMonths} Monate kostenlos. Erste Rechnung ab Monat {freeMonths + 1}.";
+    }
+
+    private async Task TryLogDiscountCodeRedeemedAsync(
+        PendingSignup pendingSignup,
+        DiscountCode discountCode,
+        DiscountCodeValidationResult discountValidation,
+        License license,
+        Tenant tenant)
+    {
+        try
+        {
+            await logService.LogAuditAsync(
+                action: "DiscountCodeRedeemed",
+                description: "Rabattcode wurde nach erfolgreicher Provisionierung eingelöst.",
+                entityType: "PendingSignup",
+                entityId: pendingSignup.Id.ToString(),
+                entityName: pendingSignup.CustomerName,
+                tenantId: tenant.Id,
+                licenseId: license.Id,
+                metadata: new
+                {
+                    PendingSignupId = pendingSignup.Id,
+                    DiscountCodeId = discountCode.Id,
+                    Code = discountCode.Code,
+                    PlanId = pendingSignup.PlanId,
+                    BillingCycle = pendingSignup.BillingCycle,
+                    DiscountType = discountCode.DiscountType.ToString(),
+                    discountValidation.OriginalAmount,
+                    discountValidation.DiscountAmount,
+                    discountValidation.FinalAmount,
+                    FreeMonths = discountCode.FreeMonths,
+                    LicenseId = license.Id,
+                    TenantId = tenant.Id
+                },
+                isVisibleToAdmin: false);
+        }
+        catch
+        {
+            // Protokollierung darf Fachfunktion nicht blockieren.
+        }
+    }
+
+    private async Task TryLogLicenseValidityAdjustedByDiscountCodeAsync(
+        PendingSignup pendingSignup,
+        DiscountCode discountCode,
+        License license,
+        Tenant tenant)
+    {
+        try
+        {
+            await logService.LogAuditAsync(
+                action: "LicenseValidityAdjustedByDiscountCode",
+                description: "Lizenzlaufzeit wurde durch Rabattcode mit kostenlosen Monaten angepasst.",
+                entityType: "License",
+                entityId: license.Id.ToString(),
+                entityName: license.LicenseNumber,
+                tenantId: tenant.Id,
+                licenseId: license.Id,
+                metadata: new
+                {
+                    PendingSignupId = pendingSignup.Id,
+                    DiscountCodeId = discountCode.Id,
+                    Code = discountCode.Code,
+                    FreeMonths = discountCode.FreeMonths,
+                    LicenseValidFrom = license.ValidFrom,
+                    LicenseValidUntil = license.ValidUntil,
+                    NextInvoiceDate = pendingSignup.NextInvoiceDate
+                },
+                isVisibleToAdmin: false);
+        }
+        catch
+        {
+            // Protokollierung darf Fachfunktion nicht blockieren.
+        }
+    }
+
+    private async Task TryLogDiscountRedemptionFailedAsync(PendingSignup pendingSignup, string detail)
+    {
+        try
+        {
+            await logService.LogSystemAsync(
+                action: "PublicSignupDiscountInvalidDuringProvisioning",
+                description: "Rabattcode-Validierung vor Provisionierung fehlgeschlagen.",
+                severity: "Warning",
+                metadata: new
+                {
+                    PendingSignupId = pendingSignup.Id,
+                    pendingSignup.DiscountCodeId,
+                    pendingSignup.DiscountCodeSnapshot,
+                    pendingSignup.PlanId,
+                    pendingSignup.BillingCycle,
+                    Detail = detail
                 });
         }
         catch

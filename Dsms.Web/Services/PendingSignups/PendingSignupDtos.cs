@@ -15,6 +15,7 @@ public sealed class PendingSignupListDto
     public string? Source { get; init; }
     public decimal? Amount { get; init; }
     public string? Currency { get; init; }
+    public string? DiscountCodeSnapshot { get; init; }
     public string? PaymentProvider { get; init; }
     public string? MetadataJson { get; init; }
     public string? BillingEmail { get; init; }
@@ -64,6 +65,17 @@ public sealed class PendingSignupDetailsDto
     public decimal? Amount { get; init; }
     public string? Currency { get; init; }
     public string? BillingCycle { get; init; }
+
+    public Guid? DiscountCodeId { get; init; }
+    public string? DiscountCodeSnapshot { get; init; }
+    public string? DiscountNameSnapshot { get; init; }
+    public string? DiscountTypeSnapshot { get; init; }
+    public decimal? DiscountValueSnapshot { get; init; }
+    public int? DiscountFreeMonthsSnapshot { get; init; }
+    public decimal? OriginalAmount { get; init; }
+    public decimal? DiscountAmount { get; init; }
+    public decimal? FinalAmount { get; init; }
+    public DateTime? DiscountRedeemedAt { get; init; }
 
     public DateTime? PaidAt { get; init; }
     public DateTime? ProvisionedAt { get; init; }
@@ -134,6 +146,16 @@ public sealed class CreatePublicPendingSignupDto : CreatePendingSignupDto
     public string? BillingCycle { get; set; }
     public string? BillingStatus { get; set; }
     public DateOnly? NextInvoiceDate { get; set; }
+
+    public Guid? DiscountCodeId { get; set; }
+    public string? DiscountCodeSnapshot { get; set; }
+    public string? DiscountNameSnapshot { get; set; }
+    public string? DiscountTypeSnapshot { get; set; }
+    public decimal? DiscountValueSnapshot { get; set; }
+    public int? DiscountFreeMonthsSnapshot { get; set; }
+    public decimal? OriginalAmount { get; set; }
+    public decimal? DiscountAmount { get; set; }
+    public decimal? FinalAmount { get; set; }
 }
 
 public sealed class UpdateBillingDetailsDto

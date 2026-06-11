@@ -10,6 +10,10 @@ using Dsms.Web.Services.PendingSignups;
 
 using Dsms.Web.Services.Provisioning;
 
+using Dsms.Web.Domain.Enums;
+
+using Dsms.Web.Services.DiscountCodes;
+
 using Dsms.Web.Services.SubscriptionPlans;
 
 
@@ -27,6 +31,8 @@ public sealed class PublicSignupService(
     IPendingSignupService pendingSignupService,
 
     ISignupNotificationService signupNotificationService,
+
+    IDiscountCodeValidationService discountCodeValidation,
 
     ILogService logService) : IPublicSignupService
 
@@ -46,6 +52,50 @@ public sealed class PublicSignupService(
 
         return plans.Select(MapToPublicPlan).ToList();
 
+    }
+
+
+
+    public async Task<DiscountCodeValidationResult> ValidateDiscountCodeAsync(
+        string? code,
+        Guid planId,
+        string? billingCycle)
+    {
+        var plan = await planService.GetPublicSignupPlanByIdAsync(planId);
+        if (plan is null)
+        {
+            return DiscountCodeValidationResult.Invalid(
+                "Der ausgewählte Tarif ist nicht mehr verfügbar. Bitte wählen Sie einen anderen Tarif.");
+        }
+
+        if (plan.IsFree)
+        {
+            return DiscountCodeValidationResult.NoDiscount();
+        }
+
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return DiscountCodeValidationResult.NoDiscount();
+        }
+
+        if (string.IsNullOrWhiteSpace(billingCycle))
+        {
+            return DiscountCodeValidationResult.Invalid("Bitte wählen Sie zuerst den Abrechnungszeitraum aus.");
+        }
+
+        var baseAmount = PublicSignupPricingHelper.GetEffectivePrice(plan, billingCycle);
+        if (!baseAmount.HasValue)
+        {
+            return DiscountCodeValidationResult.Invalid(
+                "Dieser Rabattcode ist nicht gültig oder passt nicht zum ausgewählten Tarif.");
+        }
+
+        return await discountCodeValidation.ValidateForSignupAsync(
+            code,
+            planId,
+            billingCycle.Trim(),
+            baseAmount.Value,
+            plan.Currency);
     }
 
 
@@ -149,8 +199,23 @@ public sealed class PublicSignupService(
 
 
         var (amount, billingCycle) = ResolveBillingAmount(selectedPlan, form.BillingCycle);
+        var discountResult = await ResolveDiscountForSubmitAsync(selectedPlan, form, billingCycle);
+        if (!discountResult.IsValid)
+        {
+            return PublicSignupSubmitResult.Failed(discountResult.ErrorMessage!);
+        }
 
-        var billingMetadata = BuildBillingMetadata(selectedPlan, billingCycle);
+        if (discountResult.IsApplied)
+        {
+            amount = discountResult.FinalAmount;
+            ApplyDiscountToForm(form, discountResult);
+        }
+        else
+        {
+            ClearAppliedDiscount(form);
+        }
+
+        var billingMetadata = BuildBillingMetadata(selectedPlan, billingCycle, discountResult);
         var (initialBillingStatus, initialNextInvoiceDate) = ResolveInitialBilling(selectedPlan.IsFree, billingCycle);
 
 
@@ -203,7 +268,34 @@ public sealed class PublicSignupService(
 
             BillingStatus = initialBillingStatus,
 
-            NextInvoiceDate = initialNextInvoiceDate
+            NextInvoiceDate = initialNextInvoiceDate,
+
+            DiscountCodeId = discountResult.IsApplied ? discountResult.DiscountCodeId : null,
+
+            DiscountCodeSnapshot = discountResult.IsApplied ? discountResult.Code : null,
+
+            DiscountNameSnapshot = discountResult.IsApplied ? discountResult.Name : null,
+
+            DiscountTypeSnapshot = discountResult.IsApplied ? discountResult.DiscountType?.ToString() : null,
+
+            DiscountValueSnapshot = discountResult.IsApplied
+                ? discountResult.DiscountType switch
+                {
+                    DiscountCodeType.Percentage => discountResult.PercentageValue,
+                    DiscountCodeType.FixedAmount => discountResult.FixedAmountValue,
+                    _ => null
+                }
+                : null,
+
+            DiscountFreeMonthsSnapshot = discountResult.IsApplied && discountResult.DiscountType == DiscountCodeType.FreeMonths
+                ? discountResult.FreeMonths
+                : null,
+
+            OriginalAmount = discountResult.IsApplied ? discountResult.OriginalAmount : null,
+
+            DiscountAmount = discountResult.IsApplied ? discountResult.DiscountAmount : null,
+
+            FinalAmount = discountResult.IsApplied ? discountResult.FinalAmount : null
 
         };
 
@@ -245,9 +337,19 @@ public sealed class PublicSignupService(
 
         await pendingSignupService.SetStatusForPublicSignupAsync(pendingSignupId, PendingSignupStatuses.Provisioning);
 
+        var provisioningDiscount = await discountCodeValidation.ValidateForProvisioningAsync(pendingSignupId);
+        if (!provisioningDiscount.IsValid)
+        {
+            var discountError = provisioningDiscount.ErrorMessage
+                ?? "Der Rabattcode ist nicht mehr gültig. Bitte wenden Sie sich an den Support.";
+            await MarkProvisioningFailedAsync(pendingSignupId, discountError);
+            await TryLogDiscountInvalidDuringProvisioningAsync(pendingSignupId, discountError);
+            await TryLogFailedAsync(selectedPlan.Id, adminEmail, discountError);
+            return PublicSignupSubmitResult.Failed(discountError);
+        }
 
-
-        var request = BuildProvisionRequest(selectedPlan.Id, form);
+        var request = BuildProvisionRequest(selectedPlan.Id, form, provisioningDiscount);
+        request.PendingSignupId = pendingSignupId;
 
         ProvisionCustomerResultDto result;
 
@@ -308,6 +410,11 @@ public sealed class PublicSignupService(
 
 
         await TrySendSignupNotificationAsync(pendingSignupId, result.PasswordSetupEmailSent);
+
+        if (discountResult.IsApplied)
+        {
+            await TryLogDiscountAppliedAsync(selectedPlan.Id, form, billingCycle, discountResult);
+        }
 
 
 
@@ -383,9 +490,9 @@ public sealed class PublicSignupService(
 
         {
 
-            BillingCycles.Monthly => (ResolveEffectiveMonthlyPrice(plan), BillingCycles.Monthly),
+            BillingCycles.Monthly => (PublicSignupPricingHelper.GetEffectivePrice(plan, BillingCycles.Monthly), BillingCycles.Monthly),
 
-            BillingCycles.Yearly => (ResolveEffectiveYearlyPrice(plan), BillingCycles.Yearly),
+            BillingCycles.Yearly => (PublicSignupPricingHelper.GetEffectivePrice(plan, BillingCycles.Yearly), BillingCycles.Yearly),
 
             _ => (null, null)
 
@@ -393,15 +500,69 @@ public sealed class PublicSignupService(
 
     }
 
-    private static decimal? ResolveEffectiveMonthlyPrice(SubscriptionPlanDetailsDto plan) =>
-        plan.IsPromotionalPriceEnabled && plan.PromotionalMonthlyPrice.HasValue
-            ? plan.PromotionalMonthlyPrice
-            : plan.PriceMonthly;
+    private async Task<DiscountCodeValidationResult> ResolveDiscountForSubmitAsync(
+        SubscriptionPlanDetailsDto plan,
+        PublicSignupFormDto form,
+        string? billingCycle)
+    {
+        if (plan.IsFree)
+        {
+            return DiscountCodeValidationResult.NoDiscount();
+        }
 
-    private static decimal? ResolveEffectiveYearlyPrice(SubscriptionPlanDetailsDto plan) =>
-        plan.IsPromotionalPriceEnabled && plan.PromotionalYearlyPrice.HasValue
-            ? plan.PromotionalYearlyPrice
-            : plan.PriceYearly;
+        var code = !string.IsNullOrWhiteSpace(form.DiscountCodeInput)
+            ? form.DiscountCodeInput
+            : form.AppliedDiscountCode;
+
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return DiscountCodeValidationResult.NoDiscount();
+        }
+
+        if (string.IsNullOrWhiteSpace(billingCycle))
+        {
+            return DiscountCodeValidationResult.Invalid("Bitte wählen Sie den Abrechnungszeitraum aus.");
+        }
+
+        var baseAmount = PublicSignupPricingHelper.GetEffectivePrice(plan, billingCycle);
+        if (!baseAmount.HasValue)
+        {
+            return DiscountCodeValidationResult.Invalid(
+                "Dieser Rabattcode ist nicht gültig oder passt nicht zum ausgewählten Tarif.");
+        }
+
+        return await discountCodeValidation.ValidateForSignupAsync(
+            code,
+            plan.Id,
+            billingCycle,
+            baseAmount.Value,
+            plan.Currency);
+    }
+
+    private static void ApplyDiscountToForm(PublicSignupFormDto form, DiscountCodeValidationResult result)
+    {
+        form.AppliedDiscountCodeId = result.DiscountCodeId;
+        form.AppliedDiscountCode = result.Code;
+        form.AppliedDiscountName = result.Name;
+        form.AppliedDiscountType = result.DiscountType;
+        form.AppliedDiscountDisplayText = result.DisplayText;
+        form.OriginalAmount = result.OriginalAmount;
+        form.DiscountAmount = result.DiscountAmount;
+        form.FinalAmount = result.FinalAmount;
+        form.DiscountCodeInput = result.Code;
+    }
+
+    private static void ClearAppliedDiscount(PublicSignupFormDto form)
+    {
+        form.AppliedDiscountCodeId = null;
+        form.AppliedDiscountCode = null;
+        form.AppliedDiscountName = null;
+        form.AppliedDiscountType = null;
+        form.AppliedDiscountDisplayText = null;
+        form.OriginalAmount = null;
+        form.DiscountAmount = null;
+        form.FinalAmount = null;
+    }
 
 
 
@@ -449,7 +610,10 @@ public sealed class PublicSignupService(
 
 
 
-    private static string BuildBillingMetadata(SubscriptionPlanDetailsDto plan, string? billingCycle) =>
+    private static string BuildBillingMetadata(
+        SubscriptionPlanDetailsDto plan,
+        string? billingCycle,
+        DiscountCodeValidationResult discountResult) =>
 
         JsonSerializer.Serialize(new
 
@@ -477,9 +641,37 @@ public sealed class PublicSignupService(
 
                     PromotionalYearlyPrice = plan.PromotionalYearlyPrice,
 
-                    EffectiveMonthlyPrice = ResolveEffectiveMonthlyPrice(plan),
+                    EffectiveMonthlyPrice = PublicSignupPricingHelper.GetEffectivePrice(plan, BillingCycles.Monthly),
 
-                    EffectiveYearlyPrice = ResolveEffectiveYearlyPrice(plan)
+                    EffectiveYearlyPrice = PublicSignupPricingHelper.GetEffectivePrice(plan, BillingCycles.Yearly)
+
+                }
+
+                : null,
+
+            Discount = discountResult.IsApplied
+
+                ? new
+
+                {
+
+                    discountResult.DiscountCodeId,
+
+                    discountResult.Code,
+
+                    discountResult.Name,
+
+                    DiscountType = discountResult.DiscountType?.ToString(),
+
+                    discountResult.DisplayText,
+
+                    discountResult.OriginalAmount,
+
+                    discountResult.DiscountAmount,
+
+                    discountResult.FinalAmount,
+
+                    discountResult.FreeMonths
 
                 }
 
@@ -686,7 +878,10 @@ public sealed class PublicSignupService(
 
 
 
-    private static ProvisionCustomerRequestDto BuildProvisionRequest(Guid planId, PublicSignupFormDto form)
+    private static ProvisionCustomerRequestDto BuildProvisionRequest(
+        Guid planId,
+        PublicSignupFormDto form,
+        DiscountCodeValidationResult? provisioningDiscount = null)
 
     {
 
@@ -702,7 +897,11 @@ public sealed class PublicSignupService(
 
         var validFrom = DateTime.UtcNow.Date;
 
-        var validUntil = validFrom.AddMonths(1);
+        var validUntil = provisioningDiscount?.IsApplied == true
+            && provisioningDiscount.DiscountType == DiscountCodeType.FreeMonths
+            && provisioningDiscount.FreeMonths is > 0
+            ? validFrom.AddMonths(provisioningDiscount.FreeMonths.Value)
+            : validFrom.AddMonths(1);
 
 
 
@@ -759,6 +958,10 @@ public sealed class PublicSignupService(
         PriceYearly = plan.PriceYearly,
 
         Currency = plan.Currency,
+
+        EffectiveMonthlyPrice = PublicSignupPricingHelper.GetEffectivePrice(plan, BillingCycles.Monthly),
+
+        EffectiveYearlyPrice = PublicSignupPricingHelper.GetEffectivePrice(plan, BillingCycles.Yearly),
 
         IsPromotionalPriceEnabled = plan.IsPromotionalPriceEnabled,
 
@@ -882,6 +1085,53 @@ public sealed class PublicSignupService(
 
         }
 
+    }
+
+
+
+    private async Task TryLogDiscountInvalidDuringProvisioningAsync(Guid pendingSignupId, string detail)
+    {
+        try
+        {
+            await logService.LogSystemAsync(
+                action: "PublicSignupDiscountInvalidDuringProvisioning",
+                description: "Rabattcode-Validierung vor Provisionierung fehlgeschlagen.",
+                severity: "Warning",
+                metadata: new { PendingSignupId = pendingSignupId, Detail = detail });
+        }
+        catch
+        {
+            // Protokollierung darf Fachfunktion nicht blockieren.
+        }
+    }
+
+    private async Task TryLogDiscountAppliedAsync(
+        Guid planId,
+        PublicSignupFormDto form,
+        string? billingCycle,
+        DiscountCodeValidationResult discountResult)
+    {
+        try
+        {
+            await logService.LogSystemAsync(
+                action: "PublicSignupDiscountApplied",
+                description: "Rabattcode wurde bei öffentlicher Registrierung angewendet.",
+                metadata: new
+                {
+                    PlanId = planId,
+                    Code = discountResult.Code,
+                    BillingCycle = billingCycle,
+                    DiscountType = discountResult.DiscountType?.ToString(),
+                    discountResult.OriginalAmount,
+                    discountResult.DiscountAmount,
+                    discountResult.FinalAmount,
+                    AdminEmail = form.AdminEmail.Trim()
+                });
+        }
+        catch
+        {
+            // Protokollierung darf Fachfunktion nicht blockieren.
+        }
     }
 
 

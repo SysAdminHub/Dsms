@@ -248,7 +248,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ICurrentUserContext` / `CurrentUserContext` | Scoped | User-ID, TenantId, Rollenprüfung via `AuthenticationStateProvider` + `UserManager` |
 | `IUserAccessService` / `UserAccessService` | Scoped | Zentrale Berechtigungen (Superuser vs. Admin, Mandantenzugriff, bearbeitbare Benutzer) |
 | `IUserManagementService` / `UserManagementService` | Scoped | Benutzerliste, Anlegen, Bearbeiten, Deaktivieren inkl. serverseitiger Validierung |
-| `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, DSFA, VVT-Verknüpfungen, Datenschutzvorfälle) |
+| `DashboardService` | Scoped | Kennzahlen, Statusgruppen (Kritisch/Hinweis/Gut/Neutral) und Listen für Dashboard-Donut-Kacheln (VVT, TOMs, DSFA, Dienstleister, Vorfälle, Maßnahmen, Audits) |
 | `PrivacyIncidentRelationsService` | Scoped | Many-to-Many-Sync und Vorfallsnummern-Generierung (`INC-{Jahr}-{Sequenz}` pro Mandant) |
 | `ITenantOnboardingService` / `TenantOnboardingService` | Scoped | Mandanten-Checkliste „Erste Schritte“ auf dem Dashboard (Standardaufgaben anlegen, manuelles Abhaken) |
 | `IPageHelpContentService` / `PageHelpContentService` | Scoped | Globale Hilfetexte für Fachseiten (Lesen für alle Angemeldeten; Bearbeiten nur Superuser) |

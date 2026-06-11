@@ -6,6 +6,31 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Geändert
 
+- **Audit-Durchläufe:** Starten automatisch beim ersten Speichern einer Auditantwort – Status wird auf „Laufend“ gesetzt und `StartedAt` einmalig gesetzt (`AuditRunLifecycle`).
+
+- **Dashboard:** „Erste Schritte“-Box startet nun immer eingeklappt und wird nicht mehr dauerhaft über localStorage geöffnet gehalten.
+
+- **Dashboard (UX):** Dashboard weiter beruhigt: redundante obere Kurzkennzahlen-Zeile entfernt, da die Informationen bereits in den Donut-Kacheln enthalten sind. „Erste Schritte“-Box unter die Dashboard-Kacheln verschoben, auf Desktop kompakter dargestellt und bei vollständig erledigter Einrichtung standardmäßig eingeklappt.
+
+### Hinzugefügt
+
+- **Audit-Durchläufe:** Beim Abschließen wird `CompletedAt` gesetzt (Button „Audit abschließen“ und manueller Statuswechsel); fehlendes `StartedAt` wird beim Abschluss nachgezogen. Antwortseite und Liste zeigen Start- und Abschlussdatum.
+
+- **Audit-Durchläufe:** Audit-Durchläufe können als „Abgeschlossen“ markiert werden (`AuditRunStatus.Completed` im Bearbeiten-Formular und Button „Audit abschließen“ auf der Antwortseite); Listen-, Detail- und Dashboard-Anzeige berücksichtigen den Abschlussstatus mit deutschen Labels (`AuditRunLabels`).
+
+### Behoben
+
+- **Archivansicht Audit-Durchläufe:** Archivierte Audit-Durchläufe werden wieder zuverlässig im Archiv angezeigt. Ursache war ein `Include` auf `AuditTemplate`, dessen Global Query Filter in der Archivansicht nur archivierte Vorlagen zulässt – mandantensichere Abfrage mit `IgnoreQueryFilters()` und separater Vorlagen-Titel-Auflösung wie bei DSFA.
+
+- **Dashboard:** Von vielen einzelnen Kennzahlenkarten auf kompakte Donut-Kacheln je Fachbereich umgestellt. Donut-Kacheln zeigen Gesamtzahl, Statusgruppen (Kritisch/Hinweis/Gut/Neutral), Legende mit Detailkennzahlen und Mouseover-Informationen. Kennzahlen werden weiterhin mandantensicher über den `DashboardService` geladen. Kurzzeile mit wichtigsten Alarmen (offene Maßnahmen, Vorfälle, überfällige Prüfungen) ergänzt. „Erste Schritte“-Box und Listen für offene Maßnahmen/Audits bleiben erhalten.
+
+### Hinzugefügt
+
+- **Dashboard-Kennzahlen:** Fehlende Zähler für Statusgruppen ergänzt – u. a. TOMs umgesetzt, Maßnahmen gesamt, überfällige Maßnahmen, Vorfälle gesamt, abgeschlossene Vorfälle, Audits gesamt, abgeschlossene Audits sowie mutually exclusive Statusgruppen-Zählungen je Fachbereich.
+- **Dashboard-Komponenten:** Wiederverwendbare Blazor-Komponente `DonutDashboardCard` mit SVG-Donut-Diagramm; DTOs `DashboardDonutSegment`, `DashboardLegendItem`, `DashboardStatusGroupCounts`.
+
+### Geändert
+
 - **Datenschutzvorfälle – Maßnahmen-UI:** Abschnitt „Maßnahmen / Abschluss“ mit Freitextfeldern (Sofort-/Abhilfe-/Präventionsmaßnahmen, Abschlusszusammenfassung, Abgeschlossen am) aus Bearbeitungs- und Detailseite entfernt. Maßnahmen werden nur noch über verknüpfte Maßnahmen im Modul Maßnahmen dokumentiert. Datenbankfelder bleiben erhalten; PageHelp-Standardtext angepasst.
 
 ### Hinzugefügt

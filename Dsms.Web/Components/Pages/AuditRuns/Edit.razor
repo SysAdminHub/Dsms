@@ -54,7 +54,7 @@ else
                     <InputSelect class="form-select" @bind-Value="_model.Status">
                         @foreach (var status in Enum.GetValues<AuditRunStatus>())
                         {
-                            <option value="@status">@status</option>
+                            <option value="@status">@AuditRunLabels.GetStatusLabel(status)</option>
                         }
                     </InputSelect>
                 </div>
@@ -173,7 +173,15 @@ else
 
             if (_model.Status == AuditRunStatus.Completed)
             {
-                _model.CompletedAt = DateTime.UtcNow;
+                if (_model.StartedAt is null)
+                {
+                    _model.StartedAt = DateTime.UtcNow;
+                }
+
+                if (_model.CompletedAt is null)
+                {
+                    _model.CompletedAt = DateTime.UtcNow;
+                }
             }
 
             _model.UpdatedAt = DateTime.UtcNow;

@@ -56,6 +56,10 @@ else
                             <th>Vorlage</th>
                             <th>Status</th>
                             <th>Gestartet</th>
+                            @if (!_showArchived)
+                            {
+                                <th>Abgeschlossen</th>
+                            }
                             @if (_showArchived)
                             {
                                 <th>Archiviert am</th>
@@ -74,9 +78,13 @@ else
                                         <span class="ms-2"><ArchivedBadge /></span>
                                     }
                                 </td>
-                                <td>@run.AuditTemplate.Title</td>
-                                <td><StatusBadge Text="@run.Status.ToString()" Variant="primary" /></td>
+                                <td>@GetTemplateTitle(run)</td>
+                                <td><StatusBadge Text="@AuditRunLabels.GetStatusLabel(run.Status)" Variant="@AuditRunLabels.GetStatusVariant(run.Status)" /></td>
                                 <td>@(run.StartedAt?.ToLocalTime().ToString("d") ?? "—")</td>
+                                @if (!_showArchived)
+                                {
+                                    <td>@(run.CompletedAt?.ToLocalTime().ToString("d") ?? "—")</td>
+                                }
                                 @if (_showArchived)
                                 {
                                     <td>@(run.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
@@ -136,12 +144,48 @@ else
         await LoadDataAsync();
     }
 
+    private Dictionary<int, string> _templateTitles = [];
+
     private async Task LoadDataAsync()
     {
-        _showArchived = ArchiveView.ShowArchivedOnly;
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        // Lokale Variable: Global Query Filter liest ShowArchivedOnly zur Laufzeit –
+        // Include auf AuditTemplate würde archivierte Durchläufe ausblenden, weil Vorlagen
+        // in der Archivansicht fälschlich nach IsArchived == true gefiltert werden.
+        var showArchived = ArchiveView.ShowArchivedOnly;
+        _showArchived = showArchived;
+        var tenantId = _tenantId.Value;
+
         _runs = await Db.AuditRuns
-            .Include(r => r.AuditTemplate)
-            .OrderByDescending(r => _showArchived ? r.ArchivedAt : r.CreatedAt)
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(r => r.TenantId == tenantId && r.IsArchived == showArchived)
+            .OrderByDescending(r => showArchived ? r.ArchivedAt : r.CreatedAt)
             .ToListAsync();
+
+        var templateIds = _runs.Select(r => r.AuditTemplateId).Distinct().ToList();
+        _templateTitles = templateIds.Count == 0
+            ? []
+            : await Db.AuditTemplates
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(t => templateIds.Contains(t.Id))
+                .ToDictionaryAsync(t => t.Id, t => t.Title);
+    }
+
+    private string GetTemplateTitle(AuditRun run)
+    {
+        if (!string.IsNullOrWhiteSpace(run.TemplateTitleSnapshot))
+        {
+            return string.IsNullOrWhiteSpace(run.TemplateVersionSnapshot)
+                ? run.TemplateTitleSnapshot
+                : $"{run.TemplateTitleSnapshot} ({run.TemplateVersionSnapshot})";
+        }
+
+        return _templateTitles.GetValueOrDefault(run.AuditTemplateId, "—");
     }
 }

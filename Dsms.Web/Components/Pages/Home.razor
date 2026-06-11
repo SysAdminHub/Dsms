@@ -8,7 +8,7 @@
 
 <BrandedPageTitle Title="Dashboard" />
 
-<PageHeader Title="Dashboard" Subtitle="Überblick über Maßnahmen, Audits, TOMs und Dienstleister" />
+<PageHeader Title="Dashboard" Subtitle="Kompakter Überblick über Verarbeitungstätigkeiten, TOMs, DSFA und weitere Bereiche" />
 
 @if (_loading)
 {
@@ -69,124 +69,62 @@ else if (_tenantId is null)
 }
 else if (_summary is not null)
 {
-    <div class="dsms-stat-grid">
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">Offene Maßnahmen</div>
-            <div class="dsms-stat-value">@_summary.OpenMeasuresCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">Offene Vorfälle</div>
-            <div class="dsms-stat-value">@_summary.OpenPrivacyIncidentsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">Vorfälle in Prüfung</div>
-            <div class="dsms-stat-value">@_summary.PrivacyIncidentsInReviewCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">Meldepflichtige Vorfälle</div>
-            <div class="dsms-stat-value">@_summary.NotificationRequiredPrivacyIncidentsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">Vorfälle Risiko hoch/kritisch</div>
-            <div class="dsms-stat-value">@_summary.HighRiskPrivacyIncidentsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">Laufende Audits</div>
-            <div class="dsms-stat-value">@_summary.ActiveAuditsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--muted">
-            <div class="dsms-stat-label">Audit-Entwürfe</div>
-            <div class="dsms-stat-value">@_summary.DraftAuditsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">TOMs gesamt</div>
-            <div class="dsms-stat-value">@_summary.TotalTomsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">TOMs geplant</div>
-            <div class="dsms-stat-value">@_summary.PlannedTomsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">TOMs nicht umgesetzt</div>
-            <div class="dsms-stat-value">@_summary.NotImplementedTomsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">TOM-Prüfungen überfällig</div>
-            <div class="dsms-stat-value">@_summary.OverdueTomReviewsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">Dienstleister gesamt</div>
-            <div class="dsms-stat-value">@_summary.TotalServiceProvidersCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">Aktive Auftragsverarbeiter</div>
-            <div class="dsms-stat-value">@_summary.ActiveDataProcessorsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">Auftragsverarbeiter ohne AVV</div>
-            <div class="dsms-stat-value">@_summary.ProcessorsWithoutAvvCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">Drittlandbezug</div>
-            <div class="dsms-stat-value">@_summary.ThirdCountryProvidersCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">Risiko hoch/kritisch</div>
-            <div class="dsms-stat-value">@_summary.HighRiskProvidersCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">AVV-Prüfungen überfällig</div>
-            <div class="dsms-stat-value">@_summary.OverdueAvvReviewsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">Verarbeitungstätigkeiten</div>
-            <div class="dsms-stat-value">@_summary.TotalProcessingActivitiesCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">VVT ohne TOMs</div>
-            <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithoutTomsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">VVT ohne Dokumente</div>
-            <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithoutDocumentsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">VVT mit offenen Maßnahmen</div>
-            <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithOpenMeasuresCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">DSFA erforderlich (VVT)</div>
-            <div class="dsms-stat-value">@_summary.ProcessingActivitiesDpiaRequiredCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">DSFA gesamt</div>
-            <div class="dsms-stat-value">@_summary.TotalDpiaAssessmentsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">DSFA in Prüfung</div>
-            <div class="dsms-stat-value">@_summary.DpiaInReviewCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">DSFA Restrisiko hoch/kritisch</div>
-            <div class="dsms-stat-value">@_summary.DpiaHighOrCriticalRiskCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">DSFA-Prüfungen überfällig</div>
-            <div class="dsms-stat-value">@_summary.OverdueDpiaReviewsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">DSFA-Pflicht ohne DSFA</div>
-            <div class="dsms-stat-value">@_summary.ProcessingActivitiesDpiaRequiredWithoutAssessmentCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">VVT mit Risiko-Dienstleister</div>
-            <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithHighRiskProvidersCount</div>
-        </div>
+    <div class="dsms-dashboard-grid">
+        <DonutDashboardCard Title="Verarbeitungstätigkeiten"
+                            Total="@_summary.TotalProcessingActivitiesCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.ProcessingActivityStatusGroups, _summary.TotalProcessingActivitiesCount)"
+                            LegendItems="@DashboardChartBuilder.ProcessingActivityLegend(_summary)"
+                            DetailsUrl="processing-activities"
+                            EmptyText="Noch keine Verarbeitungstätigkeiten erfasst." />
+
+        <DonutDashboardCard Title="TOMs"
+                            Total="@_summary.TotalTomsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.TomStatusGroups, _summary.TotalTomsCount)"
+                            LegendItems="@DashboardChartBuilder.TomLegend(_summary)"
+                            DetailsUrl="toms"
+                            EmptyText="Noch keine TOMs erfasst." />
+
+        <DonutDashboardCard Title="DSFA"
+                            Total="@_summary.TotalDpiaAssessmentsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.DpiaStatusGroups, _summary.TotalDpiaAssessmentsCount)"
+                            LegendItems="@DashboardChartBuilder.DpiaLegend(_summary)"
+                            DetailsUrl="dsfa"
+                            EmptyText="Noch keine DSFA erfasst." />
+
+        <DonutDashboardCard Title="Dienstleister"
+                            Total="@_summary.TotalServiceProvidersCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.ServiceProviderStatusGroups, _summary.TotalServiceProvidersCount)"
+                            LegendItems="@DashboardChartBuilder.ServiceProviderLegend(_summary)"
+                            DetailsUrl="service-providers"
+                            EmptyText="Noch keine Dienstleister erfasst." />
+
+        <DonutDashboardCard Title="Datenschutzvorfälle"
+                            Total="@_summary.TotalPrivacyIncidentsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.PrivacyIncidentStatusGroups, _summary.TotalPrivacyIncidentsCount)"
+                            LegendItems="@DashboardChartBuilder.PrivacyIncidentLegend(_summary)"
+                            DetailsUrl="incidents"
+                            EmptyText="Noch keine Vorfälle erfasst." />
+
+        <DonutDashboardCard Title="Maßnahmen"
+                            Total="@_summary.TotalMeasuresCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.MeasureStatusGroups, _summary.TotalMeasuresCount)"
+                            LegendItems="@DashboardChartBuilder.MeasureLegend(_summary)"
+                            DetailsUrl="measures"
+                            EmptyText="Noch keine Maßnahmen erfasst." />
+
+        <DonutDashboardCard Title="Audits"
+                            Total="@_summary.TotalAuditsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.AuditStatusGroups, _summary.TotalAuditsCount)"
+                            LegendItems="@DashboardChartBuilder.AuditLegend(_summary)"
+                            DetailsUrl="audit-runs"
+                            EmptyText="Noch keine Audits erfasst." />
     </div>
 
-    <div class="dsms-split-grid">
+    <div class="dsms-dashboard-bottom-grid">
         <OnboardingTasksPanel />
+    </div>
 
+    <div class="dsms-split-grid dsms-dashboard-lists">
         <div class="dsms-card">
             <div class="dsms-card-header">Offene Maßnahmen</div>
             @if (_summary.RecentMeasures.Count == 0)

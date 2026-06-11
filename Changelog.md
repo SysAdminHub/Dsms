@@ -4,7 +4,17 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- **Tarif-/Planverwaltung:** Optionale Sonderpreise für monatliche und jährliche Preise ergänzt. Pläne können ein frei editierbares Angebots-Badge anzeigen, z. B. „Limitiertes Angebot“. Migration `AddSubscriptionPlanPromotionalPrices`.
+
 ### Geändert
+
+- **Öffentliche Registrierung:** Sonderpreis-Ribbon auf Tarifkarten optisch vergrößert und mit auffälligerem Aktionsstil hervorgehoben.
+
+- **Öffentliche Registrierung:** Angebots-Badge für aktive Sonderpreise wird jetzt als schräges Ribbon auf der Tarifkarte dargestellt.
+
+- **Öffentliche Registrierung:** Tarifkarten zeigen aktive Sonderpreise mit durchgestrichenem regulärem Preis, hervorgehobenem Sonderpreis und Angebots-Badge an. Der effektive Registrierungspreis berücksichtigt aktive Sonderpreise.
 
 - **Audit-Durchläufe:** Starten automatisch beim ersten Speichern einer Auditantwort – Status wird auf „Laufend“ gesetzt und `StartedAt` einmalig gesetzt (`AuditRunLifecycle`).
 

@@ -10,6 +10,10 @@ public sealed class PublicSignupPlanDto
     public decimal? PriceMonthly { get; init; }
     public decimal? PriceYearly { get; init; }
     public string Currency { get; init; } = "EUR";
+    public bool IsPromotionalPriceEnabled { get; init; }
+    public decimal? PromotionalMonthlyPrice { get; init; }
+    public decimal? PromotionalYearlyPrice { get; init; }
+    public string? PromotionalBadgeText { get; init; }
     public int SortOrder { get; init; }
 
     public int? MaxTenants { get; init; }

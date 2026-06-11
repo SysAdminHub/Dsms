@@ -150,7 +150,7 @@ public sealed class PublicSignupService(
 
         var (amount, billingCycle) = ResolveBillingAmount(selectedPlan, form.BillingCycle);
 
-        var billingMetadata = BuildBillingMetadata(selectedPlan.IsFree, billingCycle);
+        var billingMetadata = BuildBillingMetadata(selectedPlan, billingCycle);
         var (initialBillingStatus, initialNextInvoiceDate) = ResolveInitialBilling(selectedPlan.IsFree, billingCycle);
 
 
@@ -383,15 +383,25 @@ public sealed class PublicSignupService(
 
         {
 
-            BillingCycles.Monthly => (plan.PriceMonthly, BillingCycles.Monthly),
+            BillingCycles.Monthly => (ResolveEffectiveMonthlyPrice(plan), BillingCycles.Monthly),
 
-            BillingCycles.Yearly => (plan.PriceYearly, BillingCycles.Yearly),
+            BillingCycles.Yearly => (ResolveEffectiveYearlyPrice(plan), BillingCycles.Yearly),
 
             _ => (null, null)
 
         };
 
     }
+
+    private static decimal? ResolveEffectiveMonthlyPrice(SubscriptionPlanDetailsDto plan) =>
+        plan.IsPromotionalPriceEnabled && plan.PromotionalMonthlyPrice.HasValue
+            ? plan.PromotionalMonthlyPrice
+            : plan.PriceMonthly;
+
+    private static decimal? ResolveEffectiveYearlyPrice(SubscriptionPlanDetailsDto plan) =>
+        plan.IsPromotionalPriceEnabled && plan.PromotionalYearlyPrice.HasValue
+            ? plan.PromotionalYearlyPrice
+            : plan.PriceYearly;
 
 
 
@@ -439,15 +449,41 @@ public sealed class PublicSignupService(
 
 
 
-    private static string BuildBillingMetadata(bool isFree, string? billingCycle) =>
+    private static string BuildBillingMetadata(SubscriptionPlanDetailsDto plan, string? billingCycle) =>
 
         JsonSerializer.Serialize(new
 
         {
 
-            BillingStatus = isFree ? BillingStatuses.NotRequired : BillingStatuses.InvoicePending,
+            BillingStatus = plan.IsFree ? BillingStatuses.NotRequired : BillingStatuses.InvoicePending,
 
-            BillingCycle = billingCycle
+            BillingCycle = billingCycle,
+
+            PromotionalPrice = plan.IsPromotionalPriceEnabled && !plan.IsFree
+
+                ? new
+
+                {
+
+                    IsEnabled = true,
+
+                    BadgeText = plan.PromotionalBadgeText,
+
+                    RegularMonthlyPrice = plan.PriceMonthly,
+
+                    RegularYearlyPrice = plan.PriceYearly,
+
+                    PromotionalMonthlyPrice = plan.PromotionalMonthlyPrice,
+
+                    PromotionalYearlyPrice = plan.PromotionalYearlyPrice,
+
+                    EffectiveMonthlyPrice = ResolveEffectiveMonthlyPrice(plan),
+
+                    EffectiveYearlyPrice = ResolveEffectiveYearlyPrice(plan)
+
+                }
+
+                : null
 
         });
 
@@ -723,6 +759,14 @@ public sealed class PublicSignupService(
         PriceYearly = plan.PriceYearly,
 
         Currency = plan.Currency,
+
+        IsPromotionalPriceEnabled = plan.IsPromotionalPriceEnabled,
+
+        PromotionalMonthlyPrice = plan.PromotionalMonthlyPrice,
+
+        PromotionalYearlyPrice = plan.PromotionalYearlyPrice,
+
+        PromotionalBadgeText = plan.PromotionalBadgeText,
 
         SortOrder = plan.SortOrder,
 

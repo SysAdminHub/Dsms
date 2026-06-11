@@ -42,7 +42,15 @@
             @foreach (var plan in _publicPlans)
             {
                 var selected = _model.SelectedPlanId == plan.Id;
-                <div class="dsms-signup-plan-card @(selected ? "dsms-signup-plan-card--selected" : "")">
+                var showPromoRibbon = ShowsPromotionalBadge(plan);
+                var promoRibbonText = showPromoRibbon ? GetPromotionalBadgeText(plan) : null;
+                <div class="dsms-signup-plan-card dsms-plan-card @(selected ? "dsms-signup-plan-card--selected" : "") @(showPromoRibbon ? "dsms-plan-card-has-ribbon" : "")">
+                    @if (showPromoRibbon)
+                    {
+                        <div class="dsms-plan-promo-ribbon" title="@promoRibbonText">
+                            <span class="dsms-plan-promo-ribbon-text">@promoRibbonText</span>
+                        </div>
+                    }
                     <div class="dsms-signup-plan-card__header">
                         <strong class="dsms-signup-plan-card__title">@plan.DisplayName</strong>
                         <div class="dsms-signup-plan-card__badges">
@@ -63,8 +71,36 @@
                     }
 
                     <div class="dsms-signup-plan-card__prices">
-                        <p><strong>Monatlich:</strong> @FormatMonthlyPrice(plan)</p>
-                        <p><strong>Jährlich:</strong> @FormatYearlyPrice(plan)</p>
+                        <p class="dsms-plan-price-row">
+                            <strong>Monatlich:</strong>
+                            @if (ShowsPromotionalMonthly(plan))
+                            {
+                                @if (plan.PriceMonthly.HasValue)
+                                {
+                                    <span class="dsms-plan-price-original">@FormatPriceAmount(plan.PriceMonthly, plan.Currency)</span>
+                                }
+                                <span class="dsms-plan-price-promotional">@FormatPromotionalMonthlyPrice(plan)</span>
+                            }
+                            else
+                            {
+                                <span>@FormatMonthlyPrice(plan)</span>
+                            }
+                        </p>
+                        <p class="dsms-plan-price-row">
+                            <strong>Jährlich:</strong>
+                            @if (ShowsPromotionalYearly(plan))
+                            {
+                                @if (plan.PriceYearly.HasValue)
+                                {
+                                    <span class="dsms-plan-price-original">@FormatPriceAmount(plan.PriceYearly, plan.Currency)</span>
+                                }
+                                <span class="dsms-plan-price-promotional">@FormatPromotionalYearlyPrice(plan)</span>
+                            }
+                            else
+                            {
+                                <span>@FormatYearlyPrice(plan)</span>
+                            }
+                        </p>
                     </div>
 
                     @if (!plan.IsFree)
@@ -166,7 +202,7 @@
                                 <div class="form-check mb-2">
                                     <InputRadio class="form-check-input" Value="@BillingCycles.Monthly" id="billingMonthly" />
                                     <label class="form-check-label" for="billingMonthly">
-                                        Monatlich – @FormatMonthlyPrice(selectedPlan)
+                                        Monatlich – @FormatBillingCycleMonthlyLabel(selectedPlan)
                                     </label>
                                 </div>
                             }
@@ -175,7 +211,7 @@
                                 <div class="form-check mb-2">
                                     <InputRadio class="form-check-input" Value="@BillingCycles.Yearly" id="billingYearly" />
                                     <label class="form-check-label" for="billingYearly">
-                                        Jährlich – @FormatYearlyPrice(selectedPlan)
+                                        Jährlich – @FormatBillingCycleYearlyLabel(selectedPlan)
                                     </label>
                                 </div>
                             }
@@ -412,6 +448,53 @@
 
     private static string FormatYearlyPrice(PublicSignupPlanDto plan) =>
         SubscriptionPlanDisplayHelper.FormatYearlyPrice(plan.PriceYearly, plan.Currency, plan.IsFree);
+
+    private static string FormatPriceAmount(decimal? price, string currency) =>
+        SubscriptionPlanDisplayHelper.FormatPriceAmount(price, currency);
+
+    private static string FormatPromotionalMonthlyPrice(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.FormatPromotionalMonthlyPrice(plan.PromotionalMonthlyPrice, plan.Currency);
+
+    private static string FormatPromotionalYearlyPrice(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.FormatPromotionalYearlyPrice(plan.PromotionalYearlyPrice, plan.Currency);
+
+    private static bool ShowsPromotionalMonthly(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.ShowsPromotionalMonthly(
+            plan.IsFree, plan.IsPromotionalPriceEnabled, plan.PromotionalMonthlyPrice);
+
+    private static bool ShowsPromotionalYearly(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.ShowsPromotionalYearly(
+            plan.IsFree, plan.IsPromotionalPriceEnabled, plan.PromotionalYearlyPrice);
+
+    private static bool ShowsPromotionalBadge(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.ShowsPromotionalBadge(
+            plan.IsFree,
+            plan.IsPromotionalPriceEnabled,
+            plan.PromotionalMonthlyPrice,
+            plan.PromotionalYearlyPrice);
+
+    private static string GetPromotionalBadgeText(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.GetPromotionalBadgeText(plan.PromotionalBadgeText);
+
+    private static string FormatBillingCycleMonthlyLabel(PublicSignupPlanDto plan)
+    {
+        if (ShowsPromotionalMonthly(plan))
+        {
+            return FormatPromotionalMonthlyPrice(plan);
+        }
+
+        return FormatMonthlyPrice(plan);
+    }
+
+    private static string FormatBillingCycleYearlyLabel(PublicSignupPlanDto plan)
+    {
+        if (ShowsPromotionalYearly(plan))
+        {
+            return FormatPromotionalYearlyPrice(plan);
+        }
+
+        return FormatYearlyPrice(plan);
+    }
 
     private static void PreventLink()
     {

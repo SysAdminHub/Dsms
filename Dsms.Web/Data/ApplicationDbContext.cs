@@ -104,6 +104,10 @@ public class ApplicationDbContext(
             e.Property(p => p.SortOrder).HasDefaultValue(0);
             e.Property(p => p.PriceMonthly).HasPrecision(18, 2);
             e.Property(p => p.PriceYearly).HasPrecision(18, 2);
+            e.Property(p => p.IsPromotionalPriceEnabled).HasDefaultValue(false);
+            e.Property(p => p.PromotionalMonthlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.PromotionalYearlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.PromotionalBadgeText).HasMaxLength(100);
             e.HasIndex(p => p.Name).IsUnique();
             e.HasIndex(p => p.IsActive);
             e.HasIndex(p => p.SortOrder);

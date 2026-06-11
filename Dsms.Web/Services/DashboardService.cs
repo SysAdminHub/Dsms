@@ -139,6 +139,28 @@ public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
             .Distinct()
             .CountAsync(ct);
 
+        var openPrivacyIncidents = await db.PrivacyIncidents
+            .Where(i => i.TenantId == tenantId
+                && i.Status != PrivacyIncidentStatus.Closed
+                && i.Status != PrivacyIncidentStatus.Archived)
+            .CountAsync(ct);
+
+        var privacyIncidentsInReview = await db.PrivacyIncidents
+            .Where(i => i.TenantId == tenantId && i.Status == PrivacyIncidentStatus.InReview)
+            .CountAsync(ct);
+
+        var notificationRequiredIncidents = await db.PrivacyIncidents
+            .Where(i => i.TenantId == tenantId
+                && i.SupervisoryAuthorityNotificationRequired == DecisionStatus.Yes)
+            .CountAsync(ct);
+
+        var highRiskPrivacyIncidents = await db.PrivacyIncidents
+            .Where(i => i.TenantId == tenantId
+                && (i.RiskLevel == PrivacyIncidentRiskLevel.HighRisk
+                    || i.Severity == PrivacyIncidentSeverity.High
+                    || i.Severity == PrivacyIncidentSeverity.Critical))
+            .CountAsync(ct);
+
         // Fälligkeit zuerst, damit dringende Maßnahmen oben erscheinen.
         var recentMeasures = await db.Measures
             .Where(m => m.TenantId == tenantId && m.Status != MeasureStatus.Done && m.Status != MeasureStatus.Cancelled)
@@ -178,6 +200,10 @@ public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
             overdueDpiaReviews,
             activitiesDpiaRequiredWithoutAssessment,
             activitiesWithHighRiskProviders,
+            openPrivacyIncidents,
+            privacyIncidentsInReview,
+            notificationRequiredIncidents,
+            highRiskPrivacyIncidents,
             recentMeasures,
             recentAudits);
     }
@@ -209,5 +235,9 @@ public record DashboardSummary(
     int OverdueDpiaReviewsCount,
     int ProcessingActivitiesDpiaRequiredWithoutAssessmentCount,
     int ProcessingActivitiesWithHighRiskProvidersCount,
+    int OpenPrivacyIncidentsCount,
+    int PrivacyIncidentsInReviewCount,
+    int NotificationRequiredPrivacyIncidentsCount,
+    int HighRiskPrivacyIncidentsCount,
     IReadOnlyList<Domain.Entities.Measure> RecentMeasures,
     IReadOnlyList<Domain.Entities.AuditRun> RecentAudits);

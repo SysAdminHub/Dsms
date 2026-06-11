@@ -6,16 +6,16 @@
 
 @rendermode InteractiveServer
 
-<PageTitle>TOM-Verzeichnis</PageTitle>
+<BrandedPageTitle Title="TOM-Verzeichnis" />
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="TOM-Verzeichnis" />
+    <PageHeader Title="TOM-Verzeichnis" HelpKey="toms" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="TOM-Verzeichnis" Subtitle="Technische und organisatorische Maßnahmen">
+    <PageHeader Title="TOM-Verzeichnis" HelpKey="toms" Subtitle="Technische und organisatorische Maßnahmen">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (_canEdit && !_showArchived)
@@ -58,10 +58,10 @@ else
                             <th>Bezeichnung</th>
                             <th>Kategorie</th>
                             <th>Schutzziel</th>
-                            <th>Umsetzungsstatus</th>
+                            <th>Status</th>
                             <th>Verantwortlich</th>
                             <th>Nächste Prüfung</th>
-                            <th>Verarbeitungstätigkeiten</th>
+                            <th>VTT</th>
                             @if (_showArchived)
                             {
                                 <th>Archiviert am</th>
@@ -95,20 +95,23 @@ else
                                 <td>@item.LinkedActivityCount</td>
                                 <td>@FormatDateColumn(item)</td>
                                 <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        <a class="btn btn-sm btn-outline-primary" href="@($"toms/{item.Id}")">Details</a>
-                                        @if (_canEdit)
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
                                         {
-                                            <a class="btn btn-sm btn-outline-secondary" href="@($"toms/edit/{item.Id}")">Bearbeiten</a>
+                                            <a class="btn btn-sm btn-outline-primary" href="@($"toms/{item.Id}")">Details</a>
+                                            @if (_canEdit)
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"toms/edit/{item.Id}")">Bearbeiten</a>
+                                            }
                                         }
-                                    }
-                                    <ArchiveListActions TEntity="Tom"
-                                                        EntityId="@item.Id"
-                                                        ItemName="@item.Title"
-                                                        EntityLabel="TOM"
-                                                        CanEdit="@_canEdit"
-                                                        OnChanged="LoadDataAsync" />
+
+                                        <ArchiveListActions TEntity="Tom"
+                                                            EntityId="@item.Id"
+                                                            ItemName="@item.Title"
+                                                            EntityLabel="TOM"
+                                                            CanEdit="@_canEdit"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -122,6 +125,7 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
@@ -136,8 +140,7 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
-        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
-            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
         _createLimit = await LicenseService.CanCreateTomAsync(_tenantId.Value);
         await LoadDataAsync();

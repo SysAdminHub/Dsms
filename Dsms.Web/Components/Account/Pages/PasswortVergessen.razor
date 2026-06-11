@@ -5,12 +5,13 @@
 @using Dsms.Web.Services.PasswordReset
 
 @inject IPasswordResetService PasswordReset
+@inject IApplicationInfoService ApplicationInfo
 
-<PageTitle>Passwort vergessen</PageTitle>
+<BrandedPageTitle Title="Passwort vergessen" />
 
 <div class="dsms-login-card">
     <div class="dsms-login-brand">
-        <div class="dsms-login-logo">DS</div>
+        <BrandLogo />
         <h1>Passwort vergessen</h1>
         <p>Geben Sie Ihre Emailadresse ein. Sie erhalten einen Link zum Zurücksetzen des Passworts.</p>
     </div>

@@ -3,7 +3,7 @@
 @attribute [Authorize(Roles = DsmsRoles.Superuser)]
 @rendermode InteractiveServer
 
-<PageTitle>@(_model.DisplayName) bearbeiten</PageTitle>
+<BrandedPageTitle Title="@($"{_model.DisplayName} bearbeiten")" />
 
 <PageHeader Title="@_model.DisplayName" Subtitle="Email-Vorlage bearbeiten" />
 

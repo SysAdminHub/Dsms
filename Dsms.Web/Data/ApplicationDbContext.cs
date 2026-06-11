@@ -42,6 +42,13 @@ public class ApplicationDbContext(
     public DbSet<EmailSettings> EmailSettings => Set<EmailSettings>();
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
     public DbSet<LogEntry> LogEntries => Set<LogEntry>();
+    public DbSet<TenantOnboardingTask> TenantOnboardingTasks => Set<TenantOnboardingTask>();
+    public DbSet<PageHelpContent> PageHelpContents => Set<PageHelpContent>();
+    public DbSet<PrivacyIncident> PrivacyIncidents => Set<PrivacyIncident>();
+    public DbSet<PrivacyIncidentProcessingActivity> PrivacyIncidentProcessingActivities => Set<PrivacyIncidentProcessingActivity>();
+    public DbSet<PrivacyIncidentServiceProvider> PrivacyIncidentServiceProviders => Set<PrivacyIncidentServiceProvider>();
+    public DbSet<PrivacyIncidentMeasure> PrivacyIncidentMeasures => Set<PrivacyIncidentMeasure>();
+    public DbSet<PrivacyIncidentTom> PrivacyIncidentToms => Set<PrivacyIncidentTom>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -171,6 +178,20 @@ public class ApplicationDbContext(
         {
             e.Property(t => t.Name).HasMaxLength(200).IsRequired();
             e.Property(t => t.LegalName).HasMaxLength(300);
+            e.Property(t => t.Street).HasMaxLength(300);
+            e.Property(t => t.HouseNumber).HasMaxLength(20);
+            e.Property(t => t.PostalCode).HasMaxLength(20);
+            e.Property(t => t.City).HasMaxLength(100);
+            e.Property(t => t.Phone).HasMaxLength(50);
+            e.Property(t => t.Email).HasMaxLength(255);
+            e.Property(t => t.Website).HasMaxLength(500);
+            e.Property(t => t.DpoName).HasMaxLength(200);
+            e.Property(t => t.DpoStreet).HasMaxLength(300);
+            e.Property(t => t.DpoHouseNumber).HasMaxLength(20);
+            e.Property(t => t.DpoPostalCode).HasMaxLength(20);
+            e.Property(t => t.DpoCity).HasMaxLength(100);
+            e.Property(t => t.DpoPhone).HasMaxLength(50);
+            e.Property(t => t.DpoEmail).HasMaxLength(255);
             e.Property(t => t.DeletionRequestedByUserId).HasMaxLength(450);
             e.Property(t => t.IsActive).HasDefaultValue(true);
             e.Property(t => t.IsDeletionRequested).HasDefaultValue(false);
@@ -243,8 +264,110 @@ public class ApplicationDbContext(
             e.HasOne(d => d.ServiceProvider).WithMany(sp => sp.Documents).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(d => d.ProcessingActivity).WithMany(p => p.Documents).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(d => d.DataProtectionImpactAssessment).WithMany(dpia => dpia.Documents).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(d => d.PrivacyIncident).WithMany(i => i.Documents).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(d => new { d.TenantId, d.ProcessingActivityId });
             e.HasIndex(d => new { d.TenantId, d.DataProtectionImpactAssessmentId });
+            e.HasIndex(d => new { d.TenantId, d.PrivacyIncidentId });
+        });
+
+        builder.Entity<PrivacyIncident>(e =>
+        {
+            e.ToTable("PrivacyIncidents");
+            e.Property(i => i.IncidentNumber).HasMaxLength(50).IsRequired();
+            e.Property(i => i.Title).HasMaxLength(200).IsRequired();
+            e.Property(i => i.ResponsiblePerson).HasMaxLength(200);
+            e.Property(i => i.InternalReference).HasMaxLength(100);
+            e.Property(i => i.CreatedByUserId).HasMaxLength(450);
+            e.Property(i => i.UpdatedByUserId).HasMaxLength(450);
+            e.Property(i => i.ArchivedByUserId).HasMaxLength(450);
+            e.Property(i => i.SupervisoryAuthorityName).HasMaxLength(200);
+            e.Property(i => i.SupervisoryAuthorityReference).HasMaxLength(200);
+            e.Property(i => i.DataSubjectsNotificationMethod).HasMaxLength(200);
+            e.Property(i => i.Description).HasColumnType("text");
+            e.Property(i => i.HowDetected).HasColumnType("text");
+            e.Property(i => i.Cause).HasColumnType("text");
+            e.Property(i => i.AffectedSystems).HasColumnType("text");
+            e.Property(i => i.BreachTypeDescription).HasColumnType("text");
+            e.Property(i => i.AffectedDataCategories).HasColumnType("text");
+            e.Property(i => i.AffectedPersonGroups).HasColumnType("text");
+            e.Property(i => i.LikelyConsequences).HasColumnType("text");
+            e.Property(i => i.RiskAssessmentReason).HasColumnType("text");
+            e.Property(i => i.SupervisoryAuthorityNotificationReason).HasColumnType("text");
+            e.Property(i => i.NotificationDelayReason).HasColumnType("text");
+            e.Property(i => i.DataSubjectsNotificationReason).HasColumnType("text");
+            e.Property(i => i.DataSubjectsNotificationSummary).HasColumnType("text");
+            e.Property(i => i.ImmediateActions).HasColumnType("text");
+            e.Property(i => i.RemediationActions).HasColumnType("text");
+            e.Property(i => i.PreventiveActions).HasColumnType("text");
+            e.Property(i => i.ClosureSummary).HasColumnType("text");
+            e.HasOne(i => i.Tenant).WithMany(t => t.PrivacyIncidents).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(i => i.TenantId);
+            e.HasIndex(i => new { i.TenantId, i.IncidentNumber }).IsUnique();
+            e.HasIndex(i => new { i.TenantId, i.Status });
+        });
+
+        builder.Entity<PrivacyIncidentProcessingActivity>(e =>
+        {
+            e.ToTable("PrivacyIncidentProcessingActivities");
+            e.HasOne(l => l.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.PrivacyIncident)
+                .WithMany(i => i.ProcessingActivityLinks)
+                .HasForeignKey(l => l.PrivacyIncidentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(l => l.ProcessingActivity)
+                .WithMany()
+                .HasForeignKey(l => l.ProcessingActivityId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => new { l.PrivacyIncidentId, l.ProcessingActivityId }).IsUnique();
+        });
+
+        builder.Entity<PrivacyIncidentServiceProvider>(e =>
+        {
+            e.ToTable("PrivacyIncidentServiceProviders");
+            e.HasOne(l => l.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.PrivacyIncident)
+                .WithMany(i => i.ServiceProviderLinks)
+                .HasForeignKey(l => l.PrivacyIncidentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(l => l.ServiceProvider)
+                .WithMany()
+                .HasForeignKey(l => l.ServiceProviderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => new { l.PrivacyIncidentId, l.ServiceProviderId }).IsUnique();
+        });
+
+        builder.Entity<PrivacyIncidentMeasure>(e =>
+        {
+            e.ToTable("PrivacyIncidentMeasures");
+            e.HasOne(l => l.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.PrivacyIncident)
+                .WithMany(i => i.MeasureLinks)
+                .HasForeignKey(l => l.PrivacyIncidentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(l => l.Measure)
+                .WithMany()
+                .HasForeignKey(l => l.MeasureId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => new { l.PrivacyIncidentId, l.MeasureId }).IsUnique();
+        });
+
+        builder.Entity<PrivacyIncidentTom>(e =>
+        {
+            e.ToTable("PrivacyIncidentToms");
+            e.HasOne(l => l.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.PrivacyIncident)
+                .WithMany(i => i.TomLinks)
+                .HasForeignKey(l => l.PrivacyIncidentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(l => l.Tom)
+                .WithMany()
+                .HasForeignKey(l => l.TomId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => new { l.PrivacyIncidentId, l.TomId }).IsUnique();
         });
 
         // Verzeichnis von Verarbeitungstätigkeiten (VVT) – mandantenbezogen, kein Kaskaden-Löschen des Mandanten.
@@ -443,6 +566,34 @@ public class ApplicationDbContext(
             e.HasIndex(t => t.TemplateKey).IsUnique();
         });
 
+        builder.Entity<PageHelpContent>(e =>
+        {
+            e.ToTable("PageHelpContents");
+            e.Property(h => h.Key).HasMaxLength(100).IsRequired();
+            e.Property(h => h.Title).HasMaxLength(200).IsRequired();
+            e.Property(h => h.LegalReference).HasMaxLength(500);
+            e.Property(h => h.ShortDescription).HasMaxLength(500);
+            e.Property(h => h.Content).HasColumnType("text").IsRequired();
+            e.Property(h => h.UpdatedByUserId).HasMaxLength(450);
+            e.HasIndex(h => h.Key).IsUnique();
+        });
+
+        builder.Entity<TenantOnboardingTask>(e =>
+        {
+            e.ToTable("TenantOnboardingTasks");
+            e.Property(t => t.Key).HasMaxLength(100).IsRequired();
+            e.Property(t => t.Title).HasMaxLength(200).IsRequired();
+            e.Property(t => t.Description).HasColumnType("text").IsRequired();
+            e.Property(t => t.TargetUrl).HasMaxLength(500).IsRequired();
+            e.Property(t => t.CompletedByUserId).HasMaxLength(450);
+            e.HasOne(t => t.Tenant)
+                .WithMany()
+                .HasForeignKey(t => t.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(t => t.TenantId);
+            e.HasIndex(t => new { t.TenantId, t.Key }).IsUnique();
+        });
+
         builder.Entity<LogEntry>(e =>
         {
             e.ToTable("LogEntries");
@@ -506,6 +657,7 @@ public class ApplicationDbContext(
         ApplyArchivableTenantFilter<Tom>(builder);
         ApplyArchivableTenantFilter<ServiceProviderEntity>(builder);
         ApplyArchivableTenantFilter<DataProtectionImpactAssessment>(builder);
+        ApplyArchivableTenantFilter<PrivacyIncident>(builder);
 
         builder.Entity<ProcessingActivityTom>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
@@ -524,6 +676,26 @@ public class ApplicationDbContext(
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 
         builder.Entity<ProcessingActivityAuditAnswer>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<TenantOnboardingTask>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<PrivacyIncidentProcessingActivity>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<PrivacyIncidentServiceProvider>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<PrivacyIncidentMeasure>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<PrivacyIncidentTom>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
     }

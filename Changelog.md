@@ -4,6 +4,79 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Geändert
+
+- **Datenschutzvorfälle – Maßnahmen-UI:** Abschnitt „Maßnahmen / Abschluss“ mit Freitextfeldern (Sofort-/Abhilfe-/Präventionsmaßnahmen, Abschlusszusammenfassung, Abgeschlossen am) aus Bearbeitungs- und Detailseite entfernt. Maßnahmen werden nur noch über verknüpfte Maßnahmen im Modul Maßnahmen dokumentiert. Datenbankfelder bleiben erhalten; PageHelp-Standardtext angepasst.
+
+### Hinzugefügt
+
+- **Datenschutzvorfälle – Maßnahme aus Vorfall (Audit-Muster):** Button auf Detail- und Bearbeitungsseite (`measures/edit?privacyIncidentId=`), Vorausfüllung und automatische `PrivacyIncidentMeasures`-Verknüpfung analog Audit-Antworten; Rücknavigation zum Vorfall; Checkboxen für bestehende Maßnahmen bleiben erhalten.
+
+- **Datenschutzvorfälle – TOM-Verknüpfung und Maßnahmen aus Vorfall:** Many-to-Many `PrivacyIncidentToms`; TOM-Auswahl auf Bearbeitungsseite; Anzeige auf Detailseite; Button „Maßnahme aus Vorfall erstellen“ mit Vorausfüllung über `measures/edit?privacyIncidentId=` und automatischer Verknüpfung; Tenant-Export `LinkedTomIds`. Migration `AddPrivacyIncidentToms`.
+
+- **Modul Datenschutzvorfälle (`/incidents`):** Mandantenbezogenes Vorfallregister mit Liste, Detail, Anlegen (Admin/Superuser) und Bearbeiten (Admin/Superuser/User). Entity `PrivacyIncident` inkl. Meldebewertung, Risiko, Verknüpfungen zu VVT/Dienstleistern/Maßnahmen und Dokumenten (`EvidenceDocument.PrivacyIncidentId`). Rollenlogik über `CanCreatePrivacyIncidentsAsync` / `CanEditPrivacyIncidentsAsync`. Sidebar-Menüpunkt „Vorfälle“, PageHelp `privacy-incidents`, Dashboard-Kennzahlen, Tenant-Export `privacy-incidents.json`, Compliance-Auditlog. Migration `AddPrivacyIncidents`.
+
+### Geändert
+
+- **Sidebar-Branding:** Logo-Bild und DC-Kürzel in der Sidebar entfernt; oben links nur noch der Produktname „Datenschutz-Cloud“. Logo über `AppBranding:LogoUrl` bleibt auf Login-/Auth-Seiten erhalten.
+
+- **Logo-Branding in der UI:** Sichtbares Kürzel „DC“ (Login, Passwort-Seiten, Registrierung) wird durch das Logo-Bild `/datenschutz-cloud-logo.png` ersetzt, sofern `AppBranding:LogoUrl` gesetzt ist. Fallback auf `ShortName` bleibt erhalten. Wiederverwendbare Komponente `BrandLogo`. Favicon und technische Namen unverändert.
+
+### Hinzugefügt
+
+- **Feedback senden:** Dezenter Sidebar-Link im Bereich „Konto“ (`FeedbackButton`) öffnet ein Modal mit Kategorie, Betreff und Nachricht. Versand per `IFeedbackService` an `AppBranding.SupportEmail` über den zentralen E-Mail-Service und Vorlage `FeedbackMessageToSupport`. Enthält Benutzer-, Mandanten-, Seiten- und Versionskontext. Keine Datenbankpersistenz.
+
+### Behoben
+
+- **Feedback senden (Sidebar):** `@onclick` funktionierte nicht, weil `NavMenu`/`MainLayout` statisch gerendert werden. `FeedbackButton` nutzt jetzt `InteractiveServerRenderMode` (wie `TenantSwitcher`). Button-Styling an `nav-link`/`dsms-nav-logout` angeglichen — gleiche Optik wie „Abmelden“.
+
+- **Feedback-Modal (Layout):** Modal wurde in der Sidebar gerendert und lag im Stacking Context unter der sticky Topbar. Eigenes Fixed-Overlay (`dsms-feedback-modal-backdrop`, `z-index: 2000`) über der gesamten Viewport-Fläche.
+
+- **Seiten-Hilfe (Info-Button):** Zentraler Hilfetext für Fachseiten über `PageHelpContent` (plattformweit, eindeutiger `Key`). Wiederverwendbare Komponente `PageHelpButton` neben dem Seitentitel in `PageHeader` (`HelpKey`). Modal mit rechtlichem Bezug, Kurzbeschreibung und Erklärungstext (Plaintext, absatzweise). Superuser können Texte direkt im Modal bearbeiten; andere Rollen nur lesen. Standardtexte per `PageHelpContentSeeder` (idempotent, überschreibt keine Anpassungen). Migration `AddPageHelpContents`. Integriert auf: Verarbeitungstätigkeiten, TOMs, DSFA, Dienstleister, Audit-Vorlagen, Audit-Durchläufe, Maßnahmen, Dokumente, Tenant-Daten, Benutzer, Meine Lizenz.
+
+- **Dashboard „Erste Schritte“:** Einklappbare Checkliste mit sechs mandantenbezogenen Standardaufgaben (`TenantOnboardingTask`, `ITenantOnboardingService`). Manuelles Abhaken, Fortschrittsanzeige, Links zu Modulen. Einklapp-Zustand per localStorage. Migration `AddTenantOnboardingTasks`.
+
+### Geändert
+
+- **Dashboard „Erste Schritte“ (UI):** Kompakteres Card-Layout im Stil der Upgrade-Card — kleinerer Header, Fortschritts-Badge, dezente 6px-Progressbar, Aufgabenzeilen ohne Bulletpoints, kurze Beschreibungstexte nur in der Anzeige. Halbe Breite auf Desktop im Zwei-Spalten-Grid neben „Offene Maßnahmen“.
+
+### Geändert
+
+- **Sichtbares Produkt-Branding:** Der sichtbare Produktname wurde von „DSMS“ auf **Datenschutz-Cloud** umgestellt. Zentrale Konfiguration unter `AppBranding` in `appsettings.json` (`AppBrandingOptions`). Betrifft Sidebar, Topbar, Login, Browser-Titel (`BrandedPageTitle`), Versionsanzeige, E-Mail-Vorlagen/Platzhalter, Mandanten-Export-Metadaten und interne Systemmails. Technische Projektnamen (z. B. `Dsms.Web`) und Favicon unverändert.
+
+### Hinzugefügt
+
+- **Mandanten-Stammdaten für Admins unter `/tenant-daten`:** Mandanten-Admins und Superuser können DSGVO-Stammdaten (Verantwortlicher, DSB) des aktuellen Mandanten bearbeiten (`ITenantComplianceInfoService`). TenantId wird serverseitig ermittelt; Lizenz- und Plattformfelder bleiben gesperrt. Audit-Log-Aktion `TenantComplianceInfoUpdated`.
+
+- **Mandanten-Stammdaten für VVT (Art. 30 DSGVO):** Zentrale Angaben zum Verantwortlichen und zur Datenschutzbeauftragten Person auf `Tenant` (Wiederverwendung von `LegalName` als Name des Verantwortlichen). Bearbeitung in `/tenants/edit`, Export in `tenant.json` des Mandanten-ZIP. Migration `AddTenantControllerAndDpoFields`.
+
+### Hinzugefügt
+
+- **Mandanten-Recovery für Blazor Server:** `ITenantService.EnsureTenantContextAsync()` stellt den Mandant aus der Session wieder her, wenn der Circuit-Cache (`TenantContextAccessor`) leer ist; Zugriffsprüfung inklusive. Genutzt von `TenantContextGate`, `TenantSwitcher` und Middleware.
+
+### Behoben
+
+- **Mandant nach Inaktivität verloren:** `_contextInitialized` in `TenantService` entfernt – leerer Accessor löst erneutes Session-Laden aus. `TenantContextGate` und `TenantSwitcher` synchronisieren den UI-State nach Recovery.
+
+### Hinzugefügt
+
+- **Sidebar-Versionsanzeige:** Anwendungsversion aus `Application:Version` in `appsettings.json`, Anzeige unten in der Sidebar für angemeldete Benutzer (`IApplicationInfoService`).
+
+### Behoben
+
+- **Auditor: reine Leserolle im Mandantenbereich**
+  - Neue Rollen-Konstanten `ComplianceEditor` (nur Admin) und `ComplianceViewer` (Admin, Auditor, User)
+  - `IUserAccessService`: `IsAuditorAsync`, `CanEditComplianceContentAsync`, `CanEditTenantOperationalContentAsync`
+  - Auditor aus allen Bearbeitungs-Routen entfernt (VVT, DSFA, TOMs, Dienstleister, Audit-Durchläufe, Verknüpfungen)
+  - Listen/Detailseiten: Bearbeiten/Archivieren-Buttons nur noch für berechtigte Rollen
+  - Maßnahmen, Dokumente, Audit-Antworten: Auditor sieht Inhalte, kann aber nicht speichern/hochladen/archivieren
+  - Audit-Antworten (`/audit-runs/answers/{id}`): Lesemodus für Auditor mit deaktivierten Eingaben
+  - Serverseitig: `ArchivingService`, `AuditTemplateService`, `DocumentUploadComponent`, `DocumentLinksEditModal`, `Measures/Edit`, `AuditRuns/Answers`
+
+### Behoben
+
+- **Lizenz-Nutzungszählung auf `/users`:** `CountRoleUsersForTenantAsync` zählte Benutzer doppelt, wenn sie sowohl in `UserTenants` als auch über Legacy-`TenantId` am Mandanten verknüpft waren. Die Zählung nutzt jetzt dieselbe Distinct-Logik wie die Admin-Lizenzübersicht (`CountUsersByRolePerTenantAsync`).
+
 ### Hinzugefügt
 
 - **Docker-Production-Deployment (Open Source):**
@@ -17,6 +90,7 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Geändert
 
+- Tabellen-Aktionsspalten: Einheitliches vertikales Button-Layout über `dsms-table-action-stack` in Verarbeitungstätigkeiten, DSFA, Dienstleister, Audit-Vorlagen, Audit-Durchläufe, Maßnahmen, Dokumente, Benutzer und TOMs
 - `appsettings.json`: lokaler Default-ConnectionString auf `dsms_dev` vereinheitlicht; `Storage:UploadPath` ergänzt
 - `README.md`: Verweis auf `Production_Deployment.md`; lokaler Compose-Start nur `db`
 - `Architecture.md`: Docker-Deployment und Konfiguration aktualisiert
@@ -232,6 +306,12 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 - **Erinnerungen:** Zugriff auf `/admin/erinnerungen` nur noch für **Superuser** (Seite, Navigation, `ReminderService`)
 
 ### Behoben
+
+- **DSFA-Archivansicht:** Archivierte DSFAs erscheinen wieder in der Archiv-Liste
+  - Ursachen: (1) Join auf VVT unterlag dem Archiv-Query-Filter; (2) Status „Archiviert“ (DpiaStatus) und `IsArchived` waren nicht synchron
+  - Listenabfrage in `Dsfa/Index.razor` mit explizitem Mandanten-/Archiv-Filter und `IgnoreQueryFilters()` für VVT-Namen
+  - Synchronisation Status/`IsArchived` in `ArchivingService` (DSFA) und `Dsfa/Edit.razor`
+  - Migration `SyncDpiaStatusArchivedWithIsArchived` bereinigt bestehende Datensätze mit Status Archiviert ohne `IsArchived`
 
 - **Tenant-Export / Mandantenabfrage:** `InvalidCastException: Can't convert NULL to Int32` behoben
   - Export lädt Verknüpfungen jetzt mit separaten `IgnoreQueryFilters()`-Abfragen statt gefilterter EF-Includes

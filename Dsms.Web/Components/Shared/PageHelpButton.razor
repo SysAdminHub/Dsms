@@ -1,0 +1,208 @@
+@* Dezenter Info-Button neben dem Seitentitel mit Modal-Hilfe und Superuser-Bearbeitung. *@
+<button type="button"
+        class="dsms-page-help-btn"
+        title="Hilfe anzeigen"
+        aria-label="Hilfe anzeigen"
+        @onclick="OpenAsync">
+    <span aria-hidden="true">i</span>
+</button>
+
+@if (_visible)
+{
+    <div class="modal fade show d-block dsms-archive-modal dsms-page-help-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(_editMode ? "Hilfetext bearbeiten" : _content?.Title ?? DefaultTitle ?? "Seitenhilfe")</h5>
+                    <button type="button" class="btn-close" @onclick="Close" aria-label="Schließen"></button>
+                </div>
+                <div class="modal-body">
+                    @if (_loading)
+                    {
+                        <div class="dsms-loading">Lade …</div>
+                    }
+                    else if (_editMode)
+                    {
+                        <div class="dsms-form">
+                            <div class="mb-3">
+                                <label class="form-label" for="@($"{_fieldId}-title")">Titel</label>
+                                <InputText id="@($"{_fieldId}-title")" class="form-control" @bind-Value="_editModel.Title" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="@($"{_fieldId}-legal")">Rechtlicher Bezug</label>
+                                <InputText id="@($"{_fieldId}-legal")" class="form-control" @bind-Value="_editModel.LegalReference" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="@($"{_fieldId}-short")">Kurzbeschreibung</label>
+                                <InputText id="@($"{_fieldId}-short")" class="form-control" @bind-Value="_editModel.ShortDescription" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="@($"{_fieldId}-content")">Inhalt / Erklärungstext</label>
+                                <InputTextArea id="@($"{_fieldId}-content")" class="form-control" rows="10" @bind-Value="_editModel.Content" />
+                            </div>
+                        </div>
+                    }
+                    else if (_content is not null)
+                    {
+                        @if (!string.IsNullOrWhiteSpace(_content.ShortDescription))
+                        {
+                            <p class="dsms-page-help-intro">@_content.ShortDescription</p>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(_content.LegalReference))
+                        {
+                            <div class="dsms-page-help-section">
+                                <h6 class="dsms-page-help-section-title">Rechtlicher Bezug</h6>
+                                <p class="mb-0">@_content.LegalReference</p>
+                            </div>
+                        }
+
+                        <div class="dsms-page-help-section">
+                            <h6 class="dsms-page-help-section-title">Was Sie hier tun können</h6>
+                            <div class="dsms-page-help-content">
+                                @foreach (var paragraph in GetParagraphs(_content.Content))
+                                {
+                                    <p>@paragraph</p>
+                                }
+                            </div>
+                        </div>
+
+                        <p class="dsms-page-help-disclaimer mb-0">
+                            Diese Informationen dienen der allgemeinen Orientierung und ersetzen keine Rechtsberatung.
+                        </p>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_message))
+                    {
+                        <div class="alert @(_messageIsError ? "alert-danger" : "alert-success") dsms-alert mt-3 mb-0">
+                            @_message
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    @if (_editMode)
+                    {
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CancelEdit" disabled="@_saving">Abbrechen</button>
+                        <button type="button" class="btn btn-primary" @onclick="SaveAsync" disabled="@_saving">
+                            @(_saving ? "Speichern …" : "Speichern")
+                        </button>
+                    }
+                    else
+                    {
+                        @if (_isSuperuser && _content is { IsFallback: false })
+                        {
+                            <button type="button" class="btn btn-outline-primary" @onclick="StartEdit">Bearbeiten</button>
+                        }
+                        <button type="button" class="btn btn-outline-secondary" @onclick="Close">Schließen</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string HelpKey { get; set; } = string.Empty;
+    [Parameter] public string? DefaultTitle { get; set; }
+
+    [Inject] private IPageHelpContentService HelpService { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+
+    private readonly string _fieldId = $"help-{Guid.NewGuid():N}";
+    private bool _visible;
+    private bool _loading;
+    private bool _editMode;
+    private bool _saving;
+    private bool _isSuperuser;
+    private bool _messageIsError;
+    private string? _message;
+    private PageHelpContentDto? _content;
+    private PageHelpContentUpdateModel _editModel = new();
+
+    private async Task OpenAsync()
+    {
+        _visible = true;
+        _editMode = false;
+        _message = null;
+        _loading = true;
+        _isSuperuser = await UserAccess.IsSuperuserAsync();
+
+        try
+        {
+            _content = await HelpService.GetByKeyAsync(HelpKey);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void Close()
+    {
+        _visible = false;
+        _editMode = false;
+        _message = null;
+    }
+
+    private void StartEdit()
+    {
+        if (_content is null || _content.IsFallback)
+        {
+            return;
+        }
+
+        _editModel = new PageHelpContentUpdateModel
+        {
+            Title = _content.Title,
+            LegalReference = _content.LegalReference,
+            ShortDescription = _content.ShortDescription,
+            Content = _content.Content
+        };
+        _editMode = true;
+        _message = null;
+    }
+
+    private void CancelEdit()
+    {
+        _editMode = false;
+        _message = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _message = null;
+
+        try
+        {
+            var result = await HelpService.UpdateAsync(HelpKey, _editModel);
+            if (!result.Succeeded)
+            {
+                _messageIsError = true;
+                _message = result.Message;
+                return;
+            }
+
+            _content = await HelpService.GetByKeyAsync(HelpKey);
+            _editMode = false;
+            _messageIsError = false;
+            _message = result.Message;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _messageIsError = true;
+            _message = "Sie haben keine Berechtigung, Hilfetexte zu bearbeiten.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static IEnumerable<string> GetParagraphs(string content)
+    {
+        return content
+            .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+    }
+}

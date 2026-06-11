@@ -1,0 +1,519 @@
+@* Detailansicht eines Datenschutzvorfalls – mandantenbezogen. *@
+@page "/incidents/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Datenschutzvorfall" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Datenschutzvorfall" HelpKey="privacy-incidents" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_incident is null && _loaded)
+{
+    <PageHeader Title="Datenschutzvorfall" HelpKey="privacy-incidents" />
+    <div class="alert alert-warning dsms-alert">Vorfall nicht gefunden oder kein Zugriff.</div>
+}
+else if (_incident is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else
+{
+    <PageHeader Title="@_incident.Title" HelpKey="privacy-incidents" Subtitle="@_incident.IncidentNumber">
+        @if (_canEdit)
+        {
+            <a class="btn btn-primary" href="@($"incidents/edit/{_incident.Id}")">Bearbeiten</a>
+        }
+        <a class="btn btn-outline-secondary" href="incidents">Zur Liste</a>
+    </PageHeader>
+
+    @foreach (var warning in _warnings)
+    {
+        <div class="alert alert-warning dsms-alert">@warning</div>
+    }
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Übersicht</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Vorfallsnummer</div>
+                    <div>@_incident.IncidentNumber</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Status</div>
+                    <StatusBadge Text="@PrivacyIncidentLabels.GetStatusLabel(_incident.Status)"
+                                 Variant="@PrivacyIncidentLabels.GetStatusVariant(_incident.Status)" />
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Schweregrad</div>
+                    <StatusBadge Text="@PrivacyIncidentLabels.GetSeverityLabel(_incident.Severity)"
+                                 Variant="@PrivacyIncidentLabels.GetSeverityVariant(_incident.Severity)" />
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Quelle</div>
+                    <div>@PrivacyIncidentLabels.GetSourceLabel(_incident.Source)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Unsere Rolle</div>
+                    <div>@PrivacyIncidentLabels.GetOwnRoleLabel(_incident.OwnRole)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Verantwortlich</div>
+                    <div>@(string.IsNullOrWhiteSpace(_incident.ResponsiblePerson) ? "—" : _incident.ResponsiblePerson)</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Kenntnisnahme</div>
+                    <div>@(_incident.DiscoveredAt?.ToLocalTime().ToString("g") ?? "—")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Vorfallsdatum</div>
+                    <div>@(_incident.OccurredAt?.ToLocalTime().ToString("g") ?? "—")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Meldung an uns</div>
+                    <div>@(_incident.ReportedToUsAt?.ToLocalTime().ToString("g") ?? "—")</div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(_incident.InternalReference))
+                {
+                    <div class="col-md-6">
+                        <div class="dsms-detail-label">Interne Referenz</div>
+                        <div>@_incident.InternalReference</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Beschreibung</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="dsms-detail-label">Was ist passiert?</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_incident.Description)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Wie wurde der Vorfall entdeckt?</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_incident.HowDetected)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Ursache</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_incident.Cause)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Betroffene Systeme</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_incident.AffectedSystems)</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="dsms-detail-label">Vorfall noch aktiv</div>
+                    <div>@DisplayBool(_incident.IncidentStillActive)</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="dsms-detail-label">Gestoppt am</div>
+                    <div>@(_incident.IncidentStoppedAt?.ToLocalTime().ToString("g") ?? "—")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Art der Verletzung</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Vertraulichkeit betroffen</div>
+                    <div>@(_incident.ConfidentialityAffected ? "Ja" : "Nein")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Integrität betroffen</div>
+                    <div>@(_incident.IntegrityAffected ? "Ja" : "Nein")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Verfügbarkeit betroffen</div>
+                    <div>@(_incident.AvailabilityAffected ? "Ja" : "Nein")</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Beschreibung</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_incident.BreachTypeDescription)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Betroffene Daten und Personen</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Datenkategorien</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_incident.AffectedDataCategories)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Personengruppen</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_incident.AffectedPersonGroups)</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Anzahl Personen (ca.)</div>
+                    <div>@(_incident.ApproxAffectedPersons?.ToString() ?? "—")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Anzahl Datensätze (ca.)</div>
+                    <div>@(_incident.ApproxAffectedRecords?.ToString() ?? "—")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Besondere Kategorien</div>
+                    <div>@(_incident.SpecialCategoriesAffected ? "Ja" : "Nein")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Auswirkungen und Risiko</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="dsms-detail-label">Wahrscheinliche Folgen</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_incident.LikelyConsequences)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Risiko-Level</div>
+                    <StatusBadge Text="@PrivacyIncidentLabels.GetRiskLevelLabel(_incident.RiskLevel)"
+                                 Variant="@PrivacyIncidentLabels.GetRiskLevelVariant(_incident.RiskLevel)" />
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Begründung</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_incident.RiskAssessmentReason)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Meldebewertung Aufsichtsbehörde</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Meldung erforderlich?</div>
+                    <StatusBadge Text="@PrivacyIncidentLabels.GetDecisionStatusLabel(_incident.SupervisoryAuthorityNotificationRequired)"
+                                 Variant="@PrivacyIncidentLabels.GetDecisionStatusVariant(_incident.SupervisoryAuthorityNotificationRequired)" />
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Behörde</div>
+                    <div>@(string.IsNullOrWhiteSpace(_incident.SupervisoryAuthorityName) ? "—" : _incident.SupervisoryAuthorityName)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Begründung</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_incident.SupervisoryAuthorityNotificationReason)</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Gemeldet am</div>
+                    <div>@(_incident.SupervisoryAuthorityNotifiedAt?.ToLocalTime().ToString("g") ?? "—")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Aktenzeichen</div>
+                    <div>@(string.IsNullOrWhiteSpace(_incident.SupervisoryAuthorityReference) ? "—" : _incident.SupervisoryAuthorityReference)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Verzögerungsbegründung</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_incident.NotificationDelayReason)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Betroffenenbenachrichtigung</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Benachrichtigung erforderlich?</div>
+                    <StatusBadge Text="@PrivacyIncidentLabels.GetDecisionStatusLabel(_incident.DataSubjectsNotificationRequired)"
+                                 Variant="@PrivacyIncidentLabels.GetDecisionStatusVariant(_incident.DataSubjectsNotificationRequired)" />
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Benachrichtigt am</div>
+                    <div>@(_incident.DataSubjectsNotifiedAt?.ToLocalTime().ToString("g") ?? "—")</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Begründung</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_incident.DataSubjectsNotificationReason)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Methode</div>
+                    <div>@(string.IsNullOrWhiteSpace(_incident.DataSubjectsNotificationMethod) ? "—" : _incident.DataSubjectsNotificationMethod)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Zusammenfassung</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_incident.DataSubjectsNotificationSummary)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span>Maßnahmen</span>
+            @if (_canCreateMeasure)
+            {
+                <a class="btn btn-sm btn-outline-secondary" href="@($"measures/edit?privacyIncidentId={_incident.Id}")">
+                    + Maßnahme aus Vorfall erstellen
+                </a>
+            }
+        </div>
+        <div class="dsms-card-body">
+            <p class="text-muted mb-3">
+                Dokumentieren Sie konkrete Aufgaben, Abhilfe- und Präventionsmaßnahmen im Modul Maßnahmen.
+            </p>
+            @if (_linkedMeasures.Count == 0)
+            {
+                <div class="text-muted">Keine Maßnahmen verknüpft.</div>
+            }
+            else
+            {
+                <div class="dsms-table-wrap">
+                    <table class="table dsms-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Titel</th>
+                                <th>Status</th>
+                                <th>Fällig</th>
+                                <th>Verantwortlich</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var measure in _linkedMeasures)
+                            {
+                                <tr>
+                                    <td><strong>@measure.Title</strong></td>
+                                    <td>
+                                        <StatusBadge Text="@MeasureLabels.GetStatusLabel(measure.Status)"
+                                                     Variant="@MeasureLabels.GetStatusVariant(measure.Status)" />
+                                    </td>
+                                    <td>@(measure.DueDate?.ToString("d") ?? "—")</td>
+                                    <td>@(string.IsNullOrWhiteSpace(measure.AssignedUserId) ? "—" : measure.AssignedUserId)</td>
+                                    <td>
+                                        <a class="btn btn-sm btn-outline-secondary" href="@($"measures/edit/{measure.Id}")">Öffnen</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Relevante TOMs</div>
+        <div class="dsms-card-body">
+            @if (_linkedToms.Count == 0)
+            {
+                <div class="text-muted">Keine TOMs verknüpft.</div>
+            }
+            else
+            {
+                <div class="dsms-table-wrap">
+                    <table class="table dsms-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Titel</th>
+                                <th>Kategorie</th>
+                                <th>Umsetzungsstatus</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var tom in _linkedToms)
+                            {
+                                <tr>
+                                    <td><strong>@tom.Title</strong></td>
+                                    <td>@TomLabels.GetCategoryLabel(tom.Category)</td>
+                                    <td>
+                                        <StatusBadge Text="@TomLabels.GetImplementationStatusLabel(tom.ImplementationStatus)"
+                                                     Variant="@TomLabels.GetImplementationStatusVariant(tom.ImplementationStatus)" />
+                                    </td>
+                                    <td>
+                                        <a class="btn btn-sm btn-outline-secondary" href="@($"toms/{tom.Id}")">Ansehen</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Verknüpfungen</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Verarbeitungstätigkeiten</div>
+                    @if (_linkedProcessingActivities.Count == 0)
+                    {
+                        <div class="text-muted">—</div>
+                    }
+                    else
+                    {
+                        <ul class="mb-0">
+                            @foreach (var pa in _linkedProcessingActivities)
+                            {
+                                <li><a href="@($"processing-activities/{pa.Id}")">@pa.Name</a></li>
+                            }
+                        </ul>
+                    }
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Dienstleister</div>
+                    @if (_linkedServiceProviders.Count == 0)
+                    {
+                        <div class="text-muted">—</div>
+                    }
+                    else
+                    {
+                        <ul class="mb-0">
+                            @foreach (var sp in _linkedServiceProviders)
+                            {
+                                <li><a href="@($"service-providers/{sp.Id}")">@sp.Name</a></li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <LinkedDocumentsSection PrivacyIncidentId="_incident.Id" />
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canEdit;
+    private bool _canCreateMeasure;
+    private bool _loaded;
+    private PrivacyIncident? _incident;
+    private List<ProcessingActivity> _linkedProcessingActivities = [];
+    private List<DsmsServiceProvider> _linkedServiceProviders = [];
+    private List<Measure> _linkedMeasures = [];
+    private List<Tom> _linkedToms = [];
+    private List<string> _warnings = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canEdit = await UserAccess.CanEditPrivacyIncidentsAsync();
+        _canCreateMeasure = await UserAccess.CanEditTenantOperationalContentAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _incident = await Db.PrivacyIncidents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == Id);
+
+        if (_incident is not null)
+        {
+            _linkedProcessingActivities = await Db.PrivacyIncidentProcessingActivities
+                .Where(l => l.PrivacyIncidentId == Id)
+                .Select(l => l.ProcessingActivity)
+                .OrderBy(p => p.Name)
+                .ToListAsync();
+
+            _linkedServiceProviders = await Db.PrivacyIncidentServiceProviders
+                .Where(l => l.PrivacyIncidentId == Id)
+                .Select(l => l.ServiceProvider)
+                .OrderBy(s => s.Name)
+                .ToListAsync();
+
+            _linkedMeasures = await Db.PrivacyIncidentMeasures
+                .Where(l => l.PrivacyIncidentId == Id)
+                .Select(l => l.Measure)
+                .OrderBy(m => m.Title)
+                .ToListAsync();
+
+            _linkedToms = await Db.PrivacyIncidentToms
+                .Where(l => l.PrivacyIncidentId == Id)
+                .Select(l => l.Tom)
+                .OrderBy(t => t.Title)
+                .ToListAsync();
+
+            _warnings = BuildWarnings(_incident, _linkedToms.Count, _linkedMeasures.Count);
+        }
+
+        _loaded = true;
+    }
+
+    private static List<string> BuildWarnings(PrivacyIncident incident, int linkedTomCount, int linkedMeasureCount)
+    {
+        var warnings = new List<string>();
+
+        if (incident.DiscoveredAt.HasValue
+            && incident.SupervisoryAuthorityNotificationRequired == DecisionStatus.Open)
+        {
+            warnings.Add("Meldebewertung ist noch offen.");
+        }
+
+        if (incident.SupervisoryAuthorityNotificationRequired == DecisionStatus.Yes
+            && !incident.SupervisoryAuthorityNotifiedAt.HasValue)
+        {
+            warnings.Add("Meldung an Aufsichtsbehörde ist als erforderlich markiert, aber noch kein Meldedatum hinterlegt.");
+        }
+
+        if (incident.DiscoveredAt.HasValue)
+        {
+            var hoursSinceDiscovery = (DateTime.UtcNow - incident.DiscoveredAt.Value).TotalHours;
+            var notificationOpen = incident.SupervisoryAuthorityNotificationRequired == DecisionStatus.Open;
+            var notificationYesWithoutDate = incident.SupervisoryAuthorityNotificationRequired == DecisionStatus.Yes
+                && !incident.SupervisoryAuthorityNotifiedAt.HasValue;
+
+            if (hoursSinceDiscovery > 72 && (notificationOpen || notificationYesWithoutDate))
+            {
+                warnings.Add("Bitte 72-Stunden-Frist prüfen.");
+            }
+        }
+
+        if (incident.RiskLevel == PrivacyIncidentRiskLevel.HighRisk
+            && incident.DataSubjectsNotificationRequired != DecisionStatus.Yes)
+        {
+            warnings.Add("Bei hohem Risiko sollte die Benachrichtigung betroffener Personen geprüft werden.");
+        }
+
+        if (incident.Status == PrivacyIncidentStatus.Closed && linkedMeasureCount == 0)
+        {
+            warnings.Add("Abschlussdokumentation prüfen: Keine Maßnahmen verknüpft.");
+        }
+
+        if (incident.Status == PrivacyIncidentStatus.Closed && linkedTomCount == 0)
+        {
+            warnings.Add("Prüfen Sie, ob relevante TOMs dokumentiert oder angepasst wurden.");
+        }
+
+        return warnings;
+    }
+
+    private static MarkupString DisplayMultiline(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? new MarkupString("<span class=\"text-muted\">—</span>")
+            : new MarkupString(value.Replace("\n", "<br />"));
+
+    private static string DisplayBool(bool? value) => value switch
+    {
+        true => "Ja",
+        false => "Nein",
+        _ => "—"
+    };
+}

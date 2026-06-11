@@ -2,7 +2,7 @@
 
     Anlegen und Bearbeiten von TOMs inkl. Zuordnung zu Verarbeitungstätigkeiten.
 
-    Nur Admin und Auditor; Speichern und Laden immer mit TenantId-Filter.
+    Nur Admin; Speichern und Laden immer mit TenantId-Filter.
 
 *@
 
@@ -10,13 +10,13 @@
 
 @page "/toms/edit/{Id:int}"
 
-@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+@attribute [Authorize(Roles = DsmsRoles.ComplianceEditor)]
 
 @rendermode InteractiveServer
 
 
 
-<PageTitle>TOM bearbeiten</PageTitle>
+<BrandedPageTitle Title="TOM bearbeiten" />
 
 
 

@@ -6,7 +6,7 @@
 
 @rendermode InteractiveServer
 
-<PageTitle>Dienstleister</PageTitle>
+<BrandedPageTitle Title="Dienstleister" />
 
 @if (_tenantId is null)
 {
@@ -273,6 +273,7 @@ else
     [Parameter] public int Id { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
 
     private int? _tenantId;
     private bool _canEdit;
@@ -290,8 +291,7 @@ else
             return;
         }
 
-        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
-            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
         _provider = await Db.ServiceProviders
             .Include(s => s.Documents)

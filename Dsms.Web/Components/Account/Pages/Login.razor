@@ -13,14 +13,15 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<Login> Logger
 @inject Dsms.Web.Services.Logging.ILogService LogService
+@inject IApplicationInfoService ApplicationInfo
 
-<PageTitle>Anmelden</PageTitle>
+<BrandedPageTitle Title="Anmelden" />
 
 <div class="dsms-login-card">
     <div class="dsms-login-brand">
-        <div class="dsms-login-logo">DS</div>
-        <h1>Willkommen bei DSMS</h1>
-        <p>Datenschutz-Management für Ihr Unternehmen</p>
+        <BrandLogo />
+        <h1>Willkommen bei @ApplicationInfo.ProductName</h1>
+        <p>@ApplicationInfo.Description</p>
     </div>
 
     <StatusMessage Message="@errorMessage" />

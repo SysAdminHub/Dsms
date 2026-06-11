@@ -4,10 +4,10 @@
 *@
 @page "/audit-runs/edit"
 @page "/audit-runs/edit/{Id:int}"
-@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+@attribute [Authorize(Roles = DsmsRoles.ComplianceEditor)]
 @rendermode InteractiveServer
 
-<PageTitle>Audit-Durchlauf</PageTitle>
+<BrandedPageTitle Title="Audit-Durchlauf" />
 
 @if (_tenantId is null)
 {

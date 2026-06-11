@@ -103,7 +103,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 |-------|-------|
 | `/tenants` | Mandanten (Liste) |
 | `/tenants/edit` | Mandant anlegen |
-| `/tenants/edit/{Id}` | Mandant bearbeiten |
+| `/tenants/edit/{Id}` | Mandant bearbeiten (inkl. zentrale VVT-Stammdaten: Verantwortlicher und Datenschutzbeauftragte Person) |
 | `/platform/email/settings` | Email-Einstellungen (SMTP, Testmail) |
 | `/platform/email/templates` | Email-Vorlagen (Liste) |
 | `/platform/email/templates/edit/{Id}` | Email-Vorlage bearbeiten (Vorschau, Testmail) |
@@ -115,7 +115,7 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | `/users` | Benutzer (Liste) | Superuser: alle Mandanten; Admin: nur eigener Mandant |
 | `/users/create` | Benutzer anlegen | Superuser: Rolle + Mandant; Admin: Rolle ohne Superuser, Mandant automatisch |
 | `/users/edit/{UserId}` | Benutzer bearbeiten | Wie Liste; Admin darf keine Superuser bearbeiten |
-| `/tenant-daten` | Tenant-Daten | Export als ZIP und Löschanforderung; Superuser: aktuell gewählter Mandant; Admin: nur eigener Mandant |
+| `/tenant-daten` | Tenant-Daten | DSGVO-Mandanten-Stammdaten bearbeiten, Export als ZIP und Löschanforderung; Superuser: aktuell gewählter Mandant; Admin: nur eigener Mandant |
 
 Der Mandanten-Export enthält fachliche Daten und Dokumente des aktuellen Mandanten, **keine** Passwort-Hashes, Tokens oder Secrets. Die Löschanforderung markiert den Mandanten nur als „Löschung angefordert“ – eine endgültige Löschung folgt später in einem separaten Prozess.
 | `/admin/erinnerungen` | Erinnerungen | Nur Superuser; alle Mandanten; manueller Versand mit Vorschau |

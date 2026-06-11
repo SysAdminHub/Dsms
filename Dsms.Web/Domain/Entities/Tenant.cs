@@ -6,7 +6,26 @@ namespace Dsms.Web.Domain.Entities;
 public class Tenant : EntityBase
 {
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>Name des Verantwortlichen / der Organisation (Art. 30 Abs. 1 DSGVO).</summary>
     public string? LegalName { get; set; }
+
+    public string? Street { get; set; }
+    public string? HouseNumber { get; set; }
+    public string? PostalCode { get; set; }
+    public string? City { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    public string? Website { get; set; }
+
+    public string? DpoName { get; set; }
+    public string? DpoStreet { get; set; }
+    public string? DpoHouseNumber { get; set; }
+    public string? DpoPostalCode { get; set; }
+    public string? DpoCity { get; set; }
+    public string? DpoPhone { get; set; }
+    public string? DpoEmail { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     /// <summary>Zugehörige Kundenlizenz; null bei noch nicht zugeordneten Mandanten.</summary>
@@ -30,5 +49,6 @@ public class Tenant : EntityBase
     public ICollection<Tom> Toms { get; set; } = [];
     public ICollection<ServiceProvider> ServiceProviders { get; set; } = [];
     public ICollection<DataProtectionImpactAssessment> DpiaAssessments { get; set; } = [];
+    public ICollection<PrivacyIncident> PrivacyIncidents { get; set; } = [];
     public ICollection<UserTenant> UserTenants { get; set; } = [];
 }

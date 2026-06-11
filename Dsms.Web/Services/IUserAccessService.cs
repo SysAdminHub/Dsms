@@ -13,7 +13,7 @@ public interface IUserAccessService
     Task<bool> CanManageUsersAsync();
     Task<bool> CanManageTenantsAsync();
 
-    /// <summary>Export und Löschanforderung: Superuser oder Mandanten-Admin mit Zugriff auf aktuellen Mandanten.</summary>
+    /// <summary>Export, Löschanforderung und DSGVO-Stammdaten: Superuser oder Mandanten-Admin mit Zugriff auf aktuellen Mandanten.</summary>
     Task<bool> CanManageTenantDataAsync();
 
     /// <summary>Aktive Mandanten-ID aus dem Mandantenkontext (Session); null wenn keiner gewählt.</summary>
@@ -27,6 +27,27 @@ public interface IUserAccessService
 
     /// <summary>Rollen, die der aktuelle Benutzer beim Anlegen/Bearbeiten zuweisen darf.</summary>
     Task<IReadOnlyList<string>> GetAssignableRolesAsync();
+
+    /// <summary>True, wenn der Benutzer die reine Prüferrolle Auditor hat (ohne Admin/Superuser).</summary>
+    Task<bool> IsAuditorAsync();
+
+    /// <summary>
+    /// Bearbeitung von Compliance-Stammdaten (VVT, DSFA, TOMs, Dienstleister, Audit-Durchläufe, Vorlagen).
+    /// Admin und Superuser; nicht Auditor.
+    /// </summary>
+    Task<bool> CanEditComplianceContentAsync();
+
+    /// <summary>
+    /// Bearbeitung operativer Mandanteninhalte (Maßnahmen, Audit-Antworten, Dokumente).
+    /// Admin, User und Superuser; nicht Auditor.
+    /// </summary>
+    Task<bool> CanEditTenantOperationalContentAsync();
+
+    /// <summary>Neue Datenschutzvorfälle anlegen: Superuser und Admin; nicht User/Auditor.</summary>
+    Task<bool> CanCreatePrivacyIncidentsAsync();
+
+    /// <summary>Bestehende Datenschutzvorfälle bearbeiten: Superuser, Admin und User; nicht Auditor.</summary>
+    Task<bool> CanEditPrivacyIncidentsAsync();
 
     /// <summary>True, wenn die Rolle Superuser ist (plattformweit, kein Mandant erforderlich).</summary>
     static bool RoleRequiresNoTenant(string role) => role == Domain.DsmsRoles.Superuser;

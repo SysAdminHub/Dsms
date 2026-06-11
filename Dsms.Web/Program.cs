@@ -1,5 +1,6 @@
 using Dsms.Web.Components;
 using Dsms.Web.Components.Account;
+using Dsms.Web.Configuration;
 using Dsms.Web.Data;
 using Dsms.Web.Data.Seed;
 using Dsms.Web.Services;
@@ -14,14 +15,20 @@ using Dsms.Web.Services.Provisioning;
 using Dsms.Web.Services.Signup;
 using Dsms.Web.Services.SubscriptionPlans;
 using Dsms.Web.Services.UpgradeRequests;
+using Dsms.Web.Services.Feedback;
 using Dsms.Web.Services.Tenants;
 using Dsms.Web.Services.Logging;
+using Dsms.Web.Services.Onboarding;
+using Dsms.Web.Services.PageHelp;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<AppBrandingOptions>(
+    builder.Configuration.GetSection(AppBrandingOptions.SectionName));
 
 // --- Blazor Server (interaktive Komponenten) ---
 builder.Services.AddRazorComponents()
@@ -50,12 +57,16 @@ builder.Services.AddScoped<ArchiveViewContextAccessor>();
 builder.Services.AddScoped<ITenantContextService, TenantContextService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+builder.Services.AddSingleton<IApplicationInfoService, ApplicationInfoService>();
 builder.Services.AddScoped<IUserAccessService, UserAccessService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddScoped<IArchivingService, ArchivingService>();
 builder.Services.AddScoped<IAuditTemplateService, AuditTemplateService>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<ITenantOnboardingService, TenantOnboardingService>();
+builder.Services.AddScoped<IPageHelpContentService, PageHelpContentService>();
 builder.Services.AddScoped<ProcessingActivityRelationsService>();
+builder.Services.AddScoped<PrivacyIncidentRelationsService>();
 builder.Services.AddScoped<DocumentStorageService>();
 builder.Services.AddScoped<DocumentLinksService>();
 builder.Services.AddScoped<ITenantExportService, TenantExportService>();
@@ -77,10 +88,12 @@ builder.Services.AddScoped<IProvisioningService, ProvisioningService>();
 builder.Services.AddScoped<IPublicSignupService, PublicSignupService>();
 builder.Services.AddScoped<ISignupNotificationService, SignupNotificationService>();
 builder.Services.AddScoped<IUpgradeRequestService, UpgradeRequestService>();
+builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<IPaidSignupService, PaidSignupService>();
 builder.Services.AddScoped<IPendingSignupService, PendingSignupService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
 builder.Services.AddScoped<ITenantManagementService, TenantManagementService>();
+builder.Services.AddScoped<ITenantComplianceInfoService, TenantComplianceInfoService>();
 builder.Services.AddScoped<ILogService, LogService>();
 builder.Services.AddScoped<ILogQueryService, LogQueryService>();
 builder.Services.AddScoped<ILicenseCreateGuard, LicenseCreateGuard>();

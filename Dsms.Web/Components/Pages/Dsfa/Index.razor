@@ -6,16 +6,16 @@
 
 @rendermode InteractiveServer
 
-<PageTitle>DSFA</PageTitle>
+<BrandedPageTitle Title="DSFA" />
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="DSFA" />
+    <PageHeader Title="DSFA" HelpKey="dsfa" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="DSFA" Subtitle="Datenschutz-Folgenabschätzungen">
+    <PageHeader Title="DSFA" HelpKey="dsfa" Subtitle="Datenschutz-Folgenabschätzungen">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (_canEdit && !_showArchived)
@@ -98,20 +98,22 @@ else
                                 <td>@FormatNextReview(item.NextReviewAt)</td>
                                 <td>@FormatDateColumn(item)</td>
                                 <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        <a class="btn btn-sm btn-outline-primary" href="@($"dsfa/{item.Id}")">Details</a>
-                                        @if (_canEdit)
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
                                         {
-                                            <a class="btn btn-sm btn-outline-secondary" href="@($"dsfa/edit/{item.Id}")">Bearbeiten</a>
+                                            <a class="btn btn-sm btn-outline-primary" href="@($"dsfa/{item.Id}")">Details</a>
+                                            @if (_canEdit)
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"dsfa/edit/{item.Id}")">Bearbeiten</a>
+                                            }
                                         }
-                                    }
-                                    <ArchiveListActions TEntity="DataProtectionImpactAssessment"
-                                                        EntityId="@item.Id"
-                                                        ItemName="@item.Title"
-                                                        EntityLabel="DSFA"
-                                                        CanEdit="@_canEdit"
-                                                        OnChanged="LoadDataAsync" />
+                                        <ArchiveListActions TEntity="DataProtectionImpactAssessment"
+                                                            EntityId="@item.Id"
+                                                            ItemName="@item.Title"
+                                                            EntityLabel="DSFA"
+                                                            CanEdit="@_canEdit"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -125,6 +127,7 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
@@ -139,8 +142,7 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
-        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
-            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
         _createLimit = await LicenseService.CanCreateDpiaAsync(_tenantId.Value);
         await LoadDataAsync();
@@ -148,24 +150,44 @@ else
 
     private async Task LoadDataAsync()
     {
-        _showArchived = ArchiveView.ShowArchivedOnly;
-        _items = await Db.DataProtectionImpactAssessments
-            .OrderByDescending(d => _showArchived ? d.ArchivedAt : (d.UpdatedAt ?? d.CreatedAt))
-            .Select(d => new DsfaListRow
-            {
-                Id = d.Id,
-                Title = d.Title,
-                ProcessingActivityName = d.ProcessingActivity.Name,
-                Status = d.Status,
-                ResidualRisk = d.ResidualRisk,
-                Outcome = d.Outcome,
-                ResponsiblePerson = d.ResponsiblePerson,
-                NextReviewAt = d.NextReviewAt,
-                CreatedAt = d.CreatedAt,
-                UpdatedAt = d.UpdatedAt,
-                ArchivedAt = d.ArchivedAt
-            })
+        if (_tenantId is null) return;
+
+        // Lokale Variable: Global Query Filter liest ShowArchivedOnly zur Laufzeit –
+        // expliziter Filter vermeidet Timing-Probleme und Join-Probleme mit VVT-Archivfilter.
+        var showArchived = ArchiveView.ShowArchivedOnly;
+        _showArchived = showArchived;
+        var tenantId = _tenantId.Value;
+
+        var dpias = await Db.DataProtectionImpactAssessments
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(d => d.TenantId == tenantId && d.IsArchived == showArchived)
+            .OrderByDescending(d => showArchived ? d.ArchivedAt : (d.UpdatedAt ?? d.CreatedAt))
             .ToListAsync();
+
+        var paIds = dpias.Select(d => d.ProcessingActivityId).Distinct().ToList();
+        var paNames = paIds.Count == 0
+            ? new Dictionary<int, string>()
+            : await Db.ProcessingActivities
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(p => p.TenantId == tenantId && paIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.Name);
+
+        _items = dpias.Select(d => new DsfaListRow
+        {
+            Id = d.Id,
+            Title = d.Title,
+            ProcessingActivityName = paNames.GetValueOrDefault(d.ProcessingActivityId, "—"),
+            Status = d.Status,
+            ResidualRisk = d.ResidualRisk,
+            Outcome = d.Outcome,
+            ResponsiblePerson = d.ResponsiblePerson,
+            NextReviewAt = d.NextReviewAt,
+            CreatedAt = d.CreatedAt,
+            UpdatedAt = d.UpdatedAt,
+            ArchivedAt = d.ArchivedAt
+        }).ToList();
     }
 
     private string FormatDateColumn(DsfaListRow item) =>

@@ -2,7 +2,7 @@ namespace Dsms.Web.Services;
 
 /// <summary>
 /// Verwaltet den aktiven Mandantenkontext (<c>CurrentTenantId</c>) für den angemeldeten Benutzer.
-/// Die Auswahl wird in der ASP.NET-Session persistiert und pro Request im Scoped Accessor gehalten.
+/// Die ASP.NET-Session ist die persistente Quelle; der Scoped Accessor dient als Laufzeit-Cache.
 /// </summary>
 public interface ITenantContextService
 {

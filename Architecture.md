@@ -63,7 +63,7 @@ c:\code\DS\
     │   ├── App.razor, Routes.razor
     │   ├── Layout/                # MainLayout, NavMenu, LoginLayout
     │   ├── Pages/                 # Fachseiten (inkl. ProcessingActivities/, Toms/, ServiceProviders/)
-    │   ├── Shared/                # PageHeader, StatusBadge, DocumentUploadComponent, DocumentActions, DocumentLinksEditModal
+    │   ├── Shared/                # PageHeader, PageHelpButton, StatusBadge, DocumentUploadComponent, …
     │   └── Account/               # Identity UI + Endpunkte
     ├── wwwroot/                   # CSS, Bootstrap, favicon
     ├── Properties/launchSettings.json
@@ -137,7 +137,7 @@ Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnec
 |-------|--------|
 | `Licenses` | `License` (Guid-Id, kaufmännische/technische Kundeneinheit; Limit-Felder, `null` = unbegrenzt) |
 | `SubscriptionPlans` | `SubscriptionPlan` (Guid-Id, Tarifvorlage; Limit-Felder, `null` = unbegrenzt; Änderungen wirken nicht auf bestehende Lizenzen) |
-| `Tenants` | `Tenant` (inkl. `LicenseId`, `IsDeletionRequested`, `DeletionRequestedAt`, `DeletionRequestedByUserId`, `DeletionScheduledAt`) |
+| `Tenants` | `Tenant` (inkl. `LicenseId`, Verantwortlichen-Stammdaten für VVT: `LegalName`, `Street`, `HouseNumber`, `PostalCode`, `City`, `Phone`, `Email`, `Website`, DSB-Felder `Dpo*`, Löschfelder `IsDeletionRequested`, `DeletionRequestedAt`, `DeletionRequestedByUserId`, `DeletionScheduledAt`) |
 | `AuditTemplates` | `AuditTemplate` |
 | `AuditQuestions` | `AuditQuestion` |
 | `AuditRuns` | `AuditRun` |
@@ -153,8 +153,13 @@ Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnec
 | `ProcessingActivityMeasures` | `ProcessingActivityMeasure` |
 | `ProcessingActivityAuditAnswers` | `ProcessingActivityAuditAnswer` |
 | `DataProtectionImpactAssessments` | `DataProtectionImpactAssessment` |
+| `PrivacyIncidents` | `PrivacyIncident` |
+| `PrivacyIncidentProcessingActivities` | `PrivacyIncidentProcessingActivity` |
+| `PrivacyIncidentServiceProviders` | `PrivacyIncidentServiceProvider` |
+| `PrivacyIncidentMeasures` | `PrivacyIncidentMeasure` |
 | `EmailSettings` | `EmailSettings` (plattformweit, kein Mandantenfilter) |
 | `EmailTemplates` | `EmailTemplate` (plattformweit, eindeutiger `TemplateKey`) |
+| `PageHelpContents` | `PageHelpContent` (plattformweit, eindeutiger `Key`; Hilfetexte für Fachseiten) |
 
 Zusätzlich alle **ASP.NET Identity**-Standardtabellen (`AspNetUsers`, `AspNetRoles`, …).
 
@@ -173,11 +178,11 @@ Archivierbare Module erben von **`ArchivableEntityBase`** (`EntityBase` + `IArch
 - `ArchivedAt` (DateTime?, optional)
 - `ArchivedByUserId` (string?, Identity-User-ID)
 
-Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `Tom`, `ServiceProvider`, `AuditTemplate`, `AuditRun`, `Measure`, `EvidenceDocument`.
+Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `Tom`, `ServiceProvider`, `AuditTemplate`, `AuditRun`, `Measure`, `PrivacyIncident`, `EvidenceDocument`.
 
 **`AuditTemplate`** erbt nur von `ArchivableEntityBase` (nicht `ITenantEntity`): `TenantId` bei eigenen Vorlagen gesetzt, bei globalen Vorlagen (`Official`, `Community`) `null`. Zusätzlich `CommunityStatus` und Prüffelder für Einreichungen. Sichtbarkeit: eigene Mandantenvorlagen + globale `Official`/`Community` über Query Filter. Community-Freigabe erstellt separate globale Kopie; Ursprungsvorlage bleibt beim Mandanten (`CommunityStatus = Approved`).
 
-Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen.
+Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen, **`TenantOnboardingTask`** (mandantenbezogene Dashboard-Checkliste „Erste Schritte“; eindeutiger Index `TenantId` + `Key`).
 
 **`License`** ist eine eigenständige Entity mit **`Guid Id`** (nicht `EntityBase`). Enthält Kundendaten, Status, Gültigkeit und Limit-Felder (lizenzweit und pro Mandant). `LicenseNumber` wird automatisch vergeben (Format `LIC-{Jahr}-{Sequenz}`).
 
@@ -216,6 +221,11 @@ Tenant
  ├── Tom ←──→ ServiceProvider (ServiceProviderTom)
  ├── ServiceProvider ── EvidenceDocument (optional)
  ├── DataProtectionImpactAssessment ── EvidenceDocument (optional)
+ ├── PrivacyIncident ←──→ ProcessingActivity (PrivacyIncidentProcessingActivity)
+ │        ←──→ ServiceProvider (PrivacyIncidentServiceProvider)
+ │        ←──→ Measure (PrivacyIncidentMeasure)
+ │        ←──→ Tom (PrivacyIncidentTom)
+ │        ── EvidenceDocument (PrivacyIncidentId, optional)
  └── Tom
 
 ApplicationUser.TenantId → logische Zuordnung (kein EF-FK auf Tenants)
@@ -238,10 +248,15 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ICurrentUserContext` / `CurrentUserContext` | Scoped | User-ID, TenantId, Rollenprüfung via `AuthenticationStateProvider` + `UserManager` |
 | `IUserAccessService` / `UserAccessService` | Scoped | Zentrale Berechtigungen (Superuser vs. Admin, Mandantenzugriff, bearbeitbare Benutzer) |
 | `IUserManagementService` / `UserManagementService` | Scoped | Benutzerliste, Anlegen, Bearbeiten, Deaktivieren inkl. serverseitiger Validierung |
-| `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, DSFA, VVT-Verknüpfungen) |
+| `DashboardService` | Scoped | Kennzahlen und Listen für Dashboard (TOMs, Dienstleister, DSFA, VVT-Verknüpfungen, Datenschutzvorfälle) |
+| `PrivacyIncidentRelationsService` | Scoped | Many-to-Many-Sync und Vorfallsnummern-Generierung (`INC-{Jahr}-{Sequenz}` pro Mandant) |
+| `ITenantOnboardingService` / `TenantOnboardingService` | Scoped | Mandanten-Checkliste „Erste Schritte“ auf dem Dashboard (Standardaufgaben anlegen, manuelles Abhaken) |
+| `IPageHelpContentService` / `PageHelpContentService` | Scoped | Globale Hilfetexte für Fachseiten (Lesen für alle Angemeldeten; Bearbeiten nur Superuser) |
 | `ProcessingActivityRelationsService` | Scoped | Laden/Speichern von VVT-Verknüpfungen, Warnhinweise, Mandantenvalidierung |
 | `DocumentStorageService` | Scoped | Speichern von Upload-Dateien unter `Storage:UploadPath` (Default: `Data/Uploads/{tenantId}/`) |
 | `ITenantExportService` / `TenantExportService` | Scoped | Vollständiger Mandanten-Export als ZIP (JSON-DTOs + Dokumentdateien) |
+| `ITenantComplianceInfoService` / `TenantComplianceInfoService` | Scoped | DSGVO-Mandanten-Stammdaten lesen/speichern für aktuellen Mandanten (Admin/Superuser via `/tenant-daten`); TenantId serverseitig |
+| `ITenantManagementService` / `TenantManagementService` | Scoped | Plattformweite Mandantenverwaltung (nur Superuser, `/tenants/edit`) |
 | `ITenantDeletionService` / `TenantDeletionService` | Scoped | Löschanforderung markieren (`IsDeletionRequested`); Abbrechen nur Superuser |
 | `TenantDataEndpoints` | Minimal API | `POST /tenant-daten/export` – ZIP-Download mit serverseitiger Berechtigungsprüfung |
 | `DocumentUploadValidation` | Static | Dateityp-, MIME- und Größenprüfung für Uploads (PDF, DOCX, XLSX, JPG, PNG; max. 10 MB) |
@@ -266,6 +281,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IProvisioningService` / `ProvisioningService` | Scoped | Provisioniert Kunde: License + Tenant + Admin + Passwortvergabe-Mail |
 | `IPublicSignupService` / `PublicSignupService` | Scoped | Öffentlicher Signup mit Tarifauswahl → PendingSignup + direkte Provisionierung; interne Benachrichtigung via `ISignupNotificationService` |
 | `ISignupNotificationService` / `SignupNotificationService` | Scoped | Interne E-Mail nach erfolgreichem Public Signup; Empfänger aus `EmailSettings.SystemNotificationRecipientEmail` |
+| `IFeedbackService` / `FeedbackService` | Scoped | Benutzer-Feedback per E-Mail an `AppBranding.SupportEmail`; Vorlage `FeedbackMessageToSupport`; keine DB-Persistenz |
 | `IPaidSignupService` / `PaidSignupService` | Scoped | Legacy Paid-Signup-Service (nicht mehr über eigene Seite) |
 | `IPendingSignupService` / `PendingSignupService` | Scoped | Zwischenspeicher für ausstehende Registrierungen; Public Signup; Rechnungsverwaltung (NextInvoiceDate, BillingStatus-Aktionen) |
 | `ILogService` / `LogService` | Scoped | Zentrales Audit- und Systemprotokoll (`LogEntry`-Tabelle); siehe `Logging.md` |
@@ -294,8 +310,10 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 |-------|---------------------------------------------------------------------|
 | **Superuser** | Plattform: alle Mandanten (`/tenants`), Lizenzen (`/platform/licenses`), Tarife (`/platform/plans`), Email (`/platform/email/*`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
 | **Admin** | Benutzer im eigenen Mandant; **keine** Mandantenverwaltung; Compliance wie bisher für `TenantId` |
-| **Auditor** | Audit-Vorlagen, -Durchläufe, VVT, DSFA, TOMs und Dienstleister anlegen/bearbeiten; **keine** Benutzerverwaltung |
-| **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen |
+| **Auditor** | Compliance-Inhalte **nur lesen** (Listen, Details, Audit-Antworten im Lesemodus, Dokument-Download); **kein** Anlegen/Bearbeiten/Archivieren; **keine** Benutzerverwaltung |
+| **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen (VVT, DSFA, TOMs, Dienstleister, Audit-Durchläufe) |
+
+**Rollen-Konstanten für Autorisierung:** `DsmsRoles.ComplianceEditor` (nur Admin) für Stammdaten-Bearbeitung; `DsmsRoles.ComplianceViewer` (Admin, Auditor, User) für lesenden Zugriff. Zentrale Prüfungen über `IUserAccessService.CanEditComplianceContentAsync()` (Stammdaten) und `CanEditTenantOperationalContentAsync()` (Maßnahmen, Audit-Antworten, Dokumente). **Datenschutzvorfälle:** `CanCreatePrivacyIncidentsAsync()` (Admin/Superuser), `CanEditPrivacyIncidentsAsync()` (Admin/Superuser/User); Auditor nur Lesen.
 
 **Unterschied Superuser vs. Admin:** Superuser ist mandantenunabhängig (`TenantId` null) und global; Admin ist strikt an einen `TenantId` gebunden. Beide dürfen Benutzer verwalten, aber nur der Superuser sieht fremde Mandanten und darf Superuser anlegen.
 
@@ -306,7 +324,8 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 - **Global Query Filters** in `ApplicationDbContext.ApplyTenantQueryFilters()`:
   - Mandant: `TenantId == TenantContextAccessor.CurrentTenantId` (ohne gesetzten Kontext: keine Zeilen)
   - Archiv: `IsArchived == ArchiveViewContextAccessor.ShowArchivedOnly` (Standard: nur aktive Einträge)
-- `TenantContextAccessor` wird pro Request/Circuit über `TenantInitializationMiddleware` / `TenantContextService` befüllt
+- `TenantContextAccessor` ist ein **Scoped-Cache**; die ASP.NET-Session (Key `Dsms.CurrentTenantId`) ist die persistente Quelle
+- Pro Request/Circuit: `TenantInitializationMiddleware` und `TenantService.EnsureTenantContextAsync()` laden bei leerem Cache aus der Session (Recovery nach Circuit-Verlust, inkl. Zugriffsprüfung)
 - **Mandantenwechsel:** Persistenz in ASP.NET-Session; aus interaktiven Blazor-Komponenten nur per HTTP-Redirect auf `GET /tenant/switch/{tenantId}` (Session ist nach Circuit-Start nicht mehr beschreibbar)
 - `ArchiveViewContextAccessor.ShowArchivedOnly` wird über `ArchiveViewToggle` in Listenansichten umgeschaltet
 - Archivieren/Wiederherstellen: `IArchivingService` mit `IgnoreQueryFilters()` und expliziter `TenantId`-Prüfung
@@ -324,7 +343,7 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 
 | Datei | Inhalt |
 |-------|--------|
-| `appsettings.json` | Lokaler Connection-String-Fallback (`dsms_dev`/`changeme`), `Storage:UploadPath`, Logging |
+| `appsettings.json` | Lokaler Connection-String-Fallback (`dsms_dev`/`changeme`), `Application:Version`, `AppBranding` (sichtbarer Produktname, `LogoUrl`, `ShortName`-Fallback, URLs, Tagline), `Storage:UploadPath`, Logging |
 | `appsettings.Development.json` | `dsms_dev`, detaillierter EF-Logging |
 | `.env.example` / `.env` | Docker-Production-Secrets (nur `.env.example` im Repo) |
 | `docker-compose.yml` | App + MySQL 8, Volumes, Environment Variables |
@@ -382,9 +401,9 @@ dotnet ef database update
 | Audit-Antworten | `ProcessingActivityAuditAnswer` | Many-to-Many – keine `ProcessingActivityId` auf `AuditAnswer`, da Antworten über Durchlauf mandantenbezogen bleiben |
 | DSFA | `DataProtectionImpactAssessment` (1:n zu `ProcessingActivity`) | Pflicht-FK; `TenantId` + Indexe; Cascade beim Löschen der VVT |
 
-**Seiten:** `ProcessingActivities/Detail.razor`, `ProcessingActivities/Links.razor` (`[Authorize(Roles = Admin,Auditor)]`); DSFA: `Dsfa/Index.razor`, `Dsfa/Detail.razor`, `Dsfa/Edit.razor`.
+**Seiten:** `ProcessingActivities/Detail.razor`, `ProcessingActivities/Links.razor` (`[Authorize(Roles = ComplianceEditor)]`); DSFA: `Dsfa/Index.razor`, `Dsfa/Detail.razor`, `Dsfa/Edit.razor`.
 
-**Routen DSFA:** `/dsfa`, `/dsfa/{Id}`, `/dsfa/edit`, `/dsfa/edit/{Id}` (Bearbeitung nur Admin/Auditor).
+**Routen DSFA:** `/dsfa`, `/dsfa/{Id}`, `/dsfa/edit`, `/dsfa/edit/{Id}` (Bearbeitung nur Admin).
 
 **Mandantenschutz:** Alle Lade- und Speicheroperationen in `ProcessingActivityRelationsService` prüfen `TenantId` der Hauptentität und jeder referenzierten ID.
 

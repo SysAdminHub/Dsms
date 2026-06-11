@@ -7,7 +7,7 @@ public sealed class ExportInfoDto
     public string? ExportCreatedByEmail { get; init; }
     public int TenantId { get; init; }
     public string TenantName { get; init; } = string.Empty;
-    public string ApplicationName { get; init; } = "DSMS";
+    public string ApplicationName { get; init; } = "Datenschutz-Cloud";
     public string ExportVersion { get; init; } = "1.0";
     public string SecurityNote { get; init; } =
         "Dieser Export enthält keine Passwort-Hashes, Tokens, Secrets oder SMTP-Passwörter.";
@@ -19,6 +19,20 @@ public sealed class TenantExportDto
     public int Id { get; init; }
     public string Name { get; init; } = string.Empty;
     public string? LegalName { get; init; }
+    public string? Street { get; init; }
+    public string? HouseNumber { get; init; }
+    public string? PostalCode { get; init; }
+    public string? City { get; init; }
+    public string? Phone { get; init; }
+    public string? Email { get; init; }
+    public string? Website { get; init; }
+    public string? DpoName { get; init; }
+    public string? DpoStreet { get; init; }
+    public string? DpoHouseNumber { get; init; }
+    public string? DpoPostalCode { get; init; }
+    public string? DpoCity { get; init; }
+    public string? DpoPhone { get; init; }
+    public string? DpoEmail { get; init; }
     public bool IsActive { get; init; }
     public bool IsDeletionRequested { get; init; }
     public DateTime? DeletionRequestedAt { get; init; }
@@ -227,6 +241,66 @@ public sealed class AuditRunExportDto
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
     public IReadOnlyList<AuditAnswerExportDto> Answers { get; init; } = [];
+}
+
+public sealed class PrivacyIncidentExportDto
+{
+    public int Id { get; init; }
+    public string IncidentNumber { get; init; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
+    public string Status { get; init; } = string.Empty;
+    public string Severity { get; init; } = string.Empty;
+    public string Source { get; init; } = string.Empty;
+    public string OwnRole { get; init; } = string.Empty;
+    public DateTime? DiscoveredAt { get; init; }
+    public DateTime? OccurredAt { get; init; }
+    public DateTime? ReportedToUsAt { get; init; }
+    public string? ResponsiblePerson { get; init; }
+    public string? InternalReference { get; init; }
+    public string? Description { get; init; }
+    public string? HowDetected { get; init; }
+    public string? Cause { get; init; }
+    public string? AffectedSystems { get; init; }
+    public bool? IncidentStillActive { get; init; }
+    public DateTime? IncidentStoppedAt { get; init; }
+    public bool ConfidentialityAffected { get; init; }
+    public bool IntegrityAffected { get; init; }
+    public bool AvailabilityAffected { get; init; }
+    public string? BreachTypeDescription { get; init; }
+    public string? AffectedDataCategories { get; init; }
+    public string? AffectedPersonGroups { get; init; }
+    public int? ApproxAffectedPersons { get; init; }
+    public int? ApproxAffectedRecords { get; init; }
+    public bool SpecialCategoriesAffected { get; init; }
+    public string? LikelyConsequences { get; init; }
+    public string RiskLevel { get; init; } = string.Empty;
+    public string? RiskAssessmentReason { get; init; }
+    public string SupervisoryAuthorityNotificationRequired { get; init; } = string.Empty;
+    public string? SupervisoryAuthorityNotificationReason { get; init; }
+    public string? SupervisoryAuthorityName { get; init; }
+    public DateTime? SupervisoryAuthorityNotifiedAt { get; init; }
+    public string? SupervisoryAuthorityReference { get; init; }
+    public string? NotificationDelayReason { get; init; }
+    public string DataSubjectsNotificationRequired { get; init; } = string.Empty;
+    public string? DataSubjectsNotificationReason { get; init; }
+    public DateTime? DataSubjectsNotifiedAt { get; init; }
+    public string? DataSubjectsNotificationMethod { get; init; }
+    public string? DataSubjectsNotificationSummary { get; init; }
+    public string? ImmediateActions { get; init; }
+    public string? RemediationActions { get; init; }
+    public string? PreventiveActions { get; init; }
+    public string? ClosureSummary { get; init; }
+    public DateTime? ClosedAt { get; init; }
+    public string? CreatedByUserId { get; init; }
+    public string? UpdatedByUserId { get; init; }
+    public bool IsArchived { get; init; }
+    public DateTime? ArchivedAt { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime? UpdatedAt { get; init; }
+    public IReadOnlyList<int> LinkedProcessingActivityIds { get; init; } = [];
+    public IReadOnlyList<int> LinkedServiceProviderIds { get; init; } = [];
+    public IReadOnlyList<int> LinkedMeasureIds { get; init; } = [];
+    public IReadOnlyList<int> LinkedTomIds { get; init; } = [];
 }
 
 public sealed class DocumentMetadataExportDto

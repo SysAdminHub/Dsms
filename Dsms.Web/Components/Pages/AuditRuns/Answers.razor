@@ -6,7 +6,7 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 
-<PageTitle>Audit-Fragen</PageTitle>
+<BrandedPageTitle Title="Audit-Fragen" />
 
 @if (_run is null)
 {
@@ -14,9 +14,14 @@
 }
 else
 {
-    <PageHeader Title="@_run.Title" Subtitle="@($"Vorlage: {GetTemplateDisplayTitle()} · Status: {_run.Status}")">
+    <PageHeader Title="@_run.Title" Subtitle="@($"{GetSubtitlePrefix()}Vorlage: {GetTemplateDisplayTitle()} · Status: {_run.Status}")">
         <a class="btn btn-outline-secondary" href="audit-runs">Zurück</a>
     </PageHeader>
+
+    @if (!_canEdit)
+    {
+        <div class="alert alert-info dsms-alert">Sie sehen die Audit-Antworten im Lesemodus. Änderungen sind für Ihre Rolle nicht erlaubt.</div>
+    }
 
     <LinkedDocumentsSection AuditRunId="_run.Id" />
 
@@ -24,43 +29,73 @@ else
     {
         <div class="dsms-answer-card">
             <h5>@AuditAnswerDisplay.GetSortOrder(answer). @AuditAnswerDisplay.GetQuestionText(answer)</h5>
-            <EditForm Model="answer" OnValidSubmit="() => SaveAnswerAsync(answer)" FormName="@($"answer-{answer.Id}")" class="dsms-form">
-                <div class="mb-3">
-                    <label class="form-label">Antwort</label>
-                    <InputTextArea class="form-control" @bind-Value="answer.AnswerText" rows="2" />
-                </div>
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Bewertung</label>
-                        <InputSelect class="form-select" @bind-Value="answer.ComplianceLevel">
-                            @foreach (var level in Enum.GetValues<ComplianceLevel>())
-                            {
-                                <option value="@level">@ComplianceLabels.GetLevelLabel(level)</option>
-                            }
-                        </InputSelect>
+            @if (_canEdit)
+            {
+                <EditForm Model="answer" OnValidSubmit="() => SaveAnswerAsync(answer)" FormName="@($"answer-{answer.Id}")" class="dsms-form">
+                    <div class="mb-3">
+                        <label class="form-label">Antwort</label>
+                        <InputTextArea class="form-control" @bind-Value="answer.AnswerText" rows="2" />
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Notizen</label>
-                        <InputTextArea class="form-control" @bind-Value="answer.Notes" rows="2" />
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Bewertung</label>
+                            <InputSelect class="form-select" @bind-Value="answer.ComplianceLevel">
+                                @foreach (var level in Enum.GetValues<ComplianceLevel>())
+                                {
+                                    <option value="@level">@ComplianceLabels.GetLevelLabel(level)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Notizen</label>
+                            <InputTextArea class="form-control" @bind-Value="answer.Notes" rows="2" />
+                        </div>
+                    </div>
+                    <div class="mt-3 d-flex flex-wrap align-items-center gap-2">
+                        <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
+                        @if (ComplianceLabels.ShouldShowCreateMeasureButton(answer.ComplianceLevel))
+                        {
+                            <a class="btn btn-sm btn-outline-secondary"
+                               href="@($"measures/edit?auditRunId={Id}&auditAnswerId={answer.Id}")">
+                                + Maßnahme anlegen
+                            </a>
+                        }
+                        @if (_measureCountsByAnswerId.TryGetValue(answer.Id, out var measureCount) && measureCount > 0)
+                        {
+                            <a class="text-muted small" href="@($"measures?auditAnswerId={answer.Id}")">
+                                @(measureCount == 1 ? "1 Maßnahme vorhanden" : $"{measureCount} Maßnahmen vorhanden")
+                            </a>
+                        }
+                    </div>
+                </EditForm>
+            }
+            else
+            {
+                <div class="dsms-form">
+                    <div class="mb-3">
+                        <label class="form-label">Antwort</label>
+                        <div class="form-control bg-light" style="min-height: 3rem; white-space: pre-wrap;">@(string.IsNullOrWhiteSpace(answer.AnswerText) ? "—" : answer.AnswerText)</div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Bewertung</label>
+                            <div class="form-control bg-light">@ComplianceLabels.GetLevelLabel(answer.ComplianceLevel)</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Notizen</label>
+                            <div class="form-control bg-light" style="min-height: 3rem; white-space: pre-wrap;">@(string.IsNullOrWhiteSpace(answer.Notes) ? "—" : answer.Notes)</div>
+                        </div>
+                    </div>
+                    <div class="mt-3 d-flex flex-wrap align-items-center gap-2">
+                        @if (_measureCountsByAnswerId.TryGetValue(answer.Id, out var measureCountReadOnly) && measureCountReadOnly > 0)
+                        {
+                            <a class="text-muted small" href="@($"measures?auditAnswerId={answer.Id}")">
+                                @(measureCountReadOnly == 1 ? "1 Maßnahme vorhanden" : $"{measureCountReadOnly} Maßnahmen vorhanden")
+                            </a>
+                        }
                     </div>
                 </div>
-                <div class="mt-3 d-flex flex-wrap align-items-center gap-2">
-                    <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
-                    @if (ComplianceLabels.ShouldShowCreateMeasureButton(answer.ComplianceLevel))
-                    {
-                        <a class="btn btn-sm btn-outline-secondary"
-                           href="@($"measures/edit?auditRunId={Id}&auditAnswerId={answer.Id}")">
-                            + Maßnahme anlegen
-                        </a>
-                    }
-                    @if (_measureCountsByAnswerId.TryGetValue(answer.Id, out var measureCount) && measureCount > 0)
-                    {
-                        <a class="text-muted small" href="@($"measures?auditAnswerId={answer.Id}")">
-                            @(measureCount == 1 ? "1 Maßnahme vorhanden" : $"{measureCount} Maßnahmen vorhanden")
-                        </a>
-                    }
-                </div>
-            </EditForm>
+            }
         </div>
     }
 }
@@ -69,9 +104,11 @@ else
     [Parameter] public int Id { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _canEdit;
     private AuditRun? _run;
     private List<AuditAnswer> _answers = [];
     private Dictionary<int, int> _measureCountsByAnswerId = [];
@@ -80,6 +117,8 @@ else
     {
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
+
+        _canEdit = await UserAccess.CanEditTenantOperationalContentAsync();
 
         _run = await Db.AuditRuns
             .Include(r => r.AuditTemplate)
@@ -115,6 +154,11 @@ else
 
     private async Task SaveAnswerAsync(AuditAnswer answer)
     {
+        if (!await UserAccess.CanEditTenantOperationalContentAsync())
+        {
+            return;
+        }
+
         answer.AnsweredAt = DateTime.UtcNow;
         answer.UpdatedAt = DateTime.UtcNow;
         await Db.SaveChangesAsync();
@@ -125,6 +169,8 @@ else
                 _run.Id, _run.Title, answer.Id, tenantId);
         }
     }
+
+    private string GetSubtitlePrefix() => _canEdit ? "" : "Lesemodus · ";
 
     private string GetTemplateDisplayTitle()
     {

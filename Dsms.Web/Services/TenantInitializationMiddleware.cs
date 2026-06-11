@@ -1,4 +1,4 @@
-namespace Dsms.Web.Services;
+using Microsoft.Extensions.Logging;namespace Dsms.Web.Services;
 
 /// <summary>
 /// Initialisiert den Mandantenkontext einmal pro HTTP-Request, bevor Blazor-Komponenten rendern.
@@ -21,9 +21,15 @@ public class TenantInitializationMiddleware(
                 logger.LogWarning(ex, "Tenant-Middleware-Init fehlgeschlagen");
             }
         }
-
-        await next(context);
-    }
+        try
+        {
+            await next(context);
+        }
+        catch(Exception ex)
+        {
+            logger.LogWarning(ex.Message);
+        }
+    }
 }
 
 public static class TenantInitializationMiddlewareExtensions

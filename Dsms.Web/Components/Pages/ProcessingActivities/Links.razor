@@ -1,12 +1,12 @@
 @*
     Verknüpfungen einer Verarbeitungstätigkeit pflegen (TOMs, Dienstleister, Dokumente, Maßnahmen, Audit-Antworten).
-    Nur Admin und Auditor; alle IDs werden serverseitig gegen den Mandanten geprüft.
+    Nur Admin; alle IDs werden serverseitig gegen den Mandanten geprüft.
 *@
 @page "/processing-activities/links/{Id:int}"
-@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+@attribute [Authorize(Roles = DsmsRoles.ComplianceEditor)]
 @rendermode InteractiveServer
 
-<PageTitle>Verknüpfungen bearbeiten</PageTitle>
+<BrandedPageTitle Title="Verknüpfungen bearbeiten" />
 
 @if (_tenantId is null)
 {

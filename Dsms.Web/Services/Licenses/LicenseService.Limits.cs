@@ -261,26 +261,8 @@ public sealed partial class LicenseService
         string roleId,
         string superuserRoleId)
     {
-        var fromUserTenants = await (
-            from ut in db.UserTenants.IgnoreQueryFilters()
-            join u in db.Users on ut.UserId equals u.Id
-            where ut.TenantId == tenantId
-                && u.IsActive
-                && db.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId == roleId)
-                && !db.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId == superuserRoleId)
-            select u.Id
-        ).Distinct().CountAsync();
-
-        var fromLegacy = await (
-            from u in db.Users
-            where u.TenantId == tenantId
-                && u.IsActive
-                && db.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId == roleId)
-                && !db.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId == superuserRoleId)
-            select u.Id
-        ).CountAsync();
-
-        return fromUserTenants + fromLegacy;
+        var counts = await CountUsersByRolePerTenantAsync(db, [tenantId], roleId, superuserRoleId);
+        return counts.GetValueOrDefault(tenantId);
     }
 
     private static Task<int> CountArchivableForTenantAsync<TEntity>(ApplicationDbContext db, int tenantId)

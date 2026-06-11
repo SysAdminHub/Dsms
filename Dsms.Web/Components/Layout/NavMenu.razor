@@ -12,15 +12,17 @@
 
 @inject IUserAccessService UserAccess
 
+@inject IApplicationInfoService ApplicationInfo
 
+
+
+<div class="dsms-sidebar-inner">
 
 <div class="dsms-sidebar-header">
 
     <a class="dsms-sidebar-brand" href="">
 
-        <span class="dsms-sidebar-logo">DS</span>
-
-        <span class="dsms-sidebar-title">DSMS</span>
+        <span class="dsms-sidebar-title">@ApplicationInfo.ProductName</span>
 
     </a>
 
@@ -36,7 +38,7 @@
 
 
 
-<div class="nav-scrollable">
+<div class="nav-scrollable dsms-sidebar-scroll">
 
     <nav class="nav flex-column dsms-nav">
 
@@ -73,6 +75,12 @@
                 <div class="nav-item">
 
                     <NavLink class="nav-link" href="service-providers">Dienstleister</NavLink>
+
+                </div>
+
+                <div class="nav-item">
+
+                    <NavLink class="nav-link" href="incidents">Vorfälle</NavLink>
 
                 </div>
 
@@ -203,6 +211,12 @@
 
                 <div class="nav-item">
 
+                    <FeedbackButton />
+
+                </div>
+
+                <div class="nav-item">
+
                     <form action="Account/Logout" method="post">
 
                         <AntiforgeryToken />
@@ -230,6 +244,16 @@
         </AuthorizeView>
 
     </nav>
+
+</div>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="dsms-sidebar-footer">
+            <div class="dsms-sidebar-version">@ApplicationInfo.VersionDisplay</div>
+        </div>
+    </Authorized>
+</AuthorizeView>
 
 </div>
 

@@ -1,4 +1,5 @@
 using System.Net.Mail;
+using Dsms.Web.Configuration;
 using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
@@ -8,6 +9,7 @@ using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.EntityFrameworkCore;
 using MimeKit;
+using Microsoft.Extensions.Options;
 
 namespace Dsms.Web.Services.Email;
 
@@ -16,11 +18,15 @@ public sealed class EmailService(
     IEmailSecretProtector secretProtector,
     IEmailTemplateRenderer templateRenderer,
     ILogger<EmailService> logger,
-    ILogService logService) : IEmailService
+    ILogService logService,
+    IOptions<AppBrandingOptions> brandingOptions) : IEmailService
 {
-    private const string DefaultTestSubject = "DSMS Testmail";
-    private const string DefaultTestHtml =
-        "Dies ist eine Testmail aus dem DSMS. Wenn diese Email angekommen ist, funktioniert der zentrale Emailversand.";
+    private readonly AppBrandingOptions _branding = brandingOptions.Value;
+
+    private string DefaultTestSubject => $"{_branding.ProductName} Testmail";
+
+    private string DefaultTestHtml =>
+        $"Dies ist eine Testmail aus {_branding.ProductName}. Wenn diese Email angekommen ist, funktioniert der zentrale Emailversand.";
 
     public async Task<EmailOperationResult> SendEmailAsync(
         string toEmail,
@@ -176,7 +182,7 @@ public sealed class EmailService(
 
         if (template is not null)
         {
-            var variables = EmailTemplateSampleData.AsDictionary();
+            var variables = EmailTemplateSampleData.AsDictionary(_branding);
             var rendered = templateRenderer.Render(template.Subject, template.HtmlContent, template.TextContent, variables);
             return await SendEmailAsync(toEmail, rendered.Subject, rendered.HtmlBody, rendered.TextBody, bypassEnabledCheck);
         }
@@ -184,13 +190,14 @@ public sealed class EmailService(
         return await SendEmailAsync(toEmail, DefaultTestSubject, $"<p>{DefaultTestHtml}</p>", DefaultTestHtml, bypassEnabledCheck);
     }
 
-    private static Dictionary<string, string> BuildCommonVariables(string userName, string userEmail)
+    private Dictionary<string, string> BuildCommonVariables(string userName, string userEmail)
     {
-        var variables = new Dictionary<string, string>(EmailTemplateSampleData.AsDictionary())
+        var variables = new Dictionary<string, string>(EmailTemplateSampleData.AsDictionary(_branding))
         {
             ["UserName"] = userName,
             ["UserEmail"] = userEmail,
-            ["AppName"] = EmailTemplateSampleData.AppName
+            ["AppName"] = _branding.ProductName,
+            ["ProductName"] = _branding.ProductName
         };
         return variables;
     }

@@ -3,23 +3,28 @@
 @attribute [Authorize(Roles = DsmsRoles.UserManagement)]
 @rendermode InteractiveServer
 
-<PageTitle>Benutzer</PageTitle>
+<BrandedPageTitle Title="Benutzer" />
 
-<PageHeader Title="Benutzer" Subtitle="Konten, Mandanten und Rollen verwalten">
+<PageHeader Title="Benutzer" HelpKey="users" Subtitle="Konten, Mandanten und Rollen verwalten">
     <a class="btn btn-primary" href="users/create">Neuer Benutzer</a>
 </PageHeader>
 
-@if (_userLimit is not null)
+@if (_userLimit is not null || _auditorLimit is not null || _adminLimit is not null)
 {
-    <LicenseUsageBadge Check="_userLimit" />
-}
-@if (_auditorLimit is not null)
-{
-    <LicenseUsageBadge Check="_auditorLimit" />
-}
-@if (_adminLimit is not null)
-{
-    <LicenseUsageBadge Check="_adminLimit" />
+    <div class="d-flex flex-column gap-2 mb-3">
+        @if (_userLimit is not null)
+        {
+            <LicenseUsageBadge Check="_userLimit" />
+        }
+        @if (_auditorLimit is not null)
+        {
+            <LicenseUsageBadge Check="_auditorLimit" />
+        }
+        @if (_adminLimit is not null)
+        {
+            <LicenseUsageBadge Check="_adminLimit" />
+        }
+    </div>
 }
 
 @if (!string.IsNullOrEmpty(_successMessage))
@@ -79,19 +84,21 @@ else
                                 <StatusBadge Text="@(entry.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(entry.IsActive ? "success" : "default")" />
                             </td>
                             <td class="dsms-table-actions">
-                                <a class="btn btn-sm btn-outline-secondary" href="@($"users/edit/{entry.User.Id}")">Bearbeiten</a>
-                                <button type="button"
-                                        class="btn btn-sm btn-outline-primary ms-1"
-                                        disabled="@(_sendingUserId == entry.User.Id)"
-                                        @onclick="() => SendPasswordResetAsync(entry.User.Id)">
-                                    Passwortreset-Mail senden
-                                </button>
-                                <button type="button"
-                                        class="btn btn-sm btn-outline-secondary ms-1"
-                                        disabled="@(_sendingInviteUserId == entry.User.Id)"
-                                        @onclick="() => SendInvitationAsync(entry.User.Id)">
-                                    Einladung erneut senden
-                                </button>
+                                <div class="dsms-table-action-stack">
+                                    <a class="btn btn-sm btn-outline-secondary" href="@($"users/edit/{entry.User.Id}")">Bearbeiten</a>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            disabled="@(_sendingUserId == entry.User.Id)"
+                                            @onclick="() => SendPasswordResetAsync(entry.User.Id)">
+                                        Passwortreset-Mail senden
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary"
+                                            disabled="@(_sendingInviteUserId == entry.User.Id)"
+                                            @onclick="() => SendInvitationAsync(entry.User.Id)">
+                                        Einladung erneut senden
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     }

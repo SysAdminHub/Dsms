@@ -81,6 +81,24 @@ public static class ComplianceAuditDiffBuilder
         return changes;
     }
 
+    public static List<AuditFieldChangeDto> ForPrivacyIncident(
+        string? previousTitle,
+        PrivacyIncidentStatus? previousStatus,
+        PrivacyIncidentSeverity? previousSeverity,
+        PrivacyIncidentRiskLevel? previousRiskLevel,
+        PrivacyIncident current)
+    {
+        var changes = new List<AuditFieldChangeDto>();
+        AuditDiffHelper.AddIfChanged(changes, "Title", "Titel", previousTitle, current.Title);
+        AuditDiffHelper.AddIfChanged(changes, "Status", "Status", previousStatus, current.Status,
+            v => v is PrivacyIncidentStatus s ? PrivacyIncidentLabels.GetStatusLabel(s) : AuditDiffHelper.FormatAuditValue(v));
+        AuditDiffHelper.AddIfChanged(changes, "Severity", "Schweregrad", previousSeverity, current.Severity,
+            v => v is PrivacyIncidentSeverity s ? PrivacyIncidentLabels.GetSeverityLabel(s) : AuditDiffHelper.FormatAuditValue(v));
+        AuditDiffHelper.AddIfChanged(changes, "RiskLevel", "Risiko", previousRiskLevel, current.RiskLevel,
+            v => v is PrivacyIncidentRiskLevel r ? PrivacyIncidentLabels.GetRiskLevelLabel(r) : AuditDiffHelper.FormatAuditValue(v));
+        return changes;
+    }
+
     public static List<AuditFieldChangeDto> ForMeasure(
         string? previousTitle,
         MeasureStatus? previousStatus,

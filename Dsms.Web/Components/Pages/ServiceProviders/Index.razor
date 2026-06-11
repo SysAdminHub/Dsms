@@ -6,16 +6,16 @@
 
 @rendermode InteractiveServer
 
-<PageTitle>Dienstleister</PageTitle>
+<BrandedPageTitle Title="Dienstleister" />
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="Dienstleister" />
+    <PageHeader Title="Dienstleister" HelpKey="service-providers" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="Dienstleister" Subtitle="Auftragsverarbeiter und externe Dienstleister">
+    <PageHeader Title="Dienstleister" HelpKey="service-providers" Subtitle="Auftragsverarbeiter und externe Dienstleister">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (_canEdit && !_showArchived)
@@ -113,20 +113,22 @@ else
                                 <td>@(string.IsNullOrWhiteSpace(item.ResponsiblePerson) ? "—" : item.ResponsiblePerson)</td>
                                 <td>@FormatDateColumn(item)</td>
                                 <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        <a class="btn btn-sm btn-outline-primary" href="@($"service-providers/{item.Id}")">Details</a>
-                                        @if (_canEdit)
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
                                         {
-                                            <a class="btn btn-sm btn-outline-secondary" href="@($"service-providers/edit/{item.Id}")">Bearbeiten</a>
+                                            <a class="btn btn-sm btn-outline-primary" href="@($"service-providers/{item.Id}")">Details</a>
+                                            @if (_canEdit)
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"service-providers/edit/{item.Id}")">Bearbeiten</a>
+                                            }
                                         }
-                                    }
-                                    <ArchiveListActions TEntity="DsmsServiceProvider"
-                                                        EntityId="@item.Id"
-                                                        ItemName="@item.Name"
-                                                        EntityLabel="Dienstleister"
-                                                        CanEdit="@_canEdit"
-                                                        OnChanged="LoadDataAsync" />
+                                        <ArchiveListActions TEntity="DsmsServiceProvider"
+                                                            EntityId="@item.Id"
+                                                            ItemName="@item.Name"
+                                                            EntityLabel="Dienstleister"
+                                                            CanEdit="@_canEdit"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -140,6 +142,7 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
@@ -154,8 +157,7 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
-        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
-            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
         _createLimit = await LicenseService.CanCreateProcessorAsync(_tenantId.Value);
         await LoadDataAsync();

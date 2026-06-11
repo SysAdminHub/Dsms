@@ -3,16 +3,16 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 
-<PageTitle>Audit-Vorlagen</PageTitle>
+<BrandedPageTitle Title="Audit-Vorlagen" />
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="Audit-Vorlagen" />
+    <PageHeader Title="Audit-Vorlagen" HelpKey="audit-templates" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="Audit-Vorlagen" Subtitle="Wiederverwendbare Fragenkataloge für Audits">
+    <PageHeader Title="Audit-Vorlagen" HelpKey="audit-templates" Subtitle="Wiederverwendbare Fragenkataloge für Audits">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (!_showArchived)
@@ -112,28 +112,30 @@ else
                                     <td>@(row.Template.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
                                 }
                                 <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        @if (row.CanEdit)
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
                                         {
-                                            <a class="btn btn-sm btn-outline-secondary" href="@($"audit-templates/edit/{row.Template.Id}")">Bearbeiten</a>
+                                            @if (row.CanEdit)
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"audit-templates/edit/{row.Template.Id}")">Bearbeiten</a>
+                                            }
+                                            else
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"audit-templates/edit/{row.Template.Id}")">Ansehen</a>
+                                            }
+                                            @if (row.CanCopy)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-primary" disabled="@(_copyBusy || _customTemplateLimit is { IsAllowed: false })" title="@(_customTemplateLimit is { IsAllowed: false } ? _customTemplateLimit.Message : null)" @onclick="() => CopyAsync(row.Template.Id)">Kopie erstellen</button>
+                                            }
                                         }
-                                        else
+                                        @if (row.CanArchive)
                                         {
-                                            <a class="btn btn-sm btn-outline-secondary" href="@($"audit-templates/edit/{row.Template.Id}")">Ansehen</a>
+                                            <AuditTemplateArchiveActions TemplateId="@row.Template.Id"
+                                                                         ItemName="@row.Template.Title"
+                                                                         ShowArchivedView="_showArchived"
+                                                                         OnChanged="LoadDataAsync" />
                                         }
-                                        @if (row.CanCopy)
-                                        {
-                                            <button type="button" class="btn btn-sm btn-outline-primary" disabled="@(_copyBusy || _customTemplateLimit is { IsAllowed: false })" title="@(_customTemplateLimit is { IsAllowed: false } ? _customTemplateLimit.Message : null)" @onclick="() => CopyAsync(row.Template.Id)">Kopie erstellen</button>
-                                        }
-                                    }
-                                    @if (row.CanArchive)
-                                    {
-                                        <AuditTemplateArchiveActions TemplateId="@row.Template.Id"
-                                                                     ItemName="@row.Template.Title"
-                                                                     ShowArchivedView="_showArchived"
-                                                                     OnChanged="LoadDataAsync" />
-                                    }
+                                    </div>
                                 </td>
                             </tr>
                         }

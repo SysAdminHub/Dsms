@@ -3,19 +3,19 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 
-<PageTitle>Audit-Durchläufe</PageTitle>
+<BrandedPageTitle Title="Audit-Durchläufe" />
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="Audit-Durchläufe" />
+    <PageHeader Title="Audit-Durchläufe" HelpKey="audit-runs" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="Audit-Durchläufe" Subtitle="Laufende und abgeschlossene Datenschutz-Audits">
+    <PageHeader Title="Audit-Durchläufe" HelpKey="audit-runs" Subtitle="Laufende und abgeschlossene Datenschutz-Audits">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
-            @if (!_showArchived)
+            @if (_canEdit && !_showArchived)
             {
                 @if (_createLimit is { IsAllowed: false })
                 {
@@ -29,7 +29,7 @@ else
         </div>
     </PageHeader>
 
-    @if (!_showArchived && _createLimit is not null)
+    @if (_canEdit && !_showArchived && _createLimit is not null)
     {
         <LicenseUsageBadge Check="_createLimit" />
         <LicenseLimitAlert Check="_createLimit" />
@@ -82,17 +82,25 @@ else
                                     <td>@(run.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
                                 }
                                 <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        <a class="btn btn-sm btn-outline-secondary" href="@($"audit-runs/edit/{run.Id}")">Bearbeiten</a>
-                                        <a class="btn btn-sm btn-primary" href="@($"audit-runs/answers/{run.Id}")">Fragen</a>
-                                    }
-                                    <ArchiveListActions TEntity="AuditRun"
-                                                        EntityId="@run.Id"
-                                                        ItemName="@run.Title"
-                                                        EntityLabel="Audit-Durchlauf"
-                                                        CanEdit="true"
-                                                        OnChanged="LoadDataAsync" />
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
+                                        {
+                                            @if (_canEdit)
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"audit-runs/edit/{run.Id}")">Bearbeiten</a>
+                                            }
+                                            <a class="btn btn-sm @(_canAnswer ? "btn-primary" : "btn-outline-secondary")"
+                                               href="@($"audit-runs/answers/{run.Id}")">
+                                                @(_canAnswer ? "Audit durchführen" : "Antworten ansehen")
+                                            </a>
+                                        }
+                                        <ArchiveListActions TEntity="AuditRun"
+                                                            EntityId="@run.Id"
+                                                            ItemName="@run.Title"
+                                                            EntityLabel="Audit-Durchlauf"
+                                                            CanEdit="@_canEdit"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -106,10 +114,13 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _canEdit;
+    private bool _canAnswer;
     private bool _showArchived;
     private LicenseLimitCheckResult? _createLimit;
     private List<AuditRun>? _runs;
@@ -119,6 +130,8 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
+        _canAnswer = await UserAccess.CanEditTenantOperationalContentAsync();
         _createLimit = await LicenseService.CanCreateActiveAuditAsync(_tenantId.Value);
         await LoadDataAsync();
     }

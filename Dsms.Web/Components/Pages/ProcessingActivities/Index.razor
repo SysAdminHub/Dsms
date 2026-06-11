@@ -4,16 +4,16 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 
-<PageTitle>Verarbeitungstätigkeiten</PageTitle>
+<BrandedPageTitle Title="Verarbeitungstätigkeiten" />
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="Verarbeitungstätigkeiten" />
+    <PageHeader Title="Verarbeitungstätigkeiten" HelpKey="processing-activities" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="Verarbeitungstätigkeiten" Subtitle="Verzeichnis von Verarbeitungstätigkeiten (Art. 30 DSGVO)">
+    <PageHeader Title="Verarbeitungstätigkeiten" HelpKey="processing-activities" Subtitle="Verzeichnis von Verarbeitungstätigkeiten (Art. 30 DSGVO)">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (_canEdit && !_showArchived)
@@ -89,20 +89,22 @@ else
                                 <td>@(string.IsNullOrWhiteSpace(activity.Owner) ? "—" : activity.Owner)</td>
                                 <td>@FormatDateColumn(activity)</td>
                                 <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        <a class="btn btn-sm btn-outline-primary" href="@($"processing-activities/{activity.Id}")">Details</a>
-                                        @if (_canEdit)
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
                                         {
-                                            <a class="btn btn-sm btn-outline-secondary" href="@($"processing-activities/edit/{activity.Id}")">Bearbeiten</a>
+                                            <a class="btn btn-sm btn-outline-primary" href="@($"processing-activities/{activity.Id}")">Details</a>
+                                            @if (_canEdit)
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"processing-activities/edit/{activity.Id}")">Bearbeiten</a>
+                                            }
                                         }
-                                    }
-                                    <ArchiveListActions TEntity="ProcessingActivity"
-                                                        EntityId="@activity.Id"
-                                                        ItemName="@activity.Name"
-                                                        EntityLabel="Verarbeitungstätigkeit"
-                                                        CanEdit="@_canEdit"
-                                                        OnChanged="LoadDataAsync" />
+                                        <ArchiveListActions TEntity="ProcessingActivity"
+                                                            EntityId="@activity.Id"
+                                                            ItemName="@activity.Name"
+                                                            EntityLabel="Verarbeitungstätigkeit"
+                                                            CanEdit="@_canEdit"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -116,6 +118,7 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
@@ -130,8 +133,7 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
-        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
-            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
         _createLimit = await LicenseService.CanCreateProcessingActivityAsync(_tenantId.Value);
         await LoadDataAsync();

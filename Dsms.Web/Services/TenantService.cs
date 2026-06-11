@@ -8,6 +8,7 @@ namespace Dsms.Web.Services;
 /// <remarks>
 /// Nutzt IDbContextFactory – jede Operation erhält einen eigenen DbContext.
 /// Verhindert Concurrency-Fehler bei paralleler Komponenten-Initialisierung (F5).
+/// Der Scoped <see cref="TenantContextAccessor"/> ist ein Cache; die Session ist die persistente Quelle.
 /// </remarks>
 public class TenantService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
@@ -16,34 +17,64 @@ public class TenantService(
     IUserAccessService access,
     ILogger<TenantService> logger) : ITenantService
 {
-    private bool _contextInitialized;
     private IReadOnlyList<Tenant>? _cachedAccessibleTenants;
 
     /// <inheritdoc />
-    public async Task InitializeContextAsync()
-    {
-        if (_contextInitialized)
-        {
-            return;
-        }
+    public Task InitializeContextAsync() => EnsureTenantContextAsync();
 
+    /// <inheritdoc />
+    public async Task<int?> EnsureTenantContextAsync()
+    {
         try
         {
-            await tenantContext.LoadFromSessionAsync();
-            _cachedAccessibleTenants ??= await LoadAccessibleTenantsSafeAsync();
-
-            if (!await tenantContext.HasTenantSelectedAsync() && _cachedAccessibleTenants.Count == 1)
+            var tenantId = await tenantContext.GetCurrentTenantIdAsync();
+            if (tenantId.HasValue)
             {
-                await tenantContext.SetCurrentTenantIdAsync(_cachedAccessibleTenants[0].Id);
+                if (await IsActiveAccessibleTenantAsync(tenantId.Value))
+                {
+                    logger.LogDebug("Mandantenkontext bereits im Cache: {TenantId}", tenantId);
+                    return tenantId;
+                }
+
+                logger.LogWarning(
+                    "Mandant {TenantId} im Cache ohne gültigen Zugriff – Cache und Session werden geleert",
+                    tenantId);
+                await tenantContext.ClearCurrentTenantIdAsync();
             }
+
+            // Cache leer oder ungültig: Session erneut lesen (Recovery nach Circuit-Verlust).
+            tenantId = await tenantContext.GetCurrentTenantIdAsync();
+            if (tenantId.HasValue)
+            {
+                if (await IsActiveAccessibleTenantAsync(tenantId.Value))
+                {
+                    logger.LogInformation(
+                        "Mandantenkontext aus Session wiederhergestellt: {TenantId}",
+                        tenantId);
+                    return tenantId;
+                }
+
+                logger.LogWarning(
+                    "Mandant {TenantId} in Session ohne gültigen Zugriff – Eintrag wird entfernt",
+                    tenantId);
+                await tenantContext.ClearCurrentTenantIdAsync();
+            }
+
+            var tenants = await GetAccessibleTenantsAsync();
+            if (tenants.Count == 1)
+            {
+                await tenantContext.SetCurrentTenantIdAsync(tenants[0].Id);
+                logger.LogDebug("Mandant automatisch gewählt (einziger zugewiesener Mandant): {TenantId}", tenants[0].Id);
+                return tenants[0].Id;
+            }
+
+            logger.LogDebug("Kein aktiver Mandant im Cache oder in der Session");
+            return null;
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "InitializeContextAsync: Teilinitialisierung fehlgeschlagen");
-        }
-        finally
-        {
-            _contextInitialized = true;
+            logger.LogWarning(ex, "EnsureTenantContextAsync fehlgeschlagen");
+            return null;
         }
     }
 
@@ -52,21 +83,8 @@ public class TenantService(
     {
         try
         {
-            await tenantContext.LoadFromSessionAsync();
-
-            if (!await tenantContext.HasTenantSelectedAsync())
-            {
-                await InitializeContextAsync();
-            }
-
+            var tenantId = await EnsureTenantContextAsync();
             var tenants = (await GetAccessibleTenantsAsync()).ToList();
-            var tenantId = await tenantContext.GetCurrentTenantIdAsync();
-
-            if (!tenantId.HasValue && tenants.Count == 1)
-            {
-                await tenantContext.SetCurrentTenantIdAsync(tenants[0].Id);
-                tenantId = tenants[0].Id;
-            }
 
             Tenant? current = null;
             if (tenantId.HasValue)
@@ -135,7 +153,7 @@ public class TenantService(
     {
         try
         {
-            var tenantId = await tenantContext.GetCurrentTenantIdAsync();
+            var tenantId = await EnsureTenantContextAsync();
             if (!tenantId.HasValue)
             {
                 return null;
@@ -216,7 +234,8 @@ public class TenantService(
     {
         var path = relativePath.Trim('/').ToLowerInvariant();
 
-        if (path.StartsWith("account", StringComparison.Ordinal)
+        if (path == ""
+            || path.StartsWith("account", StringComparison.Ordinal)
             || path == "select-tenant"
             || path.StartsWith("tenants", StringComparison.Ordinal)
             || path.StartsWith("users", StringComparison.Ordinal)
@@ -237,6 +256,28 @@ public class TenantService(
         }
 
         return true;
+    }
+
+    /// <summary>Prüft Zugriff und Aktiv-Status – Basis für Session-Recovery ohne Sicherheitslücke.</summary>
+    private async Task<bool> IsActiveAccessibleTenantAsync(int tenantId)
+    {
+        if (!await CanAccessTenantAsync(tenantId))
+        {
+            return false;
+        }
+
+        try
+        {
+            await using var db = await dbFactory.CreateDbContextAsync();
+            return await db.Tenants
+                .IgnoreQueryFilters()
+                .AnyAsync(t => t.Id == tenantId && t.IsActive);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "IsActiveAccessibleTenantAsync fehlgeschlagen für {TenantId}", tenantId);
+            return false;
+        }
     }
 
     private async Task<IReadOnlyList<Tenant>> LoadAccessibleTenantsSafeAsync()
@@ -291,4 +332,3 @@ public class TenantService(
         }
     }
 }
-

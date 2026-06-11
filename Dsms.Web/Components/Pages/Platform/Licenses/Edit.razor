@@ -3,7 +3,7 @@
 @attribute [Authorize(Roles = DsmsRoles.Superuser)]
 @rendermode InteractiveServer
 
-<PageTitle>@(_isNew ? "Lizenz anlegen" : "Lizenz bearbeiten")</PageTitle>
+<BrandedPageTitle Title="@(_isNew ? "Lizenz anlegen" : "Lizenz bearbeiten")" />
 
 <PageHeader Title="@(_isNew ? "Lizenz anlegen" : "Lizenz bearbeiten")"
             Subtitle="Leere Limit-Felder bedeuten unbegrenzt. Per-Mandant-Limits gelten je Mandant." />

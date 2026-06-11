@@ -1,11 +1,12 @@
 @page "/signup/success"
 @layout LoginLayout
+@inject IApplicationInfoService ApplicationInfo
 
-<PageTitle>Registrierung erfolgreich</PageTitle>
+<BrandedPageTitle Title="Registrierung erfolgreich" />
 
 <div class="dsms-login-card">
     <div class="dsms-login-brand">
-        <div class="dsms-login-logo">DS</div>
+        <BrandLogo />
         <h1>Vielen Dank für Ihre Registrierung.</h1>
     </div>
 

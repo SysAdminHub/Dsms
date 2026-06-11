@@ -1,11 +1,12 @@
 ﻿@*
     Startseite nach Login: Kennzahlen und Kurzlisten aus DashboardService (mandantenbezogen).
+    Mandantenauswahl bei fehlendem Kontext direkt im Dashboard.
 *@
 @page "/"
 @attribute [Authorize]
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
-<PageTitle>Dashboard</PageTitle>
+<BrandedPageTitle Title="Dashboard" />
 
 <PageHeader Title="Dashboard" Subtitle="Überblick über Maßnahmen, Audits, TOMs und Dienstleister" />
 
@@ -15,16 +16,56 @@
 }
 else if (_tenantId is null)
 {
-    <div class="alert alert-info dsms-alert">
-        @if (_isSuperuser)
+    if (_loading)
+    {
+        <div class="dsms-loading">Lade verfügbare Mandanten …</div>
+    }
+    else if (_tenants.Count == 0)
+    {
+        <div class="alert alert-warning dsms-alert">
+            Ihrem Benutzerkonto sind keine Mandanten zugeordnet. Bitte wenden Sie sich an einen Administrator.
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_errorMessage))
         {
-            <text>Als Superuser wählen Sie oben im Header einen Mandanten aus, um Compliance-Daten zu sehen. Plattformverwaltung finden Sie unter „Mandanten“ und „Benutzer“.</text>
+            <div class="alert alert-danger dsms-alert">@_errorMessage</div>
         }
-        else
-        {
-            <text>Ihrem Benutzerkonto ist kein Mandant zugeordnet. Bitte wenden Sie sich an einen Administrator.</text>
-        }
-    </div>
+
+        <br>
+
+        <PageHeader Title="Mandant wählen"
+                    Subtitle="Wählen Sie den Mandanten, in dessen Kontext Sie arbeiten möchten." />
+
+        <br>
+
+        <div class="dsms-card dsms-form-card">
+            <div class="dsms-card-body">
+                <div class="list-group">
+                    @foreach (var tenant in _tenants)
+                    {
+                        <button type="button"
+                                class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                @onclick="() => SelectTenant(tenant.Id)"
+                                disabled="@_selecting">
+
+                            <span>
+                                <strong>@tenant.Name</strong>
+
+                                @if (!string.IsNullOrWhiteSpace(tenant.LegalName) && tenant.LegalName != tenant.Name)
+                                {
+                                    <span class="text-muted ms-2">@tenant.LegalName</span>
+                                }
+                            </span>
+
+                            <span class="btn btn-sm btn-primary">Auswählen</span>
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    }
 }
 else if (_summary is not null)
 {
@@ -32,6 +73,22 @@ else if (_summary is not null)
         <div class="dsms-stat-card dsms-stat-card--warning">
             <div class="dsms-stat-label">Offene Maßnahmen</div>
             <div class="dsms-stat-value">@_summary.OpenMeasuresCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--warning">
+            <div class="dsms-stat-label">Offene Vorfälle</div>
+            <div class="dsms-stat-value">@_summary.OpenPrivacyIncidentsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--primary">
+            <div class="dsms-stat-label">Vorfälle in Prüfung</div>
+            <div class="dsms-stat-value">@_summary.PrivacyIncidentsInReviewCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">Meldepflichtige Vorfälle</div>
+            <div class="dsms-stat-value">@_summary.NotificationRequiredPrivacyIncidentsCount</div>
+        </div>
+        <div class="dsms-stat-card dsms-stat-card--danger">
+            <div class="dsms-stat-label">Vorfälle Risiko hoch/kritisch</div>
+            <div class="dsms-stat-value">@_summary.HighRiskPrivacyIncidentsCount</div>
         </div>
         <div class="dsms-stat-card dsms-stat-card--primary">
             <div class="dsms-stat-label">Laufende Audits</div>
@@ -128,6 +185,8 @@ else if (_summary is not null)
     </div>
 
     <div class="dsms-split-grid">
+        <OnboardingTasksPanel />
+
         <div class="dsms-card">
             <div class="dsms-card-header">Offene Maßnahmen</div>
             @if (_summary.RecentMeasures.Count == 0)
@@ -168,31 +227,67 @@ else if (_summary is not null)
         </div>
     </div>
 }
+else
+{
+    <div class="alert alert-danger dsms-alert">
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            @_errorMessage
+        }
+        else
+        {
+            <text>Dashboard-Daten konnten nicht geladen werden. Bitte Seite neu laden.</text>
+        }
+    </div>
+}
 
 @code {
     [Inject] private DashboardService DashboardService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private ITenantService TenantService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
 
     private bool _loading = true;
     private bool _isSuperuser;
     private int? _tenantId;
     private DashboardSummary? _summary;
+    private List<Tenant> _tenants = [];
+    private bool _selecting;
+    private string? _errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
+        _loading = true;
+        _errorMessage = null;
+
         try
         {
             _isSuperuser = await CurrentUser.IsInRoleAsync(DsmsRoles.Superuser);
+
+            await TenantService.InitializeContextAsync();
+            _tenants = (await TenantService.GetAccessibleTenantsAsync()).ToList();
+
             _tenantId = await CurrentUser.GetTenantIdAsync();
-            if (_tenantId.HasValue)
+
+            if (!_tenantId.HasValue)
             {
-                _summary = await DashboardService.GetSummaryAsync(_tenantId.Value);
+                if (_tenants.Count == 1)
+                {
+                    Navigation.NavigateTo(
+                        TenantSwitchEndpoints.BuildSwitchUrl(_tenants[0].Id, "/"),
+                        forceLoad: true);
+                    return;
+                }
+
+                return;
             }
+
+            _summary = await DashboardService.GetSummaryAsync(_tenantId.Value);
         }
         catch (Exception)
         {
-            // Dashboard-Fehler dürfen den Circuit nicht abbrechen (z. B. parallele F5-Init).
             _summary = null;
+            _errorMessage = "Das Dashboard konnte nicht geladen werden.";
         }
         finally
         {
@@ -200,7 +295,16 @@ else if (_summary is not null)
         }
     }
 
-    // Badge-Farben für Dashboard-Liste – rein visuell, keine Fachlogik.
+    private void SelectTenant(int tenantId)
+    {
+        _selecting = true;
+        _errorMessage = null;
+
+        Navigation.NavigateTo(
+            TenantSwitchEndpoints.BuildSwitchUrl(tenantId, "/"),
+            forceLoad: true);
+    }
+
     private static string GetMeasureVariant(MeasureStatus status) => status switch
     {
         MeasureStatus.Done => "success",

@@ -1,11 +1,12 @@
 @page "/signup/paid/success"
 @layout LoginLayout
+@inject IApplicationInfoService ApplicationInfo
 
-<PageTitle>Registrierung vorgemerkt</PageTitle>
+<BrandedPageTitle Title="Registrierung vorgemerkt" />
 
 <div class="dsms-login-card">
     <div class="dsms-login-brand">
-        <div class="dsms-login-logo">DS</div>
+        <BrandLogo />
         <h1>Vielen Dank für Ihre Registrierung.</h1>
     </div>
 

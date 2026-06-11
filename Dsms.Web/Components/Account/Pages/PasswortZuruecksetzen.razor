@@ -5,12 +5,13 @@
 @using Dsms.Web.Services.PasswordReset
 
 @inject IPasswordResetService PasswordReset
+@inject IApplicationInfoService ApplicationInfo
 
-<PageTitle>@(_isInviteMode ? "Passwort festlegen" : "Passwort zurücksetzen")</PageTitle>
+<BrandedPageTitle Title="@(_isInviteMode ? "Passwort festlegen" : "Passwort zurücksetzen")" />
 
 <div class="dsms-login-card">
     <div class="dsms-login-brand">
-        <div class="dsms-login-logo">DS</div>
+        <BrandLogo />
         <h1>@(_isInviteMode ? "Passwort festlegen" : "Passwort zurücksetzen")</h1>
         <p>
             @if (_isInviteMode)

@@ -1,10 +1,10 @@
 @*
     Stellt sicher, dass ein aktiver Mandant gesetzt ist, bevor Compliance-Seiten angezeigt werden.
-    Leitet zur Mandantenauswahl um, wenn kein Mandant gewählt wurde.
+    Versucht bei leerem Cache zuerst eine Wiederherstellung aus der Session, bevor umgeleitet wird.
 *@
 @inject ITenantService TenantService
-@inject ITenantContextService TenantContext
 @inject NavigationManager Navigation
+@inject ILogger<TenantContextGate> Logger
 
 @if (_ready)
 {
@@ -23,7 +23,6 @@ else if (_redirecting)
 
     protected override async Task OnInitializedAsync()
     {
-        // Initialisierung erfolgt in TenantInitializationMiddleware – hier nur Routing-Prüfung.
         var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
         if (!TenantService.IsTenantRequiredForRoute(relativePath))
         {
@@ -31,7 +30,9 @@ else if (_redirecting)
             return;
         }
 
-        if (await TenantContext.HasTenantSelectedAsync())
+        // Recovery aus Session, falls der Circuit-Cache leer ist (z. B. nach Inaktivität).
+        var tenantId = await TenantService.EnsureTenantContextAsync();
+        if (tenantId.HasValue)
         {
             _ready = true;
             return;
@@ -45,14 +46,18 @@ else if (_redirecting)
         }
 
         _redirecting = true;
+        Logger.LogInformation(
+            "Kein Mandant nach Recovery – Weiterleitung zu /select-tenant (Route: {Route})",
+            relativePath);
+
         try
         {
             Navigation.NavigateTo("/select-tenant", forceLoad: true);
-        }catch(Exception ex)
+        }
+        catch (Exception ex)
         {
-            // Fehler beim Navigieren – z.B. ungültige URL oder Navigation blockiert.
-            Console.Error.WriteLine($"Fehler beim Navigieren zur Mandantenauswahl: {ex}");
-            _ready = true; // Fallback: Seite anzeigen, damit Benutzer informiert wird.
-        };
+            Logger.LogWarning(ex, "Weiterleitung zu /select-tenant fehlgeschlagen");
+            _ready = true;
+        }
     }
 }

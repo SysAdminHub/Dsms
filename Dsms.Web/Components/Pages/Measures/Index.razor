@@ -3,19 +3,19 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 
-<PageTitle>Maßnahmen</PageTitle>
+<BrandedPageTitle Title="Maßnahmen" />
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="Maßnahmen" />
+    <PageHeader Title="Maßnahmen" HelpKey="measures" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="Maßnahmen" Subtitle="@GetSubtitle()">
+    <PageHeader Title="Maßnahmen" HelpKey="measures" Subtitle="@GetSubtitle()">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
-            @if (!_showArchived)
+            @if (_canEdit && !_showArchived)
             {
                 @if (_createLimit is { IsAllowed: false })
                 {
@@ -29,7 +29,7 @@ else
         </div>
     </PageHeader>
 
-    @if (!_showArchived && _createLimit is not null)
+    @if (_canEdit && !_showArchived && _createLimit is not null)
     {
         <LicenseUsageBadge Check="_createLimit" />
         <LicenseLimitAlert Check="_createLimit" />
@@ -82,16 +82,18 @@ else
                                     <td>@(measure.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
                                 }
                                 <td class="dsms-table-actions">
-                                    @if (!_showArchived)
-                                    {
-                                        <a class="btn btn-sm btn-outline-secondary" href="@($"measures/edit/{measure.Id}")">Bearbeiten</a>
-                                    }
-                                    <ArchiveListActions TEntity="Measure"
-                                                        EntityId="@measure.Id"
-                                                        ItemName="@measure.Title"
-                                                        EntityLabel="Maßnahme"
-                                                        CanEdit="true"
-                                                        OnChanged="LoadDataAsync" />
+                                    <div class="dsms-table-action-stack">
+                                        @if (_canEdit && !_showArchived)
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary" href="@($"measures/edit/{measure.Id}")">Bearbeiten</a>
+                                        }
+                                        <ArchiveListActions TEntity="Measure"
+                                                            EntityId="@measure.Id"
+                                                            ItemName="@measure.Title"
+                                                            EntityLabel="Maßnahme"
+                                                            CanEdit="@_canEdit"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -107,10 +109,12 @@ else
     public int? AuditAnswerId { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _canEdit;
     private bool _showArchived;
     private LicenseLimitCheckResult? _createLimit;
     private List<Measure>? _measures;
@@ -121,6 +125,7 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
+        _canEdit = await UserAccess.CanEditTenantOperationalContentAsync();
         _createLimit = await LicenseService.CanCreateMeasureAsync(_tenantId.Value);
 
         if (AuditAnswerId is int answerId)

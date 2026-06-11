@@ -1,234 +1,253 @@
-@*
-    Datei-Upload (max. 10 MB) und Metadatenliste. Speicherung über DocumentStorageService.
-*@
-@page "/documents"
-@attribute [Authorize]
-@rendermode InteractiveServer
-
-<PageTitle>Dokumente</PageTitle>
-
-@if (_tenantId is null)
-{
-    <PageHeader Title="Dokumente" />
-    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
-}
-else
-{
-    <PageHeader Title="Dokumente" Subtitle="Nachweise zu Audits, Maßnahmen, Dienstleistern, Verarbeitungstätigkeiten und DSFA">
-        <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
-    </PageHeader>
-
-    @if (!_showArchived)
-    {
-        <div class="dsms-card mb-4">
-            <div class="dsms-card-header">Datei hochladen</div>
-            <div class="dsms-card-body">
-                <DocumentUploadComponent TenantId="_tenantId.Value"
-                                         AuditRunId="_selectedAuditRunId"
-                                         MeasureId="_selectedMeasureId"
-                                         ServiceProviderId="_selectedServiceProviderId"
-                                         ProcessingActivityId="_selectedProcessingActivityId"
-                                         DataProtectionImpactAssessmentId="_selectedDpiaId"
-                                         OnUploaded="LoadDataAsync">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Audit-Durchlauf (optional)</label>
-                            <InputSelect class="form-select" @bind-Value="_selectedAuditRunId">
-                                <option value="">— keiner —</option>
-                                @foreach (var run in _auditRuns)
-                                {
-                                    <option value="@run.Id">@run.Title</option>
-                                }
-                            </InputSelect>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Maßnahme (optional)</label>
-                            <InputSelect class="form-select" @bind-Value="_selectedMeasureId">
-                                <option value="">— keine —</option>
-                                @foreach (var measure in _measures)
-                                {
-                                    <option value="@measure.Id">@measure.Title</option>
-                                }
-                            </InputSelect>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Dienstleister (optional)</label>
-                            <InputSelect class="form-select" @bind-Value="_selectedServiceProviderId">
-                                <option value="">— keiner —</option>
-                                @foreach (var provider in _serviceProviders)
-                                {
-                                    <option value="@provider.Id">@provider.Name</option>
-                                }
-                            </InputSelect>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Verarbeitungstätigkeit (optional)</label>
-                            <InputSelect class="form-select" @bind-Value="_selectedProcessingActivityId">
-                                <option value="">— keine —</option>
-                                @foreach (var pa in _processingActivities)
-                                {
-                                    <option value="@pa.Id">@pa.Name</option>
-                                }
-                            </InputSelect>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">DSFA (optional)</label>
-                            <InputSelect class="form-select" @bind-Value="_selectedDpiaId">
-                                <option value="">— keine —</option>
-                                @foreach (var dpia in _dpiaAssessments)
-                                {
-                                    <option value="@dpia.Id">@dpia.Title</option>
-                                }
-                            </InputSelect>
-                        </div>
-                    </div>
-                </DocumentUploadComponent>
-            </div>
-        </div>
-    }
-
-    @if (_documents is null)
-    {
-        <div class="dsms-loading">Lade …</div>
-    }
-    else if (_documents.Count == 0)
-    {
-        <div class="alert alert-info dsms-alert">
-            @(_showArchived ? "Keine archivierten Dokumente." : "Noch keine Dokumente hochgeladen.")
-        </div>
-    }
-    else
-    {
-        <div class="dsms-card">
-            <div class="dsms-table-wrap">
-                <table class="table dsms-table">
-                    <thead>
-                        <tr>
-                            <th>Dateiname</th>
-                            <th>Größe</th>
-                            <th>Hochgeladen</th>
-                            <th>Bezug</th>
-                            @if (_showArchived)
-                            {
-                                <th>Archiviert am</th>
-                            }
-                            <th class="dsms-table-actions"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var doc in _documents)
-                        {
-                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
-                                <td>
-                                    <strong>@doc.FileName</strong>
-                                    @if (_showArchived)
-                                    {
-                                        <span class="ms-2"><ArchivedBadge /></span>
-                                    }
-                                </td>
-                                <td>@FormatSize(doc.FileSizeBytes)</td>
-                                <td>@doc.CreatedAt.ToLocalTime().ToString("g")</td>
-                                <td>
-                                    @if (doc.AuditRunId.HasValue) { <StatusBadge Text="@($"Audit #{doc.AuditRunId}")" Variant="primary" /> }
-                                    @if (doc.MeasureId.HasValue) { <StatusBadge Text="@($"Maßnahme #{doc.MeasureId}")" /> }
-                                    @if (doc.ServiceProviderId.HasValue) { <StatusBadge Text="@($"Dienstleister #{doc.ServiceProviderId}")" Variant="warning" /> }
-                                    @if (doc.ProcessingActivityId.HasValue) { <StatusBadge Text="@($"VVT #{doc.ProcessingActivityId}")" Variant="primary" /> }
-                                    @if (doc.DataProtectionImpactAssessmentId.HasValue) { <StatusBadge Text="@($"DSFA #{doc.DataProtectionImpactAssessmentId}")" Variant="warning" /> }
-                                    @if (!doc.AuditRunId.HasValue && !doc.MeasureId.HasValue && !doc.ServiceProviderId.HasValue
-                                         && !doc.ProcessingActivityId.HasValue && !doc.DataProtectionImpactAssessmentId.HasValue)
-                                    {
-                                        <span class="text-muted">—</span>
-                                    }
-                                </td>
-                                @if (_showArchived)
-                                {
-                                    <td>@(doc.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
-                                }
-                                <td class="dsms-table-actions">
-                                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-end">
-                                        <DocumentActions DocumentId="@doc.Id"
-                                                         FileName="@doc.FileName"
-                                                         ContentType="@doc.ContentType" />
-                                        @if (!_showArchived)
-                                        {
-                                            <button type="button"
-                                                    class="btn btn-sm btn-outline-secondary"
-                                                    @onclick="() => EditLinksAsync(doc.Id)">
-                                                Bearbeiten
-                                            </button>
-                                        }
-                                        <ArchiveListActions TEntity="EvidenceDocument"
-                                                            EntityId="@doc.Id"
-                                                            ItemName="@doc.FileName"
-                                                            EntityLabel="Dokument"
-                                                            CanEdit="true"
-                                                            OnChanged="LoadDataAsync" />
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    }
-
-    <DocumentLinksEditModal @ref="_linksModal" OnSaved="LoadDataAsync" />
-}
-
-@code {
-    [Inject] private ApplicationDbContext Db { get; set; } = null!;
-    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
-    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
-
-    private DocumentLinksEditModal? _linksModal;
-    private int? _tenantId;
-    private bool _showArchived;
-    private List<EvidenceDocument>? _documents;
-    private List<AuditRun> _auditRuns = [];
-    private List<Measure> _measures = [];
-    private List<DsmsServiceProvider> _serviceProviders = [];
-    private List<ProcessingActivity> _processingActivities = [];
-    private List<DataProtectionImpactAssessment> _dpiaAssessments = [];
-    private int? _selectedAuditRunId;
-    private int? _selectedMeasureId;
-    private int? _selectedServiceProviderId;
-    private int? _selectedProcessingActivityId;
-    private int? _selectedDpiaId;
-
-    protected override async Task OnInitializedAsync()
-    {
-        _tenantId = await CurrentUser.GetTenantIdAsync();
-        if (_tenantId is null) return;
-
-        await LoadDataAsync();
-    }
-
-    private async Task LoadDataAsync()
-    {
-        _showArchived = ArchiveView.ShowArchivedOnly;
-
-        _documents = await Db.EvidenceDocuments
-            .OrderByDescending(d => _showArchived ? d.ArchivedAt : d.CreatedAt)
-            .ToListAsync();
-
-        if (!_showArchived)
-        {
-            _auditRuns = await Db.AuditRuns.OrderBy(r => r.Title).ToListAsync();
-            _measures = await Db.Measures.OrderBy(m => m.Title).ToListAsync();
-            _serviceProviders = await Db.ServiceProviders.OrderBy(s => s.Name).ToListAsync();
-            _processingActivities = await Db.ProcessingActivities.OrderBy(p => p.Name).ToListAsync();
-            _dpiaAssessments = await Db.DataProtectionImpactAssessments.OrderBy(d => d.Title).ToListAsync();
-        }
-    }
-
-    private async Task EditLinksAsync(int documentId)
-    {
-        if (_linksModal is not null)
-            await _linksModal.ShowAsync(documentId);
-    }
-
-    private static string FormatSize(long bytes) =>
-        bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024.0:F1} KB";
-}
-
+@*
+    Datei-Upload (max. 10 MB) und Metadatenliste. Speicherung über DocumentStorageService.
+*@
+@page "/documents"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Dokumente" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Dokumente" HelpKey="documents" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <PageHeader Title="Dokumente" HelpKey="documents" Subtitle="Nachweise zu Audits, Maßnahmen, Dienstleistern, Verarbeitungstätigkeiten, DSFA und Datenschutzvorfällen">
+        <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
+    </PageHeader>
+
+    @if (_canEdit && !_showArchived)
+    {
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header">Datei hochladen</div>
+            <div class="dsms-card-body">
+                <DocumentUploadComponent TenantId="_tenantId.Value"
+                                         AuditRunId="_selectedAuditRunId"
+                                         MeasureId="_selectedMeasureId"
+                                         ServiceProviderId="_selectedServiceProviderId"
+                                         ProcessingActivityId="_selectedProcessingActivityId"
+                                         DataProtectionImpactAssessmentId="_selectedDpiaId"
+                                         PrivacyIncidentId="_selectedPrivacyIncidentId"
+                                         OnUploaded="LoadDataAsync">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Audit-Durchlauf (optional)</label>
+                            <InputSelect class="form-select" @bind-Value="_selectedAuditRunId">
+                                <option value="">— keiner —</option>
+                                @foreach (var run in _auditRuns)
+                                {
+                                    <option value="@run.Id">@run.Title</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Maßnahme (optional)</label>
+                            <InputSelect class="form-select" @bind-Value="_selectedMeasureId">
+                                <option value="">— keine —</option>
+                                @foreach (var measure in _measures)
+                                {
+                                    <option value="@measure.Id">@measure.Title</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Dienstleister (optional)</label>
+                            <InputSelect class="form-select" @bind-Value="_selectedServiceProviderId">
+                                <option value="">— keiner —</option>
+                                @foreach (var provider in _serviceProviders)
+                                {
+                                    <option value="@provider.Id">@provider.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Verarbeitungstätigkeit (optional)</label>
+                            <InputSelect class="form-select" @bind-Value="_selectedProcessingActivityId">
+                                <option value="">— keine —</option>
+                                @foreach (var pa in _processingActivities)
+                                {
+                                    <option value="@pa.Id">@pa.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">DSFA (optional)</label>
+                            <InputSelect class="form-select" @bind-Value="_selectedDpiaId">
+                                <option value="">— keine —</option>
+                                @foreach (var dpia in _dpiaAssessments)
+                                {
+                                    <option value="@dpia.Id">@dpia.Title</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Datenschutzvorfall (optional)</label>
+                            <InputSelect class="form-select" @bind-Value="_selectedPrivacyIncidentId">
+                                <option value="">— keiner —</option>
+                                @foreach (var incident in _privacyIncidents)
+                                {
+                                    <option value="@incident.Id">@incident.IncidentNumber – @incident.Title</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                </DocumentUploadComponent>
+            </div>
+        </div>
+    }
+
+    @if (_documents is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else if (_documents.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">
+            @(_showArchived ? "Keine archivierten Dokumente." : "Noch keine Dokumente hochgeladen.")
+        </div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Dateiname</th>
+                            <th>Größe</th>
+                            <th>Hochgeladen</th>
+                            <th>Bezug</th>
+                            @if (_showArchived)
+                            {
+                                <th>Archiviert am</th>
+                            }
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var doc in _documents)
+                        {
+                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
+                                <td>
+                                    <strong>@doc.FileName</strong>
+                                    @if (_showArchived)
+                                    {
+                                        <span class="ms-2"><ArchivedBadge /></span>
+                                    }
+                                </td>
+                                <td>@FormatSize(doc.FileSizeBytes)</td>
+                                <td>@doc.CreatedAt.ToLocalTime().ToString("g")</td>
+                                <td>
+                                    @if (doc.AuditRunId.HasValue) { <StatusBadge Text="@($"Audit #{doc.AuditRunId}")" Variant="primary" /> }
+                                    @if (doc.MeasureId.HasValue) { <StatusBadge Text="@($"Maßnahme #{doc.MeasureId}")" /> }
+                                    @if (doc.ServiceProviderId.HasValue) { <StatusBadge Text="@($"Dienstleister #{doc.ServiceProviderId}")" Variant="warning" /> }
+                                    @if (doc.ProcessingActivityId.HasValue) { <StatusBadge Text="@($"VVT #{doc.ProcessingActivityId}")" Variant="primary" /> }
+                                    @if (doc.DataProtectionImpactAssessmentId.HasValue) { <StatusBadge Text="@($"DSFA #{doc.DataProtectionImpactAssessmentId}")" Variant="warning" /> }
+                                    @if (doc.PrivacyIncidentId.HasValue) { <StatusBadge Text="@($"Vorfall #{doc.PrivacyIncidentId}")" Variant="danger" /> }
+                                    @if (!doc.AuditRunId.HasValue && !doc.MeasureId.HasValue && !doc.ServiceProviderId.HasValue
+                                         && !doc.ProcessingActivityId.HasValue && !doc.DataProtectionImpactAssessmentId.HasValue
+                                         && !doc.PrivacyIncidentId.HasValue)
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                @if (_showArchived)
+                                {
+                                    <td>@(doc.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
+                                }
+                                <td class="dsms-table-actions">
+                                    <div class="dsms-table-action-stack">
+                                        <DocumentActions DocumentId="@doc.Id"
+                                                         FileName="@doc.FileName"
+                                                         ContentType="@doc.ContentType" />
+                                        @if (_canEdit && !_showArchived)
+                                        {
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-secondary"
+                                                    @onclick="() => EditLinksAsync(doc.Id)">
+                                                Bearbeiten
+                                            </button>
+                                        }
+                                        <ArchiveListActions TEntity="EvidenceDocument"
+                                                            EntityId="@doc.Id"
+                                                            ItemName="@doc.FileName"
+                                                            EntityLabel="Dokument"
+                                                            CanEdit="@_canEdit"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <DocumentLinksEditModal @ref="_linksModal" OnSaved="LoadDataAsync" />
+}
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
+
+    private DocumentLinksEditModal? _linksModal;
+    private int? _tenantId;
+    private bool _canEdit;
+    private bool _showArchived;
+    private List<EvidenceDocument>? _documents;
+    private List<AuditRun> _auditRuns = [];
+    private List<Measure> _measures = [];
+    private List<DsmsServiceProvider> _serviceProviders = [];
+    private List<ProcessingActivity> _processingActivities = [];
+    private List<DataProtectionImpactAssessment> _dpiaAssessments = [];
+    private List<PrivacyIncident> _privacyIncidents = [];
+    private int? _selectedAuditRunId;
+    private int? _selectedMeasureId;
+    private int? _selectedServiceProviderId;
+    private int? _selectedProcessingActivityId;
+    private int? _selectedDpiaId;
+    private int? _selectedPrivacyIncidentId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canEdit = await UserAccess.CanEditTenantOperationalContentAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _showArchived = ArchiveView.ShowArchivedOnly;
+
+        _documents = await Db.EvidenceDocuments
+            .OrderByDescending(d => _showArchived ? d.ArchivedAt : d.CreatedAt)
+            .ToListAsync();
+
+        if (!_showArchived)
+        {
+            _auditRuns = await Db.AuditRuns.OrderBy(r => r.Title).ToListAsync();
+            _measures = await Db.Measures.OrderBy(m => m.Title).ToListAsync();
+            _serviceProviders = await Db.ServiceProviders.OrderBy(s => s.Name).ToListAsync();
+            _processingActivities = await Db.ProcessingActivities.OrderBy(p => p.Name).ToListAsync();
+            _dpiaAssessments = await Db.DataProtectionImpactAssessments.OrderBy(d => d.Title).ToListAsync();
+            _privacyIncidents = await Db.PrivacyIncidents.OrderByDescending(i => i.CreatedAt).ToListAsync();
+        }
+    }
+
+    private async Task EditLinksAsync(int documentId)
+    {
+        if (_linksModal is not null)
+            await _linksModal.ShowAsync(documentId);
+    }
+
+    private static string FormatSize(long bytes) =>
+        bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024.0:F1} KB";
+}
+

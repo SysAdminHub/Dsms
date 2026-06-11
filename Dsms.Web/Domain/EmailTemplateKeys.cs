@@ -7,6 +7,8 @@ public static class EmailTemplateKeys
     public const string WelcomeSetPassword = "WelcomeSetPassword";
     public const string Reminder = "Reminder";
     public const string TestEmail = "TestEmail";
+    public const string FeedbackMessageToSupport = "FeedbackMessageToSupport";
 
-    public static readonly string[] All = [PasswordReset, WelcomeSetPassword, Reminder, TestEmail];
+    public static readonly string[] All =
+        [PasswordReset, WelcomeSetPassword, Reminder, TestEmail, FeedbackMessageToSupport];
 }

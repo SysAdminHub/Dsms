@@ -3,7 +3,7 @@
 @attribute [Authorize(Roles = DsmsRoles.Superuser)]
 @rendermode InteractiveServer
 
-<PageTitle>@(_isNew ? "Mandant anlegen" : "Mandant bearbeiten")</PageTitle>
+<BrandedPageTitle Title="@(_isNew ? "Mandant anlegen" : "Mandant bearbeiten")" />
 
 <PageHeader Title="@(_isNew ? "Mandant anlegen" : "Mandant bearbeiten")" />
 
@@ -25,13 +25,82 @@
             <ValidationSummary class="alert alert-danger dsms-alert" />
 
             <div class="mb-3">
-                <label class="form-label">Name</label>
+                <label class="form-label">Mandantenname *</label>
                 <InputText class="form-control" @bind-Value="_model.Name" />
+                <p class="form-text text-muted mb-0">Interner Anzeigename in der Anwendung.</p>
             </div>
+
+            <h5 class="dsms-form-section">Angaben zum Verantwortlichen</h5>
+            <p class="form-text text-muted">Zentrale Stammdaten für das Verzeichnis von Verarbeitungstätigkeiten (Art. 30 DSGVO).</p>
             <div class="mb-3">
-                <label class="form-label">Rechtlicher Name</label>
+                <label class="form-label">Name des Verantwortlichen / der Organisation</label>
                 <InputText class="form-control" @bind-Value="_model.LegalName" />
             </div>
+            <div class="row">
+                <div class="col-md-8 mb-3">
+                    <label class="form-label">Straße</label>
+                    <InputText class="form-control" @bind-Value="_model.Street" />
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Hausnummer</label>
+                    <InputText class="form-control" @bind-Value="_model.HouseNumber" />
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Postleitzahl</label>
+                    <InputText class="form-control" @bind-Value="_model.PostalCode" />
+                </div>
+                <div class="col-md-8 mb-3">
+                    <label class="form-label">Ort</label>
+                    <InputText class="form-control" @bind-Value="_model.City" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Telefon</label>
+                    <InputText class="form-control" @bind-Value="_model.Phone" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">E-Mail-Adresse</label>
+                    <InputText class="form-control" @bind-Value="_model.Email" />
+                </div>
+                <div class="col-12 mb-3">
+                    <label class="form-label">Internet-Adresse / Website</label>
+                    <InputText class="form-control" @bind-Value="_model.Website" />
+                </div>
+            </div>
+
+            <h5 class="dsms-form-section">Datenschutzbeauftragte Person</h5>
+            <p class="form-text text-muted">Alle Angaben sind optional. Leer lassen, wenn kein Datenschutzbeauftragter benannt ist.</p>
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <InputText class="form-control" @bind-Value="_model.DpoName" />
+            </div>
+            <div class="row">
+                <div class="col-md-8 mb-3">
+                    <label class="form-label">Straße</label>
+                    <InputText class="form-control" @bind-Value="_model.DpoStreet" />
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Hausnummer</label>
+                    <InputText class="form-control" @bind-Value="_model.DpoHouseNumber" />
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Postleitzahl</label>
+                    <InputText class="form-control" @bind-Value="_model.DpoPostalCode" />
+                </div>
+                <div class="col-md-8 mb-3">
+                    <label class="form-label">Ort</label>
+                    <InputText class="form-control" @bind-Value="_model.DpoCity" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Telefon</label>
+                    <InputText class="form-control" @bind-Value="_model.DpoPhone" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">E-Mail-Adresse</label>
+                    <InputText class="form-control" @bind-Value="_model.DpoEmail" />
+                </div>
+            </div>
+
+            <h5 class="dsms-form-section">Lizenz &amp; Status</h5>
             <div class="mb-3">
                 <label class="form-label">Lizenz @(_isNew ? "*" : "")</label>
                 <InputSelect class="form-select" @bind-Value="_selectedLicenseId" @bind-Value:after="OnLicenseSelectionChanged">
@@ -97,6 +166,20 @@
                 Id = tenant.Id,
                 Name = tenant.Name,
                 LegalName = tenant.LegalName,
+                Street = tenant.Street,
+                HouseNumber = tenant.HouseNumber,
+                PostalCode = tenant.PostalCode,
+                City = tenant.City,
+                Phone = tenant.Phone,
+                Email = tenant.Email,
+                Website = tenant.Website,
+                DpoName = tenant.DpoName,
+                DpoStreet = tenant.DpoStreet,
+                DpoHouseNumber = tenant.DpoHouseNumber,
+                DpoPostalCode = tenant.DpoPostalCode,
+                DpoCity = tenant.DpoCity,
+                DpoPhone = tenant.DpoPhone,
+                DpoEmail = tenant.DpoEmail,
                 IsActive = tenant.IsActive,
                 LicenseId = tenant.LicenseId
             };

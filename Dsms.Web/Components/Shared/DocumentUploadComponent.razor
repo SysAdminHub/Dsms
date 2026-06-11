@@ -44,12 +44,14 @@
     [Parameter] public int? ServiceProviderId { get; set; }
     [Parameter] public int? ProcessingActivityId { get; set; }
     [Parameter] public int? DataProtectionImpactAssessmentId { get; set; }
+    [Parameter] public int? PrivacyIncidentId { get; set; }
     [Parameter] public EventCallback OnUploaded { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private DocumentStorageService Storage { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private IBrowserFile? _selectedFile;
@@ -79,6 +81,13 @@
     {
         if (_selectedFile is null || _uploading)
             return;
+
+        if (!await UserAccess.CanEditTenantOperationalContentAsync())
+        {
+            _message = "Keine Berechtigung zum Hochladen von Dokumenten.";
+            _isError = true;
+            return;
+        }
 
         _uploading = true;
         _message = null;
@@ -128,6 +137,17 @@
                 }
             }
 
+            if (PrivacyIncidentId.HasValue)
+            {
+                var incidentOk = await Db.PrivacyIncidents.AnyAsync(i => i.Id == PrivacyIncidentId);
+                if (!incidentOk)
+                {
+                    _message = "Der gewählte Datenschutzvorfall gehört nicht zu Ihrem Mandanten.";
+                    _isError = true;
+                    return;
+                }
+            }
+
             await using var stream = file.OpenReadStream(DocumentUploadValidation.MaxFileSizeBytes);
             var path = await Storage.SaveAsync(TenantId, file.Name, stream);
 
@@ -143,6 +163,7 @@
                 ServiceProviderId = ServiceProviderId,
                 ProcessingActivityId = ProcessingActivityId,
                 DataProtectionImpactAssessmentId = DataProtectionImpactAssessmentId,
+                PrivacyIncidentId = PrivacyIncidentId,
                 UploadedByUserId = await CurrentUser.GetUserIdAsync()
             };
 

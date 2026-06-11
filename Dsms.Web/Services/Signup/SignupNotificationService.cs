@@ -1,11 +1,13 @@
 using System.Net;
 using System.Text;
+using Dsms.Web.Configuration;
 using Dsms.Web.Data;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Services.Email;
 using Dsms.Web.Services.Logging;
 using Dsms.Web.Services.PendingSignups;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Dsms.Web.Services.Signup;
 
@@ -14,8 +16,10 @@ public sealed class SignupNotificationService(
     IEmailSettingsService emailSettingsService,
     IEmailService emailService,
     ILogService logService,
-    ILogger<SignupNotificationService> logger) : ISignupNotificationService
+    ILogger<SignupNotificationService> logger,
+    IOptions<AppBrandingOptions> brandingOptions) : ISignupNotificationService
 {
+    private readonly AppBrandingOptions _branding = brandingOptions.Value;
     public async Task TrySendPublicSignupNotificationAsync(Guid pendingSignupId, bool passwordSetupEmailSent)
     {
         var emailSettings = await emailSettingsService.GetSettingsForSendingAsync();
@@ -87,16 +91,17 @@ public sealed class SignupNotificationService(
             severity: "Error");
     }
 
-    private static string BuildSubject(PendingSignup signup, bool isFree)
+    private string BuildSubject(PendingSignup signup, bool isFree)
     {
         var customer = signup.CustomerName.Trim();
         var plan = signup.PlanDisplayNameSnapshot ?? signup.PlanNameSnapshot ?? "Tarif";
+        var productName = _branding.ProductName;
         return isFree
-            ? $"Neue DSMS-Registrierung: {customer} ({plan})"
-            : $"Neue kostenpflichtige DSMS-Registrierung: {customer} ({plan})";
+            ? $"Neue {productName}-Registrierung: {customer} ({plan})"
+            : $"Neue kostenpflichtige {productName}-Registrierung: {customer} ({plan})";
     }
 
-    private static string BuildHtmlBody(
+    private string BuildHtmlBody(
         PendingSignup signup,
         License? license,
         bool isFree,
@@ -104,7 +109,7 @@ public sealed class SignupNotificationService(
     {
         var sb = new StringBuilder();
         sb.Append("<div style=\"font-family: sans-serif; line-height: 1.5;\">");
-        sb.Append("<h2>Neue DSMS-Registrierung</h2>");
+        sb.Append($"<h2>Neue {_branding.ProductName}-Registrierung</h2>");
 
         AppendSectionHtml(sb, "Registrierung", [
             ("Zeitpunkt", FormatDateTime(signup.CreatedAt)),
@@ -165,14 +170,14 @@ public sealed class SignupNotificationService(
         return sb.ToString();
     }
 
-    private static string BuildTextBody(
+    private string BuildTextBody(
         PendingSignup signup,
         License? license,
         bool isFree,
         bool passwordSetupEmailSent)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Neue DSMS-Registrierung");
+        sb.AppendLine($"Neue {_branding.ProductName}-Registrierung");
         sb.AppendLine();
         sb.AppendLine("=== Registrierung ===");
         sb.AppendLine($"Zeitpunkt: {FormatDateTime(signup.CreatedAt)}");

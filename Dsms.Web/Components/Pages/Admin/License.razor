@@ -3,7 +3,7 @@
 @attribute [Authorize(Roles = DsmsRoles.Admin)]
 @rendermode InteractiveServer
 
-<PageTitle>Meine Lizenz</PageTitle>
+<BrandedPageTitle Title="Meine Lizenz" />
 
 @if (_loading)
 {
@@ -11,7 +11,7 @@
 }
 else if (_overview?.Status == AdminLicenseOverviewStatus.IsSuperuser)
 {
-    <PageHeader Title="Meine Lizenz" />
+    <PageHeader Title="Meine Lizenz" HelpKey="license" />
     <div class="alert alert-info dsms-alert">
         @_overview.Message
         <div class="mt-2">
@@ -21,22 +21,22 @@ else if (_overview?.Status == AdminLicenseOverviewStatus.IsSuperuser)
 }
 else if (_overview?.Status is AdminLicenseOverviewStatus.NoLicenseAssigned or AdminLicenseOverviewStatus.LicenseNotFound)
 {
-    <PageHeader Title="Meine Lizenz" />
+    <PageHeader Title="Meine Lizenz" HelpKey="license" />
     <div class="alert alert-warning dsms-alert">@_overview.Message</div>
 }
 else if (_overview?.Status == AdminLicenseOverviewStatus.Unauthorized)
 {
-    <PageHeader Title="Meine Lizenz" />
+    <PageHeader Title="Meine Lizenz" HelpKey="license" />
     <div class="alert alert-danger dsms-alert">@_overview.Message</div>
 }
 else if (_license is null)
 {
-    <PageHeader Title="Meine Lizenz" />
+    <PageHeader Title="Meine Lizenz" HelpKey="license" />
     <div class="alert alert-warning dsms-alert">@NoLicenseMessage</div>
 }
 else
 {
-    <PageHeader Title="Meine Lizenz"
+    <PageHeader Title="Meine Lizenz" HelpKey="license"
                 Subtitle="Übersicht über Tarif, Laufzeit und aktuelle Nutzung." />
 
     @if (!_license.Usability.IsUsableForCreation && !string.IsNullOrEmpty(_license.Usability.AdminHintMessage))

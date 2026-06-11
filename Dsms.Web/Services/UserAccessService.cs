@@ -112,5 +112,49 @@ public class UserAccessService(
 
         return Array.Empty<string>();
     }
+
+    /// <inheritdoc />
+    public async Task<bool> IsAuditorAsync() =>
+        await currentUser.IsInRoleAsync(DsmsRoles.Auditor)
+        && !await IsSuperuserAsync()
+        && !await currentUser.IsInRoleAsync(DsmsRoles.Admin);
+
+    /// <inheritdoc />
+    public async Task<bool> CanEditComplianceContentAsync()
+    {
+        if (await IsAuditorAsync())
+        {
+            return false;
+        }
+
+        return await IsSuperuserAsync() || await currentUser.IsInRoleAsync(DsmsRoles.Admin);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> CanEditTenantOperationalContentAsync()
+    {
+        if (await IsAuditorAsync())
+        {
+            return false;
+        }
+
+        return await IsSuperuserAsync()
+            || await currentUser.IsInRoleAsync(DsmsRoles.Admin)
+            || await currentUser.IsInRoleAsync(DsmsRoles.User);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> CanCreatePrivacyIncidentsAsync()
+    {
+        if (await IsAuditorAsync())
+        {
+            return false;
+        }
+
+        return await IsSuperuserAsync() || await currentUser.IsInRoleAsync(DsmsRoles.Admin);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> CanEditPrivacyIncidentsAsync() => await CanEditTenantOperationalContentAsync();
 }
 

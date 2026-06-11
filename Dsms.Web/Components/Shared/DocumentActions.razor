@@ -1,6 +1,6 @@
 @* Download und optionaler PDF-Viewer für Nachweisdokumente. *@
 
-<div class="d-inline-flex gap-1 flex-wrap">
+<div class="dsms-table-action-stack">
     @if (DocumentUploadValidation.IsViewableInBrowser(ContentType, FileName))
     {
         <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ShowViewer">Anzeigen</button>

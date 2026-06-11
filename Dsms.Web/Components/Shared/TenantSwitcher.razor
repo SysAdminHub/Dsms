@@ -2,6 +2,7 @@
     Mandanten-Switcher – immer sichtbar für angemeldete Benutzer (auch bei nur einem Mandanten).
     Persistenz über Session (LoadAsync/CommitAsync). Dropdown ab 1 Mandant öffnbar.
     Prerender deaktiviert: Session/DB erst nach Circuit-Start verfügbar (F5-stabil).
+    Bei leerem Circuit-Cache wird der Mandant aus der Session wiederhergestellt.
 *@
 @using Microsoft.AspNetCore.Components.Web
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
@@ -44,7 +45,7 @@
                         aria-haspopup="listbox"
                         aria-expanded="@_isOpen"
                         disabled="@_switching"
-                        @onclick="ToggleMenu">
+                        @onclick="ToggleMenuAsync">
                     <span class="tenant-switcher__trigger-text">
                         <span class="tenant-switcher__label">Mandant</span>
                         <span class="tenant-switcher__value">@DisplayName</span>
@@ -117,15 +118,14 @@
         try
         {
             var state = await TenantService.LoadTenantAsync();
-            _tenants = state.AccessibleTenants.ToList();
-            _selectedTenantId = state.CurrentTenantId;
-            _currentTenant = state.CurrentTenant
-                ?? _tenants.FirstOrDefault(t => t.Id == _selectedTenantId);
+            ApplyBootstrapState(state);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "TenantSwitcher: Initialisierung fehlgeschlagen");
             _tenants = [];
+            _selectedTenantId = null;
+            _currentTenant = null;
         }
         finally
         {
@@ -133,11 +133,56 @@
         }
     }
 
-    private void ToggleMenu()
+    /// <summary>Synchronisiert UI-State mit dem Server-Kontext (Recovery bei leerem Cache).</summary>
+    private async Task SyncTenantContextAsync()
+    {
+        try
+        {
+            var tenantId = await TenantService.EnsureTenantContextAsync();
+            if (tenantId.HasValue)
+            {
+                if (_selectedTenantId != tenantId || _currentTenant is null)
+                {
+                    _selectedTenantId = tenantId;
+                    _currentTenant = _tenants.FirstOrDefault(t => t.Id == tenantId)
+                        ?? await TenantService.GetCurrentTenantAsync();
+                }
+
+                return;
+            }
+
+            if (_selectedTenantId.HasValue || _currentTenant is not null)
+            {
+                Logger.LogDebug("TenantSwitcher: Veralteter UI-State bereinigt (kein aktiver Mandant)");
+                _selectedTenantId = null;
+                _currentTenant = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "TenantSwitcher: Sync fehlgeschlagen");
+        }
+    }
+
+    private void ApplyBootstrapState(TenantBootstrapState state)
+    {
+        _tenants = state.AccessibleTenants.ToList();
+        _selectedTenantId = state.CurrentTenantId;
+        _currentTenant = state.CurrentTenant
+            ?? _tenants.FirstOrDefault(t => t.Id == _selectedTenantId);
+    }
+
+    private async Task ToggleMenuAsync()
     {
         if (_switching || _tenants.Count == 0)
         {
             return;
+        }
+
+        // Vor dem Öffnen: Cache aus Session nachladen, falls der Circuit den Mandanten verloren hat.
+        if (!_selectedTenantId.HasValue)
+        {
+            await SyncTenantContextAsync();
         }
 
         _isOpen = !_isOpen;

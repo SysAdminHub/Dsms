@@ -201,6 +201,19 @@ public static class ComplianceAuditDiffBuilder
         return changes;
     }
 
+    public static List<AuditFieldChangeDto> ForDataProtectionRole(
+        string? previousTitle,
+        bool? previousIsActive,
+        string? previousDepartment,
+        DataProtectionRoleEditModel current)
+    {
+        var changes = new List<AuditFieldChangeDto>();
+        AuditDiffHelper.AddIfChanged(changes, "RoleTitle", "Rollenbezeichnung", previousTitle, current.RoleTitle);
+        AuditDiffHelper.AddIfChanged(changes, "IsActive", "Aktiv", previousIsActive, current.IsActive);
+        AuditDiffHelper.AddIfChanged(changes, "Department", "Abteilung", previousDepartment, current.Department);
+        return changes;
+    }
+
     private static string GetAuditRunStatusLabel(AuditRunStatus status) => status switch
     {
         AuditRunStatus.Draft => "Entwurf",

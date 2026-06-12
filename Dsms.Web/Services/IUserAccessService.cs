@@ -61,6 +61,9 @@ public interface IUserAccessService
     /// <summary>Dokumentkategorien verwalten: Superuser und Mandanten-Admin.</summary>
     Task<bool> CanManageDocumentCategoriesAsync();
 
+    /// <summary>Organisatorische Datenschutzrollen verwalten: Superuser und Mandanten-Admin.</summary>
+    Task<bool> CanManageDataProtectionRolesAsync();
+
     /// <summary>True, wenn die Rolle Superuser ist (plattformweit, kein Mandant erforderlich).</summary>
     static bool RoleRequiresNoTenant(string role) => role == Domain.DsmsRoles.Superuser;
 }

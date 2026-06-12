@@ -14,6 +14,7 @@ public class TenantExportService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
     UserManager<ApplicationUser> userManager,
     DocumentStorageService documentStorage,
+    DataProtectionRoleService dataProtectionRoleService,
     ILogger<TenantExportService> logger,
     IOptions<AppBrandingOptions> brandingOptions) : ITenantExportService
 {
@@ -54,6 +55,7 @@ public class TenantExportService(
         var auditTemplates = await LoadAuditTemplatesAsync(db, tenantId, ct);
         var auditRuns = await LoadAuditRunsAsync(db, tenantId, ct);
         var (documents, fileEntries) = await LoadDocumentsAsync(db, tenantId, warnings, ct);
+        var dataProtectionRoles = await dataProtectionRoleService.GetExportDataAsync(tenantId, ct);
 
         var exportInfo = new ExportInfoDto
         {
@@ -80,6 +82,7 @@ public class TenantExportService(
             AddJsonEntry(archive, "privacy-incidents.json", privacyIncidents);
             AddJsonEntry(archive, "audit-templates.json", auditTemplates);
             AddJsonEntry(archive, "audit-runs.json", auditRuns);
+            AddJsonEntry(archive, "data-protection-roles.json", dataProtectionRoles);
             AddJsonEntry(archive, "documents/metadata.json", documents);
 
             foreach (var file in fileEntries)

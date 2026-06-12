@@ -1,0 +1,324 @@
+@* Anlegen und Bearbeiten organisatorischer Datenschutzrollen. *@
+@page "/organization/edit"
+@page "/organization/edit/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Datenschutzrolle bearbeiten" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Datenschutzrolle" HelpKey="organization" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (!_canManage)
+{
+    <PageHeader Title="Datenschutzrolle" HelpKey="organization" />
+    <div class="alert alert-warning dsms-alert">Keine Berechtigung zum Bearbeiten von Datenschutzrollen.</div>
+}
+else if (_notFound)
+{
+    <PageHeader Title="Datenschutzrolle" HelpKey="organization" />
+    <div class="alert alert-warning dsms-alert">Eintrag nicht gefunden oder kein Zugriff.</div>
+}
+else
+{
+    <PageHeader Title="@(_model.Id is null ? "Neue Datenschutzrolle" : "Datenschutzrolle bearbeiten")"
+                HelpKey="organization"
+                Subtitle="Organisatorische Zuständigkeit – unabhängig von technischen App-Rollen">
+        <a class="btn btn-outline-secondary" href="organization">Zur Liste</a>
+    </PageHeader>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_messageIsError ? "alert-danger" : "alert-success") dsms-alert">@_message</div>
+    }
+
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger dsms-alert" />
+
+                <h5 class="dsms-form-section">Rolle</h5>
+                <div class="row g-3">
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label" for="role-title">Rollenbezeichnung <span class="text-danger">*</span></label>
+                        <InputText id="role-title" class="form-control" @bind-Value="_model.RoleTitle" maxlength="200" list="role-title-suggestions" />
+                        <datalist id="role-title-suggestions">
+                            @foreach (var suggestion in DataProtectionRoleTitleSuggestions.All)
+                            {
+                                <option value="@suggestion"></option>
+                            }
+                        </datalist>
+                    </div>
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox id="role-active" class="form-check-input" @bind-Value="_model.IsActive" />
+                            <label class="form-check-label" for="role-active">Aktiv</label>
+                        </div>
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Person</h5>
+                <div class="mb-3">
+                    <label class="form-label" for="linked-user">Verknüpfter Benutzer</label>
+                    <InputSelect id="linked-user" class="form-select" @bind-Value="_linkedUserValue" @bind-Value:after="OnLinkedUserChanged">
+                        <option value="">Kein Benutzer verknüpft</option>
+                        @foreach (var user in _tenantUsers)
+                        {
+                            <option value="@user.Id">
+                                @user.DisplayName@(string.IsNullOrWhiteSpace(user.Email) ? "" : $" ({user.Email})")@(!user.IsActive ? " [inaktiv]" : "")
+                            </option>
+                        }
+                    </InputSelect>
+                    <div class="form-text">Optional. Freitextdaten bleiben editierbar und maßgeblich für die Dokumentation.</div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label" for="person-name">Person / Name</label>
+                        <InputText id="person-name" class="form-control" @bind-Value="_model.PersonName" maxlength="200" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label" for="person-email">E-Mail</label>
+                        <InputText id="person-email" class="form-control" @bind-Value="_model.Email" maxlength="256" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label" for="person-phone">Telefon</label>
+                        <InputText id="person-phone" class="form-control" @bind-Value="_model.Phone" maxlength="50" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label" for="person-department">Abteilung</label>
+                        <InputText id="person-department" class="form-control" @bind-Value="_model.Department" maxlength="200" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Zuständigkeit</h5>
+                <div class="mb-3">
+                    <label class="form-label" for="area">Zuständigkeitsbereich</label>
+                    <InputTextArea id="area" class="form-control" @bind-Value="_model.AreaOfResponsibility" rows="3" maxlength="2000" />
+                    <div class="form-text">Empfohlen, z. B. „TOMs, IT-Sicherheit und Zugriffskontrolle“.</div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label" for="reports-to-role">Berichtet an (Datenschutzrolle)</label>
+                        <InputSelect id="reports-to-role" class="form-select" @bind-Value="_reportsToRoleValue">
+                            <option value="">Keine Rolle ausgewählt</option>
+                            @foreach (var option in _roleOptions)
+                            {
+                                <option value="@option.Id">@FormatRoleOption(option)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label" for="reports-to-text">Berichtet an (Freitext)</label>
+                        <InputText id="reports-to-text" class="form-control" @bind-Value="_model.ReportsTo" maxlength="500" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label" for="deputy-role">Vertretung (Datenschutzrolle)</label>
+                        <InputSelect id="deputy-role" class="form-select" @bind-Value="_deputyRoleValue">
+                            <option value="">Keine Rolle ausgewählt</option>
+                            @foreach (var option in _roleOptions)
+                            {
+                                <option value="@option.Id">@FormatRoleOption(option)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label" for="deputy-text">Vertretung (Freitext)</label>
+                        <InputText id="deputy-text" class="form-control" @bind-Value="_model.Deputy" maxlength="500" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="remarks">Bemerkungen</label>
+                    <InputTextArea id="remarks" class="form-control" @bind-Value="_model.Remarks" rows="3" maxlength="4000" />
+                </div>
+
+                <div class="dsms-form-actions">
+                    <button type="submit" class="btn btn-primary" disabled="@_saving">
+                        @(_saving ? "Speichern …" : "Speichern")
+                    </button>
+                    <a class="btn btn-outline-secondary" href="organization">Abbrechen</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [Inject] private DataProtectionRoleService RoleService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canManage;
+    private bool _notFound;
+    private bool _saving;
+    private string? _message;
+    private bool _messageIsError;
+    private DataProtectionRoleEditModel _model = new();
+    private List<TenantUserOption> _tenantUsers = [];
+    private List<DataProtectionRole> _roleOptions = [];
+    private string _linkedUserValue = string.Empty;
+    private string _reportsToRoleValue = string.Empty;
+    private string _deputyRoleValue = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        _canManage = await RoleService.CanManageRolesAsync();
+        if (!_canManage)
+        {
+            return;
+        }
+
+        _tenantUsers = (await RoleService.GetTenantUserOptionsAsync(_tenantId.Value)).ToList();
+        var excludeId = Id;
+        _roleOptions = (await RoleService.GetRoleOptionsAsync(_tenantId.Value, excludeId)).ToList();
+
+        if (Id is null)
+        {
+            _model.IsActive = true;
+            return;
+        }
+
+        var detail = await RoleService.GetByIdAsync(Id.Value, _tenantId.Value);
+        if (detail is null)
+        {
+            _notFound = true;
+            return;
+        }
+
+        var role = detail.Role;
+        _model = new DataProtectionRoleEditModel
+        {
+            Id = role.Id,
+            RoleTitle = role.RoleTitle,
+            PersonName = role.PersonName,
+            Email = role.Email,
+            Phone = role.Phone,
+            Department = role.Department,
+            AreaOfResponsibility = role.AreaOfResponsibility,
+            ReportsTo = role.ReportsTo,
+            Deputy = role.Deputy,
+            ReportsToRoleId = role.ReportsToRoleId,
+            DeputyRoleId = role.DeputyRoleId,
+            LinkedUserId = role.LinkedUserId,
+            IsActive = role.IsActive,
+            Remarks = role.Remarks
+        };
+
+        _linkedUserValue = role.LinkedUserId ?? string.Empty;
+        _reportsToRoleValue = role.ReportsToRoleId?.ToString() ?? string.Empty;
+        _deputyRoleValue = role.DeputyRoleId?.ToString() ?? string.Empty;
+
+        if (role.ReportsToRoleId.HasValue && _roleOptions.All(r => r.Id != role.ReportsToRoleId))
+        {
+            var reportsRole = role.ReportsToRole;
+            if (reportsRole is not null)
+            {
+                _roleOptions.Add(reportsRole);
+            }
+        }
+
+        if (role.DeputyRoleId.HasValue && _roleOptions.All(r => r.Id != role.DeputyRoleId))
+        {
+            var deputyRole = role.DeputyRole;
+            if (deputyRole is not null)
+            {
+                _roleOptions.Add(deputyRole);
+            }
+        }
+
+        _roleOptions = _roleOptions.OrderBy(r => r.RoleTitle).ThenBy(r => r.PersonName).ToList();
+    }
+
+    private void OnLinkedUserChanged()
+    {
+        _model.LinkedUserId = string.IsNullOrWhiteSpace(_linkedUserValue) ? null : _linkedUserValue;
+
+        if (string.IsNullOrWhiteSpace(_linkedUserValue))
+        {
+            return;
+        }
+
+        var user = _tenantUsers.FirstOrDefault(u => u.Id == _linkedUserValue);
+        if (user is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.PersonName))
+        {
+            _model.PersonName = user.DisplayName;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.Email) && !string.IsNullOrWhiteSpace(user.Email))
+        {
+            _model.Email = user.Email;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_tenantId is null || _saving)
+        {
+            return;
+        }
+
+        _saving = true;
+        _message = null;
+        _messageIsError = false;
+
+        try
+        {
+            _model.LinkedUserId = string.IsNullOrWhiteSpace(_linkedUserValue) ? null : _linkedUserValue;
+            _model.ReportsToRoleId = int.TryParse(_reportsToRoleValue, out var reportsId) ? reportsId : null;
+            _model.DeputyRoleId = int.TryParse(_deputyRoleValue, out var deputyId) ? deputyId : null;
+
+            if (_model.Id is null)
+            {
+                var (result, error, role) = await RoleService.CreateAsync(_model, _tenantId.Value);
+                if (result != DataProtectionRoleSaveResult.Success || role is null)
+                {
+                    _message = error ?? "Speichern fehlgeschlagen.";
+                    _messageIsError = true;
+                    return;
+                }
+
+                Navigation.NavigateTo($"organization/{role.Id}");
+                return;
+            }
+
+            var (updateResult, updateError) = await RoleService.UpdateAsync(_model.Id.Value, _model, _tenantId.Value);
+            if (updateResult != DataProtectionRoleSaveResult.Success)
+            {
+                _message = updateError ?? "Speichern fehlgeschlagen.";
+                _messageIsError = true;
+                return;
+            }
+
+            Navigation.NavigateTo($"organization/{_model.Id}");
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static string FormatRoleOption(DataProtectionRole role)
+    {
+        if (string.IsNullOrWhiteSpace(role.PersonName))
+        {
+            return role.RoleTitle;
+        }
+
+        return $"{role.RoleTitle} – {role.PersonName}";
+    }
+}

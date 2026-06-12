@@ -78,6 +78,7 @@ builder.Services.AddScoped<DataSubjectRequestService>();
 builder.Services.AddScoped<DocumentStorageService>();
 builder.Services.AddScoped<DocumentLinksService>();
 builder.Services.AddScoped<DocumentCategoryService>();
+builder.Services.AddScoped<DataProtectionRoleService>();
 builder.Services.AddScoped<ITenantExportService, TenantExportService>();
 builder.Services.AddScoped<ITenantDeletionService, TenantDeletionService>();
 var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys");

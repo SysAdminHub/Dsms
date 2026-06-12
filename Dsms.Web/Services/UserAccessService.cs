@@ -176,5 +176,8 @@ public class UserAccessService(
 
     /// <inheritdoc />
     public Task<bool> CanManageDocumentCategoriesAsync() => CanManageTenantDataAsync();
+
+    /// <inheritdoc />
+    public Task<bool> CanManageDataProtectionRolesAsync() => CanManageTenantDataAsync();
 }
 

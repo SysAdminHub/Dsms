@@ -125,6 +125,16 @@ public static class PageHelpContentDefaults
             Die Anonymisierung überschreibt personenbezogene Falldaten endgültig. Die ursprünglichen Werte werden nicht gespeichert und können nicht wiederhergestellt werden. Verknüpfte Dokumente müssen separat geprüft werden.
             """),
         new(
+            Domain.PageHelpContentKeys.Organization,
+            "Datenschutzrollen & Zuständigkeiten",
+            "Art. 30 DSGVO, organisatorische Verantwortlichkeiten",
+            "Organisatorische Datenschutzrollen und Zuständigkeiten je Mandant dokumentieren.",
+            """
+            In diesem Bereich dokumentieren Sie die organisatorischen Datenschutzrollen und Zuständigkeiten Ihres Unternehmens. Dazu gehören z. B. Geschäftsführung, Datenschutzbeauftragte Person, Datenschutzkoordinator, IT-Verantwortliche, HR-Verantwortliche oder Fachbereichsverantwortliche. Diese Rollen sind organisatorische Zuständigkeiten und nicht identisch mit den technischen Benutzerrollen der Anwendung. Eine Rolle kann optional mit einem App-Benutzer verknüpft oder vollständig als Freitext gepflegt werden.
+
+            Das grafische Datenschutz-Organigramm wird aus diesen Rollen und Berichtslinien aufgebaut.
+            """),
+        new(
             Domain.PageHelpContentKeys.Documents,
             "Dokumente und Nachweise",
             "DSGVO Rechenschaftspflicht, Art. 5 Abs. 2 DSGVO",

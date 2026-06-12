@@ -185,6 +185,7 @@ public static class DatabaseSeeder
                 .AnyAsync(t => t.TenantId == tenant.Id && t.Title == DemoAuditTemplateTitle))
         {
             await EnsureDemoDocumentAsync(db, tenant);
+            await EnsureDemoDataProtectionRolesAsync(db, tenant);
             return;
         }
 
@@ -344,6 +345,56 @@ public static class DatabaseSeeder
 
         await db.SaveChangesAsync();
         await EnsureDemoDocumentAsync(db, tenant);
+        await EnsureDemoDataProtectionRolesAsync(db, tenant);
+    }
+
+    private static async Task EnsureDemoDataProtectionRolesAsync(ApplicationDbContext db, Tenant tenant)
+    {
+        if (await db.DataProtectionRoles
+                .IgnoreQueryFilters()
+                .AnyAsync(r => r.TenantId == tenant.Id))
+        {
+            return;
+        }
+
+        var management = new DataProtectionRole
+        {
+            TenantId = tenant.Id,
+            RoleTitle = DataProtectionRoleTitleSuggestions.Management,
+            PersonName = "Erika Geschäftsführung",
+            Email = "gf@demo.example",
+            Department = "Geschäftsführung",
+            AreaOfResponsibility = "Gesamtverantwortung und strategische Datenschutzsteuerung",
+            IsActive = true
+        };
+
+        db.DataProtectionRoles.Add(management);
+        await db.SaveChangesAsync();
+
+        db.DataProtectionRoles.AddRange(
+            new DataProtectionRole
+            {
+                TenantId = tenant.Id,
+                RoleTitle = DataProtectionRoleTitleSuggestions.DataProtectionOfficer,
+                PersonName = "Max Mustermann",
+                Email = "dsb@demo.example",
+                Department = "Datenschutz",
+                AreaOfResponsibility = "Beratung, Kontrolle und Dokumentation des Datenschutzes",
+                ReportsToRoleId = management.Id,
+                IsActive = true
+            },
+            new DataProtectionRole
+            {
+                TenantId = tenant.Id,
+                RoleTitle = DataProtectionRoleTitleSuggestions.ItResponsible,
+                PersonName = "Stefan Beispiel",
+                Email = "it@demo.example",
+                Department = "IT",
+                AreaOfResponsibility = "TOMs, IT-Sicherheit und Zugriffskontrolle",
+                ReportsToRoleId = management.Id,
+                IsActive = true
+            });
+        await db.SaveChangesAsync();
     }
 
     private static async Task EnsureDemoDocumentAsync(ApplicationDbContext db, Tenant tenant)

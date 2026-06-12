@@ -1,0 +1,161 @@
+@* Detailansicht einer organisatorischen Datenschutzrolle. *@
+@page "/organization/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Datenschutzrolle" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Datenschutzrolle" HelpKey="organization" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_detail is null && _loaded)
+{
+    <PageHeader Title="Datenschutzrolle" HelpKey="organization" />
+    <div class="alert alert-warning dsms-alert">Eintrag nicht gefunden oder kein Zugriff.</div>
+}
+else if (_detail is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else
+{
+    var role = _detail.Role;
+    <PageHeader Title="@role.RoleTitle" HelpKey="organization" Subtitle="Organisatorische Datenschutzrolle">
+        @if (_canManage)
+        {
+            <a class="btn btn-primary" href="@($"organization/edit/{role.Id}")">Bearbeiten</a>
+        }
+        <a class="btn btn-outline-secondary" href="organization">Zur Liste</a>
+    </PageHeader>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Rolle</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <div class="dsms-detail-label">Rollenbezeichnung</div>
+                    <div>@role.RoleTitle</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Status</div>
+                    @if (role.IsActive)
+                    {
+                        <StatusBadge Text="Aktiv" Variant="success" />
+                    }
+                    else
+                    {
+                        <StatusBadge Text="Inaktiv" Variant="warning" />
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Person</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Name</div>
+                    <div>@(string.IsNullOrWhiteSpace(role.PersonName) ? "—" : role.PersonName)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Verknüpfter Benutzer</div>
+                    <div>@(_detail.LinkedUserLabel ?? "Kein Benutzer verknüpft")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">E-Mail</div>
+                    <div>@(string.IsNullOrWhiteSpace(role.Email) ? "—" : role.Email)</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Telefon</div>
+                    <div>@(string.IsNullOrWhiteSpace(role.Phone) ? "—" : role.Phone)</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Abteilung</div>
+                    <div>@(string.IsNullOrWhiteSpace(role.Department) ? "—" : role.Department)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Zuständigkeit</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="dsms-detail-label">Zuständigkeitsbereich</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(role.AreaOfResponsibility)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Berichtet an</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_detail.ReportsToRoleDisplay)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Vertretung</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(_detail.DeputyRoleDisplay)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Bemerkungen</div>
+                    <div class="dsms-detail-value">@DisplayMultiline(role.Remarks)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card">
+        <div class="dsms-card-header">Systeminformationen</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="dsms-detail-label">Erstellt am</div>
+                    <div>@role.CreatedAt.ToLocalTime().ToString("g")</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="dsms-detail-label">Erstellt von</div>
+                    <div>@(_detail.CreatedByLabel ?? "—")</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="dsms-detail-label">Geändert am</div>
+                    <div>@((role.UpdatedAt ?? role.CreatedAt).ToLocalTime().ToString("g"))</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="dsms-detail-label">Geändert von</div>
+                    <div>@(_detail.UpdatedByLabel ?? "—")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Inject] private DataProtectionRoleService RoleService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canManage;
+    private bool _loaded;
+    private DataProtectionRoleDetailModel? _detail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null)
+        {
+            _loaded = true;
+            return;
+        }
+
+        _canManage = await RoleService.CanManageRolesAsync();
+        _detail = await RoleService.GetByIdAsync(Id, _tenantId.Value);
+        _loaded = true;
+    }
+
+    private static MarkupString DisplayMultiline(string? text) =>
+        string.IsNullOrWhiteSpace(text)
+            ? new MarkupString("—")
+            : new MarkupString(System.Net.WebUtility.HtmlEncode(text).Replace("\n", "<br />"));
+}

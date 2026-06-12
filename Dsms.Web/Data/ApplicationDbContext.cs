@@ -57,6 +57,7 @@ public class ApplicationDbContext(
     public DbSet<DataSubjectRequestProcessingActivity> DataSubjectRequestProcessingActivities => Set<DataSubjectRequestProcessingActivity>();
     public DbSet<DataSubjectRequestMeasure> DataSubjectRequestMeasures => Set<DataSubjectRequestMeasure>();
     public DbSet<DataSubjectRequestServiceProvider> DataSubjectRequestServiceProviders => Set<DataSubjectRequestServiceProvider>();
+    public DbSet<DataProtectionRole> DataProtectionRoles => Set<DataProtectionRole>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -352,6 +353,32 @@ public class ApplicationDbContext(
             e.HasOne(c => c.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(c => c.TenantId);
             e.HasIndex(c => new { c.TenantId, c.Name }).IsUnique();
+        });
+
+        builder.Entity<DataProtectionRole>(e =>
+        {
+            e.ToTable("DataProtectionRoles");
+            e.Property(r => r.RoleTitle).HasMaxLength(200).IsRequired();
+            e.Property(r => r.PersonName).HasMaxLength(200);
+            e.Property(r => r.Email).HasMaxLength(256);
+            e.Property(r => r.Phone).HasMaxLength(50);
+            e.Property(r => r.Department).HasMaxLength(200);
+            e.Property(r => r.AreaOfResponsibility).HasMaxLength(2000);
+            e.Property(r => r.ReportsTo).HasMaxLength(500);
+            e.Property(r => r.Deputy).HasMaxLength(500);
+            e.Property(r => r.Remarks).HasMaxLength(4000);
+            e.Property(r => r.LinkedUserId).HasMaxLength(450);
+            e.Property(r => r.CreatedByUserId).HasMaxLength(450);
+            e.Property(r => r.UpdatedByUserId).HasMaxLength(450);
+            e.Property(r => r.ArchivedByUserId).HasMaxLength(450);
+            e.HasOne(r => r.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(r => r.LinkedUser).WithMany().HasForeignKey(r => r.LinkedUserId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(r => r.ReportsToRole).WithMany().HasForeignKey(r => r.ReportsToRoleId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(r => r.DeputyRole).WithMany().HasForeignKey(r => r.DeputyRoleId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(r => r.TenantId);
+            e.HasIndex(r => new { r.TenantId, r.IsActive });
+            e.HasIndex(r => r.LinkedUserId);
+            e.HasIndex(r => r.RoleTitle);
         });
 
         builder.Entity<DocumentLink>(e =>
@@ -900,6 +927,10 @@ public class ApplicationDbContext(
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 
         builder.Entity<DocumentCategory>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<DataProtectionRole>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
     }

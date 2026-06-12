@@ -12,6 +12,7 @@ public static class PageHelpContentKeys
     public const string Measures = "measures";
     public const string PrivacyIncidents = "privacy-incidents";
     public const string DataSubjectRequests = "data-subject-requests";
+    public const string Organization = "organization";
     public const string Documents = "documents";
     public const string TenantData = "tenant-data";
     public const string Users = "users";
@@ -28,6 +29,7 @@ public static class PageHelpContentKeys
         Measures,
         PrivacyIncidents,
         DataSubjectRequests,
+        Organization,
         Documents,
         TenantData,
         Users,

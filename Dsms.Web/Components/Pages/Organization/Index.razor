@@ -1,0 +1,253 @@
+@* Listenansicht: Organisatorische Datenschutzrollen des aktuellen Mandanten. *@
+@page "/organization"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Datenschutzrollen & Zuständigkeiten" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Datenschutzrollen & Zuständigkeiten" HelpKey="organization" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant ausgewählt. Bitte wählen Sie zuerst einen Mandanten.</div>
+}
+else
+{
+    <PageHeader Title="Datenschutzrollen & Zuständigkeiten"
+                HelpKey="organization"
+                Subtitle="Organisatorische Zuständigkeiten dokumentieren – unabhängig von technischen App-Rollen">
+        @if (_canManage)
+        {
+            <a class="btn btn-primary" href="organization/edit">Neue Datenschutzrolle</a>
+        }
+    </PageHeader>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-body py-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label mb-1">Status</label>
+                    <InputSelect class="form-select" @bind-Value="_filterActiveValue">
+                        <option value="active">Aktiv</option>
+                        <option value="inactive">Inaktiv</option>
+                        <option value="all">Alle</option>
+                    </InputSelect>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label mb-1">Rollenbezeichnung</label>
+                    <InputSelect class="form-select" @bind-Value="_filterRoleTitle">
+                        <option value="">Alle</option>
+                        @foreach (var title in _roleTitleOptions)
+                        {
+                            <option value="@title">@title</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label mb-1">Abteilung</label>
+                    <InputSelect class="form-select" @bind-Value="_filterDepartment">
+                        <option value="">Alle</option>
+                        @foreach (var department in _departmentOptions)
+                        {
+                            <option value="@department">@department</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label mb-1">Suche</label>
+                    <InputText class="form-control" @bind-Value="_searchText"
+                               placeholder="Rolle, Person, E-Mail, Zuständigkeit …" />
+                </div>
+                <div class="col-md-auto">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="LoadDataAsync">Filtern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_items is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else if (_items.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">
+            @(_filterActiveValue == "inactive"
+                ? "Keine inaktiven Datenschutzrollen."
+                : "Noch keine Datenschutzrollen erfasst.")
+        </div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Rollenbezeichnung</th>
+                            <th>Person</th>
+                            <th>Abteilung</th>
+                            <th>E-Mail</th>
+                            <th class="d-none d-lg-table-cell">Zuständigkeit</th>
+                            <th class="d-none d-xl-table-cell">Berichtet an</th>
+                            <th class="d-none d-xl-table-cell">Vertretung</th>
+                            <th>Aktiv</th>
+                            <th class="d-none d-md-table-cell">Verkn. Benutzer</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _items)
+                        {
+                            var role = item.Role;
+                            <tr class="@(!role.IsActive ? "dsms-table-row--archived" : null)">
+                                <td><strong>@role.RoleTitle</strong></td>
+                                <td>@(string.IsNullOrWhiteSpace(role.PersonName) ? "—" : role.PersonName)</td>
+                                <td>@(string.IsNullOrWhiteSpace(role.Department) ? "—" : role.Department)</td>
+                                <td>@(string.IsNullOrWhiteSpace(role.Email) ? "—" : role.Email)</td>
+                                <td class="d-none d-lg-table-cell">@Truncate(role.AreaOfResponsibility, 40)</td>
+                                <td class="d-none d-xl-table-cell">@Truncate(item.ReportsToRoleLabel, 35)</td>
+                                <td class="d-none d-xl-table-cell">@Truncate(item.DeputyRoleLabel, 35)</td>
+                                <td>
+                                    @if (role.IsActive)
+                                    {
+                                        <StatusBadge Text="Aktiv" Variant="success" />
+                                    }
+                                    else
+                                    {
+                                        <StatusBadge Text="Inaktiv" Variant="warning" />
+                                    }
+                                </td>
+                                <td class="d-none d-md-table-cell">@(item.LinkedUserLabel ?? "—")</td>
+                                <td class="dsms-table-actions">
+                                    <div class="dsms-table-action-stack">
+                                        <a class="btn btn-sm btn-outline-primary" href="@($"organization/{role.Id}")">Ansehen</a>
+                                        @if (_canManage)
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary" href="@($"organization/edit/{role.Id}")">Bearbeiten</a>
+                                            @if (role.IsActive)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-warning"
+                                                        @onclick="() => DeactivateAsync(role.Id)">
+                                                    Deaktivieren
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-success"
+                                                        @onclick="() => ReactivateAsync(role.Id)">
+                                                    Reaktivieren
+                                                </button>
+                                            }
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private DataProtectionRoleService RoleService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canManage;
+    private string _filterActiveValue = "active";
+    private string? _filterRoleTitle;
+    private string? _filterDepartment;
+    private string? _searchText;
+    private List<DataProtectionRoleListItem>? _items;
+    private List<string> _roleTitleOptions = [];
+    private List<string> _departmentOptions = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        _canManage = await RoleService.CanManageRolesAsync();
+        await LoadFilterOptionsAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task LoadFilterOptionsAsync()
+    {
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        var all = await RoleService.GetListAsync(_tenantId.Value, new DataProtectionRoleListFilter { IsActive = null });
+        _roleTitleOptions = all.Select(i => i.Role.RoleTitle).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x).ToList();
+        _departmentOptions = all
+            .Select(i => i.Role.Department)
+            .Where(d => !string.IsNullOrWhiteSpace(d))
+            .Select(d => d!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        var filter = new DataProtectionRoleListFilter
+        {
+            IsActive = _filterActiveValue switch
+            {
+                "inactive" => false,
+                "all" => null,
+                _ => true
+            },
+            SearchText = _searchText,
+            RoleTitle = _filterRoleTitle,
+            Department = _filterDepartment
+        };
+
+        _items = (await RoleService.GetListAsync(_tenantId.Value, filter)).ToList();
+    }
+
+    private async Task DeactivateAsync(int id)
+    {
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        await RoleService.ArchiveAsync(id, _tenantId.Value);
+        await LoadDataAsync();
+    }
+
+    private async Task ReactivateAsync(int id)
+    {
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        await RoleService.ReactivateAsync(id, _tenantId.Value);
+        await LoadDataAsync();
+    }
+
+    private static string Truncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "—";
+        }
+
+        var text = value.Trim();
+        return text.Length <= maxLength ? text : text[..maxLength] + "…";
+    }
+}

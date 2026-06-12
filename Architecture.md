@@ -163,6 +163,7 @@ Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnec
 | `DataSubjectRequestProcessingActivities` | `DataSubjectRequestProcessingActivity` |
 | `DataSubjectRequestMeasures` | `DataSubjectRequestMeasure` |
 | `DataSubjectRequestServiceProviders` | `DataSubjectRequestServiceProvider` |
+| `DataProtectionRoles` | `DataProtectionRole` (organisatorische Datenschutzrollen je Mandant; optional `LinkedUserId`, `ReportsToRoleId`, `DeputyRoleId`) |
 | `EmailSettings` | `EmailSettings` (plattformweit, kein Mandantenfilter) |
 | `EmailTemplates` | `EmailTemplate` (plattformweit, eindeutiger `TemplateKey`) |
 | `PageHelpContents` | `PageHelpContent` (plattformweit, eindeutiger `Key`; Hilfetexte für Fachseiten) |
@@ -274,6 +275,8 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `TenantDataEndpoints` | Minimal API | `POST /tenant-daten/export` – ZIP-Download mit serverseitiger Berechtigungsprüfung |
 | `DocumentUploadValidation` | Static | Dateityp-, MIME- und Größenprüfung für Uploads (PDF, DOCX, XLSX, JPG, PNG; max. 10 MB) |
 | `DocumentLinksService` | Scoped | Many-to-Many-Verknüpfungen (`DocumentLink`); Laden, Setzen, Validierung mandantensicher |
+| `DocumentCategoryService` | Scoped | Mandanten-Kategorien für Dokumente (CRUD, Aktiv/Inaktiv, Auditlog) |
+| `DataProtectionRoleService` | Scoped | Organisatorische Datenschutzrollen (CRUD, Suche/Filter, Berichtslinie/Vertretung, Exportdaten, Auditlog) |
 | `DocumentFileEndpoints` | Minimal API | `GET /documents/{id}/download` und `/view` – mandantengebunden via EF-Filter |
 | `ArchiveViewContextAccessor` | Scoped | Aktiv-/Archivansicht für EF Global Query Filter (`ShowArchivedOnly`) |
 | `IArchivingService` / `ArchivingService` | Scoped | Soft Delete: Archivieren, Wiederherstellen, Abhängigkeitswarnungen |
@@ -331,7 +334,7 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 | **Auditor** | Compliance-Inhalte **nur lesen** (Listen, Details, Audit-Antworten im Lesemodus, Dokument-Download); **kein** Anlegen/Bearbeiten/Archivieren; **keine** Benutzerverwaltung |
 | **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen (VVT, DSFA, TOMs, Dienstleister, Audit-Durchläufe) |
 
-**Rollen-Konstanten für Autorisierung:** `DsmsRoles.ComplianceEditor` (nur Admin) für Stammdaten-Bearbeitung; `DsmsRoles.ComplianceViewer` (Admin, Auditor, User) für lesenden Zugriff. Zentrale Prüfungen über `IUserAccessService.CanEditComplianceContentAsync()` (Stammdaten) und `CanEditTenantOperationalContentAsync()` (Maßnahmen, Audit-Antworten, Dokumente). **Datenschutzvorfälle:** `CanCreatePrivacyIncidentsAsync()` (Admin/Superuser), `CanEditPrivacyIncidentsAsync()` (Admin/Superuser/User); Auditor nur Lesen. **Betroffenenanfragen:** `CanCreateDataSubjectRequestsAsync()` (Admin/Superuser), `CanEditDataSubjectRequestsAsync()` (Admin/Superuser/User), `CanAnonymizeDataSubjectRequestsAsync()` (Admin/Superuser).
+**Rollen-Konstanten für Autorisierung:** `DsmsRoles.ComplianceEditor` (nur Admin) für Stammdaten-Bearbeitung; `DsmsRoles.ComplianceViewer` (Admin, Auditor, User) für lesenden Zugriff. Zentrale Prüfungen über `IUserAccessService.CanEditComplianceContentAsync()` (Stammdaten) und `CanEditTenantOperationalContentAsync()` (Maßnahmen, Audit-Antworten, Dokumente). **Datenschutzrollen (Organisation):** Lesen für alle Mandantenrollen; Bearbeiten über `CanManageDataProtectionRolesAsync()` (= Admin/Superuser mit Mandantenzugriff). **Datenschutzvorfälle:** `CanCreatePrivacyIncidentsAsync()` (Admin/Superuser), `CanEditPrivacyIncidentsAsync()` (Admin/Superuser/User); Auditor nur Lesen. **Betroffenenanfragen:** `CanCreateDataSubjectRequestsAsync()` (Admin/Superuser), `CanEditDataSubjectRequestsAsync()` (Admin/Superuser/User), `CanAnonymizeDataSubjectRequestsAsync()` (Admin/Superuser).
 
 **Unterschied Superuser vs. Admin:** Superuser ist mandantenunabhängig (`TenantId` null) und global; Admin ist strikt an einen `TenantId` gebunden. Beide dürfen Benutzer verwalten, aber nur der Superuser sieht fremde Mandanten und darf Superuser anlegen.
 

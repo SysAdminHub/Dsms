@@ -200,6 +200,8 @@ Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAn
 
 **PendingSignup:** Historie und Zwischenspeicher für Registrierungen. Entity `PendingSignup` speichert Plan-Snapshots, Registrierungsdaten, Rechnungsdaten (Paid), Rechnungsverwaltung (`BillingStatus`, `NextInvoiceDate`, `InvoiceSentAt`, `InvoicePaidAt`, `BillingNote`) und Provisioning-Ergebnis. Beim Public Signup wird der Eintrag erstellt und nach erfolgreicher Provisionierung auf Status Provisioned gesetzt. Superuser-Verwaltung unter `/platform/signups` inkl. manueller Rechnungsaktionen (ohne automatische Lizenzverlängerung). Mollie/Webhook und PDF-Rechnungen noch nicht implementiert.
 
+**LegalAcceptance:** Unveränderlicher Nachweisdatensatz für rechtliche Zustimmungen beim Public Signup. Tabelle `LegalAcceptances` (FK zu `Tenant`, `ApplicationUser`, optional `PendingSignupId`). Version und `EffectiveDate` aus `Legal/legal-documents.json` via `ILegalDocumentService`. Client-IP wird vor Speicherung über `IIpAnonymizationService` anonymisiert (`AnonymizedIpAddress`). Speicherung in derselben EF-Transaktion wie Provisioning (`ILegalAcceptanceService.AddWithinTransactionAsync`). Kein Mandanten-Query-Filter; Anzeige nur für Superuser auf der Registrierungsseite.
+
 Alle anderen Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `UpdatedAt`).
 
 ```
@@ -286,6 +288,11 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IFeedbackService` / `FeedbackService` | Scoped | Benutzer-Feedback per E-Mail an `AppBranding.SupportEmail`; Vorlage `FeedbackMessageToSupport`; keine DB-Persistenz |
 | `IPaidSignupService` / `PaidSignupService` | Scoped | Legacy Paid-Signup-Service (nicht mehr über eigene Seite) |
 | `IPendingSignupService` / `PendingSignupService` | Scoped | Zwischenspeicher für ausstehende Registrierungen; Public Signup; Rechnungsverwaltung (NextInvoiceDate, BillingStatus-Aktionen) |
+| `ILegalDocumentService` / `LegalDocumentService` | Scoped | Liest `Legal/legal-documents.json` und Markdown-Dateien für öffentliche Legal-Seiten |
+| `ILegalAcceptanceService` / `LegalAcceptanceService` | Scoped | Speichert und liest Nachweisdatensätze `LegalAcceptance` (Signup-Zustimmung) |
+| `ILegalPdfService` / `LegalPdfService` | Scoped | PDF-Generierung aus Legal-Markdown (QuestPDF); AVV-Paket kombiniert AVV+TOM+Unterauftragnehmer |
+| `ISignupLegalEmailService` / `SignupLegalEmailService` | Scoped | Bestätigungsmail nach Public Signup mit Legal-PDF-Anhängen |
+| `IIpAnonymizationService` / `IpAnonymizationService` | Scoped | Anonymisiert IP-Adressen vor Speicherung in Nachweisdatensätzen (IPv4 /24, IPv6 /64) |
 | `ILogService` / `LogService` | Scoped | Zentrales Audit- und Systemprotokoll (`LogEntry`-Tabelle); siehe `Logging.md` |
 | `ILogQueryService` / `LogQueryService` | Scoped | Abfrage für Superuser-Protokolle und Admin-Auditlog mit Mandanten-/Lizenzfilter |
 | `ILicenseCreateGuard` / `LicenseCreateGuard` | Scoped | Lizenzlimit-Prüfung mit automatischer Audit-Protokollierung bei Blockierung |

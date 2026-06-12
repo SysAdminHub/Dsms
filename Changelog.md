@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Rechtliche Zustimmung bei Registrierung (Schritt 2):** Drei Pflicht-Checkboxen auf `/signup` … Migrationen `AddLegalAcceptances`, `RenameLegalAcceptanceIpToAnonymized`.
+
+- **Legal-Dokumente (Schritt 3):** PDF-Generierung (QuestPDF) für alle Legal-Dokumente, Download-Button auf `/legal/*` und Endpoint `/legal/{route}/pdf`. Registrierungs-Bestätigungsmail mit PDF-Anhängen (AGB, Datenschutz, kombiniertes AVV/TOM/Unterauftragnehmer-Paket). E-Mail-Vorlage `SignupLegalConfirmation`.
+
 - **Registrierungen:** Editierbare aktuelle Abrechnungsdaten für Superuser (aktuell gültiger Betrag, Währung, Abrechnungszeitraum). Der historische Plan-Snapshot bleibt unverändert. Migration `AddPendingSignupCurrentBillingAmount`.
 
 - **Öffentliche Registrierung / Provisioning:** Rabattcodes werden beim erfolgreichen Public-Signup-Provisioning final eingelöst. Nach erfolgreicher Provisionierung wird der Nutzungszähler erhöht und die Einlösung protokolliert (`DiscountCodeRedeemed`). Migration `AddPendingSignupDiscountRedemptionFields`.

@@ -8,13 +8,15 @@ public interface IEmailService
         string subject,
         string htmlBody,
         string? textBody = null,
-        bool bypassEnabledCheck = false);
+        bool bypassEnabledCheck = false,
+        IReadOnlyList<EmailAttachment>? attachments = null);
 
     Task<EmailOperationResult> SendTemplateEmailAsync(
         string toEmail,
         string templateKey,
         IReadOnlyDictionary<string, string> variables,
-        bool bypassEnabledCheck = false);
+        bool bypassEnabledCheck = false,
+        IReadOnlyList<EmailAttachment>? attachments = null);
 
     Task<EmailOperationResult> SendTestEmailAsync(string toEmail, bool bypassEnabledCheck = false);
 

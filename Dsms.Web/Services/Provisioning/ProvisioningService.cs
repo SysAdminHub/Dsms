@@ -4,6 +4,7 @@ using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
 using Dsms.Web.Services.DiscountCodes;
 using Dsms.Web.Services.Licenses;
+using Dsms.Web.Services.Legal;
 using Dsms.Web.Services.Logging;
 using Dsms.Web.Services.PasswordReset;
 using Microsoft.AspNetCore.Identity;
@@ -17,7 +18,8 @@ public sealed class ProvisioningService(
     RoleManager<IdentityRole> roleManager,
     ILogService logService,
     IPasswordResetService passwordReset,
-    IDiscountCodeValidationService discountCodeValidation) : IProvisioningService
+    IDiscountCodeValidationService discountCodeValidation,
+    ILegalAcceptanceService legalAcceptanceService) : IProvisioningService
 {
     public async Task<ProvisionCustomerResultDto> ProvisionCustomerAsync(ProvisionCustomerRequestDto dto)
     {
@@ -101,7 +103,17 @@ public sealed class ProvisioningService(
                 var tenant = new Tenant
                 {
                     Name = dto.TenantName.Trim(),
-                    LegalName = string.IsNullOrWhiteSpace(dto.TenantLegalName) ? null : dto.TenantLegalName.Trim(),
+                    LegalName = string.IsNullOrWhiteSpace(dto.TenantLegalName)
+                        ? dto.CustomerName.Trim()
+                        : dto.TenantLegalName.Trim(),
+                    Street = NormalizeOptional(dto.TenantStreet),
+                    PostalCode = NormalizeOptional(dto.TenantPostalCode),
+                    City = NormalizeOptional(dto.TenantCity),
+                    Country = NormalizeOptional(dto.TenantCountry),
+                    ContactName = string.IsNullOrWhiteSpace(dto.AdminDisplayName) ? null : dto.AdminDisplayName.Trim(),
+                    Email = NormalizeOptional(dto.CustomerEmail) ?? dto.AdminEmail.Trim(),
+                    Phone = NormalizeOptional(dto.TenantPhone),
+                    VatId = NormalizeOptional(dto.TenantVatId),
                     IsActive = true,
                     LicenseId = license.Id,
                     CreatedAt = DateTime.UtcNow
@@ -192,6 +204,15 @@ public sealed class ProvisioningService(
                     }
 
                     await db.SaveChangesAsync();
+                }
+
+                if (dto.LegalAcceptance is not null)
+                {
+                    await legalAcceptanceService.AddWithinTransactionAsync(
+                        db,
+                        dto.LegalAcceptance,
+                        tenant.Id,
+                        admin.Id);
                 }
 
                 await db.SaveChangesAsync();
@@ -544,4 +565,7 @@ public sealed class ProvisioningService(
             // Protokollierung darf Fachfunktion nicht blockieren.
         }
     }
+
+    private static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

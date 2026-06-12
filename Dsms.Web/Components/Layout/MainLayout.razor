@@ -16,12 +16,17 @@
             </div>
         </div>
 
-        <article class="content px-0">
-            <TenantDeletionBanner />
-            <div class="dsms-page">
-                <TenantContextGate>
-                    @Body
-                </TenantContextGate>
+        <article class="content px-0 dsms-main-layout-content">
+            <div class="dsms-main-layout-body">
+                <TenantDeletionBanner />
+                <div class="dsms-page">
+                    <TenantContextGate>
+                        @Body
+                    </TenantContextGate>
+                </div>
+            </div>
+            <div class="dsms-main-layout-footer">
+                <LegalFooter Variant="app" />
             </div>
         </article>
     </main>

@@ -1,3 +1,5 @@
+using Dsms.Web.Services.Legal;
+
 namespace Dsms.Web.Services.Provisioning;
 
 public sealed class ProvisionCustomerRequestDto
@@ -13,6 +15,12 @@ public sealed class ProvisionCustomerRequestDto
 
     public string TenantName { get; set; } = string.Empty;
     public string? TenantLegalName { get; set; }
+    public string? TenantStreet { get; set; }
+    public string? TenantPostalCode { get; set; }
+    public string? TenantCity { get; set; }
+    public string? TenantCountry { get; set; }
+    public string? TenantPhone { get; set; }
+    public string? TenantVatId { get; set; }
 
     public string AdminEmail { get; set; } = string.Empty;
     public string AdminDisplayName { get; set; } = string.Empty;
@@ -22,6 +30,9 @@ public sealed class ProvisionCustomerRequestDto
 
     /// <summary>Verknüpfter PendingSignup für Public Signup (Rabattcode-Einlösung).</summary>
     public Guid? PendingSignupId { get; set; }
+
+    /// <summary>Rechtliche Zustimmung bei öffentlicher Registrierung.</summary>
+    public LegalAcceptanceInputDto? LegalAcceptance { get; set; }
 }
 
 public sealed class ProvisionCustomerResultDto

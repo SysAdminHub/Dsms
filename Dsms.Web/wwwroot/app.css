@@ -1,6 +1,7 @@
 @import url('css/dsms-tokens.css');
 @import url('css/dsms-components.css');
 @import url('css/dsms-layout.css');
+@import url('css/dsms-legal.css');
 
 html, body {
     font-family: var(--dsms-font);

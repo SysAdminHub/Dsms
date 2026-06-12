@@ -23,6 +23,7 @@ public class ApplicationDbContext(
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
     public DbSet<DiscountCode> DiscountCodes => Set<DiscountCode>();
     public DbSet<PendingSignup> PendingSignups => Set<PendingSignup>();
+    public DbSet<LegalAcceptance> LegalAcceptances => Set<LegalAcceptance>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<UserTenant> UserTenants => Set<UserTenant>();
     public DbSet<AuditTemplate> AuditTemplates => Set<AuditTemplate>();
@@ -204,6 +205,33 @@ public class ApplicationDbContext(
             e.HasIndex(p => p.ExpiresAt);
         });
 
+        builder.Entity<LegalAcceptance>(e =>
+        {
+            e.ToTable("LegalAcceptances");
+            e.HasKey(l => l.Id);
+            e.Property(l => l.UserId).HasMaxLength(450).IsRequired();
+            e.Property(l => l.LegalVersion).HasMaxLength(32).IsRequired();
+            e.Property(l => l.EffectiveDate).HasMaxLength(32).IsRequired();
+            e.Property(l => l.AnonymizedIpAddress).HasMaxLength(45);
+            e.Property(l => l.UserAgent).HasMaxLength(512);
+            e.Property(l => l.SignupEmail).HasMaxLength(255);
+            e.Property(l => l.TenantNameSnapshot).HasMaxLength(200);
+            e.Property(l => l.CompanyNameSnapshot).HasMaxLength(200);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => l.UserId);
+            e.HasIndex(l => l.LegalVersion);
+            e.HasIndex(l => new { l.TenantId, l.LegalVersion });
+            e.HasIndex(l => l.PendingSignupId);
+            e.HasOne(l => l.Tenant)
+                .WithMany()
+                .HasForeignKey(l => l.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.User)
+                .WithMany()
+                .HasForeignKey(l => l.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         builder.Entity<ApplicationUser>(e =>
         {
             e.Property(u => u.LicenseId);
@@ -222,6 +250,9 @@ public class ApplicationDbContext(
             e.Property(t => t.HouseNumber).HasMaxLength(20);
             e.Property(t => t.PostalCode).HasMaxLength(20);
             e.Property(t => t.City).HasMaxLength(100);
+            e.Property(t => t.Country).HasMaxLength(100);
+            e.Property(t => t.ContactName).HasMaxLength(200);
+            e.Property(t => t.VatId).HasMaxLength(50);
             e.Property(t => t.Phone).HasMaxLength(50);
             e.Property(t => t.Email).HasMaxLength(255);
             e.Property(t => t.Website).HasMaxLength(500);

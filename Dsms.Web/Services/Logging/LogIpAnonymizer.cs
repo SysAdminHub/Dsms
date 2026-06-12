@@ -10,7 +10,8 @@ namespace Dsms.Web.Services.Logging;
 /// </summary>
 public static class LogIpAnonymizer
 {
-    public static string? AnonymizeIpAddress(string? ipAddress)
+    /// <summary>Erste IP aus einem Rohwert (z. B. X-Forwarded-For mit mehreren Adressen).</summary>
+    public static string? ExtractFirstIpAddress(string? ipAddress)
     {
         if (string.IsNullOrWhiteSpace(ipAddress))
         {
@@ -18,10 +19,15 @@ public static class LogIpAnonymizer
         }
 
         var trimmed = ipAddress.Trim();
-
-        // X-Forwarded-For kann mehrere Adressen enthalten – erste verwenden.
         var first = trimmed.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .FirstOrDefault();
+
+        return string.IsNullOrWhiteSpace(first) ? null : first;
+    }
+
+    public static string? AnonymizeIpAddress(string? ipAddress)
+    {
+        var first = ExtractFirstIpAddress(ipAddress);
         if (string.IsNullOrWhiteSpace(first))
         {
             return null;

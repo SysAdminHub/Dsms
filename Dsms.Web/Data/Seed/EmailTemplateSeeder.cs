@@ -83,6 +83,24 @@ public static class EmailTemplateSeeder
             </table>
             </div>
             """);
+
+        await SeedTemplateIfMissingAsync(db, EmailTemplateKeys.SignupLegalConfirmation, "Registrierung – Vertragsunterlagen",
+            "Ihre Registrierung bei {{AppName}}",
+            """
+            <p>Hallo {{CustomerContactName}},</p>
+            <p>vielen Dank für Ihre Registrierung bei {{AppName}}.</p>
+            <p>Ihr Zugang wurde erfolgreich erstellt.</p>
+            <p>Die folgenden Vertragsunterlagen erhalten Sie als PDF-Anhang zu dieser E-Mail:</p>
+            <ul>
+            <li>AGB / SaaS-Nutzungsbedingungen</li>
+            <li>Datenschutzerklärung</li>
+            <li>Auftragsverarbeitungsvertrag einschließlich TOM-Anlage und Unterauftragnehmerliste</li>
+            </ul>
+            <p><strong>Dokumentversion:</strong> {{LegalVersion}}<br/>
+            <strong>Registrierungsdatum:</strong> {{RegistrationDate}}</p>
+            <p>Sie können die Dokumente außerdem jederzeit über die Fußzeile der Anwendung erneut abrufen.</p>
+            <p>Freundliche Grüße<br/>{{ProviderName}}</p>
+            """);
     }
 
     private static async Task SeedTemplateIfMissingAsync(

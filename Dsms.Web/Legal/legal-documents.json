@@ -1,0 +1,12 @@
+{
+  "version": "2026-06-12",
+  "effectiveDate": "2026-06-12",
+  "documents": {
+    "impressum": "current/impressum.md",
+    "datenschutzerklaerung": "current/datenschutzerklaerung.md",
+    "agb": "current/agb.md",
+    "avv": "current/avv.md",
+    "tom": "current/tom.md",
+    "unterauftragnehmerliste": "current/unterauftragnehmerliste.md"
+  }
+}

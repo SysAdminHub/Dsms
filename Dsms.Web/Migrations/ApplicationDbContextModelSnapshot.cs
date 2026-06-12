@@ -718,6 +718,88 @@ namespace Dsms.Web.Migrations
                     b.ToTable("EvidenceDocuments");
                 });
 
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.LegalAcceptance", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AcceptedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("AcceptedDataProcessingAgreement")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("AcceptedPrivacyPolicy")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("AcceptedTerms")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("AnonymizedIpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("varchar(45)");
+
+                    b.Property<string>("CompanyNameSnapshot")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("EffectiveDate")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("LegalVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<Guid?>("PendingSignupId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("SignupEmail")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TenantNameSnapshot")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("varchar(512)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LegalVersion");
+
+                    b.HasIndex("PendingSignupId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TenantId", "LegalVersion");
+
+                    b.ToTable("LegalAcceptances", (string)null);
+                });
+
             modelBuilder.Entity("Dsms.Web.Domain.Entities.License", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2200,6 +2282,14 @@ namespace Dsms.Web.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<string>("ContactName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -2285,6 +2375,10 @@ namespace Dsms.Web.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("VatId")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("Website")
                         .HasMaxLength(500)
@@ -2722,6 +2816,25 @@ namespace Dsms.Web.Migrations
                     b.Navigation("ServiceProvider");
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.LegalAcceptance", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Data.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.Measure", b =>

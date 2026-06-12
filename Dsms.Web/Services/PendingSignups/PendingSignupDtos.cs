@@ -1,3 +1,5 @@
+using Dsms.Web.Services.Legal;
+
 namespace Dsms.Web.Services.PendingSignups;
 
 public sealed class PendingSignupListDto
@@ -35,6 +37,7 @@ public sealed class PendingSignupListDto
     public string? ProvisionedLicenseNumber { get; init; }
     public DateTime? ProvisionedAt { get; init; }
     public string? ErrorMessage { get; init; }
+    public LegalAcceptanceSummaryDto? LegalAcceptance { get; init; }
 }
 
 public sealed class PendingSignupDetailsDto
@@ -118,6 +121,7 @@ public sealed class PendingSignupDetailsDto
     public string? CurrentBillingCurrency { get; init; }
     public string? CurrentBillingCycle { get; init; }
     public DateTime? CurrentBillingAmountUpdatedAt { get; init; }
+    public LegalAcceptanceSummaryDto? LegalAcceptance { get; init; }
 }
 
 public class CreatePendingSignupDto

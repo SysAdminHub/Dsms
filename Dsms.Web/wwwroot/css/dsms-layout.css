@@ -84,6 +84,23 @@ article.content {
     padding-right: var(--dsms-space-6);
 }
 
+.dsms-main-layout-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.dsms-main-layout-body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.dsms-main-layout-footer {
+    flex-shrink: 0;
+    margin-top: auto;
+}
+
 @media (min-width: 641px) {
     .page {
         flex-direction: row;
@@ -473,6 +490,31 @@ article.content {
 .dsms-signup-price-preview__row--after-free dd {
     color: var(--dsms-text);
     font-weight: 500;
+}
+
+.dsms-signup-legal-consent .form-check-label {
+    line-height: 1.45;
+}
+
+.dsms-signup-legal-consent .form-check-label a {
+    white-space: nowrap;
+}
+
+.dsms-signup-validation-summary {
+    margin: 0.75rem 0 0;
+    padding: 0.875rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.dsms-signup-validation-summary__list {
+    padding-left: 1.15rem;
+    margin: 0;
+}
+
+.dsms-signup-validation-summary__list li + li {
+    margin-top: 0.35rem;
 }
 
 .dsms-public-signup-footer {

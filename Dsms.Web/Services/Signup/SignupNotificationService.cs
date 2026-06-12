@@ -60,7 +60,7 @@ public sealed class SignupNotificationService(
             license = await db.Licenses.AsNoTracking().FirstOrDefaultAsync(l => l.Id == licenseId);
         }
 
-        var isFree = IsFreeSignup(signup);
+        var isFree = PendingSignupDisplayHelper.IsFreeSignup(signup.PaymentProvider, signup.Amount);
         var subject = BuildSubject(signup, isFree);
         var htmlBody = BuildHtmlBody(signup, license, isFree, passwordSetupEmailSent);
         var textBody = BuildTextBody(signup, license, isFree, passwordSetupEmailSent);
@@ -132,9 +132,25 @@ public sealed class SignupNotificationService(
         ]);
 
         var billingCycle = PendingSignupDisplayHelper.ResolveBillingCycle(signup.BillingCycle, signup.MetadataJson);
-        var amountDisplay = BillingCycleDisplayHelper.FormatAmountWithCycle(
-            signup.PaymentProvider, signup.Amount, signup.Currency, signup.BillingCycle, signup.MetadataJson);
-        AppendSectionHtml(sb, "Tarif / Lizenz", [
+        var amountDisplay = PendingSignupDisplayHelper.FormatSignupAmountDisplay(
+            signup.PaymentProvider,
+            signup.Amount,
+            signup.FinalAmount,
+            signup.Currency,
+            signup.BillingCycle,
+            signup.MetadataJson,
+            signup.DiscountTypeSnapshot,
+            signup.DiscountCodeSnapshot);
+        var followUpBilling = PendingSignupDisplayHelper.GetFollowUpBillingDisplay(
+            signup.BillingCycle,
+            signup.MetadataJson,
+            signup.DiscountTypeSnapshot,
+            signup.DiscountFreeMonthsSnapshot,
+            signup.OriginalAmount,
+            signup.Currency);
+
+        var tariffRows = new List<(string Label, string Value)>
+        {
             ("Planname", signup.PlanDisplayNameSnapshot ?? signup.PlanNameSnapshot ?? "—"),
             ("Kostenlos", isFree ? "Ja" : "Nein"),
             ("Abrechnung", isFree ? "Nicht erforderlich" : BillingCycleDisplayHelper.GetDisplayName(billingCycle)),
@@ -144,7 +160,25 @@ public sealed class SignupNotificationService(
             ("Lizenznummer", signup.ProvisionedLicenseNumber ?? license?.LicenseNumber ?? "—"),
             ("Lizenzstatus", license?.Status ?? "—"),
             ("Lizenz gültig bis", FormatDate(license?.ValidUntil))
-        ]);
+        };
+
+        if (!isFree)
+        {
+            tariffRows.Insert(4, ("Aktuell gültiger Betrag", PendingSignupDisplayHelper.FormatCurrentBillingDisplay(
+                signup.CurrentBillingAmount,
+                signup.CurrentBillingCurrency,
+                signup.CurrentBillingCycle,
+                signup.FinalAmount,
+                signup.Amount,
+                signup.Currency,
+                signup.BillingCycle,
+                signup.MetadataJson,
+                signup.DiscountTypeSnapshot,
+                signup.OriginalAmount)));
+        }
+
+        AppendSectionHtml(sb, "Tarif / Lizenz", tariffRows.ToArray());
+        AppendSectionHtml(sb, "Rabattcode", SignupNotificationDiscountHelper.BuildDiscountRows(signup, license).ToArray());
 
         if (isFree)
         {
@@ -209,13 +243,20 @@ public sealed class SignupNotificationService(
         {
             var billingCycle = PendingSignupDisplayHelper.ResolveBillingCycle(signup.BillingCycle, signup.MetadataJson);
             sb.AppendLine($"Abrechnung: {BillingCycleDisplayHelper.GetDisplayName(billingCycle)}");
-            sb.AppendLine($"Betrag: {BillingCycleDisplayHelper.FormatAmountWithCycle(signup.PaymentProvider, signup.Amount, signup.Currency, signup.BillingCycle, signup.MetadataJson)}");
+            sb.AppendLine($"Betrag: {PendingSignupDisplayHelper.FormatSignupAmountDisplay(signup.PaymentProvider, signup.Amount, signup.FinalAmount, signup.Currency, signup.BillingCycle, signup.MetadataJson, signup.DiscountTypeSnapshot, signup.DiscountCodeSnapshot)}");
+            sb.AppendLine($"Aktuell gültiger Betrag: {PendingSignupDisplayHelper.FormatCurrentBillingDisplay(signup.CurrentBillingAmount, signup.CurrentBillingCurrency, signup.CurrentBillingCycle, signup.FinalAmount, signup.Amount, signup.Currency, signup.BillingCycle, signup.MetadataJson, signup.DiscountTypeSnapshot, signup.OriginalAmount)}");
             sb.AppendLine($"Nächste Rechnung: {BillingStatusDisplayHelper.FormatNextInvoiceDate(signup.NextInvoiceDate, isFree: false)}");
             sb.AppendLine("Zahlungsart: Manuelle Rechnung / Rechnung folgt separat");
         }
         sb.AppendLine($"Lizenznummer: {signup.ProvisionedLicenseNumber ?? license?.LicenseNumber ?? "—"}");
         sb.AppendLine($"Lizenzstatus: {license?.Status ?? "—"}");
         sb.AppendLine($"Lizenz gültig bis: {FormatDate(license?.ValidUntil)}");
+        sb.AppendLine();
+        sb.AppendLine("=== Rabattcode ===");
+        foreach (var (label, value) in SignupNotificationDiscountHelper.BuildDiscountRows(signup, license))
+        {
+            sb.AppendLine($"{label}: {value}");
+        }
         sb.AppendLine();
 
         if (isFree)
@@ -257,10 +298,6 @@ public sealed class SignupNotificationService(
 
         sb.Append("</table>");
     }
-
-    private static bool IsFreeSignup(PendingSignup signup) =>
-        string.Equals(signup.PaymentProvider, "None", StringComparison.OrdinalIgnoreCase)
-        || signup.Amount == 0;
 
     private static string FormatDateTime(DateTime? value) =>
         value?.ToLocalTime().ToString("g") ?? "—";

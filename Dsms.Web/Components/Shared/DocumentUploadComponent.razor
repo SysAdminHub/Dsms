@@ -39,17 +39,13 @@
 
 @code {
     [Parameter, EditorRequired] public int TenantId { get; set; }
-    [Parameter] public int? AuditRunId { get; set; }
-    [Parameter] public int? MeasureId { get; set; }
-    [Parameter] public int? ServiceProviderId { get; set; }
-    [Parameter] public int? ProcessingActivityId { get; set; }
-    [Parameter] public int? DataProtectionImpactAssessmentId { get; set; }
-    [Parameter] public int? PrivacyIncidentId { get; set; }
+    [Parameter] public IReadOnlyList<DocumentLinkTarget> SelectedLinks { get; set; } = [];
     [Parameter] public EventCallback OnUploaded { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private DocumentStorageService Storage { get; set; } = null!;
+    [Inject] private DocumentLinksService LinksService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
@@ -104,45 +100,12 @@
                 return;
             }
 
-            if (ServiceProviderId.HasValue)
+            foreach (var link in SelectedLinks)
             {
-                var providerOk = await Db.ServiceProviders.AnyAsync(s => s.Id == ServiceProviderId);
-                if (!providerOk)
+                var (valid, error) = await LinksService.ValidateLinkTargetAsync(link.EntityType, link.EntityId, TenantId);
+                if (!valid)
                 {
-                    _message = "Der gewählte Dienstleister gehört nicht zu Ihrem Mandanten.";
-                    _isError = true;
-                    return;
-                }
-            }
-
-            if (ProcessingActivityId.HasValue)
-            {
-                var paOk = await Db.ProcessingActivities.AnyAsync(p => p.Id == ProcessingActivityId);
-                if (!paOk)
-                {
-                    _message = "Die gewählte Verarbeitungstätigkeit gehört nicht zu Ihrem Mandanten.";
-                    _isError = true;
-                    return;
-                }
-            }
-
-            if (DataProtectionImpactAssessmentId.HasValue)
-            {
-                var dpiaOk = await Db.DataProtectionImpactAssessments.AnyAsync(d => d.Id == DataProtectionImpactAssessmentId);
-                if (!dpiaOk)
-                {
-                    _message = "Die gewählte DSFA gehört nicht zu Ihrem Mandanten.";
-                    _isError = true;
-                    return;
-                }
-            }
-
-            if (PrivacyIncidentId.HasValue)
-            {
-                var incidentOk = await Db.PrivacyIncidents.AnyAsync(i => i.Id == PrivacyIncidentId);
-                if (!incidentOk)
-                {
-                    _message = "Der gewählte Datenschutzvorfall gehört nicht zu Ihrem Mandanten.";
+                    _message = error;
                     _isError = true;
                     return;
                 }
@@ -158,17 +121,26 @@
                 ContentType = file.ContentType,
                 StoragePath = path,
                 FileSizeBytes = file.Size,
-                AuditRunId = AuditRunId,
-                MeasureId = MeasureId,
-                ServiceProviderId = ServiceProviderId,
-                ProcessingActivityId = ProcessingActivityId,
-                DataProtectionImpactAssessmentId = DataProtectionImpactAssessmentId,
-                PrivacyIncidentId = PrivacyIncidentId,
                 UploadedByUserId = await CurrentUser.GetUserIdAsync()
             };
 
             Db.EvidenceDocuments.Add(document);
             await Db.SaveChangesAsync();
+
+            if (SelectedLinks.Count > 0)
+            {
+                var (linkResult, linkError) = await LinksService.SetLinksForDocumentAsync(
+                    document.Id,
+                    TenantId,
+                    SelectedLinks);
+
+                if (linkResult != UpdateDocumentLinksResult.Success)
+                {
+                    _message = linkError ?? "Datei gespeichert, Bezüge konnten nicht gesetzt werden.";
+                    _isError = true;
+                    return;
+                }
+            }
 
             await ComplianceAuditLog.LogEvidenceDocumentUploadedAsync(document.Id, document.FileName, TenantId);
 

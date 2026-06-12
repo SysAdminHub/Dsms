@@ -1,3 +1,5 @@
+using Dsms.Web.Services.Legal;
+
 namespace Dsms.Web.Services.PendingSignups;
 
 public sealed class PendingSignupListDto
@@ -15,6 +17,11 @@ public sealed class PendingSignupListDto
     public string? Source { get; init; }
     public decimal? Amount { get; init; }
     public string? Currency { get; init; }
+    public string? DiscountCodeSnapshot { get; init; }
+    public string? DiscountTypeSnapshot { get; init; }
+    public int? DiscountFreeMonthsSnapshot { get; init; }
+    public decimal? FinalAmount { get; init; }
+    public decimal? OriginalAmount { get; init; }
     public string? PaymentProvider { get; init; }
     public string? MetadataJson { get; init; }
     public string? BillingEmail { get; init; }
@@ -22,11 +29,15 @@ public sealed class PendingSignupListDto
     public string? BillingCycle { get; init; }
     public string? BillingStatus { get; init; }
     public DateOnly? NextInvoiceDate { get; init; }
+    public decimal? CurrentBillingAmount { get; init; }
+    public string? CurrentBillingCurrency { get; init; }
+    public string? CurrentBillingCycle { get; init; }
     public string? ExternalPaymentId { get; init; }
     public Guid? ProvisionedLicenseId { get; init; }
     public string? ProvisionedLicenseNumber { get; init; }
     public DateTime? ProvisionedAt { get; init; }
     public string? ErrorMessage { get; init; }
+    public LegalAcceptanceSummaryDto? LegalAcceptance { get; init; }
 }
 
 public sealed class PendingSignupDetailsDto
@@ -65,6 +76,17 @@ public sealed class PendingSignupDetailsDto
     public string? Currency { get; init; }
     public string? BillingCycle { get; init; }
 
+    public Guid? DiscountCodeId { get; init; }
+    public string? DiscountCodeSnapshot { get; init; }
+    public string? DiscountNameSnapshot { get; init; }
+    public string? DiscountTypeSnapshot { get; init; }
+    public decimal? DiscountValueSnapshot { get; init; }
+    public int? DiscountFreeMonthsSnapshot { get; init; }
+    public decimal? OriginalAmount { get; init; }
+    public decimal? DiscountAmount { get; init; }
+    public decimal? FinalAmount { get; init; }
+    public DateTime? DiscountRedeemedAt { get; init; }
+
     public DateTime? PaidAt { get; init; }
     public DateTime? ProvisionedAt { get; init; }
     public DateTime? CancelledAt { get; init; }
@@ -95,6 +117,11 @@ public sealed class PendingSignupDetailsDto
     public DateTime? InvoicePaidAt { get; init; }
     public DateOnly? NextInvoiceDate { get; init; }
     public string? BillingNote { get; init; }
+    public decimal? CurrentBillingAmount { get; init; }
+    public string? CurrentBillingCurrency { get; init; }
+    public string? CurrentBillingCycle { get; init; }
+    public DateTime? CurrentBillingAmountUpdatedAt { get; init; }
+    public LegalAcceptanceSummaryDto? LegalAcceptance { get; init; }
 }
 
 public class CreatePendingSignupDto
@@ -134,6 +161,16 @@ public sealed class CreatePublicPendingSignupDto : CreatePendingSignupDto
     public string? BillingCycle { get; set; }
     public string? BillingStatus { get; set; }
     public DateOnly? NextInvoiceDate { get; set; }
+
+    public Guid? DiscountCodeId { get; set; }
+    public string? DiscountCodeSnapshot { get; set; }
+    public string? DiscountNameSnapshot { get; set; }
+    public string? DiscountTypeSnapshot { get; set; }
+    public decimal? DiscountValueSnapshot { get; set; }
+    public int? DiscountFreeMonthsSnapshot { get; set; }
+    public decimal? OriginalAmount { get; set; }
+    public decimal? DiscountAmount { get; set; }
+    public decimal? FinalAmount { get; set; }
 }
 
 public sealed class UpdateBillingDetailsDto
@@ -141,6 +178,9 @@ public sealed class UpdateBillingDetailsDto
     public Guid Id { get; set; }
     public DateOnly? NextInvoiceDate { get; set; }
     public string? BillingNote { get; set; }
+    public decimal? CurrentBillingAmount { get; set; }
+    public string? CurrentBillingCurrency { get; set; }
+    public string? CurrentBillingCycle { get; set; }
 }
 
 public sealed class PendingSignupStatusUpdateDto

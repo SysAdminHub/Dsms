@@ -48,6 +48,4 @@ public class DataProtectionImpactAssessment : ArchivableEntityBase, ITenantEntit
 
     public DateOnly? NextReviewAt { get; set; }
 
-    /// <summary>Nachweisdokumente, die dieser DSFA zugeordnet sind.</summary>
-    public ICollection<EvidenceDocument> Documents { get; set; } = [];
 }

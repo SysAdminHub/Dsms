@@ -145,8 +145,5 @@ public class ServiceProvider : ArchivableEntityBase, ITenantEntity
     public ICollection<ProcessingActivityServiceProvider> ProcessingActivityLinks { get; set; } = [];
 
     public ICollection<ServiceProviderTom> TomLinks { get; set; } = [];
-
-    public ICollection<EvidenceDocument> Documents { get; set; } = [];
-
 }
 

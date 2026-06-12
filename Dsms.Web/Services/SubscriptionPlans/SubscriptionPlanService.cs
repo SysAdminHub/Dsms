@@ -50,6 +50,7 @@ public sealed class SubscriptionPlanService(
                 PriceMonthly = p.PriceMonthly,
                 PriceYearly = p.PriceYearly,
                 Currency = p.Currency,
+                IsPromotionalPriceEnabled = p.IsPromotionalPriceEnabled,
                 MaxTenants = p.MaxTenants,
                 MaxAdmins = p.MaxAdmins,
                 MaxUsersPerTenant = p.MaxUsersPerTenant
@@ -168,6 +169,10 @@ public sealed class SubscriptionPlanService(
             PriceMonthly = dto.PriceMonthly,
             PriceYearly = dto.PriceYearly,
             Currency = dto.Currency.Trim().ToUpperInvariant(),
+            IsPromotionalPriceEnabled = dto.IsPromotionalPriceEnabled,
+            PromotionalMonthlyPrice = dto.PromotionalMonthlyPrice,
+            PromotionalYearlyPrice = dto.PromotionalYearlyPrice,
+            PromotionalBadgeText = NormalizeOptional(dto.PromotionalBadgeText),
             ExternalProductId = NormalizeOptional(dto.ExternalProductId),
             ExternalMonthlyPriceId = NormalizeOptional(dto.ExternalMonthlyPriceId),
             ExternalYearlyPriceId = NormalizeOptional(dto.ExternalYearlyPriceId),
@@ -232,6 +237,10 @@ public sealed class SubscriptionPlanService(
         plan.PriceMonthly = dto.PriceMonthly;
         plan.PriceYearly = dto.PriceYearly;
         plan.Currency = dto.Currency.Trim().ToUpperInvariant();
+        plan.IsPromotionalPriceEnabled = dto.IsPromotionalPriceEnabled;
+        plan.PromotionalMonthlyPrice = dto.PromotionalMonthlyPrice;
+        plan.PromotionalYearlyPrice = dto.PromotionalYearlyPrice;
+        plan.PromotionalBadgeText = NormalizeOptional(dto.PromotionalBadgeText);
         plan.ExternalProductId = NormalizeOptional(dto.ExternalProductId);
         plan.ExternalMonthlyPriceId = NormalizeOptional(dto.ExternalMonthlyPriceId);
         plan.ExternalYearlyPriceId = NormalizeOptional(dto.ExternalYearlyPriceId);
@@ -319,6 +328,30 @@ public sealed class SubscriptionPlanService(
             throw new InvalidOperationException("Preis jährlich darf nicht negativ sein.");
         }
 
+        if (dto.PromotionalMonthlyPrice is < 0)
+        {
+            throw new InvalidOperationException("Sonderpreis monatlich darf nicht negativ sein.");
+        }
+
+        if (dto.PromotionalYearlyPrice is < 0)
+        {
+            throw new InvalidOperationException("Sonderpreis jährlich darf nicht negativ sein.");
+        }
+
+        if (dto.PromotionalMonthlyPrice is decimal promoMonthly
+            && dto.PriceMonthly is decimal regularMonthly
+            && promoMonthly >= regularMonthly)
+        {
+            throw new InvalidOperationException("Sonderpreis monatlich muss kleiner als der reguläre Monatspreis sein.");
+        }
+
+        if (dto.PromotionalYearlyPrice is decimal promoYearly
+            && dto.PriceYearly is decimal regularYearly
+            && promoYearly >= regularYearly)
+        {
+            throw new InvalidOperationException("Sonderpreis jährlich muss kleiner als der reguläre Jahrespreis sein.");
+        }
+
         ValidateLimit(dto.MaxTenants, "Max. Mandanten");
         ValidateLimit(dto.MaxAdmins, "Max. Admins");
         ValidateLimit(dto.MaxUsersPerTenant, "Max. Benutzer pro Mandant");
@@ -363,6 +396,10 @@ public sealed class SubscriptionPlanService(
         PriceMonthly = plan.PriceMonthly,
         PriceYearly = plan.PriceYearly,
         Currency = plan.Currency,
+        IsPromotionalPriceEnabled = plan.IsPromotionalPriceEnabled,
+        PromotionalMonthlyPrice = plan.PromotionalMonthlyPrice,
+        PromotionalYearlyPrice = plan.PromotionalYearlyPrice,
+        PromotionalBadgeText = plan.PromotionalBadgeText,
         ExternalProductId = plan.ExternalProductId,
         ExternalMonthlyPriceId = plan.ExternalMonthlyPriceId,
         ExternalYearlyPriceId = plan.ExternalYearlyPriceId,
@@ -407,6 +444,10 @@ public sealed class SubscriptionPlanService(
         plan.PriceMonthly,
         plan.PriceYearly,
         plan.Currency,
+        plan.IsPromotionalPriceEnabled,
+        plan.PromotionalMonthlyPrice,
+        plan.PromotionalYearlyPrice,
+        plan.PromotionalBadgeText,
         plan.ExternalProductId,
         plan.ExternalMonthlyPriceId,
         plan.ExternalYearlyPriceId,

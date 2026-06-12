@@ -75,6 +75,43 @@
                 </div>
             </div>
 
+            <h5 class="mb-3">Sonderangebot</h5>
+            <p class="text-muted small">
+                Wenn ein Sonderpreis aktiv ist, wird auf der Registrierungsseite der reguläre Preis durchgestrichen und der Sonderpreis hervorgehoben angezeigt.
+                Änderungen wirken sich nicht auf bestehende Lizenzen aus.
+            </p>
+            <div class="row g-3 mb-2">
+                <div class="col-12">
+                    <div class="form-check">
+                        <InputCheckbox class="form-check-input" @bind-Value="_model.IsPromotionalPriceEnabled" id="isPromotionalPriceEnabled" />
+                        <label class="form-check-label" for="isPromotionalPriceEnabled">Sonderpreis aktiv</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Sonderpreis monatlich</label>
+                    <input type="text" class="form-control" @bind="_promotionalMonthlyText" placeholder="Optional" disabled="@(!_model.IsPromotionalPriceEnabled)" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Sonderpreis jährlich</label>
+                    <input type="text" class="form-control" @bind="_promotionalYearlyText" placeholder="Optional" disabled="@(!_model.IsPromotionalPriceEnabled)" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Badge-Text</label>
+                    <InputText class="form-control" @bind-Value="_model.PromotionalBadgeText" placeholder="z. B. Limitiertes Angebot" disabled="@(!_model.IsPromotionalPriceEnabled)" />
+                    <div class="form-text">Wird auf der Registrierungsseite als kleines Badge angezeigt.</div>
+                </div>
+            </div>
+            @if (_model.IsPromotionalPriceEnabled && !_hasAnyPromotionalPrice)
+            {
+                <div class="alert alert-warning dsms-alert small mb-4">
+                    Sonderpreis aktiv, aber kein Sonderpreis gepflegt. Die Anzeige auf der Registrierungsseite bleibt unverändert.
+                </div>
+            }
+            else
+            {
+                <div class="mb-4"></div>
+            }
+
             <h5 class="mb-3">Externe Billing-Felder</h5>
             <div class="row g-3 mb-4">
                 <div class="col-md-4">
@@ -180,6 +217,11 @@
 
     private string? _priceMonthlyText;
     private string? _priceYearlyText;
+    private string? _promotionalMonthlyText;
+    private string? _promotionalYearlyText;
+
+    private bool _hasAnyPromotionalPrice =>
+        !string.IsNullOrWhiteSpace(_promotionalMonthlyText) || !string.IsNullOrWhiteSpace(_promotionalYearlyText);
     private string? _maxTenantsText;
     private string? _maxAdminsText;
     private string? _maxStorageMbText;
@@ -217,6 +259,8 @@
                 IsPublicSignupEnabled = details.IsPublicSignupEnabled,
                 SortOrder = details.SortOrder,
                 Currency = details.Currency,
+                IsPromotionalPriceEnabled = details.IsPromotionalPriceEnabled,
+                PromotionalBadgeText = details.PromotionalBadgeText,
                 ExternalProductId = details.ExternalProductId,
                 ExternalMonthlyPriceId = details.ExternalMonthlyPriceId,
                 ExternalYearlyPriceId = details.ExternalYearlyPriceId,
@@ -225,6 +269,8 @@
 
             _priceMonthlyText = ToDecimalText(details.PriceMonthly);
             _priceYearlyText = ToDecimalText(details.PriceYearly);
+            _promotionalMonthlyText = ToDecimalText(details.PromotionalMonthlyPrice);
+            _promotionalYearlyText = ToDecimalText(details.PromotionalYearlyPrice);
             _maxTenantsText = ToText(details.MaxTenants);
             _maxAdminsText = ToText(details.MaxAdmins);
             _maxStorageMbText = ToText(details.MaxStorageMb);
@@ -266,6 +312,12 @@
         if (!TryApplyPrices(out var priceError))
         {
             _errorMessage = priceError;
+            return;
+        }
+
+        if (!TryApplyPromotionalPrices(out var promoError))
+        {
+            _errorMessage = promoError;
             return;
         }
 
@@ -329,6 +381,61 @@
 
         _model.PriceMonthly = monthly;
         _model.PriceYearly = yearly;
+        return true;
+    }
+
+    private bool TryApplyPromotionalPrices(out string? errorMessage)
+    {
+        errorMessage = null;
+
+        if (!_model.IsPromotionalPriceEnabled)
+        {
+            _model.PromotionalMonthlyPrice = null;
+            _model.PromotionalYearlyPrice = null;
+            _model.PromotionalBadgeText = null;
+            return true;
+        }
+
+        if (!TryParseNullableDecimal(_promotionalMonthlyText, out var promoMonthly, out errorMessage))
+        {
+            return false;
+        }
+
+        if (!TryParseNullableDecimal(_promotionalYearlyText, out var promoYearly, out errorMessage))
+        {
+            return false;
+        }
+
+        if (promoMonthly is < 0)
+        {
+            errorMessage = "Sonderpreis monatlich darf nicht negativ sein.";
+            return false;
+        }
+
+        if (promoYearly is < 0)
+        {
+            errorMessage = "Sonderpreis jährlich darf nicht negativ sein.";
+            return false;
+        }
+
+        if (promoMonthly is decimal monthlyPromo
+            && _model.PriceMonthly is decimal regularMonthly
+            && monthlyPromo >= regularMonthly)
+        {
+            errorMessage = "Sonderpreis monatlich muss kleiner als der reguläre Monatspreis sein.";
+            return false;
+        }
+
+        if (promoYearly is decimal yearlyPromo
+            && _model.PriceYearly is decimal regularYearly
+            && yearlyPromo >= regularYearly)
+        {
+            errorMessage = "Sonderpreis jährlich muss kleiner als der reguläre Jahrespreis sein.";
+            return false;
+        }
+
+        _model.PromotionalMonthlyPrice = promoMonthly;
+        _model.PromotionalYearlyPrice = promoYearly;
         return true;
     }
 

@@ -21,7 +21,9 @@ public class ApplicationDbContext(
 {
     public DbSet<License> Licenses => Set<License>();
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+    public DbSet<DiscountCode> DiscountCodes => Set<DiscountCode>();
     public DbSet<PendingSignup> PendingSignups => Set<PendingSignup>();
+    public DbSet<LegalAcceptance> LegalAcceptances => Set<LegalAcceptance>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<UserTenant> UserTenants => Set<UserTenant>();
     public DbSet<AuditTemplate> AuditTemplates => Set<AuditTemplate>();
@@ -30,6 +32,7 @@ public class ApplicationDbContext(
     public DbSet<AuditAnswer> AuditAnswers => Set<AuditAnswer>();
     public DbSet<Measure> Measures => Set<Measure>();
     public DbSet<EvidenceDocument> EvidenceDocuments => Set<EvidenceDocument>();
+    public DbSet<DocumentLink> DocumentLinks => Set<DocumentLink>();
     public DbSet<ProcessingActivity> ProcessingActivities => Set<ProcessingActivity>();
     public DbSet<Tom> Toms => Set<Tom>();
     public DbSet<ProcessingActivityTom> ProcessingActivityToms => Set<ProcessingActivityTom>();
@@ -104,9 +107,37 @@ public class ApplicationDbContext(
             e.Property(p => p.SortOrder).HasDefaultValue(0);
             e.Property(p => p.PriceMonthly).HasPrecision(18, 2);
             e.Property(p => p.PriceYearly).HasPrecision(18, 2);
+            e.Property(p => p.IsPromotionalPriceEnabled).HasDefaultValue(false);
+            e.Property(p => p.PromotionalMonthlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.PromotionalYearlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.PromotionalBadgeText).HasMaxLength(100);
             e.HasIndex(p => p.Name).IsUnique();
             e.HasIndex(p => p.IsActive);
             e.HasIndex(p => p.SortOrder);
+        });
+
+        builder.Entity<DiscountCode>(e =>
+        {
+            e.ToTable("DiscountCodes");
+            e.HasKey(d => d.Id);
+            e.Property(d => d.Code).HasMaxLength(64).IsRequired();
+            e.Property(d => d.Name).HasMaxLength(200).IsRequired();
+            e.Property(d => d.Description).HasColumnType("text");
+            e.Property(d => d.InternalNote).HasColumnType("text");
+            e.Property(d => d.AppliesToBillingCycle).HasMaxLength(20);
+            e.Property(d => d.PercentageValue).HasPrecision(5, 2);
+            e.Property(d => d.FixedAmountValue).HasPrecision(18, 2);
+            e.Property(d => d.IsActive).HasDefaultValue(true);
+            e.Property(d => d.CurrentRedemptions).HasDefaultValue(0);
+            e.Property(d => d.CreatedByUserId).HasMaxLength(450);
+            e.Property(d => d.UpdatedByUserId).HasMaxLength(450);
+            e.HasIndex(d => d.Code).IsUnique();
+            e.HasIndex(d => d.IsActive);
+            e.HasIndex(d => d.AppliesToPlanId);
+            e.HasOne(d => d.AppliesToPlan)
+                .WithMany()
+                .HasForeignKey(d => d.AppliesToPlanId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<PendingSignup>(e =>
@@ -135,6 +166,13 @@ public class ApplicationDbContext(
             e.Property(p => p.PlanPriceMonthlySnapshot).HasPrecision(18, 2);
             e.Property(p => p.PlanPriceYearlySnapshot).HasPrecision(18, 2);
             e.Property(p => p.Amount).HasPrecision(18, 2);
+            e.Property(p => p.DiscountCodeSnapshot).HasMaxLength(64);
+            e.Property(p => p.DiscountNameSnapshot).HasMaxLength(200);
+            e.Property(p => p.DiscountTypeSnapshot).HasMaxLength(50);
+            e.Property(p => p.DiscountValueSnapshot).HasPrecision(18, 2);
+            e.Property(p => p.OriginalAmount).HasPrecision(18, 2);
+            e.Property(p => p.DiscountAmount).HasPrecision(18, 2);
+            e.Property(p => p.FinalAmount).HasPrecision(18, 2);
             e.Property(p => p.ProvisionedLicenseNumber).HasMaxLength(50);
             e.Property(p => p.ProvisionedTenantName).HasMaxLength(200);
             e.Property(p => p.ProvisionedAdminUserId).HasMaxLength(450);
@@ -153,6 +191,10 @@ public class ApplicationDbContext(
             e.Property(p => p.BillingCycle).HasMaxLength(20);
             e.Property(p => p.BillingStatus).HasMaxLength(50);
             e.Property(p => p.BillingNote).HasColumnType("text");
+            e.Property(p => p.CurrentBillingAmount).HasPrecision(18, 2);
+            e.Property(p => p.CurrentBillingCurrency).HasMaxLength(10);
+            e.Property(p => p.CurrentBillingCycle).HasMaxLength(20);
+            e.Property(p => p.CurrentBillingAmountUpdatedByUserId).HasMaxLength(450);
             e.Property(p => p.Status).HasDefaultValue(PendingSignupStatuses.Draft);
             e.HasIndex(p => p.CreatedAt);
             e.HasIndex(p => p.Status);
@@ -162,6 +204,33 @@ public class ApplicationDbContext(
             e.HasIndex(p => p.ExternalPaymentId);
             e.HasIndex(p => p.ProvisionedLicenseId);
             e.HasIndex(p => p.ExpiresAt);
+        });
+
+        builder.Entity<LegalAcceptance>(e =>
+        {
+            e.ToTable("LegalAcceptances");
+            e.HasKey(l => l.Id);
+            e.Property(l => l.UserId).HasMaxLength(450).IsRequired();
+            e.Property(l => l.LegalVersion).HasMaxLength(32).IsRequired();
+            e.Property(l => l.EffectiveDate).HasMaxLength(32).IsRequired();
+            e.Property(l => l.AnonymizedIpAddress).HasMaxLength(45);
+            e.Property(l => l.UserAgent).HasMaxLength(512);
+            e.Property(l => l.SignupEmail).HasMaxLength(255);
+            e.Property(l => l.TenantNameSnapshot).HasMaxLength(200);
+            e.Property(l => l.CompanyNameSnapshot).HasMaxLength(200);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => l.UserId);
+            e.HasIndex(l => l.LegalVersion);
+            e.HasIndex(l => new { l.TenantId, l.LegalVersion });
+            e.HasIndex(l => l.PendingSignupId);
+            e.HasOne(l => l.Tenant)
+                .WithMany()
+                .HasForeignKey(l => l.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.User)
+                .WithMany()
+                .HasForeignKey(l => l.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<ApplicationUser>(e =>
@@ -182,6 +251,9 @@ public class ApplicationDbContext(
             e.Property(t => t.HouseNumber).HasMaxLength(20);
             e.Property(t => t.PostalCode).HasMaxLength(20);
             e.Property(t => t.City).HasMaxLength(100);
+            e.Property(t => t.Country).HasMaxLength(100);
+            e.Property(t => t.ContactName).HasMaxLength(200);
+            e.Property(t => t.VatId).HasMaxLength(50);
             e.Property(t => t.Phone).HasMaxLength(50);
             e.Property(t => t.Email).HasMaxLength(255);
             e.Property(t => t.Website).HasMaxLength(500);
@@ -259,15 +331,19 @@ public class ApplicationDbContext(
             e.Property(d => d.StoragePath).HasMaxLength(500).IsRequired();
             e.Property(d => d.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(d => d.Tenant).WithMany(t => t.Documents).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(d => d.AuditRun).WithMany(r => r.Documents).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(d => d.Measure).WithMany(m => m.Documents).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(d => d.ServiceProvider).WithMany(sp => sp.Documents).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(d => d.ProcessingActivity).WithMany(p => p.Documents).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(d => d.DataProtectionImpactAssessment).WithMany(dpia => dpia.Documents).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(d => d.PrivacyIncident).WithMany(i => i.Documents).OnDelete(DeleteBehavior.SetNull);
-            e.HasIndex(d => new { d.TenantId, d.ProcessingActivityId });
-            e.HasIndex(d => new { d.TenantId, d.DataProtectionImpactAssessmentId });
-            e.HasIndex(d => new { d.TenantId, d.PrivacyIncidentId });
+        });
+
+        builder.Entity<DocumentLink>(e =>
+        {
+            e.ToTable("DocumentLinks");
+            e.Property(l => l.CreatedByUserId).HasMaxLength(450);
+            e.HasOne(l => l.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.Document).WithMany(d => d.Links).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => l.DocumentId);
+            e.HasIndex(l => new { l.LinkedEntityType, l.LinkedEntityId });
+            e.HasIndex(l => new { l.TenantId, l.LinkedEntityType, l.LinkedEntityId });
+            e.HasIndex(l => new { l.TenantId, l.DocumentId, l.LinkedEntityType, l.LinkedEntityId }).IsUnique();
         });
 
         builder.Entity<PrivacyIncident>(e =>
@@ -696,6 +772,10 @@ public class ApplicationDbContext(
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 
         builder.Entity<PrivacyIncidentTom>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<DocumentLink>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
     }

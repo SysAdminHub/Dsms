@@ -332,21 +332,75 @@ public static class DatabaseSeeder
 
     private static async Task EnsureDemoDocumentAsync(ApplicationDbContext db, Tenant tenant)
     {
-        if (await db.EvidenceDocuments
-                .IgnoreQueryFilters()
-                .AnyAsync(d => d.TenantId == tenant.Id && d.FileName == "demo-nachweis.pdf"))
+        var document = await db.EvidenceDocuments
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(d => d.TenantId == tenant.Id && d.FileName == "demo-nachweis.pdf");
+
+        if (document is null)
         {
-            return;
+            document = new EvidenceDocument
+            {
+                TenantId = tenant.Id,
+                FileName = "demo-nachweis.pdf",
+                StoragePath = $"demo/{tenant.Id}/demo-nachweis.pdf",
+                FileSizeBytes = 5 * 1024 * 1024,
+                ContentType = "application/pdf"
+            };
+            db.EvidenceDocuments.Add(document);
+            await db.SaveChangesAsync();
         }
 
-        db.EvidenceDocuments.Add(new EvidenceDocument
+        await EnsureDemoDocumentLinksAsync(db, tenant, document.Id);
+    }
+
+    private static async Task EnsureDemoDocumentLinksAsync(ApplicationDbContext db, Tenant tenant, int documentId)
+    {
+        var measure = await db.Measures
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.TenantId == tenant.Id && m.Title == "Verarbeitungsverzeichnis aktualisieren");
+
+        var auditRun = await db.AuditRuns
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.TenantId == tenant.Id && r.Title == "Audit Q1 2026");
+
+        var tom = await db.Toms
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.TenantId == tenant.Id && t.Title == "Rollenbasierte Zugriffskontrolle auf HR-Systeme");
+
+        var processingActivity = await db.ProcessingActivities
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(p => p.TenantId == tenant.Id && p.Name == "Personalverwaltung");
+
+        var targets = new List<(DocumentLinkedEntityType Type, int EntityId)>();
+        if (measure is not null) targets.Add((DocumentLinkedEntityType.Measure, measure.Id));
+        if (auditRun is not null) targets.Add((DocumentLinkedEntityType.AuditRun, auditRun.Id));
+        if (tom is not null) targets.Add((DocumentLinkedEntityType.Tom, tom.Id));
+        if (processingActivity is not null) targets.Add((DocumentLinkedEntityType.ProcessingActivity, processingActivity.Id));
+
+        foreach (var (type, entityId) in targets)
         {
-            TenantId = tenant.Id,
-            FileName = "demo-nachweis.pdf",
-            StoragePath = $"demo/{tenant.Id}/demo-nachweis.pdf",
-            FileSizeBytes = 5 * 1024 * 1024,
-            ContentType = "application/pdf"
-        });
+            var exists = await db.DocumentLinks
+                .IgnoreQueryFilters()
+                .AnyAsync(l => l.TenantId == tenant.Id
+                    && l.DocumentId == documentId
+                    && l.LinkedEntityType == type
+                    && l.LinkedEntityId == entityId);
+
+            if (exists)
+            {
+                continue;
+            }
+
+            db.DocumentLinks.Add(new DocumentLink
+            {
+                TenantId = tenant.Id,
+                DocumentId = documentId,
+                LinkedEntityType = type,
+                LinkedEntityId = entityId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
         await db.SaveChangesAsync();
     }
 

@@ -64,6 +64,22 @@ else
             </div>
 
             <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Sonderangebot</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Sonderpreis aktiv</dt>
+                        <dd class="col-sm-7">@(_plan.IsPromotionalPriceEnabled ? "Ja" : "Nein")</dd>
+                        <dt class="col-sm-5">Sonderpreis monatlich</dt>
+                        <dd class="col-sm-7">@SubscriptionPlanDisplayHelper.FormatPromotionalMonthlyPriceForDetails(_plan.PromotionalMonthlyPrice, _plan.Currency)</dd>
+                        <dt class="col-sm-5">Sonderpreis jährlich</dt>
+                        <dd class="col-sm-7">@SubscriptionPlanDisplayHelper.FormatPromotionalYearlyPriceForDetails(_plan.PromotionalYearlyPrice, _plan.Currency)</dd>
+                        <dt class="col-sm-5">Badge-Text</dt>
+                        <dd class="col-sm-7">@(_plan.PromotionalBadgeText ?? "—")</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
                 <div class="dsms-card-header"><strong>Externe Billing-Felder</strong></div>
                 <div class="dsms-card-body">
                     <dl class="row mb-0">

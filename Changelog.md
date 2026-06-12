@@ -4,6 +4,75 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- **Rechtliche Zustimmung bei Registrierung (Schritt 2):** Drei Pflicht-Checkboxen auf `/signup` … Migrationen `AddLegalAcceptances`, `RenameLegalAcceptanceIpToAnonymized`.
+
+- **Legal-Dokumente (Schritt 3):** PDF-Generierung (QuestPDF) für alle Legal-Dokumente, Download-Button auf `/legal/*` und Endpoint `/legal/{route}/pdf`. Registrierungs-Bestätigungsmail mit PDF-Anhängen (AGB, Datenschutz, kombiniertes AVV/TOM/Unterauftragnehmer-Paket). E-Mail-Vorlage `SignupLegalConfirmation`.
+
+- **Registrierungen:** Editierbare aktuelle Abrechnungsdaten für Superuser (aktuell gültiger Betrag, Währung, Abrechnungszeitraum). Der historische Plan-Snapshot bleibt unverändert. Migration `AddPendingSignupCurrentBillingAmount`.
+
+- **Öffentliche Registrierung / Provisioning:** Rabattcodes werden beim erfolgreichen Public-Signup-Provisioning final eingelöst. Nach erfolgreicher Provisionierung wird der Nutzungszähler erhöht und die Einlösung protokolliert (`DiscountCodeRedeemed`). Migration `AddPendingSignupDiscountRedemptionFields`.
+
+- **Öffentliche Registrierung / Provisioning:** Rabattcodes vom Typ „Kostenlose Monate“ setzen beim Provisioning die Lizenzlaufzeit auf die konfigurierte kostenlose Laufzeit und verschieben das nächste Rechnungsdatum entsprechend.
+
+- **Öffentliche Registrierung:** Rabattcode-Feld ergänzt. Rabattcodes werden serverseitig gegen Plan, Abrechnung, Gültigkeit und Nutzungslimit geprüft und in der Preisvorschau berücksichtigt.
+
+- **PendingSignup:** Speichert angewendete Rabattinformationen als Snapshot für spätere Rechnung und Provisioning. Migration `AddPendingSignupDiscountFields`.
+
+- **Rabattcodes:** Rabattcode-Grundmodell für SaaS-Aktionen ergänzt: Superuser können Rabattcodes mit Typ, Wert, Planbindung, Gültigkeit und Nutzungslimit im Plattformbereich verwalten. Noch keine Anwendung in der öffentlichen Registrierung. Migration `AddDiscountCodes`.
+
+- **Tarif-/Planverwaltung:** Optionale Sonderpreise für monatliche und jährliche Preise ergänzt. Pläne können ein frei editierbares Angebots-Badge anzeigen, z. B. „Limitiertes Angebot“. Migration `AddSubscriptionPlanPromotionalPrices`.
+
+### Geändert
+
+- **Dokumentenverknüpfungen:** Many-to-Many über neue Tabelle `DocumentLinks` statt einzelner FK-Felder auf `EvidenceDocument`. Auswahlmodal mit Checkboxen, Suche und TOM-Unterstützung. Migration `AddDocumentLinksManyToMany` (idempotent für teilweise angewendete DB-Stände). Upload und Bearbeiten mit je einem Auswahl-Modal pro Bezugstyp.
+
+- **Registrierungsdetails (Superuser):** Trennung von Plan-Snapshot, Signup-Betrag/Rabatt und aktueller Abrechnungsbasis. Bei kostenlosen Startmonaten ist der spätere aktuell gültige Folgepreis sichtbar und editierbar.
+
+- **Interne Signup-Benachrichtigung:** Enthält nun Informationen zu verwendeten Rabattcodes, Rabattbetrag, finalem Betrag, kostenlosen Monaten und aktuell gültigem Folgepreis.
+
+- **Registrierungsdetails (Superuser):** Kostenpflichtige Pläne mit kostenlosen Monaten werden transparenter dargestellt: statt dauerhaft „Kostenlos“ werden „Heute zu zahlen“, kostenlose Laufzeit, nächste Rechnung und Folgeabrechnung angezeigt.
+
+- **Öffentliche Registrierung / Provisioning:** Public Signup berücksichtigt gespeicherte Rabatt-Snapshots konsistent. Prozent- und Betragsrabatte behalten die berechneten Finalbeträge; kostenlose Monate werden erst beim erfolgreichen Provisioning final angewendet.
+
+- **Öffentliche Registrierung:** Preisvorschau für Rabattcodes mit kostenlosen Monaten transparenter dargestellt. Neben „Heute zu zahlen“ werden kostenlose Laufzeit und die anschließende Monats- bzw. Jahresrechnung angezeigt.
+
+- **Öffentliche Registrierung:** Public Signup berücksichtigt bei der Betragsermittlung aktive Sonderpreise und angewendete Rabattcodes. Der finale Betrag wird als effektiver Signup-Betrag gespeichert.
+
+- **Öffentliche Registrierung:** Sonderpreis-Ribbon auf Tarifkarten optisch vergrößert und mit auffälligerem Aktionsstil hervorgehoben.
+
+- **Öffentliche Registrierung:** Angebots-Badge für aktive Sonderpreise wird jetzt als schräges Ribbon auf der Tarifkarte dargestellt.
+
+- **Öffentliche Registrierung:** Tarifkarten zeigen aktive Sonderpreise mit durchgestrichenem regulärem Preis, hervorgehobenem Sonderpreis und Angebots-Badge an. Der effektive Registrierungspreis berücksichtigt aktive Sonderpreise.
+
+- **Audit-Durchläufe:** Starten automatisch beim ersten Speichern einer Auditantwort – Status wird auf „Laufend“ gesetzt und `StartedAt` einmalig gesetzt (`AuditRunLifecycle`).
+
+- **Dashboard:** „Erste Schritte“-Box startet nun immer eingeklappt und wird nicht mehr dauerhaft über localStorage geöffnet gehalten.
+
+- **Dashboard (UX):** Dashboard weiter beruhigt: redundante obere Kurzkennzahlen-Zeile entfernt, da die Informationen bereits in den Donut-Kacheln enthalten sind. „Erste Schritte“-Box unter die Dashboard-Kacheln verschoben, auf Desktop kompakter dargestellt und bei vollständig erledigter Einrichtung standardmäßig eingeklappt.
+
+### Hinzugefügt
+
+- **Audit-Durchläufe:** Beim Abschließen wird `CompletedAt` gesetzt (Button „Audit abschließen“ und manueller Statuswechsel); fehlendes `StartedAt` wird beim Abschluss nachgezogen. Antwortseite und Liste zeigen Start- und Abschlussdatum.
+
+- **Audit-Durchläufe:** Audit-Durchläufe können als „Abgeschlossen“ markiert werden (`AuditRunStatus.Completed` im Bearbeiten-Formular und Button „Audit abschließen“ auf der Antwortseite); Listen-, Detail- und Dashboard-Anzeige berücksichtigen den Abschlussstatus mit deutschen Labels (`AuditRunLabels`).
+
+### Behoben
+
+- **Feedback-Modal:** Overlay-/Z-Index-Problem behoben, sodass Dashboard-Donut-Charts und andere Seiteninhalte nicht mehr über dem Feedback-Dialog liegen. Das Modal wird nun im MainLayout gerendert (außerhalb der Sidebar) und nutzt erhöhte z-index-Werte.
+
+- **Öffentliche Registrierung / Provisioning:** Rabattcodes werden nicht mehr nur anhand der Preisvorschau betrachtet, sondern vor der Provisionierung erneut serverseitig validiert. Einlösung und `CurrentRedemptions` erfolgen erst nach erfolgreichem Provisioning.
+
+- **Archivansicht Audit-Durchläufe:** Archivierte Audit-Durchläufe werden wieder zuverlässig im Archiv angezeigt. Ursache war ein `Include` auf `AuditTemplate`, dessen Global Query Filter in der Archivansicht nur archivierte Vorlagen zulässt – mandantensichere Abfrage mit `IgnoreQueryFilters()` und separater Vorlagen-Titel-Auflösung wie bei DSFA.
+
+- **Dashboard:** Von vielen einzelnen Kennzahlenkarten auf kompakte Donut-Kacheln je Fachbereich umgestellt. Donut-Kacheln zeigen Gesamtzahl, Statusgruppen (Kritisch/Hinweis/Gut/Neutral), Legende mit Detailkennzahlen und Mouseover-Informationen. Kennzahlen werden weiterhin mandantensicher über den `DashboardService` geladen. Kurzzeile mit wichtigsten Alarmen (offene Maßnahmen, Vorfälle, überfällige Prüfungen) ergänzt. „Erste Schritte“-Box und Listen für offene Maßnahmen/Audits bleiben erhalten.
+
+### Hinzugefügt
+
+- **Dashboard-Kennzahlen:** Fehlende Zähler für Statusgruppen ergänzt – u. a. TOMs umgesetzt, Maßnahmen gesamt, überfällige Maßnahmen, Vorfälle gesamt, abgeschlossene Vorfälle, Audits gesamt, abgeschlossene Audits sowie mutually exclusive Statusgruppen-Zählungen je Fachbereich.
+- **Dashboard-Komponenten:** Wiederverwendbare Blazor-Komponente `DonutDashboardCard` mit SVG-Donut-Diagramm; DTOs `DashboardDonutSegment`, `DashboardLegendItem`, `DashboardStatusGroupCounts`.
+
 ### Geändert
 
 - **Datenschutzvorfälle – Maßnahmen-UI:** Abschnitt „Maßnahmen / Abschluss“ mit Freitextfeldern (Sofort-/Abhilfe-/Präventionsmaßnahmen, Abschlusszusammenfassung, Abgeschlossen am) aus Bearbeitungs- und Detailseite entfernt. Maßnahmen werden nur noch über verknüpfte Maßnahmen im Modul Maßnahmen dokumentiert. Datenbankfelder bleiben erhalten; PageHelp-Standardtext angepasst.

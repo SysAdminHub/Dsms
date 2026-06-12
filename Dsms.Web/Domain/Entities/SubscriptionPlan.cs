@@ -26,6 +26,15 @@ public class SubscriptionPlan
     public decimal? PriceYearly { get; set; }
     public string Currency { get; set; } = "EUR";
 
+    /// <summary>
+    /// Wenn true, werden auf der Registrierungsseite optionale Sonderpreise angezeigt.
+    /// Änderungen wirken sich nicht auf bestehende Lizenzen aus.
+    /// </summary>
+    public bool IsPromotionalPriceEnabled { get; set; }
+    public decimal? PromotionalMonthlyPrice { get; set; }
+    public decimal? PromotionalYearlyPrice { get; set; }
+    public string? PromotionalBadgeText { get; set; }
+
     public string? ExternalProductId { get; set; }
     public string? ExternalMonthlyPriceId { get; set; }
     public string? ExternalYearlyPriceId { get; set; }

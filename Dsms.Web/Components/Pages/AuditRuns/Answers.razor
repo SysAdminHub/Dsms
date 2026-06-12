@@ -14,9 +14,25 @@
 }
 else
 {
-    <PageHeader Title="@_run.Title" Subtitle="@($"{GetSubtitlePrefix()}Vorlage: {GetTemplateDisplayTitle()} · Status: {_run.Status}")">
-        <a class="btn btn-outline-secondary" href="audit-runs">Zurück</a>
+    <PageHeader Title="@_run.Title" Subtitle="@GetPageSubtitle()">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            @if (_canComplete && !_run.IsArchived && _run.Status != AuditRunStatus.Completed)
+            {
+                <button type="button"
+                        class="btn btn-success"
+                        disabled="@_completing"
+                        @onclick="CompleteAuditAsync">
+                    Audit abschließen
+                </button>
+            }
+            <a class="btn btn-outline-secondary" href="audit-runs">Zurück</a>
+        </div>
     </PageHeader>
+
+    @if (_canComplete && !_run.IsArchived && _run.Status != AuditRunStatus.Completed)
+    {
+        <p class="text-muted small mb-3">Bitte prüfen Sie vor dem Abschließen, ob alle Auditfragen bearbeitet wurden.</p>
+    }
 
     @if (!_canEdit)
     {
@@ -109,6 +125,8 @@ else
 
     private int? _tenantId;
     private bool _canEdit;
+    private bool _canComplete;
+    private bool _completing;
     private AuditRun? _run;
     private List<AuditAnswer> _answers = [];
     private Dictionary<int, int> _measureCountsByAnswerId = [];
@@ -119,10 +137,10 @@ else
         if (_tenantId is null) return;
 
         _canEdit = await UserAccess.CanEditTenantOperationalContentAsync();
+        _canComplete = await UserAccess.CanEditComplianceContentAsync();
 
         _run = await Db.AuditRuns
             .Include(r => r.AuditTemplate)
-            .Include(r => r.Documents)
             .FirstOrDefaultAsync(r => r.Id == Id && r.TenantId == _tenantId);
 
         if (_run is null) return;
@@ -152,25 +170,96 @@ else
             .ToDictionaryAsync(x => x.AnswerId, x => x.Count);
     }
 
+    private async Task CompleteAuditAsync()
+    {
+        if (!await UserAccess.CanEditComplianceContentAsync() || _run is null)
+        {
+            return;
+        }
+
+        if (_run.IsArchived || _run.Status == AuditRunStatus.Completed)
+        {
+            return;
+        }
+
+        _completing = true;
+
+        try
+        {
+            if (!AuditRunLifecycle.ApplyComplete(_run))
+            {
+                return;
+            }
+
+            await Db.SaveChangesAsync();
+
+            if (_tenantId is int tenantId)
+            {
+                await ComplianceAuditLog.LogAuditCompletedAsync(_run.Id, _run.Title, tenantId);
+            }
+        }
+        finally
+        {
+            _completing = false;
+        }
+    }
+
     private async Task SaveAnswerAsync(AuditAnswer answer)
     {
-        if (!await UserAccess.CanEditTenantOperationalContentAsync())
+        if (!await UserAccess.CanEditTenantOperationalContentAsync() || _run is null)
+        {
+            return;
+        }
+
+        if (_run.IsArchived || _run.Status == AuditRunStatus.Completed)
         {
             return;
         }
 
         answer.AnsweredAt = DateTime.UtcNow;
         answer.UpdatedAt = DateTime.UtcNow;
+
+        var started = AuditRunLifecycle.ApplyStartOnAnswerSave(_run);
         await Db.SaveChangesAsync();
 
-        if (_run is not null && _tenantId is int tenantId)
+        if (_tenantId is int tenantId)
         {
+            if (started)
+            {
+                await ComplianceAuditLog.LogAuditStartedAsync(_run.Id, _run.Title, tenantId);
+            }
+
             await ComplianceAuditLog.LogAuditAnswerUpdatedAsync(
                 _run.Id, _run.Title, answer.Id, tenantId);
         }
     }
 
     private string GetSubtitlePrefix() => _canEdit ? "" : "Lesemodus · ";
+
+    private string GetPageSubtitle()
+    {
+        if (_run is null)
+        {
+            return string.Empty;
+        }
+
+        var parts = new List<string>
+        {
+            $"{GetSubtitlePrefix()}Vorlage: {GetTemplateDisplayTitle()}",
+            $"Status: {AuditRunLabels.GetStatusLabel(_run.Status)}",
+            $"Gestartet: {FormatAuditDate(_run.StartedAt)}"
+        };
+
+        if (_run.CompletedAt is not null)
+        {
+            parts.Add($"Abgeschlossen: {FormatAuditDate(_run.CompletedAt)}");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    private static string FormatAuditDate(DateTime? value) =>
+        value?.ToLocalTime().ToString("g") ?? "—";
 
     private string GetTemplateDisplayTitle()
     {

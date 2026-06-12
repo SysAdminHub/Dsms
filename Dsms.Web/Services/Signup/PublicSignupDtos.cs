@@ -1,3 +1,5 @@
+using Dsms.Web.Domain.Enums;
+
 namespace Dsms.Web.Services.Signup;
 
 public sealed class PublicSignupPlanDto
@@ -10,6 +12,12 @@ public sealed class PublicSignupPlanDto
     public decimal? PriceMonthly { get; init; }
     public decimal? PriceYearly { get; init; }
     public string Currency { get; init; } = "EUR";
+    public decimal? EffectiveMonthlyPrice { get; init; }
+    public decimal? EffectiveYearlyPrice { get; init; }
+    public bool IsPromotionalPriceEnabled { get; init; }
+    public decimal? PromotionalMonthlyPrice { get; init; }
+    public decimal? PromotionalYearlyPrice { get; init; }
+    public string? PromotionalBadgeText { get; init; }
     public int SortOrder { get; init; }
 
     public int? MaxTenants { get; init; }
@@ -30,9 +38,17 @@ public sealed class PublicSignupFormDto
     public string? CustomerEmail { get; set; }
     public string TenantName { get; set; } = string.Empty;
     public string? TenantLegalName { get; set; }
+    public string TenantStreet { get; set; } = string.Empty;
+    public string TenantPostalCode { get; set; } = string.Empty;
+    public string TenantCity { get; set; } = string.Empty;
+    public string TenantCountry { get; set; } = "Deutschland";
+    public string? TenantPhone { get; set; }
+    public string? TenantVatId { get; set; }
     public string AdminDisplayName { get; set; } = string.Empty;
     public string AdminEmail { get; set; } = string.Empty;
-    public bool AcceptTerms { get; set; }
+    public bool AcceptAgb { get; set; }
+    public bool AcceptPrivacyPolicy { get; set; }
+    public bool AcceptDataProcessingAgreement { get; set; }
 
     public string BillingCompanyName { get; set; } = string.Empty;
     public string BillingEmail { get; set; } = string.Empty;
@@ -48,6 +64,16 @@ public sealed class PublicSignupFormDto
 
     /// <summary>Abrechnungszeitraum bei kostenpflichtigen Plänen (<see cref="BillingCycles"/>).</summary>
     public string? BillingCycle { get; set; }
+
+    public string? DiscountCodeInput { get; set; }
+    public Guid? AppliedDiscountCodeId { get; set; }
+    public string? AppliedDiscountCode { get; set; }
+    public string? AppliedDiscountName { get; set; }
+    public DiscountCodeType? AppliedDiscountType { get; set; }
+    public string? AppliedDiscountDisplayText { get; set; }
+    public decimal? OriginalAmount { get; set; }
+    public decimal? DiscountAmount { get; set; }
+    public decimal? FinalAmount { get; set; }
 }
 
 public sealed class PublicSignupSubmitResult

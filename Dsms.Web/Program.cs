@@ -14,18 +14,24 @@ using Dsms.Web.Services.PendingSignups;
 using Dsms.Web.Services.Provisioning;
 using Dsms.Web.Services.Signup;
 using Dsms.Web.Services.SubscriptionPlans;
+using Dsms.Web.Services.DiscountCodes;
 using Dsms.Web.Services.UpgradeRequests;
 using Dsms.Web.Services.Feedback;
 using Dsms.Web.Services.Tenants;
 using Dsms.Web.Services.Logging;
 using Dsms.Web.Services.Onboarding;
 using Dsms.Web.Services.PageHelp;
+using Dsms.Web.Services.Legal;
+using Dsms.Web.Services.Privacy;
 using Microsoft.AspNetCore.Components.Authorization;
+using QuestPDF.Infrastructure;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.Configure<AppBrandingOptions>(
     builder.Configuration.GetSection(AppBrandingOptions.SectionName));
@@ -87,13 +93,22 @@ builder.Services.AddScoped<IPlanToLicenseService, PlanToLicenseService>();
 builder.Services.AddScoped<IProvisioningService, ProvisioningService>();
 builder.Services.AddScoped<IPublicSignupService, PublicSignupService>();
 builder.Services.AddScoped<ISignupNotificationService, SignupNotificationService>();
+builder.Services.AddScoped<ISignupLegalEmailService, SignupLegalEmailService>();
 builder.Services.AddScoped<IUpgradeRequestService, UpgradeRequestService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
+builder.Services.AddScoped<FeedbackModalState>();
 builder.Services.AddScoped<IPaidSignupService, PaidSignupService>();
 builder.Services.AddScoped<IPendingSignupService, PendingSignupService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
+builder.Services.AddScoped<IDiscountCodeService, DiscountCodeService>();
+builder.Services.AddScoped<IDiscountCodeValidationService, DiscountCodeValidationService>();
 builder.Services.AddScoped<ITenantManagementService, TenantManagementService>();
 builder.Services.AddScoped<ITenantComplianceInfoService, TenantComplianceInfoService>();
+builder.Services.AddScoped<ILegalDocumentService, LegalDocumentService>();
+builder.Services.AddScoped<ILegalPdfService, LegalPdfService>();
+builder.Services.AddScoped<ILegalAcceptanceService, LegalAcceptanceService>();
+builder.Services.AddScoped<IIpAnonymizationService, IpAnonymizationService>();
+builder.Services.AddScoped<ILegalPlaceholderService, LegalPlaceholderService>();
 builder.Services.AddScoped<ILogService, LogService>();
 builder.Services.AddScoped<ILogQueryService, LogQueryService>();
 builder.Services.AddScoped<ILicenseCreateGuard, LicenseCreateGuard>();
@@ -197,6 +212,7 @@ app.MapPost("/tenant/switch", async (
 app.MapAdditionalIdentityEndpoints();
 app.MapDocumentFileEndpoints();
 app.MapTenantDataEndpoints();
+app.MapLegalDocumentEndpoints();
 
 await DatabaseSeeder.SeedAsync(app.Services);
 

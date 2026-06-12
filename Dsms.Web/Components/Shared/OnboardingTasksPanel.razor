@@ -1,11 +1,9 @@
 @*
     Einklappbare „Erste Schritte“-Checkliste auf dem Dashboard (mandantenbezogen).
+    Startet immer eingeklappt; Zustand wird nicht in localStorage persistiert.
 *@
-@implements IAsyncDisposable
-@inject ITenantOnboardingService OnboardingService
-@inject IJSRuntime JS
 
-<div class="dsms-card dsms-onboarding-card">
+<div class="dsms-card dsms-onboarding-card dsms-dashboard-onboarding-compact">
     <div class="dsms-onboarding-header @(_expanded ? "dsms-onboarding-header--expanded" : "dsms-onboarding-header--collapsed")">
         <div class="dsms-onboarding-header-main">
             <div class="dsms-onboarding-title">Erste Schritte</div>
@@ -18,7 +16,7 @@
             <span class="dsms-onboarding-badge" aria-label="Fortschritt">@CompletedCount/@_tasks.Count erledigt</span>
             <button type="button"
                     class="btn btn-link btn-sm dsms-onboarding-toggle"
-                    @onclick="ToggleExpandedAsync"
+                    @onclick="ToggleExpanded"
                     aria-expanded="@_expanded"
                     aria-controls="onboarding-tasks-content"
                     title="@(_expanded ? "Einklappen" : "Ausklappen")">
@@ -85,9 +83,10 @@
         ["documents"] = "Verträge, Nachweise und Datenschutzdokumente ablegen."
     };
 
-    private IJSObjectReference? _storageModule;
+    [Inject] private ITenantOnboardingService OnboardingService { get; set; } = null!;
+
     private List<TenantOnboardingTask> _tasks = [];
-    private bool _expanded = true;
+    private bool _expanded;
     private int? _busyTaskId;
 
     private int CompletedCount => _tasks.Count(t => t.IsCompleted);
@@ -98,44 +97,10 @@
         _tasks = (await OnboardingService.GetTasksForCurrentTenantAsync()).ToList();
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        try
-        {
-            _storageModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/onboarding-storage.js");
-            _expanded = !await _storageModule.InvokeAsync<bool>("getCollapsed");
-            StateHasChanged();
-        }
-        catch
-        {
-            // Fallback: sitzungsbezogen, Standard ist ausgeklappt
-        }
-    }
-
     private static string GetShortDescription(string key) =>
         ShortDescriptions.TryGetValue(key, out var text) ? text : string.Empty;
 
-    private async Task ToggleExpandedAsync()
-    {
-        _expanded = !_expanded;
-
-        if (_storageModule is not null)
-        {
-            try
-            {
-                await _storageModule.InvokeVoidAsync("setCollapsed", !_expanded);
-            }
-            catch
-            {
-                // Ignorieren – Zustand gilt nur für diese Sitzung
-            }
-        }
-    }
+    private void ToggleExpanded() => _expanded = !_expanded;
 
     private async Task OnTaskToggleAsync(TenantOnboardingTask task, ChangeEventArgs e)
     {
@@ -159,21 +124,6 @@
         finally
         {
             _busyTaskId = null;
-        }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (_storageModule is not null)
-        {
-            try
-            {
-                await _storageModule.DisposeAsync();
-            }
-            catch(Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
         }
     }
 }

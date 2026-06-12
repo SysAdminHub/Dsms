@@ -238,9 +238,11 @@ else
             .Select(l => l.ServiceProviderId)
             .ToListAsync()).ToHashSet();
 
-        _selectedDocumentIds = (await Db.EvidenceDocuments
-            .Where(d => d.TenantId == _tenantId && d.ProcessingActivityId == Id)
-            .Select(d => d.Id)
+        _selectedDocumentIds = (await Db.DocumentLinks
+            .Where(l => l.TenantId == _tenantId
+                && l.LinkedEntityType == DocumentLinkedEntityType.ProcessingActivity
+                && l.LinkedEntityId == Id)
+            .Select(l => l.DocumentId)
             .ToListAsync()).ToHashSet();
 
         _selectedMeasureIds = (await Db.ProcessingActivityMeasures

@@ -39,6 +39,15 @@ public sealed class TenantSaveModel
     [MaxLength(100)]
     public string? City { get; set; }
 
+    [MaxLength(100)]
+    public string? Country { get; set; }
+
+    [MaxLength(200)]
+    public string? ContactName { get; set; }
+
+    [MaxLength(50)]
+    public string? VatId { get; set; }
+
     [MaxLength(50)]
     public string? Phone { get; set; }
 
@@ -76,11 +85,15 @@ public sealed class TenantSaveModel
 public sealed class TenantComplianceInfoDto
 {
     public string TenantName { get; init; } = string.Empty;
+    public DateTime ContractDateUtc { get; init; }
     public string? LegalName { get; init; }
     public string? Street { get; init; }
     public string? HouseNumber { get; init; }
     public string? PostalCode { get; init; }
     public string? City { get; init; }
+    public string? Country { get; init; }
+    public string? ContactName { get; init; }
+    public string? VatId { get; init; }
     public string? Phone { get; init; }
     public string? Email { get; init; }
     public string? Website { get; init; }
@@ -109,6 +122,15 @@ public sealed class TenantComplianceInfoSaveModel
 
     [MaxLength(100)]
     public string? City { get; set; }
+
+    [MaxLength(100)]
+    public string? Country { get; set; }
+
+    [MaxLength(200)]
+    public string? ContactName { get; set; }
+
+    [MaxLength(50)]
+    public string? VatId { get; set; }
 
     [MaxLength(50)]
     public string? Phone { get; set; }

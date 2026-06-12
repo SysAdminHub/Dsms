@@ -29,20 +29,21 @@
     }
     else
     {
-        @if (!string.IsNullOrEmpty(_errorMessage))
-        {
-            <div class="dsms-signup-alert-wrap">
-                <div class="alert alert-danger dsms-alert mb-0">@_errorMessage</div>
-            </div>
-        }
-
         <h2 class="dsms-signup-plans-heading">Tarif auswählen</h2>
 
         <div class="dsms-signup-plan-row">
             @foreach (var plan in _publicPlans)
             {
                 var selected = _model.SelectedPlanId == plan.Id;
-                <div class="dsms-signup-plan-card @(selected ? "dsms-signup-plan-card--selected" : "")">
+                var showPromoRibbon = ShowsPromotionalBadge(plan);
+                var promoRibbonText = showPromoRibbon ? GetPromotionalBadgeText(plan) : null;
+                <div class="dsms-signup-plan-card dsms-plan-card @(selected ? "dsms-signup-plan-card--selected" : "") @(showPromoRibbon ? "dsms-plan-card-has-ribbon" : "")">
+                    @if (showPromoRibbon)
+                    {
+                        <div class="dsms-plan-promo-ribbon" title="@promoRibbonText">
+                            <span class="dsms-plan-promo-ribbon-text">@promoRibbonText</span>
+                        </div>
+                    }
                     <div class="dsms-signup-plan-card__header">
                         <strong class="dsms-signup-plan-card__title">@plan.DisplayName</strong>
                         <div class="dsms-signup-plan-card__badges">
@@ -63,8 +64,36 @@
                     }
 
                     <div class="dsms-signup-plan-card__prices">
-                        <p><strong>Monatlich:</strong> @FormatMonthlyPrice(plan)</p>
-                        <p><strong>Jährlich:</strong> @FormatYearlyPrice(plan)</p>
+                        <p class="dsms-plan-price-row">
+                            <strong>Monatlich:</strong>
+                            @if (ShowsPromotionalMonthly(plan))
+                            {
+                                @if (plan.PriceMonthly.HasValue)
+                                {
+                                    <span class="dsms-plan-price-original">@FormatPriceAmount(plan.PriceMonthly, plan.Currency)</span>
+                                }
+                                <span class="dsms-plan-price-promotional">@FormatPromotionalMonthlyPrice(plan)</span>
+                            }
+                            else
+                            {
+                                <span>@FormatMonthlyPrice(plan)</span>
+                            }
+                        </p>
+                        <p class="dsms-plan-price-row">
+                            <strong>Jährlich:</strong>
+                            @if (ShowsPromotionalYearly(plan))
+                            {
+                                @if (plan.PriceYearly.HasValue)
+                                {
+                                    <span class="dsms-plan-price-original">@FormatPriceAmount(plan.PriceYearly, plan.Currency)</span>
+                                }
+                                <span class="dsms-plan-price-promotional">@FormatPromotionalYearlyPrice(plan)</span>
+                            }
+                            else
+                            {
+                                <span>@FormatYearlyPrice(plan)</span>
+                            }
+                        </p>
                     </div>
 
                     @if (!plan.IsFree)
@@ -129,9 +158,39 @@
                         <label class="form-label">Unternehmensname *</label>
                         <InputText class="form-control" @bind-Value="_model.CustomerName" />
                     </div>
-                    <div class="mb-4">
+                    <div class="mb-3">
                         <label class="form-label">E-Mail-Adresse des Unternehmens</label>
                         <InputText class="form-control" @bind-Value="_model.CustomerEmail" placeholder="Optional – sonst Admin-E-Mail" />
+                    </div>
+
+                    <h5 class="mb-3 mt-2">Unternehmensadresse</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Straße und Hausnummer *</label>
+                        <InputText class="form-control" @bind-Value="_model.TenantStreet" />
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Postleitzahl *</label>
+                            <InputText class="form-control" @bind-Value="_model.TenantPostalCode" />
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Ort *</label>
+                            <InputText class="form-control" @bind-Value="_model.TenantCity" />
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Land *</label>
+                            <InputText class="form-control" @bind-Value="_model.TenantCountry" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Telefonnummer</label>
+                            <InputText class="form-control" @bind-Value="_model.TenantPhone" />
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">Umsatzsteuer-ID</label>
+                        <InputText class="form-control" @bind-Value="_model.TenantVatId" />
                     </div>
 
                     <h5 class="mb-3">Erster Mandant</h5>
@@ -146,7 +205,7 @@
 
                     <h5 class="mb-3">Administrator</h5>
                     <div class="mb-3">
-                        <label class="form-label">Name des Administrators *</label>
+                        <label class="form-label">Name des Administrators / Ansprechpartner *</label>
                         <InputText class="form-control" @bind-Value="_model.AdminDisplayName" />
                     </div>
                     <div class="mb-4">
@@ -160,13 +219,13 @@
                         <p class="text-muted small mb-3">
                             Wählen Sie, ob die Rechnung monatlich oder jährlich gestellt werden soll.
                         </p>
-                        <InputRadioGroup @bind-Value="_model.BillingCycle" Name="billingCycle" class="mb-4">
+                        <InputRadioGroup @bind-Value="_model.BillingCycle" @bind-Value:after="OnBillingContextChanged" Name="billingCycle" class="mb-4">
                             @if (selectedPlan.PriceMonthly.HasValue)
                             {
                                 <div class="form-check mb-2">
                                     <InputRadio class="form-check-input" Value="@BillingCycles.Monthly" id="billingMonthly" />
                                     <label class="form-check-label" for="billingMonthly">
-                                        Monatlich – @FormatMonthlyPrice(selectedPlan)
+                                        Monatlich – @FormatBillingCycleMonthlyLabel(selectedPlan)
                                     </label>
                                 </div>
                             }
@@ -175,11 +234,99 @@
                                 <div class="form-check mb-2">
                                     <InputRadio class="form-check-input" Value="@BillingCycles.Yearly" id="billingYearly" />
                                     <label class="form-check-label" for="billingYearly">
-                                        Jährlich – @FormatYearlyPrice(selectedPlan)
+                                        Jährlich – @FormatBillingCycleYearlyLabel(selectedPlan)
                                     </label>
                                 </div>
                             }
                         </InputRadioGroup>
+
+                        <h5 class="mb-2 mt-2">Rabattcode</h5>
+                        <div class="row g-2 align-items-end mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label">Rabattcode</label>
+                                <InputText class="form-control" @bind-Value="_model.DiscountCodeInput" placeholder="z. B. IHK20" style="text-transform: uppercase;" disabled="@_discountApplying" />
+                            </div>
+                            <div class="col-md-4 d-flex gap-2">
+                                <button type="button" class="btn btn-outline-primary flex-grow-1" disabled="@(_discountApplying || _submitting)" @onclick="ApplyDiscountCodeAsync">Code anwenden</button>
+                                @if (_appliedDiscount?.IsApplied == true)
+                                {
+                                    <button type="button" class="btn btn-outline-secondary" disabled="@(_discountApplying || _submitting)" @onclick="RemoveDiscountCodeAsync">Entfernen</button>
+                                }
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_discountMessage))
+                        {
+                            <div class="alert @(_discountIsSuccess ? "alert-success" : "alert-danger") dsms-alert small mb-3">@_discountMessage</div>
+                        }
+
+                        @if (_appliedDiscount?.IsApplied == true)
+                        {
+                            <div class="dsms-signup-price-preview mb-4">
+                                <h6 class="dsms-signup-price-preview__title">Preisvorschau</h6>
+                                <dl class="dsms-signup-price-preview__list mb-0">
+                                    <div class="dsms-signup-price-preview__row">
+                                        <dt>Tarif</dt>
+                                        <dd>@selectedPlan.DisplayName</dd>
+                                    </div>
+                                    <div class="dsms-signup-price-preview__row">
+                                        <dt>Abrechnung</dt>
+                                        <dd>@BillingCycleDisplayHelper.GetDisplayName(_model.BillingCycle)</dd>
+                                    </div>
+                                    @{
+                                        var regularPrice = PublicSignupPricingHelper.GetRegularPrice(selectedPlan, _model.BillingCycle);
+                                        var effectivePrice = PublicSignupPricingHelper.GetEffectivePrice(selectedPlan, _model.BillingCycle);
+                                        var showsPromo = PublicSignupPricingHelper.HasPromotionalPriceForCycle(selectedPlan, _model.BillingCycle);
+                                    }
+                                    @if (regularPrice.HasValue)
+                                    {
+                                        <div class="dsms-signup-price-preview__row">
+                                            <dt>Regulärer Preis</dt>
+                                            <dd>@FormatPriceAmount(regularPrice, selectedPlan.Currency)</dd>
+                                        </div>
+                                    }
+                                    @if (showsPromo && effectivePrice.HasValue)
+                                    {
+                                        <div class="dsms-signup-price-preview__row">
+                                            <dt>Sonderpreis</dt>
+                                            <dd>@FormatPriceAmount(effectivePrice, selectedPlan.Currency)</dd>
+                                        </div>
+                                    }
+                                    @if (_appliedDiscount.DiscountType == DiscountCodeType.FreeMonths)
+                                    {
+                                        <div class="dsms-signup-price-preview__row">
+                                            <dt>Rabatt @_appliedDiscount.Code</dt>
+                                            <dd>@_appliedDiscount.DisplayText</dd>
+                                        </div>
+                                        <div class="dsms-signup-price-preview__row dsms-signup-price-preview__row--final">
+                                            <dt>Heute zu zahlen</dt>
+                                            <dd><strong>@FormatPriceAmount(_appliedDiscount.FinalAmount, selectedPlan.Currency)</strong></dd>
+                                        </div>
+                                        <div class="dsms-signup-price-preview__row">
+                                            <dt>Kostenlose Laufzeit</dt>
+                                            <dd>@FormatFreeMonthsRuntime(_appliedDiscount.FreeMonths)</dd>
+                                        </div>
+                                        <div class="dsms-signup-price-preview__row dsms-signup-price-preview__row--after-free">
+                                            <dt>Danach</dt>
+                                            <dd>@FormatAfterFreeMonthsLabel(_model.BillingCycle, _appliedDiscount.FreeMonths, effectivePrice, selectedPlan.Currency)</dd>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        @if (_appliedDiscount.DiscountAmount > 0)
+                                        {
+                                            <div class="dsms-signup-price-preview__row">
+                                                <dt>Rabatt @_appliedDiscount.Code</dt>
+                                                <dd class="text-danger">-@FormatPriceAmount(_appliedDiscount.DiscountAmount, selectedPlan.Currency)</dd>
+                                            </div>
+                                        }
+                                        <div class="dsms-signup-price-preview__row dsms-signup-price-preview__row--final">
+                                            <dt>Zu zahlen</dt>
+                                            <dd><strong>@FormatPriceAmount(_appliedDiscount.FinalAmount, selectedPlan.Currency)</strong></dd>
+                                        </div>
+                                    }
+                                </dl>
+                            </div>
+                        }
 
                         <h5 class="mb-2 mt-2">Rechnungsdaten</h5>
                         <p class="text-muted small mb-3">
@@ -221,15 +368,56 @@
                         </div>
                     }
 
-                    <div class="form-check mb-4">
-                        <InputCheckbox class="form-check-input" @bind-Value="_model.AcceptTerms" id="acceptTerms" />
-                        <label class="form-check-label" for="acceptTerms">
-                            Ich akzeptiere die <a href="#" @onclick="PreventLink" @onclick:preventDefault>Nutzungsbedingungen</a>
-                            und <a href="#" @onclick="PreventLink" @onclick:preventDefault>Datenschutzhinweise</a>.
-                        </label>
+                    <div class="dsms-signup-legal-consent mb-3">
+                        <h5 class="mb-3">Rechtliche Zustimmung</h5>
+                        <div class="form-check mb-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.AcceptAgb" id="acceptAgb" />
+                            <label class="form-check-label" for="acceptAgb">
+                                Ich akzeptiere die <a href="/legal/agb" target="_blank" rel="noopener noreferrer">AGB / SaaS-Nutzungsbedingungen</a>.
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.AcceptPrivacyPolicy" id="acceptPrivacyPolicy" />
+                            <label class="form-check-label" for="acceptPrivacyPolicy">
+                                Ich habe die <a href="/legal/datenschutz" target="_blank" rel="noopener noreferrer">Datenschutzerklärung</a> zur Kenntnis genommen.
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.AcceptDataProcessingAgreement" id="acceptDpa" />
+                            <label class="form-check-label" for="acceptDpa">
+                                Ich akzeptiere den <a href="/legal/avv" target="_blank" rel="noopener noreferrer">Auftragsverarbeitungsvertrag</a>
+                                einschließlich <a href="/legal/tom" target="_blank" rel="noopener noreferrer">TOM-Anlage</a>
+                                und <a href="/legal/unterauftragnehmer" target="_blank" rel="noopener noreferrer">Unterauftragnehmerliste</a>.
+                            </label>
+                        </div>
                     </div>
 
-                    <button type="submit" class="w-100 btn btn-primary btn-lg" disabled="@_submitting">
+                    @if (!string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <div id="signup-validation-summary"
+                             class="dsms-signup-validation-summary alert alert-danger dsms-alert"
+                             role="alert"
+                             aria-live="polite">
+                            @{
+                                var summaryMessages = GetSubmitErrorMessages();
+                            }
+                            @if (summaryMessages.Count > 1)
+                            {
+                                <ul class="dsms-signup-validation-summary__list mb-0">
+                                    @foreach (var message in summaryMessages)
+                                    {
+                                        <li>@message</li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <span>@summaryMessages[0]</span>
+                            }
+                        </div>
+                    }
+
+                    <button type="submit" class="w-100 btn btn-primary btn-lg mt-2" disabled="@_submitting">
                         @GetSubmitButtonText(selectedPlan.IsFree)
                     </button>
                 </EditForm>
@@ -249,12 +437,46 @@
 
     [Inject] private IPublicSignupService PublicSignupService { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private IJSRuntime Js { get; set; } = null!;
+
+    private const string LegalErrorAgb = "Bitte akzeptieren Sie die AGB / SaaS-Nutzungsbedingungen.";
+    private const string LegalErrorPrivacy = "Bitte bestätigen Sie, dass Sie die Datenschutzerklärung zur Kenntnis genommen haben.";
+    private const string LegalErrorDpa = "Bitte akzeptieren Sie den Auftragsverarbeitungsvertrag einschließlich TOM-Anlage und Unterauftragnehmerliste.";
 
     private List<PublicSignupPlanDto> _publicPlans = [];
-    private PublicSignupFormDto _model = new();
+    private PublicSignupFormDto _model = new() { TenantCountry = "Deutschland" };
     private bool _loading = true;
     private bool _submitting;
+    private bool _discountApplying;
+    private bool _scrollToErrors;
     private string? _errorMessage;
+    private string? _discountMessage;
+    private bool _discountIsSuccess;
+    private DiscountCodeValidationResult? _appliedDiscount;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_scrollToErrors)
+        {
+            return;
+        }
+
+        _scrollToErrors = false;
+        try
+        {
+            await Js.InvokeVoidAsync(
+                "eval",
+                "document.getElementById('signup-validation-summary')?.scrollIntoView({behavior:'smooth',block:'nearest'})");
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit disconnected – kein Scroll nötig.
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering – Scroll erst nach interaktivem Render.
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -306,7 +528,99 @@
 
         _model.SelectedPlanId = planId;
         _errorMessage = null;
+        ClearDiscountState();
         MaybeApplyBillingDefaults();
+    }
+
+    private void OnBillingContextChanged()
+    {
+        ClearDiscountState();
+    }
+
+    private async Task ApplyDiscountCodeAsync()
+    {
+        if (_submitting || _model.SelectedPlanId == Guid.Empty)
+        {
+            return;
+        }
+
+        _discountApplying = true;
+        _discountMessage = null;
+        _discountIsSuccess = false;
+        StateHasChanged();
+
+        try
+        {
+            var result = await PublicSignupService.ValidateDiscountCodeAsync(
+                _model.DiscountCodeInput,
+                _model.SelectedPlanId,
+                _model.BillingCycle);
+
+            if (!result.IsValid)
+            {
+                _appliedDiscount = null;
+                ClearAppliedDiscountOnModel();
+                _discountMessage = result.ErrorMessage;
+                _discountIsSuccess = false;
+                return;
+            }
+
+            if (!result.IsApplied)
+            {
+                _appliedDiscount = null;
+                ClearAppliedDiscountOnModel();
+                _discountMessage = null;
+                return;
+            }
+
+            _appliedDiscount = result;
+            ApplyDiscountToModel(result);
+            _discountMessage = result.SuccessMessage;
+            _discountIsSuccess = true;
+        }
+        finally
+        {
+            _discountApplying = false;
+        }
+    }
+
+    private void RemoveDiscountCodeAsync()
+    {
+        ClearDiscountState();
+    }
+
+    private void ClearDiscountState()
+    {
+        _appliedDiscount = null;
+        _discountMessage = null;
+        _discountIsSuccess = false;
+        _model.DiscountCodeInput = null;
+        ClearAppliedDiscountOnModel();
+    }
+
+    private void ApplyDiscountToModel(DiscountCodeValidationResult result)
+    {
+        _model.AppliedDiscountCodeId = result.DiscountCodeId;
+        _model.AppliedDiscountCode = result.Code;
+        _model.AppliedDiscountName = result.Name;
+        _model.AppliedDiscountType = result.DiscountType;
+        _model.AppliedDiscountDisplayText = result.DisplayText;
+        _model.OriginalAmount = result.OriginalAmount;
+        _model.DiscountAmount = result.DiscountAmount;
+        _model.FinalAmount = result.FinalAmount;
+        _model.DiscountCodeInput = result.Code;
+    }
+
+    private void ClearAppliedDiscountOnModel()
+    {
+        _model.AppliedDiscountCodeId = null;
+        _model.AppliedDiscountCode = null;
+        _model.AppliedDiscountName = null;
+        _model.AppliedDiscountType = null;
+        _model.AppliedDiscountDisplayText = null;
+        _model.OriginalAmount = null;
+        _model.DiscountAmount = null;
+        _model.FinalAmount = null;
     }
 
     private void MaybeApplyBillingDefaults()
@@ -320,6 +634,7 @@
         if (plan.IsFree)
         {
             _model.BillingCycle = null;
+            ClearDiscountState();
             return;
         }
 
@@ -329,6 +644,36 @@
             && !string.IsNullOrWhiteSpace(_model.CustomerName))
         {
             _model.BillingCompanyName = _model.CustomerName.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.TenantStreet)
+            && !string.IsNullOrWhiteSpace(_model.BillingStreet))
+        {
+            _model.TenantStreet = _model.BillingStreet.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.TenantPostalCode)
+            && !string.IsNullOrWhiteSpace(_model.BillingPostalCode))
+        {
+            _model.TenantPostalCode = _model.BillingPostalCode.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.TenantCity)
+            && !string.IsNullOrWhiteSpace(_model.BillingCity))
+        {
+            _model.TenantCity = _model.BillingCity.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.TenantCountry)
+            && !string.IsNullOrWhiteSpace(_model.BillingCountry))
+        {
+            _model.TenantCountry = _model.BillingCountry.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.TenantVatId)
+            && !string.IsNullOrWhiteSpace(_model.BillingVatId))
+        {
+            _model.TenantVatId = _model.BillingVatId.Trim();
         }
 
         if (string.IsNullOrWhiteSpace(_model.BillingEmail))
@@ -362,6 +707,7 @@
             if (_model.SelectedPlanId == Guid.Empty)
             {
                 _errorMessage = "Bitte wählen Sie einen Tarif aus.";
+                _scrollToErrors = true;
             }
 
             return;
@@ -377,6 +723,7 @@
             if (!result.Success)
             {
                 _errorMessage = result.ErrorMessage;
+                _scrollToErrors = true;
                 return;
             }
 
@@ -401,6 +748,35 @@
         return isFreePlan ? "Kostenlos registrieren" : "Zugang erstellen";
     }
 
+    private IReadOnlyList<string> GetSubmitErrorMessages()
+    {
+        if (string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            return [];
+        }
+
+        var messages = new List<string>();
+        var remaining = _errorMessage;
+
+        foreach (var legalMessage in new[] { LegalErrorAgb, LegalErrorPrivacy, LegalErrorDpa })
+        {
+            if (!remaining.Contains(legalMessage, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            messages.Add(legalMessage);
+            remaining = remaining.Replace(legalMessage, string.Empty, StringComparison.Ordinal).Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(remaining))
+        {
+            messages.Add(remaining.Trim());
+        }
+
+        return messages.Count > 0 ? messages : [_errorMessage];
+    }
+
     private static string FormatCount(int? value) =>
         SubscriptionPlanDisplayHelper.FormatLimit(value);
 
@@ -413,8 +789,82 @@
     private static string FormatYearlyPrice(PublicSignupPlanDto plan) =>
         SubscriptionPlanDisplayHelper.FormatYearlyPrice(plan.PriceYearly, plan.Currency, plan.IsFree);
 
-    private static void PreventLink()
+    private static string FormatPriceAmount(decimal? price, string currency) =>
+        SubscriptionPlanDisplayHelper.FormatPriceAmount(price, currency);
+
+    private static string FormatPromotionalMonthlyPrice(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.FormatPromotionalMonthlyPrice(plan.PromotionalMonthlyPrice, plan.Currency);
+
+    private static string FormatPromotionalYearlyPrice(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.FormatPromotionalYearlyPrice(plan.PromotionalYearlyPrice, plan.Currency);
+
+    private static bool ShowsPromotionalMonthly(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.ShowsPromotionalMonthly(
+            plan.IsFree, plan.IsPromotionalPriceEnabled, plan.PromotionalMonthlyPrice);
+
+    private static bool ShowsPromotionalYearly(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.ShowsPromotionalYearly(
+            plan.IsFree, plan.IsPromotionalPriceEnabled, plan.PromotionalYearlyPrice);
+
+    private static bool ShowsPromotionalBadge(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.ShowsPromotionalBadge(
+            plan.IsFree,
+            plan.IsPromotionalPriceEnabled,
+            plan.PromotionalMonthlyPrice,
+            plan.PromotionalYearlyPrice);
+
+    private static string GetPromotionalBadgeText(PublicSignupPlanDto plan) =>
+        SubscriptionPlanDisplayHelper.GetPromotionalBadgeText(plan.PromotionalBadgeText);
+
+    private static string FormatBillingCycleMonthlyLabel(PublicSignupPlanDto plan)
     {
-        // Platzhalter bis echte Links vorhanden sind.
+        if (ShowsPromotionalMonthly(plan))
+        {
+            return FormatPromotionalMonthlyPrice(plan);
+        }
+
+        return FormatMonthlyPrice(plan);
+    }
+
+    private static string FormatBillingCycleYearlyLabel(PublicSignupPlanDto plan)
+    {
+        if (ShowsPromotionalYearly(plan))
+        {
+            return FormatPromotionalYearlyPrice(plan);
+        }
+
+        return FormatYearlyPrice(plan);
+    }
+
+    private static string FormatFreeMonthsRuntime(int? freeMonths) =>
+        freeMonths.HasValue
+            ? $"{freeMonths.Value} Monat{(freeMonths.Value == 1 ? "" : "e")}"
+            : "—";
+
+    private static string FormatAfterFreeMonthsLabel(
+        string? billingCycle,
+        int? freeMonths,
+        decimal? effectivePrice,
+        string currency)
+    {
+        if (!freeMonths.HasValue || !effectivePrice.HasValue)
+        {
+            return "—";
+        }
+
+        var startMonth = freeMonths.Value + 1;
+        var amount = FormatPriceAmount(effectivePrice, currency);
+
+        if (string.Equals(billingCycle, BillingCycles.Yearly, StringComparison.OrdinalIgnoreCase))
+        {
+            return $"Jahresrechnung ab Monat {startMonth}: {amount} / Jahr";
+        }
+
+        if (string.Equals(billingCycle, BillingCycles.Monthly, StringComparison.OrdinalIgnoreCase))
+        {
+            return $"Monatsrechnung ab Monat {startMonth}: {amount} / Monat";
+        }
+
+        return $"Reguläre Rechnung ab Monat {startMonth}: {amount}";
     }
 }

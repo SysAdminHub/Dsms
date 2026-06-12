@@ -1,0 +1,77 @@
+@* Kompakte Bezugsauswahl mit je einem Button und Modal pro Bezugstyp. *@
+
+<div class="dsms-document-link-picker">
+    <div class="fw-semibold mb-2">Bezüge</div>
+    <div class="row g-2">
+        @foreach (var type in DocumentLinkLabels.UiTypes)
+        {
+            var typeLabel = DocumentLinkLabels.GetTypeLabelPlural(type);
+            var status = DocumentLinkLabels.FormatTypeSelectionStatus(type, SelectedItems);
+            var detailItems = SelectedItems.Where(i => i.EntityType == type).Select(i => i.DisplayName).ToList();
+            <div class="col-md-6">
+                <div class="dsms-document-link-picker-row d-flex flex-column flex-sm-row align-items-sm-center gap-2 p-2 border rounded">
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary text-start flex-shrink-0"
+                            @onclick="() => OpenTypeModalAsync(type)">
+                        @DocumentLinkLabels.GetSelectButtonLabel(type)
+                    </button>
+                    <div class="small text-muted flex-grow-1">
+                        <span class="fw-medium text-body">@typeLabel:</span>
+                        @if (detailItems.Count > 1)
+                        {
+                            <span title="@string.Join(", ", detailItems)">@status</span>
+                        }
+                        else
+                        {
+                            <span>@status</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<DocumentLinkTypeSelectionModal @ref="_typeModal" OnApplied="OnTypeAppliedAsync" />
+
+@code {
+    [Parameter, EditorRequired] public int TenantId { get; set; }
+    [Parameter] public IList<DocumentLinkSelectionViewModel> SelectedItems { get; set; } = [];
+    [Parameter] public EventCallback<IList<DocumentLinkSelectionViewModel>> SelectedItemsChanged { get; set; }
+
+    private DocumentLinkTypeSelectionModal? _typeModal;
+    private DocumentLinkedEntityType _activeType;
+
+    private async Task OpenTypeModalAsync(DocumentLinkedEntityType type)
+    {
+        if (_typeModal is null)
+        {
+            return;
+        }
+
+        _activeType = type;
+        var allLinks = SelectedItems
+            .Select(i => new DocumentLinkTarget(i.EntityType, i.EntityId))
+            .ToList();
+
+        await _typeModal.ShowAsync(type, allLinks);
+    }
+
+    private async Task OnTypeAppliedAsync(IReadOnlyList<DocumentLinkSelectionViewModel> typeSelection)
+    {
+        var others = SelectedItems.Where(i => i.EntityType != _activeType).ToList();
+        var merged = others
+            .Concat(typeSelection)
+            .OrderBy(i => DocumentLinkLabels.GetTypeSortOrder(i.EntityType))
+            .ThenBy(i => i.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        SelectedItems.Clear();
+        foreach (var item in merged)
+        {
+            SelectedItems.Add(item);
+        }
+
+        await SelectedItemsChanged.InvokeAsync(SelectedItems);
+    }
+}

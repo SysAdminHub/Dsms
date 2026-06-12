@@ -49,6 +49,15 @@ public interface IUserAccessService
     /// <summary>Bestehende Datenschutzvorfälle bearbeiten: Superuser, Admin und User; nicht Auditor.</summary>
     Task<bool> CanEditPrivacyIncidentsAsync();
 
+    /// <summary>Neue Betroffenenanfragen anlegen: Superuser und Admin; nicht User/Auditor.</summary>
+    Task<bool> CanCreateDataSubjectRequestsAsync();
+
+    /// <summary>Bestehende Betroffenenanfragen bearbeiten: Superuser, Admin und User; nicht Auditor.</summary>
+    Task<bool> CanEditDataSubjectRequestsAsync();
+
+    /// <summary>Falldaten anonymisieren: nur Superuser und Admin.</summary>
+    Task<bool> CanAnonymizeDataSubjectRequestsAsync();
+
     /// <summary>True, wenn die Rolle Superuser ist (plattformweit, kein Mandant erforderlich).</summary>
     static bool RoleRequiresNoTenant(string role) => role == Domain.DsmsRoles.Superuser;
 }

@@ -52,6 +52,10 @@ public class ApplicationDbContext(
     public DbSet<PrivacyIncidentServiceProvider> PrivacyIncidentServiceProviders => Set<PrivacyIncidentServiceProvider>();
     public DbSet<PrivacyIncidentMeasure> PrivacyIncidentMeasures => Set<PrivacyIncidentMeasure>();
     public DbSet<PrivacyIncidentTom> PrivacyIncidentToms => Set<PrivacyIncidentTom>();
+    public DbSet<DataSubjectRequest> DataSubjectRequests => Set<DataSubjectRequest>();
+    public DbSet<DataSubjectRequestProcessingActivity> DataSubjectRequestProcessingActivities => Set<DataSubjectRequestProcessingActivity>();
+    public DbSet<DataSubjectRequestMeasure> DataSubjectRequestMeasures => Set<DataSubjectRequestMeasure>();
+    public DbSet<DataSubjectRequestServiceProvider> DataSubjectRequestServiceProviders => Set<DataSubjectRequestServiceProvider>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -446,6 +450,92 @@ public class ApplicationDbContext(
             e.HasIndex(l => new { l.PrivacyIncidentId, l.TomId }).IsUnique();
         });
 
+        builder.Entity<DataSubjectRequest>(e =>
+        {
+            e.ToTable("DataSubjectRequests");
+            e.Property(r => r.DataSubjectName).HasMaxLength(200);
+            e.Property(r => r.DataSubjectEmail).HasMaxLength(320);
+            e.Property(r => r.DataSubjectPhone).HasMaxLength(50);
+            e.Property(r => r.DataSubjectReference).HasMaxLength(200);
+            e.Property(r => r.ContactChannel).HasMaxLength(200);
+            e.Property(r => r.Description).HasColumnType("text");
+            e.Property(r => r.ResultSummary).HasColumnType("text");
+            e.Property(r => r.InternalNotes).HasColumnType("text");
+            e.Property(r => r.IdentityVerificationNote).HasColumnType("text");
+            e.Property(r => r.DeadlineExtensionReason).HasColumnType("text");
+            e.Property(r => r.AnonymizationNote).HasColumnType("text");
+            e.Property(r => r.AssignedUserId).HasMaxLength(450);
+            e.Property(r => r.CreatedByUserId).HasMaxLength(450);
+            e.Property(r => r.UpdatedByUserId).HasMaxLength(450);
+            e.Property(r => r.PersonalDataAnonymizedByUserId).HasMaxLength(450);
+            e.Property(r => r.ArchivedByUserId).HasMaxLength(450);
+            e.HasOne(r => r.Tenant).WithMany(t => t.DataSubjectRequests).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(r => r.TenantId);
+            e.HasIndex(r => r.Status);
+            e.HasIndex(r => r.RequestType);
+            e.HasIndex(r => r.DueAt);
+            e.HasIndex(r => r.PersonalDataAnonymized);
+            e.HasIndex(r => new { r.TenantId, r.Status });
+            e.HasIndex(r => new { r.TenantId, r.DueAt });
+        });
+
+        builder.Entity<DataSubjectRequestProcessingActivity>(e =>
+        {
+            e.ToTable("DataSubjectRequestProcessingActivities");
+            e.HasOne(l => l.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.DataSubjectRequest)
+                .WithMany(r => r.ProcessingActivityLinks)
+                .HasForeignKey(l => l.DataSubjectRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(l => l.ProcessingActivity)
+                .WithMany()
+                .HasForeignKey(l => l.ProcessingActivityId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.Property(l => l.CreatedByUserId).HasMaxLength(450);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => l.DataSubjectRequestId);
+            e.HasIndex(l => l.ProcessingActivityId);
+            e.HasIndex(l => new { l.DataSubjectRequestId, l.ProcessingActivityId }).IsUnique();
+        });
+
+        builder.Entity<DataSubjectRequestMeasure>(e =>
+        {
+            e.ToTable("DataSubjectRequestMeasures");
+            e.HasOne(l => l.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.DataSubjectRequest)
+                .WithMany(r => r.MeasureLinks)
+                .HasForeignKey(l => l.DataSubjectRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(l => l.Measure)
+                .WithMany()
+                .HasForeignKey(l => l.MeasureId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.Property(l => l.CreatedByUserId).HasMaxLength(450);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => l.DataSubjectRequestId);
+            e.HasIndex(l => l.MeasureId);
+            e.HasIndex(l => new { l.DataSubjectRequestId, l.MeasureId }).IsUnique();
+        });
+
+        builder.Entity<DataSubjectRequestServiceProvider>(e =>
+        {
+            e.ToTable("DataSubjectRequestServiceProviders");
+            e.HasOne(l => l.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.DataSubjectRequest)
+                .WithMany(r => r.ServiceProviderLinks)
+                .HasForeignKey(l => l.DataSubjectRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(l => l.ServiceProvider)
+                .WithMany()
+                .HasForeignKey(l => l.ServiceProviderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.Property(l => l.CreatedByUserId).HasMaxLength(450);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => l.DataSubjectRequestId);
+            e.HasIndex(l => l.ServiceProviderId);
+            e.HasIndex(l => new { l.DataSubjectRequestId, l.ServiceProviderId }).IsUnique();
+        });
+
         // Verzeichnis von Verarbeitungstätigkeiten (VVT) – mandantenbezogen, kein Kaskaden-Löschen des Mandanten.
         // Lange Textfelder als MySQL TEXT (nicht VARCHAR), sonst überschreitet die Zeile das Limit von 65535 Bytes bei utf8mb4.
         builder.Entity<ProcessingActivity>(e =>
@@ -734,6 +824,7 @@ public class ApplicationDbContext(
         ApplyArchivableTenantFilter<ServiceProviderEntity>(builder);
         ApplyArchivableTenantFilter<DataProtectionImpactAssessment>(builder);
         ApplyArchivableTenantFilter<PrivacyIncident>(builder);
+        ApplyArchivableTenantFilter<DataSubjectRequest>(builder);
 
         builder.Entity<ProcessingActivityTom>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
@@ -772,6 +863,18 @@ public class ApplicationDbContext(
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 
         builder.Entity<PrivacyIncidentTom>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<DataSubjectRequestProcessingActivity>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<DataSubjectRequestMeasure>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<DataSubjectRequestServiceProvider>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 

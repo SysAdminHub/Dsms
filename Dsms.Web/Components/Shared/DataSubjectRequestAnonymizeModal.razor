@@ -1,0 +1,125 @@
+@* Bestätigungsdialog zur endgültigen Anonymisierung von Betroffenenanfragen. *@
+@if (_visible)
+{
+    <div class="modal fade show d-block dsms-anonymize-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Falldaten endgültig anonymisieren</h5>
+                    <button type="button" class="btn-close" @onclick="Cancel" disabled="@_processing"></button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        Diese Aktion anonymisiert personenbezogene Falldaten dieser Betroffenenanfrage endgültig.
+                        Die ursprünglichen Werte werden nicht gespeichert und können nicht wiederhergestellt werden.
+                    </p>
+                    <p class="text-muted">
+                        Bitte prüfen Sie vorher, ob verknüpfte Dokumente personenbezogene Daten enthalten
+                        und separat gelöscht oder ersetzt werden müssen.
+                    </p>
+
+                    @if (_linkedDocuments.Count > 0)
+                    {
+                        <div class="alert alert-warning dsms-alert">
+                            <strong>Verknüpfte Dokumente – separat prüfen:</strong>
+                            <ul class="mb-0 mt-2">
+                                @foreach (var doc in _linkedDocuments)
+                                {
+                                    <li>@doc.FileName</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Optionaler neutraler Hinweis</label>
+                        <InputTextArea class="form-control" @bind-Value="_anonymizationNote" rows="2"
+                                       placeholder="z. B. Anonymisierung nach Abschluss des Vorgangs" />
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <InputCheckbox class="form-check-input" @bind-Value="_confirmed" id="anonymize-confirm" />
+                        <label class="form-check-label" for="anonymize-confirm">
+                            Ich verstehe, dass diese Aktion endgültig ist und nicht rückgängig gemacht werden kann.
+                        </label>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Bitte geben Sie ANONYMISIEREN ein, um fortzufahren</label>
+                        <InputText class="form-control" @bind-Value="_confirmText" />
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <div class="alert alert-danger dsms-alert mb-0">@_errorMessage</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel" disabled="@_processing">Abbrechen</button>
+                    <button type="button" class="btn btn-danger" @onclick="ConfirmAsync" disabled="@(!CanConfirm || _processing)">
+                        @(_processing ? "Anonymisiere …" : "Endgültig anonymisieren")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Inject] private DocumentLinksService LinksService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    [Parameter] public EventCallback OnCompleted { get; set; }
+    [Parameter] public Func<string?, Task<DataSubjectRequestAnonymizeOutcome>>? AnonymizeHandler { get; set; }
+
+    private bool _visible;
+    private bool _processing;
+    private bool _confirmed;
+    private string? _confirmText;
+    private string? _anonymizationNote;
+    private string? _errorMessage;
+    private List<EvidenceDocument> _linkedDocuments = [];
+
+    private bool CanConfirm =>
+        _confirmed && string.Equals(_confirmText?.Trim(), "ANONYMISIEREN", StringComparison.Ordinal);
+
+    public async Task ShowAsync(int requestId, int tenantId)
+    {
+        _visible = true;
+        _processing = false;
+        _confirmed = false;
+        _confirmText = null;
+        _anonymizationNote = null;
+        _errorMessage = null;
+
+        _linkedDocuments = (await LinksService.GetDocumentsForEntityAsync(
+            DocumentLinkedEntityType.DataSubjectRequest, requestId, tenantId)).ToList();
+    }
+
+    private async Task ConfirmAsync()
+    {
+        if (!CanConfirm || AnonymizeHandler is null)
+        {
+            return;
+        }
+
+        _processing = true;
+        _errorMessage = null;
+
+        var outcome = await AnonymizeHandler(_anonymizationNote);
+        if (outcome.Result == DataSubjectRequestAnonymizeResult.Success)
+        {
+            _visible = false;
+            await OnCompleted.InvokeAsync();
+        }
+        else
+        {
+            _errorMessage = outcome.Message ?? "Anonymisierung fehlgeschlagen.";
+        }
+
+        _processing = false;
+    }
+
+    private void Cancel() => _visible = false;
+}

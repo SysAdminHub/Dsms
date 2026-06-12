@@ -152,6 +152,36 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
         LogStatusChangeAsync("PrivacyIncidentStatusChanged", "Status des Datenschutzvorfalls wurde geändert.",
             "PrivacyIncident", id, title, tenantId, oldStatus, newStatus);
 
+    public Task LogDataSubjectRequestCreatedAsync(int id, string displayName, int tenantId) =>
+        LogAsync("DataSubjectRequestCreated", "Betroffenenanfrage wurde erstellt.",
+            "DataSubjectRequest", id, displayName, tenantId);
+
+    public Task LogDataSubjectRequestUpdatedAsync(int id, string displayName, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("DataSubjectRequestUpdated", "Betroffenenanfrage wurde geändert.",
+            "DataSubjectRequest", id, displayName, tenantId, changes);
+
+    public Task LogDataSubjectRequestArchivedAsync(int id, string displayName, int tenantId) =>
+        LogAsync("DataSubjectRequestArchived", "Betroffenenanfrage wurde archiviert.",
+            "DataSubjectRequest", id, displayName, tenantId);
+
+    public Task LogDataSubjectRequestRestoredAsync(int id, string displayName, int tenantId) =>
+        LogAsync("DataSubjectRequestRestored", "Betroffenenanfrage wurde wiederhergestellt.",
+            "DataSubjectRequest", id, displayName, tenantId);
+
+    public Task LogDataSubjectRequestStatusChangedAsync(int id, string displayName, int tenantId, object oldStatus, object newStatus) =>
+        LogStatusChangeAsync("DataSubjectRequestStatusChanged", "Status der Betroffenenanfrage wurde geändert.",
+            "DataSubjectRequest", id, displayName, tenantId, oldStatus, newStatus);
+
+    public Task LogDataSubjectRequestAnonymizedAsync(int id, string displayName, int tenantId, string? note) =>
+        LogAsync(
+            "DataSubjectRequestAnonymized",
+            "Falldaten der Betroffenenanfrage wurden endgültig anonymisiert.",
+            "DataSubjectRequest",
+            id,
+            displayName,
+            tenantId,
+            metadata: string.IsNullOrWhiteSpace(note) ? null : new { AnonymizationNoteProvided = true });
+
     private Task LogUpdateAsync(
         string action,
         string description,

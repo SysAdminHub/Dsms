@@ -156,5 +156,22 @@ public class UserAccessService(
 
     /// <inheritdoc />
     public async Task<bool> CanEditPrivacyIncidentsAsync() => await CanEditTenantOperationalContentAsync();
+
+    /// <inheritdoc />
+    public async Task<bool> CanCreateDataSubjectRequestsAsync() => await CanCreatePrivacyIncidentsAsync();
+
+    /// <inheritdoc />
+    public async Task<bool> CanEditDataSubjectRequestsAsync() => await CanEditTenantOperationalContentAsync();
+
+    /// <inheritdoc />
+    public async Task<bool> CanAnonymizeDataSubjectRequestsAsync()
+    {
+        if (await IsAuditorAsync())
+        {
+            return false;
+        }
+
+        return await IsSuperuserAsync() || await currentUser.IsInRoleAsync(DsmsRoles.Admin);
+    }
 }
 

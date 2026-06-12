@@ -99,6 +99,35 @@ public static class ComplianceAuditDiffBuilder
         return changes;
     }
 
+    public static List<AuditFieldChangeDto> ForDataSubjectRequest(
+        DataSubjectRequestType? previousType,
+        DataSubjectRequestStatus? previousStatus,
+        DateTime? previousReceivedAt,
+        DateTime? previousDueAt,
+        DateTime? previousAnsweredAt,
+        bool? previousIdentityVerified,
+        bool? previousDeadlineExtended,
+        DateTime? previousExtendedDueAt,
+        bool? previousContainsPersonalData,
+        bool? previousPersonalDataAnonymized,
+        DataSubjectRequest current)
+    {
+        var changes = new List<AuditFieldChangeDto>();
+        AuditDiffHelper.AddIfChanged(changes, "RequestType", "Anfrageart", previousType, current.RequestType,
+            v => v is DataSubjectRequestType t ? DataSubjectRequestLabels.GetTypeLabel(t) : AuditDiffHelper.FormatAuditValue(v));
+        AuditDiffHelper.AddIfChanged(changes, "Status", "Status", previousStatus, current.Status,
+            v => v is DataSubjectRequestStatus s ? DataSubjectRequestLabels.GetStatusLabel(s) : AuditDiffHelper.FormatAuditValue(v));
+        AuditDiffHelper.AddIfChanged(changes, "ReceivedAt", "Eingang", previousReceivedAt, current.ReceivedAt);
+        AuditDiffHelper.AddIfChanged(changes, "DueAt", "Frist", previousDueAt, current.DueAt);
+        AuditDiffHelper.AddIfChanged(changes, "AnsweredAt", "Antwortdatum", previousAnsweredAt, current.AnsweredAt);
+        AuditDiffHelper.AddIfChanged(changes, "IdentityVerified", "Identität geprüft", previousIdentityVerified, current.IdentityVerified);
+        AuditDiffHelper.AddIfChanged(changes, "DeadlineExtended", "Fristverlängerung", previousDeadlineExtended, current.DeadlineExtended);
+        AuditDiffHelper.AddIfChanged(changes, "ExtendedDueAt", "Verlängerte Frist", previousExtendedDueAt, current.ExtendedDueAt);
+        AuditDiffHelper.AddIfChanged(changes, "ContainsPersonalData", "Enthält personenbezogene Falldaten", previousContainsPersonalData, current.ContainsPersonalData);
+        AuditDiffHelper.AddIfChanged(changes, "PersonalDataAnonymized", "Anonymisiert", previousPersonalDataAnonymized, current.PersonalDataAnonymized);
+        return changes;
+    }
+
     public static List<AuditFieldChangeDto> ForMeasure(
         string? previousTitle,
         MeasureStatus? previousStatus,

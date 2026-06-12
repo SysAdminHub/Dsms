@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Betroffenenanfragen:** Neues Modul zur Dokumentation und Bearbeitung von Anfragen betroffener Personen nach DSGVO (Auskunft, Löschung, Berichtigung, Widerspruch u. a.). Listen-, Erstell-, Bearbeit- und Detailansicht mit Fristüberwachung, Verknüpfungen zu VVT, Maßnahmen, Dienstleistern und Dokumenten sowie endgültiger Anonymisierung personenbezogener Falldaten. Migration `AddDataSubjectRequests`.
+
 - **Rechtliche Zustimmung bei Registrierung (Schritt 2):** Drei Pflicht-Checkboxen auf `/signup` … Migrationen `AddLegalAcceptances`, `RenameLegalAcceptanceIpToAnonymized`.
 
 - **Legal-Dokumente (Schritt 3):** PDF-Generierung (QuestPDF) für alle Legal-Dokumente, Download-Button auf `/legal/*` und Endpoint `/legal/{route}/pdf`. Registrierungs-Bestätigungsmail mit PDF-Anhängen (AGB, Datenschutz, kombiniertes AVV/TOM/Unterauftragnehmer-Paket). E-Mail-Vorlage `SignupLegalConfirmation`.

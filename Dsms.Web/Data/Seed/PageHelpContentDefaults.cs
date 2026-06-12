@@ -115,6 +115,16 @@ public static class PageHelpContentDefaults
             Diese Informationen dienen der allgemeinen Orientierung und ersetzen keine Rechtsberatung.
             """),
         new(
+            Domain.PageHelpContentKeys.DataSubjectRequests,
+            "Betroffenenanfragen",
+            "Art. 15–22 DSGVO",
+            "Anfragen betroffener Personen dokumentieren, bearbeiten und nachverfolgen.",
+            """
+            In diesem Modul werden Anfragen betroffener Personen nach DSGVO dokumentiert, z. B. Auskunft, Löschung, Berichtigung, Widerspruch oder Datenübertragbarkeit. Erfassen Sie Eingang, Fristen, Bearbeitung, Ergebnis und Nachweise. Nach Abschluss können personenbezogene Falldaten endgültig anonymisiert werden, um nur noch den Vorgangsnachweis zu behalten.
+
+            Die Anonymisierung überschreibt personenbezogene Falldaten endgültig. Die ursprünglichen Werte werden nicht gespeichert und können nicht wiederhergestellt werden. Verknüpfte Dokumente müssen separat geprüft werden.
+            """),
+        new(
             Domain.PageHelpContentKeys.Documents,
             "Dokumente und Nachweise",
             "DSGVO Rechenschaftspflicht, Art. 5 Abs. 2 DSGVO",

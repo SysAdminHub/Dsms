@@ -479,6 +479,29 @@ public class DocumentLinksService(
                 })
                 .ToListAsync(ct),
 
+            DocumentLinkedEntityType.DataSubjectRequest => (await db.DataSubjectRequests
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(r => r.TenantId == tenantId && (!r.IsArchived || selectedIds.Contains(r.Id)))
+                .OrderByDescending(r => r.ReceivedAt)
+                .Select(r => new
+                {
+                    r.Id,
+                    r.RequestType,
+                    r.IsArchived,
+                    r.PersonalDataAnonymized
+                })
+                .ToListAsync(ct))
+                .Select(r => new DocumentLinkSelectionViewModel
+                {
+                    EntityType = type,
+                    EntityId = r.Id,
+                    DisplayName = $"Betroffenenanfrage #{r.Id} ({Domain.DataSubjectRequestLabels.GetTypeLabel(r.RequestType)})",
+                    IsArchived = r.IsArchived,
+                    IsSelected = selectedIds.Contains(r.Id)
+                })
+                .ToList(),
+
             _ => []
         };
     }
@@ -511,6 +534,9 @@ public class DocumentLinksService(
             DocumentLinkedEntityType.Tom => await db.Toms
                 .IgnoreQueryFilters()
                 .AnyAsync(t => t.Id == entityId && t.TenantId == tenantId, ct),
+            DocumentLinkedEntityType.DataSubjectRequest => await db.DataSubjectRequests
+                .IgnoreQueryFilters()
+                .AnyAsync(r => r.Id == entityId && r.TenantId == tenantId, ct),
             _ => false
         };
 
@@ -580,6 +606,15 @@ public class DocumentLinksService(
                         .Select(t => new { t.Id, t.Title }).ToListAsync(ct))
                     {
                         result[(DocumentLinkedEntityType.Tom, item.Id)] = item.Title;
+                    }
+                    break;
+                case DocumentLinkedEntityType.DataSubjectRequest:
+                    foreach (var item in await db.DataSubjectRequests.IgnoreQueryFilters().AsNoTracking()
+                        .Where(r => r.TenantId == tenantId && ids.Contains(r.Id))
+                        .Select(r => new { r.Id, r.RequestType }).ToListAsync(ct))
+                    {
+                        result[(DocumentLinkedEntityType.DataSubjectRequest, item.Id)] =
+                            $"Betroffenenanfrage #{item.Id} ({Domain.DataSubjectRequestLabels.GetTypeLabel(item.RequestType)})";
                     }
                     break;
             }

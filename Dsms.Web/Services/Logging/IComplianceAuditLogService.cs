@@ -60,4 +60,11 @@ public interface IComplianceAuditLogService
     Task LogPrivacyIncidentArchivedAsync(int id, string title, int tenantId);
     Task LogPrivacyIncidentRestoredAsync(int id, string title, int tenantId);
     Task LogPrivacyIncidentStatusChangedAsync(int id, string title, int tenantId, object oldStatus, object newStatus);
+
+    Task LogDataSubjectRequestCreatedAsync(int id, string displayName, int tenantId);
+    Task LogDataSubjectRequestUpdatedAsync(int id, string displayName, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes);
+    Task LogDataSubjectRequestArchivedAsync(int id, string displayName, int tenantId);
+    Task LogDataSubjectRequestRestoredAsync(int id, string displayName, int tenantId);
+    Task LogDataSubjectRequestStatusChangedAsync(int id, string displayName, int tenantId, object oldStatus, object newStatus);
+    Task LogDataSubjectRequestAnonymizedAsync(int id, string displayName, int tenantId, string? note);
 }

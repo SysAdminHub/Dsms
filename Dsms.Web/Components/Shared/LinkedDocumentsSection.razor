@@ -67,6 +67,7 @@
     [Parameter] public int? ProcessingActivityId { get; set; }
     [Parameter] public int? DataProtectionImpactAssessmentId { get; set; }
     [Parameter] public int? PrivacyIncidentId { get; set; }
+    [Parameter] public int? DataSubjectRequestId { get; set; }
     [Parameter] public int? TomId { get; set; }
 
     private bool _loading = true;
@@ -141,6 +142,13 @@
         {
             entityType = DocumentLinkedEntityType.PrivacyIncident;
             entityId = PrivacyIncidentId.Value;
+            return true;
+        }
+
+        if (DataSubjectRequestId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.DataSubjectRequest;
+            entityId = DataSubjectRequestId.Value;
             return true;
         }
 

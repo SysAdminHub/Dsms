@@ -1,4 +1,5 @@
 using Dsms.Web.Data;
+using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
 using Dsms.Web.Services.Logging;
@@ -51,6 +52,11 @@ public class ArchivingService(
             dpia.Status = DpiaStatus.Archived;
         }
 
+        if (entity is DataSubjectRequest dsr)
+        {
+            dsr.Status = DataSubjectRequestStatus.Archived;
+        }
+
         await db.SaveChangesAsync(ct);
         await LogArchiveAsync(entity, ct);
         return new ArchiveOperationResult(true, warnings);
@@ -87,6 +93,11 @@ public class ArchivingService(
             dpia.Status = DpiaStatus.Draft;
         }
 
+        if (entity is DataSubjectRequest dsr && dsr.Status == DataSubjectRequestStatus.Archived)
+        {
+            dsr.Status = DataSubjectRequestStatus.Completed;
+        }
+
         await db.SaveChangesAsync(ct);
         await LogRestoreAsync(entity, ct);
         return new ArchiveOperationResult(true, []);
@@ -103,6 +114,8 @@ public class ArchivingService(
         Measure measure => complianceAuditLog.LogMeasureArchivedAsync(measure.Id, measure.Title, measure.TenantId),
         EvidenceDocument doc => complianceAuditLog.LogEvidenceDocumentArchivedAsync(doc.Id, doc.FileName, doc.TenantId),
         PrivacyIncident incident => complianceAuditLog.LogPrivacyIncidentArchivedAsync(incident.Id, incident.Title, incident.TenantId),
+        DataSubjectRequest dsr => complianceAuditLog.LogDataSubjectRequestArchivedAsync(
+            dsr.Id, DataSubjectRequestLabels.GetAuditDisplayName(dsr), dsr.TenantId),
         _ => Task.CompletedTask
     };
 
@@ -116,6 +129,8 @@ public class ArchivingService(
         Measure measure => complianceAuditLog.LogMeasureRestoredAsync(measure.Id, measure.Title, measure.TenantId),
         EvidenceDocument doc => complianceAuditLog.LogEvidenceDocumentRestoredAsync(doc.Id, doc.FileName, doc.TenantId),
         PrivacyIncident incident => complianceAuditLog.LogPrivacyIncidentRestoredAsync(incident.Id, incident.Title, incident.TenantId),
+        DataSubjectRequest dsr => complianceAuditLog.LogDataSubjectRequestRestoredAsync(
+            dsr.Id, DataSubjectRequestLabels.GetAuditDisplayName(dsr), dsr.TenantId),
         _ => Task.CompletedTask
     };
 
@@ -133,6 +148,7 @@ public class ArchivingService(
             nameof(Measure) => await GetMeasureWarningsAsync(id, ct),
             nameof(EvidenceDocument) => [],
             nameof(PrivacyIncident) => await GetPrivacyIncidentWarningsAsync(id, ct),
+            nameof(DataSubjectRequest) => await GetDataSubjectRequestWarningsAsync(id, ct),
             _ => []
         };
     }
@@ -245,6 +261,26 @@ public class ArchivingService(
 
         var docCount = await db.DocumentLinks.CountAsync(
             l => l.LinkedEntityType == DocumentLinkedEntityType.PrivacyIncident && l.LinkedEntityId == id, ct);
+        if (docCount > 0) warnings.Add($"{docCount} verknüpfte Dokument(e)");
+
+        return warnings;
+    }
+
+    private async Task<IReadOnlyList<string>> GetDataSubjectRequestWarningsAsync(int id, CancellationToken ct)
+    {
+        var warnings = new List<string>();
+
+        var paCount = await db.DataSubjectRequestProcessingActivities.CountAsync(l => l.DataSubjectRequestId == id, ct);
+        if (paCount > 0) warnings.Add($"{paCount} verknüpfte Verarbeitungstätigkeit(en)");
+
+        var spCount = await db.DataSubjectRequestServiceProviders.CountAsync(l => l.DataSubjectRequestId == id, ct);
+        if (spCount > 0) warnings.Add($"{spCount} verknüpfte Dienstleister");
+
+        var measureCount = await db.DataSubjectRequestMeasures.CountAsync(l => l.DataSubjectRequestId == id, ct);
+        if (measureCount > 0) warnings.Add($"{measureCount} verknüpfte Maßnahme(n)");
+
+        var docCount = await db.DocumentLinks.CountAsync(
+            l => l.LinkedEntityType == DocumentLinkedEntityType.DataSubjectRequest && l.LinkedEntityId == id, ct);
         if (docCount > 0) warnings.Add($"{docCount} verknüpfte Dokument(e)");
 
         return warnings;

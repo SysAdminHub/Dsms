@@ -1,0 +1,119 @@
+@* Mehrfachauswahl-Modal mit Suche für Verknüpfungen. *@
+@if (_visible)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@Title</h5>
+                    <button type="button" class="btn-close" @onclick="Cancel" disabled="@_saving"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <InputText class="form-control" @bind-Value="_searchText" @bind-Value:after="ApplyFilter" placeholder="@SearchPlaceholder" />
+                    </div>
+                    @if (_filteredItems.Count == 0)
+                    {
+                        <div class="text-muted">Keine Einträge gefunden.</div>
+                    }
+                    else
+                    {
+                        <div class="dsms-checkbox-list">
+                            @foreach (var item in _filteredItems)
+                            {
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="@($"ems-{item.Id}")"
+                                           checked="@_selectedIds.Contains(item.Id)"
+                                           @onchange="e => Toggle(item.Id, (bool)e.Value!)" />
+                                    <label class="form-check-label" for="@($"ems-{item.Id}")">
+                                        @item.Label
+                                        @if (!string.IsNullOrWhiteSpace(item.Description))
+                                        {
+                                            <span class="text-muted d-block small">@item.Description</span>
+                                        }
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(_message))
+                    {
+                        <div class="alert alert-danger dsms-alert mt-3 mb-0">@_message</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel" disabled="@_saving">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" @onclick="ConfirmAsync" disabled="@_saving">
+                        @(_saving ? "Speichern …" : "Übernehmen")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    public sealed class SelectItem
+    {
+        public int Id { get; init; }
+        public string Label { get; init; } = string.Empty;
+        public string? Description { get; init; }
+    }
+
+    [Parameter] public string Title { get; set; } = "Auswählen";
+    [Parameter] public string SearchPlaceholder { get; set; } = "Suchen …";
+    [Parameter] public EventCallback<IReadOnlyCollection<int>> OnConfirmed { get; set; }
+
+    private bool _visible;
+    private bool _saving;
+    private string? _message;
+    private string? _searchText;
+    private List<SelectItem> _items = [];
+    private HashSet<int> _selectedIds = [];
+    private List<SelectItem> _filteredItems = [];
+
+    public void Show(IReadOnlyList<SelectItem> items, IReadOnlyCollection<int> selectedIds)
+    {
+        _items = items.ToList();
+        _selectedIds = selectedIds.ToHashSet();
+        _searchText = null;
+        _message = null;
+        _saving = false;
+        ApplyFilter();
+        _visible = true;
+    }
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(_searchText))
+        {
+            _filteredItems = _items;
+            return;
+        }
+
+        var term = _searchText.Trim();
+        _filteredItems = _items
+            .Where(i => i.Label.Contains(term, StringComparison.CurrentCultureIgnoreCase)
+                || (i.Description?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false))
+            .ToList();
+    }
+
+    private void Toggle(int id, bool selected)
+    {
+        if (selected) _selectedIds.Add(id);
+        else _selectedIds.Remove(id);
+    }
+
+    private async Task ConfirmAsync()
+    {
+        _saving = true;
+        await OnConfirmed.InvokeAsync(_selectedIds.ToList());
+        _visible = false;
+        _saving = false;
+    }
+
+    private void Cancel() => _visible = false;
+
+    protected override void OnParametersSet() => ApplyFilter();
+}

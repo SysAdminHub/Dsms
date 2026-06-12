@@ -105,6 +105,13 @@ else if (_summary is not null)
                             DetailsUrl="incidents"
                             EmptyText="Noch keine Vorfälle erfasst." />
 
+        <DonutDashboardCard Title="Betroffenenanfragen"
+                            Total="@_summary.TotalDataSubjectRequestsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.DataSubjectRequestStatusGroups, _summary.TotalDataSubjectRequestsCount)"
+                            LegendItems="@DashboardChartBuilder.DataSubjectRequestLegend(_summary)"
+                            DetailsUrl="data-subject-requests"
+                            EmptyText="Noch keine Betroffenenanfragen erfasst." />
+
         <DonutDashboardCard Title="Maßnahmen"
                             Total="@_summary.TotalMeasuresCount"
                             Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.MeasureStatusGroups, _summary.TotalMeasuresCount)"

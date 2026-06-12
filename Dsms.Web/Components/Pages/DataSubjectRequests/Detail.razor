@@ -1,0 +1,521 @@
+@* Detailansicht einer Betroffenenanfrage – mandantenbezogen. *@
+@page "/data-subject-requests/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Betroffenenanfrage" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Betroffenenanfrage" HelpKey="data-subject-requests" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_request is null && _loaded)
+{
+    <PageHeader Title="Betroffenenanfrage" HelpKey="data-subject-requests" />
+    <div class="alert alert-warning dsms-alert">Anfrage nicht gefunden oder kein Zugriff.</div>
+}
+else if (_request is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else
+{
+    <PageHeader Title="@DataSubjectRequestLabels.GetAuditDisplayName(_request)" HelpKey="data-subject-requests"
+                Subtitle="@DataSubjectRequestLabels.GetTypeLabel(_request.RequestType)">
+        @if (_canEdit)
+        {
+            <a class="btn btn-primary" href="@($"data-subject-requests/edit/{_request.Id}")">Bearbeiten</a>
+        }
+        <a class="btn btn-outline-secondary" href="data-subject-requests">Zur Liste</a>
+    </PageHeader>
+
+    @if (_showErasureHint)
+    {
+        <div class="alert alert-warning dsms-alert">
+            Diese abgeschlossene Löschanfrage enthält personenbezogene Falldaten. Bitte prüfen Sie, ob die Falldaten anonymisiert werden können.
+        </div>
+    }
+
+    @if (_request.PersonalDataAnonymized)
+    {
+        <div class="alert alert-info dsms-alert">
+            Die personenbezogenen Falldaten dieser Betroffenenanfrage wurden am
+            @_request.PersonalDataAnonymizedAt?.ToLocalTime().ToString("g") endgültig anonymisiert.
+            Bitte prüfen Sie verknüpfte Dokumente separat auf personenbezogene Inhalte.
+        </div>
+    }
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Übersicht</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Anfrageart</div>
+                    <div>@DataSubjectRequestLabels.GetTypeLabel(_request.RequestType)</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Status</div>
+                    <StatusBadge Text="@DataSubjectRequestLabels.GetStatusLabel(_request.Status)"
+                                 Variant="@DataSubjectRequestLabels.GetStatusVariant(_request.Status)" />
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Kontaktweg</div>
+                    <div>@(string.IsNullOrWhiteSpace(_request.ContactChannel) ? "—" : _request.ContactChannel)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Fristen</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="dsms-detail-label">Eingang</div>
+                    <div>@_request.ReceivedAt.ToLocalTime().ToString("d")</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="dsms-detail-label">Frist</div>
+                    <div class="@DataSubjectRequestLabels.GetDeadlineCssClass(_remainingDays, _isOverdue)">
+                        @_effectiveDueAt.ToLocalTime().ToString("d")
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="dsms-detail-label">Verbleibend</div>
+                    <div class="@DataSubjectRequestLabels.GetDeadlineCssClass(_remainingDays, _isOverdue)">
+                        @if (DataSubjectRequestDeadlineHelper.IsClosedStatus(_request))
+                        {
+                            <span>—</span>
+                        }
+                        else if (_isOverdue)
+                        {
+                            <span>Überfällig (@Math.Abs(_remainingDays) Tage)</span>
+                        }
+                        else
+                        {
+                            <span>@_remainingDays Tage</span>
+                        }
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="dsms-detail-label">Antwortdatum</div>
+                    <div>@(_request.AnsweredAt?.ToLocalTime().ToString("d") ?? "—")</div>
+                </div>
+                @if (_request.DeadlineExtended)
+                {
+                    <div class="col-md-4">
+                        <div class="dsms-detail-label">Verlängerte Frist</div>
+                        <div>@(_request.ExtendedDueAt?.ToLocalTime().ToString("d") ?? "—")</div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="dsms-detail-label">Begründung Fristverlängerung</div>
+                        <div class="dsms-detail-value">@DisplaySensitive(_request.DeadlineExtensionReason)</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Betroffene Person / Referenz</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Name / Bezeichnung</div>
+                    <div>@DisplaySensitive(_request.DataSubjectName)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Externe Referenz</div>
+                    <div>@DisplaySensitive(_request.DataSubjectReference)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">E-Mail</div>
+                    <div>@DisplaySensitive(_request.DataSubjectEmail)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Telefon</div>
+                    <div>@DisplaySensitive(_request.DataSubjectPhone)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Bearbeitung</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Bearbeiter</div>
+                    <div>@GetAssigneeLabel(_request.AssignedUserId)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Identität geprüft</div>
+                    <div>@(_request.IdentityVerified ? "Ja" : "Nein")</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Identitätsprüfung</div>
+                    <div class="dsms-detail-value">@DisplaySensitiveMultiline(_request.IdentityVerificationNote)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Beschreibung</div>
+                    <div class="dsms-detail-value">@DisplaySensitiveMultiline(_request.Description)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Ergebnis / Antwortzusammenfassung</div>
+                    <div class="dsms-detail-value">@DisplaySensitiveMultiline(_request.ResultSummary)</div>
+                </div>
+                <div class="col-12">
+                    <div class="dsms-detail-label">Interne Notizen</div>
+                    <div class="dsms-detail-value">@DisplaySensitiveMultiline(_request.InternalNotes)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span>Verknüpfungen</span>
+            @if (_canEdit)
+            {
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OpenProcessingActivitiesModal">Verarbeitungstätigkeiten verknüpfen</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OpenMeasuresModal">Maßnahmen verknüpfen</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OpenServiceProvidersModal">Dienstleister verknüpfen</button>
+                </div>
+            }
+        </div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Verarbeitungstätigkeiten</div>
+                    @RenderLinkList(_linkedProcessingActivities.Select(p => (p.Name, $"processing-activities/{p.Id}")))
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Maßnahmen</div>
+                    @if (_canCreateMeasure)
+                    {
+                        <div class="mb-2">
+                            <a class="btn btn-sm btn-outline-secondary" href="@($"measures/edit?dataSubjectRequestId={_request.Id}")">
+                                + Maßnahme aus Anfrage erstellen
+                            </a>
+                        </div>
+                    }
+                    @RenderLinkList(_linkedMeasures.Select(m => (m.Title, $"measures/edit/{m.Id}")))
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Dienstleister</div>
+                    @RenderLinkList(_linkedServiceProviders.Select(s => (s.Name, $"service-providers/{s.Id}")))
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(_linkError))
+            {
+                <div class="alert alert-danger dsms-alert mt-3 mb-0">@_linkError</div>
+            }
+        </div>
+    </div>
+
+    <LinkedDocumentsSection DataSubjectRequestId="_request.Id" />
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Anonymisierung</div>
+        <div class="dsms-card-body">
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Enthält personenbezogene Falldaten</div>
+                    <div>@(_request.ContainsPersonalData ? "Ja" : "Nein")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Anonymisiert</div>
+                    <div>@(_request.PersonalDataAnonymized ? "Ja" : "Nein")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Anonymisiert durch</div>
+                    <div>@GetAssigneeLabel(_request.PersonalDataAnonymizedByUserId)</div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(_request.AnonymizationNote))
+                {
+                    <div class="col-12">
+                        <div class="dsms-detail-label">Anonymisierungshinweis</div>
+                        <div>@_request.AnonymizationNote</div>
+                    </div>
+                }
+            </div>
+
+            <p class="form-text text-muted">
+                Die Anonymisierung überschreibt personenbezogene Falldaten endgültig. Die ursprünglichen Werte werden nicht gespeichert und können nicht wiederhergestellt werden.
+            </p>
+
+            @if (_request.PersonalDataAnonymized)
+            {
+                <div class="alert alert-success dsms-alert mb-0">
+                    Falldaten wurden am @_request.PersonalDataAnonymizedAt?.ToLocalTime().ToString("g") anonymisiert.
+                </div>
+            }
+            else if (_canAnonymize && _allowsAnonymization)
+            {
+                <button type="button" class="btn btn-danger" @onclick="OpenAnonymizeModal">Falldaten anonymisieren</button>
+            }
+            else if (_canAnonymize && !_allowsAnonymization)
+            {
+                <div class="alert alert-warning dsms-alert mb-0">
+                    Anonymisierung ist erst möglich, wenn die Anfrage beantwortet, abgelehnt, abgeschlossen oder archiviert ist.
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<EntityMultiSelectModal @ref="_paModal" Title="Verarbeitungstätigkeiten verknüpfen"
+                        SearchPlaceholder="Verarbeitungstätigkeiten suchen …"
+                        OnConfirmed="SaveProcessingActivitiesAsync" />
+<EntityMultiSelectModal @ref="_measureModal" Title="Maßnahmen verknüpfen"
+                        SearchPlaceholder="Maßnahmen suchen …"
+                        OnConfirmed="SaveMeasuresAsync" />
+<EntityMultiSelectModal @ref="_spModal" Title="Dienstleister verknüpfen"
+                        SearchPlaceholder="Dienstleister suchen …"
+                        OnConfirmed="SaveServiceProvidersAsync" />
+<DataSubjectRequestAnonymizeModal @ref="_anonymizeModal" OnCompleted="ReloadAsync" AnonymizeHandler="AnonymizeAsync" />
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private DataSubjectRequestRelationsService Relations { get; set; } = null!;
+    [Inject] private DataSubjectRequestService RequestService { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _loaded;
+    private bool _canEdit;
+    private bool _canAnonymize;
+    private bool _canCreateMeasure;
+    private bool _showErasureHint;
+    private bool _allowsAnonymization;
+    private bool _isOverdue;
+    private int _remainingDays;
+    private DateTime _effectiveDueAt;
+    private string? _linkError;
+    private DataSubjectRequest? _request;
+    private List<ProcessingActivity> _linkedProcessingActivities = [];
+    private List<Measure> _linkedMeasures = [];
+    private List<DsmsServiceProvider> _linkedServiceProviders = [];
+    private List<ProcessingActivity> _allProcessingActivities = [];
+    private List<Measure> _allMeasures = [];
+    private List<DsmsServiceProvider> _allServiceProviders = [];
+    private Dictionary<string, string> _userLabels = [];
+    private EntityMultiSelectModal? _paModal;
+    private EntityMultiSelectModal? _measureModal;
+    private EntityMultiSelectModal? _spModal;
+    private DataSubjectRequestAnonymizeModal? _anonymizeModal;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canEdit = await UserAccess.CanEditDataSubjectRequestsAsync();
+        _canAnonymize = await UserAccess.CanAnonymizeDataSubjectRequestsAsync();
+        _canCreateMeasure = await UserAccess.CanEditTenantOperationalContentAsync();
+
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        _loaded = false;
+        _linkError = null;
+
+        if (_tenantId is null) return;
+
+        _request = await Db.DataSubjectRequests.FirstOrDefaultAsync(r => r.Id == Id);
+        if (_request is null)
+        {
+            _loaded = true;
+            return;
+        }
+
+        await LoadUserLabelsAsync();
+        await LoadLinksAsync();
+        await LoadSelectableEntitiesAsync();
+
+        _effectiveDueAt = DataSubjectRequestDeadlineHelper.GetEffectiveDueAt(_request);
+        _remainingDays = DataSubjectRequestDeadlineHelper.GetRemainingDays(_request);
+        _isOverdue = DataSubjectRequestDeadlineHelper.IsOverdue(_request);
+        _allowsAnonymization = DataSubjectRequestLabels.AllowsAnonymization(_request.Status);
+        _showErasureHint = _request.RequestType == DataSubjectRequestType.Erasure
+            && _request.ContainsPersonalData
+            && !_request.PersonalDataAnonymized
+            && _request.Status is DataSubjectRequestStatus.Completed or DataSubjectRequestStatus.Answered;
+
+        _loaded = true;
+    }
+
+    private async Task LoadUserLabelsAsync()
+    {
+        var userIds = await Db.UserTenants
+            .Where(ut => ut.TenantId == _tenantId)
+            .Select(ut => ut.UserId)
+            .ToListAsync();
+
+        _userLabels = await Db.Users
+            .Where(u => userIds.Contains(u.Id))
+            .Select(u => new { u.Id, Label = u.DisplayName ?? u.Email ?? u.Id })
+            .ToDictionaryAsync(x => x.Id, x => x.Label);
+    }
+
+    private async Task LoadLinksAsync()
+    {
+        var paIds = await Db.DataSubjectRequestProcessingActivities
+            .Where(l => l.DataSubjectRequestId == Id)
+            .Select(l => l.ProcessingActivityId)
+            .ToListAsync();
+        _linkedProcessingActivities = await Db.ProcessingActivities
+            .Where(p => paIds.Contains(p.Id))
+            .OrderBy(p => p.Name)
+            .ToListAsync();
+
+        var measureIds = await Db.DataSubjectRequestMeasures
+            .Where(l => l.DataSubjectRequestId == Id)
+            .Select(l => l.MeasureId)
+            .ToListAsync();
+        _linkedMeasures = await Db.Measures
+            .Where(m => measureIds.Contains(m.Id))
+            .OrderBy(m => m.Title)
+            .ToListAsync();
+
+        var spIds = await Db.DataSubjectRequestServiceProviders
+            .Where(l => l.DataSubjectRequestId == Id)
+            .Select(l => l.ServiceProviderId)
+            .ToListAsync();
+        _linkedServiceProviders = await Db.ServiceProviders
+            .Where(s => spIds.Contains(s.Id))
+            .OrderBy(s => s.Name)
+            .ToListAsync();
+    }
+
+    private async Task LoadSelectableEntitiesAsync()
+    {
+        _allProcessingActivities = await Db.ProcessingActivities.OrderBy(p => p.Name).ToListAsync();
+        _allMeasures = await Db.Measures.OrderBy(m => m.Title).ToListAsync();
+        _allServiceProviders = await Db.ServiceProviders.OrderBy(s => s.Name).ToListAsync();
+    }
+
+    private string GetAssigneeLabel(string? userId) =>
+        userId is not null && _userLabels.TryGetValue(userId, out var label) ? label : "—";
+
+    private static string DisplaySensitive(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value;
+
+    private static MarkupString DisplaySensitiveMultiline(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? new MarkupString("<span class=\"text-muted\">—</span>")
+            : new MarkupString(System.Net.WebUtility.HtmlEncode(value).Replace("\n", "<br />"));
+
+    private RenderFragment RenderLinkList(IEnumerable<(string Label, string Url)> items) => builder =>
+    {
+        var list = items.ToList();
+        if (list.Count == 0)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "text-muted");
+            builder.AddContent(2, "—");
+            builder.CloseElement();
+            return;
+        }
+
+        builder.OpenElement(0, "ul");
+        builder.AddAttribute(1, "class", "mb-0");
+        var i = 2;
+        foreach (var item in list)
+        {
+            builder.OpenElement(i++, "li");
+            builder.OpenElement(i++, "a");
+            builder.AddAttribute(i++, "href", item.Url);
+            builder.AddContent(i++, item.Label);
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+    };
+
+    private void OpenProcessingActivitiesModal()
+    {
+        _paModal?.Show(
+            _allProcessingActivities.Select(p => new EntityMultiSelectModal.SelectItem
+            {
+                Id = p.Id,
+                Label = p.Name,
+                Description = p.Description
+            }).ToList(),
+            _linkedProcessingActivities.Select(p => p.Id).ToList());
+    }
+
+    private void OpenMeasuresModal()
+    {
+        _measureModal?.Show(
+            _allMeasures.Select(m => new EntityMultiSelectModal.SelectItem
+            {
+                Id = m.Id,
+                Label = m.Title,
+                Description = m.Description
+            }).ToList(),
+            _linkedMeasures.Select(m => m.Id).ToList());
+    }
+
+    private void OpenServiceProvidersModal()
+    {
+        _spModal?.Show(
+            _allServiceProviders.Select(s => new EntityMultiSelectModal.SelectItem
+            {
+                Id = s.Id,
+                Label = s.Name,
+                Description = s.Description
+            }).ToList(),
+            _linkedServiceProviders.Select(s => s.Id).ToList());
+    }
+
+    private async Task SaveProcessingActivitiesAsync(IReadOnlyCollection<int> ids) =>
+        await SaveLinksAsync(ids, _linkedMeasures.Select(m => m.Id).ToList(), _linkedServiceProviders.Select(s => s.Id).ToList());
+
+    private async Task SaveMeasuresAsync(IReadOnlyCollection<int> ids) =>
+        await SaveLinksAsync(_linkedProcessingActivities.Select(p => p.Id).ToList(), ids, _linkedServiceProviders.Select(s => s.Id).ToList());
+
+    private async Task SaveServiceProvidersAsync(IReadOnlyCollection<int> ids) =>
+        await SaveLinksAsync(_linkedProcessingActivities.Select(p => p.Id).ToList(), _linkedMeasures.Select(m => m.Id).ToList(), ids);
+
+    private async Task SaveLinksAsync(IReadOnlyCollection<int> paIds, IReadOnlyCollection<int> measureIds, IReadOnlyCollection<int> spIds)
+    {
+        if (_tenantId is null) return;
+
+        var (success, error) = await Relations.SaveLinksAsync(Id, _tenantId.Value, paIds, measureIds, spIds);
+        if (!success)
+        {
+            _linkError = error;
+            return;
+        }
+
+        await ReloadAsync();
+    }
+
+    private async Task OpenAnonymizeModal()
+    {
+        if (_tenantId is null || _anonymizeModal is null) return;
+        await _anonymizeModal.ShowAsync(Id, _tenantId.Value);
+    }
+
+    private async Task<DataSubjectRequestAnonymizeOutcome> AnonymizeAsync(string? note)
+    {
+        if (_tenantId is null)
+        {
+            return new DataSubjectRequestAnonymizeOutcome
+            {
+                Result = DataSubjectRequestAnonymizeResult.TenantMismatch,
+                Message = "Kein Mandant zugeordnet."
+            };
+        }
+
+        var userId = await CurrentUser.GetUserIdAsync();
+        return await RequestService.AnonymizeAsync(Id, _tenantId.Value, userId, note);
+    }
+}

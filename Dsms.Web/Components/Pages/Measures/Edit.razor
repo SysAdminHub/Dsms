@@ -122,12 +122,15 @@ else
     public int? AuditAnswerId { get; set; }
     [SupplyParameterFromQuery(Name = "privacyIncidentId")]
     public int? PrivacyIncidentId { get; set; }
+    [SupplyParameterFromQuery(Name = "dataSubjectRequestId")]
+    public int? DataSubjectRequestId { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private ProcessingActivityRelationsService Relations { get; set; } = null!;
     [Inject] private PrivacyIncidentRelationsService IncidentRelations { get; set; } = null!;
+    [Inject] private DataSubjectRequestRelationsService DataSubjectRequestRelations { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
     [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
@@ -147,6 +150,7 @@ else
     private string? _previousTitle;
     private DateOnly? _previousDueDate;
     private int? _linkedPrivacyIncidentId;
+    private int? _linkedDataSubjectRequestId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -188,6 +192,10 @@ else
             if (PrivacyIncidentId is int)
             {
                 await TryPrefillFromPrivacyIncidentAsync();
+            }
+            else if (DataSubjectRequestId is int)
+            {
+                await TryPrefillFromDataSubjectRequestAsync();
             }
             else
             {
@@ -247,6 +255,30 @@ else
         _model.Status = MeasureStatus.Open;
         _model.Title = BuildMeasureTitleFromIncident(incident);
         _model.Description = BuildMeasureDescriptionFromIncident(incident);
+    }
+
+    private async Task TryPrefillFromDataSubjectRequestAsync()
+    {
+        if (DataSubjectRequestId is not int requestId || _tenantId is not int tenantId)
+            return;
+
+        var request = await Db.DataSubjectRequests
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == requestId && r.TenantId == tenantId);
+
+        if (request is null)
+        {
+            _prefillError = "Die angegebene Betroffenenanfrage ist ungültig oder gehört nicht zu Ihrem Mandanten.";
+            return;
+        }
+
+        _linkedDataSubjectRequestId = request.Id;
+        _model.Status = MeasureStatus.Open;
+        _model.Title = $"Maßnahme zu {DataSubjectRequestLabels.GetAuditDisplayName(request)}";
+        if (_model.Title.Length > 200)
+        {
+            _model.Title = _model.Title[..197] + "...";
+        }
     }
 
     private static string BuildMeasureTitleFromIncident(PrivacyIncident incident)
@@ -419,9 +451,26 @@ else
             }
         }
 
+        var returnRequestId = _linkedDataSubjectRequestId ?? DataSubjectRequestId;
+        if (isNew && returnRequestId is int requestId && _tenantId is int requestTenantId)
+        {
+            var (linkOk, linkError) = await DataSubjectRequestRelations.LinkMeasureToRequestAsync(
+                requestId, _model.Id, requestTenantId);
+
+            if (!linkOk)
+            {
+                _linkSaveError = linkError ?? "Verknüpfung zur Betroffenenanfrage fehlgeschlagen.";
+                return;
+            }
+        }
+
         if (returnIncidentId is int id)
         {
             Navigation.NavigateTo($"incidents/{id}");
+        }
+        else if (returnRequestId is int reqId)
+        {
+            Navigation.NavigateTo($"data-subject-requests/{reqId}");
         }
         else
         {

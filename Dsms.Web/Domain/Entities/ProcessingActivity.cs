@@ -64,9 +64,6 @@ public class ProcessingActivity : ArchivableEntityBase, ITenantEntity
     /// <summary>Verknüpfte Audit-Antworten (Many-to-Many).</summary>
     public ICollection<ProcessingActivityAuditAnswer> AuditAnswerLinks { get; set; } = [];
 
-    /// <summary>Nachweisdokumente, die direkt dieser Verarbeitungstätigkeit zugeordnet sind.</summary>
-    public ICollection<EvidenceDocument> Documents { get; set; } = [];
-
     /// <summary>Datenschutz-Folgenabschätzungen (DSFA) zu dieser Verarbeitungstätigkeit.</summary>
     public ICollection<DataProtectionImpactAssessment> DpiaAssessments { get; set; } = [];
 }

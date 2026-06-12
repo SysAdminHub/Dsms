@@ -84,6 +84,23 @@ article.content {
     padding-right: var(--dsms-space-6);
 }
 
+.dsms-main-layout-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.dsms-main-layout-body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.dsms-main-layout-footer {
+    flex-shrink: 0;
+    margin-top: auto;
+}
+
 @media (min-width: 641px) {
     .page {
         flex-direction: row;
@@ -246,7 +263,10 @@ article.content {
     margin: 0 auto var(--dsms-space-2);
 }
 
-.dsms-signup-plan-card {
+.dsms-signup-plan-card,
+.dsms-plan-card {
+    position: relative;
+    overflow: hidden;
     width: 320px;
     max-width: 100%;
     background: var(--dsms-surface);
@@ -257,6 +277,14 @@ article.content {
     display: flex;
     flex-direction: column;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dsms-plan-card-has-ribbon {
+    padding-top: 2.5rem;
+}
+
+.dsms-plan-card-has-ribbon .dsms-signup-plan-card__header {
+    padding-right: 5.75rem;
 }
 
 .dsms-signup-plan-card--selected {
@@ -297,6 +325,58 @@ article.content {
 .dsms-signup-plan-card__prices p {
     margin: 0 0 0.15rem;
     font-size: var(--dsms-font-size-sm);
+}
+
+.dsms-plan-promo-ribbon {
+    position: absolute;
+    top: 16px;
+    right: 14px;
+    z-index: 2;
+    max-width: calc(100% - 2rem);
+    transform: rotate(14deg);
+    transform-origin: center center;
+    pointer-events: none;
+    filter: drop-shadow(0 2px 4px rgba(220, 38, 38, 0.2));
+}
+
+.dsms-plan-promo-ribbon-text {
+    display: block;
+    min-width: 105px;
+    max-width: 10rem;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    color: #fff;
+    background: linear-gradient(135deg, #f97316, #dc2626);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 999px;
+    box-shadow:
+        0 8px 18px rgba(220, 38, 38, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dsms-plan-price-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem;
+}
+
+.dsms-plan-price-original {
+    color: var(--dsms-text-muted);
+    text-decoration: line-through;
+    font-weight: 400;
+}
+
+.dsms-plan-price-promotional {
+    color: var(--dsms-text);
+    font-weight: 600;
 }
 
 .dsms-signup-plan-card__hint {
@@ -354,6 +434,89 @@ article.content {
     margin-bottom: var(--dsms-space-5);
 }
 
+.dsms-signup-price-preview {
+    padding: var(--dsms-space-4);
+    background: var(--dsms-surface-muted, #f8f9fb);
+    border: 1px solid var(--dsms-border);
+    border-radius: var(--dsms-radius-md);
+}
+
+.dsms-signup-price-preview__title {
+    margin: 0 0 var(--dsms-space-3);
+    font-size: var(--dsms-font-size-sm);
+    font-weight: 600;
+}
+
+.dsms-signup-price-preview__list {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.dsms-signup-price-preview__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: var(--dsms-font-size-sm);
+}
+
+.dsms-signup-price-preview__row dt {
+    margin: 0;
+    color: var(--dsms-text-muted);
+    font-weight: 500;
+}
+
+.dsms-signup-price-preview__row dd {
+    margin: 0;
+    text-align: right;
+}
+
+.dsms-signup-price-preview__row--final {
+    margin-top: 0.35rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--dsms-border);
+}
+
+.dsms-signup-price-preview__row--after-free {
+    margin-top: 0.15rem;
+    padding-top: 0.35rem;
+    border-top: 1px dashed var(--dsms-border);
+}
+
+.dsms-signup-price-preview__row--after-free dt {
+    color: var(--dsms-text);
+    font-weight: 600;
+}
+
+.dsms-signup-price-preview__row--after-free dd {
+    color: var(--dsms-text);
+    font-weight: 500;
+}
+
+.dsms-signup-legal-consent .form-check-label {
+    line-height: 1.45;
+}
+
+.dsms-signup-legal-consent .form-check-label a {
+    white-space: nowrap;
+}
+
+.dsms-signup-validation-summary {
+    margin: 0.75rem 0 0;
+    padding: 0.875rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.dsms-signup-validation-summary__list {
+    padding-left: 1.15rem;
+    margin: 0;
+}
+
+.dsms-signup-validation-summary__list li + li {
+    margin-top: 0.35rem;
+}
+
 .dsms-public-signup-footer {
     text-align: center;
     padding-top: var(--dsms-space-6);
@@ -367,9 +530,32 @@ article.content {
         padding: var(--dsms-space-6) var(--dsms-space-3);
     }
 
-    .dsms-signup-plan-card {
+    .dsms-signup-plan-card,
+    .dsms-plan-card {
         width: 100%;
         max-width: 420px;
+    }
+
+    .dsms-plan-promo-ribbon {
+        top: 14px;
+        right: 14px;
+        max-width: calc(100% - 1.75rem);
+    }
+
+    .dsms-plan-promo-ribbon-text {
+        min-width: 90px;
+        max-width: 8.4375rem;
+        font-size: 0.72rem;
+        padding: 0.35rem 0.65rem;
+        letter-spacing: 0.03em;
+    }
+
+    .dsms-plan-card-has-ribbon {
+        padding-top: 2.25rem;
+    }
+
+    .dsms-plan-card-has-ribbon .dsms-signup-plan-card__header {
+        padding-right: 5rem;
     }
 
     .dsms-signup-registration-card {

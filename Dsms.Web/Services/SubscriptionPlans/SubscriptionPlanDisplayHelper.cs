@@ -49,5 +49,53 @@ public static class SubscriptionPlanDisplayHelper
         var price = FormatMonthlyPrice(plan.PriceMonthly, plan.Currency, plan.IsFree);
         return $"{plan.DisplayName} - {price}";
     }
+
+    public static string FormatPriceAmount(decimal? price, string currency)
+    {
+        if (!price.HasValue)
+        {
+            return "nicht festgelegt";
+        }
+
+        return $"{price.Value.ToString("N2", GermanCulture)} {currency}";
+    }
+
+    public static string FormatPromotionalMonthlyPrice(decimal? price, string currency) =>
+        $"{FormatPriceAmount(price, currency)} / Monat";
+
+    public static string FormatPromotionalYearlyPrice(decimal? price, string currency) =>
+        $"{FormatPriceAmount(price, currency)} / Jahr";
+
+    public static string GetPromotionalBadgeText(string? badgeText) =>
+        string.IsNullOrWhiteSpace(badgeText) ? "Limitiertes Angebot" : badgeText.Trim();
+
+    public static bool ShowsPromotionalMonthly(
+        bool isFree,
+        bool isPromotionalPriceEnabled,
+        decimal? promotionalMonthlyPrice) =>
+        !isFree && isPromotionalPriceEnabled && promotionalMonthlyPrice.HasValue;
+
+    public static bool ShowsPromotionalYearly(
+        bool isFree,
+        bool isPromotionalPriceEnabled,
+        decimal? promotionalYearlyPrice) =>
+        !isFree && isPromotionalPriceEnabled && promotionalYearlyPrice.HasValue;
+
+    public static bool ShowsPromotionalBadge(
+        bool isFree,
+        bool isPromotionalPriceEnabled,
+        decimal? promotionalMonthlyPrice,
+        decimal? promotionalYearlyPrice) =>
+        !isFree && isPromotionalPriceEnabled
+        && (promotionalMonthlyPrice.HasValue || promotionalYearlyPrice.HasValue);
+
+    public static string FormatPromotionalPrice(decimal? price, string currency) =>
+        FormatPriceAmount(price, currency);
+
+    public static string FormatPromotionalMonthlyPriceForDetails(decimal? price, string currency) =>
+        price.HasValue ? $"{FormatPriceAmount(price, currency)} / Monat" : "—";
+
+    public static string FormatPromotionalYearlyPriceForDetails(decimal? price, string currency) =>
+        price.HasValue ? $"{FormatPriceAmount(price, currency)} / Jahr" : "—";
 }
 

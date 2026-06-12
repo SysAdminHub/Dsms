@@ -97,7 +97,9 @@ public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
 
         var activitiesWithoutDocuments = await db.ProcessingActivities
             .Where(p => p.TenantId == tenantId
-                && !db.EvidenceDocuments.Any(d => d.ProcessingActivityId == p.Id && d.TenantId == tenantId))
+                && !db.DocumentLinks.Any(l => l.TenantId == tenantId
+                    && l.LinkedEntityType == DocumentLinkedEntityType.ProcessingActivity
+                    && l.LinkedEntityId == p.Id))
             .CountAsync(ct);
 
         var activitiesWithOpenMeasures = await db.ProcessingActivityMeasures
@@ -295,9 +297,9 @@ public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
             .Distinct()
             .ToListAsync(ct)).ToHashSet();
 
-        var withDocuments = (await db.EvidenceDocuments
-            .Where(d => d.TenantId == tenantId && d.ProcessingActivityId != null)
-            .Select(d => d.ProcessingActivityId!.Value)
+        var withDocuments = (await db.DocumentLinks
+            .Where(l => l.TenantId == tenantId && l.LinkedEntityType == DocumentLinkedEntityType.ProcessingActivity)
+            .Select(l => l.LinkedEntityId)
             .Distinct()
             .ToListAsync(ct)).ToHashSet();
 

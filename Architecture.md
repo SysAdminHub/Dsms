@@ -144,6 +144,7 @@ Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnec
 | `AuditAnswers` | `AuditAnswer` |
 | `Measures` | `Measure` |
 | `EvidenceDocuments` | `EvidenceDocument` |
+| `DocumentLinks` | `DocumentLink` (Many-to-Many Bezüge Dokument ↔ Fachobjekt) |
 | `ProcessingActivities` | `ProcessingActivity` |
 | `Toms` | `Tom` |
 | `ProcessingActivityToms` | `ProcessingActivityTom` |
@@ -186,17 +187,21 @@ Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAn
 
 **`License`** ist eine eigenständige Entity mit **`Guid Id`** (nicht `EntityBase`). Enthält Kundendaten, Status, Gültigkeit und Limit-Felder (lizenzweit und pro Mandant). `LicenseNumber` wird automatisch vergeben (Format `LIC-{Jahr}-{Sequenz}`).
 
-**`SubscriptionPlan`** ist eine Tarifvorlage mit **`Guid Id`** (nicht `EntityBase`). Enthält Anzeigenamen, Preise, optionale externe Billing-IDs, `IsPublicSignupEnabled` (öffentliche Registrierungsseite) und dieselben Limit-Felder wie `License`. `null` = unbegrenzt. Änderungen an Plänen **ändern bestehende Lizenzen nicht**; beim Signup werden Planwerte in eine neue `License` kopiert über `PlanToLicenseMapper` / `ProvisioningService`.
+**`SubscriptionPlan`** ist eine Tarifvorlage mit **`Guid Id`** (nicht `EntityBase`). Enthält Anzeigenamen, reguläre Preise (`PriceMonthly`, `PriceYearly`), optionale Sonderpreise (`IsPromotionalPriceEnabled`, `PromotionalMonthlyPrice`, `PromotionalYearlyPrice`, `PromotionalBadgeText`), optionale externe Billing-IDs, `IsPublicSignupEnabled` (öffentliche Registrierungsseite) und dieselben Limit-Felder wie `License`. `null` = unbegrenzt. Sonderpreise wirken nur auf die öffentliche Registrierungsanzeige und den effektiven `PendingSignup.Amount`; bestehende Lizenzen werden nicht geändert. Änderungen an Plänen **ändern bestehende Lizenzen nicht**; beim Signup werden Planwerte in eine neue `License` kopiert über `PlanToLicenseMapper` / `ProvisioningService`.
 
 **Plan-to-License Mapping:** `PlanToLicenseService` lädt einen aktiven `SubscriptionPlan`, kopiert alle Limit-Felder 1:1 (`null` bleibt `null`) und setzt `License.PlanName` auf `SubscriptionPlan.DisplayName`. Beispiel: Plan „Pro“ mit `MaxUsersPerTenant = 25` → License „Muster GmbH“ mit `MaxUsersPerTenant = 25`. Wird der Plan später auf 50 geändert, bleibt die bestehende License bei 25.
 
 **Provisioning:** `ProvisioningService.ProvisionCustomerAsync` erstellt in einer Transaktion License (über `PlanToLicenseMapper`), ersten Mandanten (`Tenant.LicenseId`) und Admin-Benutzer (`ApplicationUser.LicenseId`, Rolle `Admin`, `UserTenant`-Zuordnung). Nach dem Commit wird optional eine Passwortvergabe-Mail über `SendProvisioningWelcomeEmailAsync` versendet. Bei E-Mail-Fehler bleiben die angelegten Daten bestehen. Später für Free-Signup und Mollie-Webhook wiederverwendbar; Public Signup und Mollie noch nicht implementiert.
 
-**Public-Signup:** Öffentliche Route `/signup` (ohne Anmeldung, `PublicSignupLayout`). Lädt aktive Pläne mit `IsActive == true` und `IsPublicSignupEnabled == true` über `GetPublicSignupPlansAsync()`. Tarifauswahl als Karten; Formular erst nach Planwahl. Free- und kostenpflichtige Pläne: `PendingSignupService.CreateForPublicSignupAsync` → Status Draft/Provisioning → `ProvisioningService` mit `Source = "PublicSignup"` → Status Provisioned (oder Failed). Lizenzlaufzeit beim automatischen Public Signup: 1 Monat. Erfolgsseite `/signup/success`. Kostenpflichtige Pläne: Rechnungsdaten in `PendingSignup`, `PaymentProvider = ManualInvoice`, Rechnung manuell später. Kein Mollie, kein Auto-Login.
+**Rabattcodes:** Plattformweite Entity `DiscountCode` (Guid-Id) mit Typ (`Percentage`, `FixedAmount`, `FreeMonths`), optionaler Plan- und Abrechnungsbindung, Gültigkeitszeitraum und Nutzungslimit. Verwaltung nur für Superuser unter `/platform/discount-codes`. Öffentlicher Signup: Validierung und Preisvorschau über `IDiscountCodeValidationService`; Snapshot in `PendingSignup`. Vor Provisionierung erneute Prüfung via `ValidateForProvisioningAsync`. Einlösung (`CurrentRedemptions++`, `PendingSignup.DiscountRedeemedAt`) erst nach erfolgreichem Provisioning in derselben EF-Transaktion wie License/Tenant/Admin (`ProvisioningService` mit `PendingSignupId`). FreeMonths: `License.ValidUntil` und `NextInvoiceDate` auf kostenlose Laufzeit; `BillingStatus = NotRequired`. Prozent-/Betragsrabatte: Finalbeträge aus Snapshot unverändert.
+
+**Public-Signup:** Öffentliche Route `/signup` (ohne Anmeldung, `PublicSignupLayout`). Lädt aktive Pläne mit `IsActive == true` und `IsPublicSignupEnabled == true` über `GetPublicSignupPlansAsync()`. Tarifauswahl als Karten mit optionaler Sonderpreis-Anzeige (durchgestrichener Regulärpreis, Badge); Formular erst nach Planwahl. Der effektive Betrag (`PendingSignup.Amount`) wird in `PublicSignupService.ResolveBillingAmount` aus dem gewählten Abrechnungszeitraum, ggf. aktivem Sonderpreis und Rabattcode ermittelt. Free- und kostenpflichtige Pläne: `PendingSignupService.CreateForPublicSignupAsync` → Status Provisioning → finale Rabattprüfung → `ProvisioningService` mit `Source = "PublicSignup"` und `PendingSignupId` → Status Provisioned (oder Failed). Lizenzlaufzeit beim automatischen Public Signup: standardmäßig 1 Monat; bei FreeMonths-Rabatt: `heute + FreeMonths`. Erfolgsseite `/signup/success`. Kostenpflichtige Pläne: Rechnungsdaten in `PendingSignup`, `PaymentProvider = ManualInvoice`, Rechnung manuell später. Kein Mollie, kein Auto-Login.
 
 **Paid-Signup (Legacy-Route):** `/signup/paid` leitet auf die vereinheitlichte `/signup`-Seite weiter. Der frühere separate Paid-Signup-Flow (`PaidSignupService`, `Source = "PaidSignup"`) bleibt im Code für Kompatibilität, wird aber nicht mehr über eine eigene Seite angesteuert.
 
 **PendingSignup:** Historie und Zwischenspeicher für Registrierungen. Entity `PendingSignup` speichert Plan-Snapshots, Registrierungsdaten, Rechnungsdaten (Paid), Rechnungsverwaltung (`BillingStatus`, `NextInvoiceDate`, `InvoiceSentAt`, `InvoicePaidAt`, `BillingNote`) und Provisioning-Ergebnis. Beim Public Signup wird der Eintrag erstellt und nach erfolgreicher Provisionierung auf Status Provisioned gesetzt. Superuser-Verwaltung unter `/platform/signups` inkl. manueller Rechnungsaktionen (ohne automatische Lizenzverlängerung). Mollie/Webhook und PDF-Rechnungen noch nicht implementiert.
+
+**LegalAcceptance:** Unveränderlicher Nachweisdatensatz für rechtliche Zustimmungen beim Public Signup. Tabelle `LegalAcceptances` (FK zu `Tenant`, `ApplicationUser`, optional `PendingSignupId`). Version und `EffectiveDate` aus `Legal/legal-documents.json` via `ILegalDocumentService`. Client-IP wird vor Speicherung über `IIpAnonymizationService` anonymisiert (`AnonymizedIpAddress`). Speicherung in derselben EF-Transaktion wie Provisioning (`ILegalAcceptanceService.AddWithinTransactionAsync`). Kein Mandanten-Query-Filter; Anzeige nur für Superuser auf der Registrierungsseite.
 
 Alle anderen Fach-Entities erben von **`EntityBase`** (`Id`, `CreatedAt`, `UpdatedAt`).
 
@@ -208,24 +213,21 @@ License (Guid)
 Tenant
  ├── AuditTemplate (Tenant | Official | Community) ── AuditQuestion
  │        └── AuditRun ── AuditAnswer (Snapshot + FK AuditQuestion)
- │              ├── Measure (optional AuditAnswerId)
- │              └── EvidenceDocument
+ │              └── Measure (optional AuditAnswerId)
  ├── Measure (optional AuditRun, optional AuditAnswerId)
- ├── EvidenceDocument
+ ├── EvidenceDocument ←──→ Fachobjekte (DocumentLink: AuditRun, Measure, ServiceProvider, ProcessingActivity, Dsfa, PrivacyIncident, Tom)
  ├── ProcessingActivity (VVT) ←──→ Tom (ProcessingActivityTom)
  │        ←──→ ServiceProvider (ProcessingActivityServiceProvider, Rolle)
  │        ←──→ Measure (ProcessingActivityMeasure)
  │        ←──→ AuditAnswer (ProcessingActivityAuditAnswer)
  │        ── DataProtectionImpactAssessment (1:n DSFA)
- │        ── EvidenceDocument (ProcessingActivityId, optional)
  ├── Tom ←──→ ServiceProvider (ServiceProviderTom)
- ├── ServiceProvider ── EvidenceDocument (optional)
- ├── DataProtectionImpactAssessment ── EvidenceDocument (optional)
+ ├── ServiceProvider
+ ├── DataProtectionImpactAssessment
  ├── PrivacyIncident ←──→ ProcessingActivity (PrivacyIncidentProcessingActivity)
  │        ←──→ ServiceProvider (PrivacyIncidentServiceProvider)
  │        ←──→ Measure (PrivacyIncidentMeasure)
  │        ←──→ Tom (PrivacyIncidentTom)
- │        ── EvidenceDocument (PrivacyIncidentId, optional)
  └── Tom
 
 ApplicationUser.TenantId → logische Zuordnung (kein EF-FK auf Tenants)
@@ -260,7 +262,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ITenantDeletionService` / `TenantDeletionService` | Scoped | Löschanforderung markieren (`IsDeletionRequested`); Abbrechen nur Superuser |
 | `TenantDataEndpoints` | Minimal API | `POST /tenant-daten/export` – ZIP-Download mit serverseitiger Berechtigungsprüfung |
 | `DocumentUploadValidation` | Static | Dateityp-, MIME- und Größenprüfung für Uploads (PDF, DOCX, XLSX, JPG, PNG; max. 10 MB) |
-| `DocumentLinksService` | Scoped | Nachträgliches Aktualisieren der Verknüpfungen (`EvidenceDocument`-FKs) |
+| `DocumentLinksService` | Scoped | Many-to-Many-Verknüpfungen (`DocumentLink`); Laden, Setzen, Validierung mandantensicher |
 | `DocumentFileEndpoints` | Minimal API | `GET /documents/{id}/download` und `/view` – mandantengebunden via EF-Filter |
 | `ArchiveViewContextAccessor` | Scoped | Aktiv-/Archivansicht für EF Global Query Filter (`ShowArchivedOnly`) |
 | `IArchivingService` / `ArchivingService` | Scoped | Soft Delete: Archivieren, Wiederherstellen, Abhängigkeitswarnungen |
@@ -284,6 +286,11 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IFeedbackService` / `FeedbackService` | Scoped | Benutzer-Feedback per E-Mail an `AppBranding.SupportEmail`; Vorlage `FeedbackMessageToSupport`; keine DB-Persistenz |
 | `IPaidSignupService` / `PaidSignupService` | Scoped | Legacy Paid-Signup-Service (nicht mehr über eigene Seite) |
 | `IPendingSignupService` / `PendingSignupService` | Scoped | Zwischenspeicher für ausstehende Registrierungen; Public Signup; Rechnungsverwaltung (NextInvoiceDate, BillingStatus-Aktionen) |
+| `ILegalDocumentService` / `LegalDocumentService` | Scoped | Liest `Legal/legal-documents.json` und Markdown-Dateien für öffentliche Legal-Seiten |
+| `ILegalAcceptanceService` / `LegalAcceptanceService` | Scoped | Speichert und liest Nachweisdatensätze `LegalAcceptance` (Signup-Zustimmung) |
+| `ILegalPdfService` / `LegalPdfService` | Scoped | PDF-Generierung aus Legal-Markdown (QuestPDF); AVV-Paket kombiniert AVV+TOM+Unterauftragnehmer |
+| `ISignupLegalEmailService` / `SignupLegalEmailService` | Scoped | Bestätigungsmail nach Public Signup mit Legal-PDF-Anhängen |
+| `IIpAnonymizationService` / `IpAnonymizationService` | Scoped | Anonymisiert IP-Adressen vor Speicherung in Nachweisdatensätzen (IPv4 /24, IPv6 /64) |
 | `ILogService` / `LogService` | Scoped | Zentrales Audit- und Systemprotokoll (`LogEntry`-Tabelle); siehe `Logging.md` |
 | `ILogQueryService` / `LogQueryService` | Scoped | Abfrage für Superuser-Protokolle und Admin-Auditlog mit Mandanten-/Lizenzfilter |
 | `ILicenseCreateGuard` / `LicenseCreateGuard` | Scoped | Lizenzlimit-Prüfung mit automatischer Audit-Protokollierung bei Blockierung |
@@ -396,7 +403,7 @@ dotnet ef database update
 |-------------|--------|--------------|
 | TOMs | `ProcessingActivityTom` (bestehend) | Many-to-Many, `TenantId` auf Join |
 | Dienstleister | `ProcessingActivityServiceProvider` (bestehend) | Many-to-Many; Rolle nur bei Bearbeitung am Dienstleister, VVT-Verknüpfungsseite setzt Standard `DataProcessor` |
-| Dokumente | `EvidenceDocument.ProcessingActivityId` | 1:n (optionaler FK), analog zu Audit/Maßnahme/Dienstleister |
+| Dokumente | `DocumentLink` | Many-to-Many – ein Dokument kann mehrere Bezüge haben (Audit, Maßnahme, Dienstleister, VVT, DSFA, Vorfall, TOM) |
 | Maßnahmen | `ProcessingActivityMeasure` | Many-to-Many – Maßnahme kann mehreren VVT-Einträgen zugeordnet sein |
 | Audit-Antworten | `ProcessingActivityAuditAnswer` | Many-to-Many – keine `ProcessingActivityId` auf `AuditAnswer`, da Antworten über Durchlauf mandantenbezogen bleiben |
 | DSFA | `DataProtectionImpactAssessment` (1:n zu `ProcessingActivity`) | Pflicht-FK; `TenantId` + Indexe; Cascade beim Löschen der VVT |
@@ -463,7 +470,7 @@ Die Login-Seite ist an das DSMS-Design angepasst; viele Manage-/Register-Seiten 
 | Audit-Antwort ↔ VVT nur über Links-Seite | Direkte Zuordnung in `Answers.razor` bewusst zurückgestellt |
 | Kein FK `ApplicationUser` → `Tenant` | Referenzielle Integrität nur über Anwendungslogik |
 | UI/API für `AssignedUserId` fehlt | Datenmodell vorbereitet, nicht genutzt |
-| TOMs ohne direkte Dokumenten-Zuordnung | `EvidenceDocument` hat `AuditRunId`/`MeasureId`/`ServiceProviderId`; TOM nutzt Freitext `EvidenceReference` oder Verknüpfung über Dienstleister |
+| TOMs mit direkter Dokumenten-Verknüpfung | Über `DocumentLink` (EntityType `Tom`); zusätzlich Freitext `EvidenceReference` |
 | Keine Lösch-UI | Nur DB-Löschregeln definiert |
 | Register nicht verlinkt | Identity-Seite existiert, Produktfluss unklar |
 | Englische Enum-Labels | UX-Verbesserung durch Display-Namen |

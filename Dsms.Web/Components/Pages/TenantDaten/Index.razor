@@ -49,6 +49,33 @@ else
                 <DataAnnotationsValidator />
                 <ValidationSummary class="alert alert-danger dsms-alert" />
 
+                <h5 class="dsms-form-section">Vertrags- und AVV-Daten</h5>
+                <p class="form-text text-muted mb-3">
+                    Diese Angaben werden für den Auftragsverarbeitungsvertrag verwendet.
+                    <a href="/legal/avv" target="_blank" rel="noopener">AVV anzeigen</a>
+                </p>
+                @if (_complianceInfo is not null)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Vertragsdatum / Registrierungsdatum</label>
+                        <input class="form-control" readonly value="@_complianceInfo.ContractDateUtc.ToLocalTime().ToString("dd.MM.yyyy")" />
+                    </div>
+                }
+                <div class="mb-3">
+                    <label class="form-label">Ansprechpartner</label>
+                    <InputText class="form-control" @bind-Value="_complianceModel.ContactName" />
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Land</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.Country" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Umsatzsteuer-ID</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.VatId" />
+                    </div>
+                </div>
+
                 <h5 class="dsms-form-section">Angaben zum Verantwortlichen</h5>
                 <div class="mb-3">
                     <label class="form-label">Name des Verantwortlichen / der Organisation</label>
@@ -206,6 +233,7 @@ else
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
 
     private Domain.Entities.Tenant? _tenant;
+    private TenantComplianceInfoDto? _complianceInfo;
     private TenantComplianceInfoSaveModel _complianceModel = new();
     private bool _authorized;
     private bool _isSuperuser;
@@ -237,6 +265,7 @@ else
             return;
         }
 
+        _complianceInfo = info;
         _complianceModel = new TenantComplianceInfoSaveModel
         {
             LegalName = info.LegalName,
@@ -244,6 +273,9 @@ else
             HouseNumber = info.HouseNumber,
             PostalCode = info.PostalCode,
             City = info.City,
+            Country = info.Country,
+            ContactName = info.ContactName,
+            VatId = info.VatId,
             Phone = info.Phone,
             Email = info.Email,
             Website = info.Website,

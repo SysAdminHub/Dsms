@@ -2,6 +2,7 @@ using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Services.Licenses;
+using Dsms.Web.Services.Legal;
 using Dsms.Web.Services.Logging;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +13,9 @@ public sealed class PendingSignupService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
     IUserAccessService access,
     UserManager<ApplicationUser> userManager,
-    ILogService logService) : IPendingSignupService
+    ILogService logService,
+    ILegalAcceptanceService legalAcceptanceService,
+    ICurrentUserContext currentUser) : IPendingSignupService
 {
     public async Task<IReadOnlyList<PendingSignupListDto>> GetAllAsync(
         string? search = null,
@@ -75,10 +78,16 @@ public sealed class PendingSignupService(
             query = query.Where(p => p.NextInvoiceDate != null && p.NextInvoiceDate <= until);
         }
 
-        return await query
+        var entities = await query
             .OrderByDescending(p => p.CreatedAt)
-            .Select(p => MapToList(p))
             .ToListAsync();
+
+        var legalSummaries = await legalAcceptanceService.GetSummariesByPendingSignupIdsAsync(
+            entities.Select(p => p.Id).ToList());
+
+        return entities
+            .Select(p => MapToList(p, legalSummaries.GetValueOrDefault(p.Id)))
+            .ToList();
     }
 
     public async Task<PendingSignupDetailsDto?> GetByIdAsync(Guid id)
@@ -87,7 +96,16 @@ public sealed class PendingSignupService(
         await using var db = await dbFactory.CreateDbContextAsync();
 
         var entity = await db.PendingSignups.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
-        return entity is null ? null : MapToDetails(entity);
+        if (entity is null)
+        {
+            return null;
+        }
+
+        var legalAcceptance = await legalAcceptanceService.GetSummaryForSignupAsync(
+            entity.Id,
+            entity.ProvisionedTenantId);
+
+        return MapToDetails(entity, legalAcceptance);
     }
 
     public async Task<Guid> CreateAsync(CreatePendingSignupDto dto)
@@ -278,8 +296,29 @@ public sealed class PendingSignupService(
             BillingVatId = NormalizeOptional(dto.BillingVatId),
             BillingReference = NormalizeOptional(dto.BillingReference),
             BillingStatus = NormalizeOptional(dto.BillingStatus),
-            NextInvoiceDate = dto.NextInvoiceDate
+            NextInvoiceDate = dto.NextInvoiceDate,
+            DiscountCodeId = dto.DiscountCodeId,
+            DiscountCodeSnapshot = NormalizeOptional(dto.DiscountCodeSnapshot),
+            DiscountNameSnapshot = NormalizeOptional(dto.DiscountNameSnapshot),
+            DiscountTypeSnapshot = NormalizeOptional(dto.DiscountTypeSnapshot),
+            DiscountValueSnapshot = dto.DiscountValueSnapshot,
+            DiscountFreeMonthsSnapshot = dto.DiscountFreeMonthsSnapshot,
+            OriginalAmount = dto.OriginalAmount,
+            DiscountAmount = dto.DiscountAmount,
+            FinalAmount = dto.FinalAmount
         };
+
+        var (currentAmount, currentCurrency, currentCycle) = PendingSignupDisplayHelper.ResolveInitialCurrentBilling(
+            entity.PaymentProvider,
+            entity.Amount,
+            entity.FinalAmount,
+            entity.Currency,
+            entity.BillingCycle,
+            entity.DiscountTypeSnapshot,
+            entity.OriginalAmount);
+        entity.CurrentBillingAmount = currentAmount;
+        entity.CurrentBillingCurrency = currentCurrency;
+        entity.CurrentBillingCycle = currentCycle;
 
         db.PendingSignups.Add(entity);
         await db.SaveChangesAsync();
@@ -572,9 +611,25 @@ public sealed class PendingSignupService(
 
         if (IsPaidSignup(entity))
         {
+            ValidateBillingDetailsUpdate(dto);
+
             var oldDate = entity.NextInvoiceDate;
+            var oldAmount = entity.CurrentBillingAmount;
+            var oldCycle = entity.CurrentBillingCycle;
+            var oldNote = entity.BillingNote;
+
             entity.NextInvoiceDate = dto.NextInvoiceDate;
             entity.BillingNote = NormalizeOptional(dto.BillingNote);
+
+            if (dto.CurrentBillingAmount is not null)
+            {
+                entity.CurrentBillingAmount = dto.CurrentBillingAmount;
+                entity.CurrentBillingCurrency = NormalizeOptional(dto.CurrentBillingCurrency) ?? entity.Currency;
+                entity.CurrentBillingCycle = NormalizeOptional(dto.CurrentBillingCycle) ?? entity.BillingCycle;
+                entity.CurrentBillingAmountUpdatedAt = DateTime.UtcNow;
+                entity.CurrentBillingAmountUpdatedByUserId = await currentUser.GetUserIdAsync();
+            }
+
             entity.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
 
@@ -582,7 +637,16 @@ public sealed class PendingSignupService(
                 entity,
                 "PendingSignupBillingDetailsUpdated",
                 "Rechnungsdetails wurden aktualisiert.",
-                new { OldNextInvoiceDate = oldDate, NewNextInvoiceDate = entity.NextInvoiceDate, BillingNoteUpdated = dto.BillingNote is not null });
+                new
+                {
+                    OldNextInvoiceDate = oldDate,
+                    NewNextInvoiceDate = entity.NextInvoiceDate,
+                    OldCurrentBillingAmount = oldAmount,
+                    NewCurrentBillingAmount = entity.CurrentBillingAmount,
+                    OldCurrentBillingCycle = oldCycle,
+                    NewCurrentBillingCycle = entity.CurrentBillingCycle,
+                    BillingNoteChanged = oldNote != entity.BillingNote
+                });
             return true;
         }
 
@@ -671,6 +735,24 @@ public sealed class PendingSignupService(
     private static bool IsPaidSignup(PendingSignup entity) =>
         !PendingSignupDisplayHelper.IsFreeSignup(entity.PaymentProvider, entity.Amount);
 
+    private static void ValidateBillingDetailsUpdate(UpdateBillingDetailsDto dto)
+    {
+        if (dto.CurrentBillingAmount is < 0)
+        {
+            throw new InvalidOperationException("Der aktuell gültige Betrag darf nicht negativ sein.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.CurrentBillingCurrency) && dto.CurrentBillingCurrency.Trim().Length > 10)
+        {
+            throw new InvalidOperationException("Die Währung ist ungültig.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.CurrentBillingCycle) && !BillingCycles.IsValid(dto.CurrentBillingCycle))
+        {
+            throw new InvalidOperationException("Die Abrechnung ist ungültig.");
+        }
+    }
+
     private Task TryLogBillingAuditAsync(
         PendingSignup entity,
         string action,
@@ -683,12 +765,13 @@ public sealed class PendingSignupService(
         await EnsureSuperuserAsync();
         await using var db = await dbFactory.CreateDbContextAsync();
 
-        return await db.PendingSignups
+        var entities = await db.PendingSignups
             .AsNoTracking()
             .Where(p => p.Status == PendingSignupStatuses.PendingPayment)
             .OrderByDescending(p => p.CreatedAt)
-            .Select(p => MapToList(p))
             .ToListAsync();
+
+        return entities.Select(p => MapToList(p)).ToList();
     }
 
     public async Task<IReadOnlyList<PendingSignupListDto>> GetExpiredAsync()
@@ -696,12 +779,13 @@ public sealed class PendingSignupService(
         await EnsureSuperuserAsync();
         await using var db = await dbFactory.CreateDbContextAsync();
 
-        return await db.PendingSignups
+        var entities = await db.PendingSignups
             .AsNoTracking()
             .Where(p => p.Status == PendingSignupStatuses.Expired)
             .OrderByDescending(p => p.CreatedAt)
-            .Select(p => MapToList(p))
             .ToListAsync();
+
+        return entities.Select(p => MapToList(p)).ToList();
     }
 
     public async Task<PendingSignupDetailsDto?> GetByExternalPaymentIdAsync(string externalPaymentId)
@@ -717,7 +801,16 @@ public sealed class PendingSignupService(
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.ExternalPaymentId == externalPaymentId.Trim());
 
-        return entity is null ? null : MapToDetails(entity);
+        if (entity is null)
+        {
+            return null;
+        }
+
+        var legalAcceptance = await legalAcceptanceService.GetSummaryForSignupAsync(
+            entity.Id,
+            entity.ProvisionedTenantId);
+
+        return MapToDetails(entity, legalAcceptance);
     }
 
     private static void ValidateCreateDto(CreatePendingSignupDto dto)
@@ -790,7 +883,7 @@ public sealed class PendingSignupService(
             : $"{entity.InternalNote}\n{note.Trim()}";
     }
 
-    private static PendingSignupListDto MapToList(PendingSignup p) => new()
+    private static PendingSignupListDto MapToList(PendingSignup p, LegalAcceptanceSummaryDto? legalAcceptance = null) => new()
     {
         Id = p.Id,
         CreatedAt = p.CreatedAt,
@@ -805,6 +898,11 @@ public sealed class PendingSignupService(
         Source = p.Source,
         Amount = p.Amount,
         Currency = p.Currency,
+        DiscountCodeSnapshot = p.DiscountCodeSnapshot,
+        DiscountTypeSnapshot = p.DiscountTypeSnapshot,
+        DiscountFreeMonthsSnapshot = p.DiscountFreeMonthsSnapshot,
+        FinalAmount = p.FinalAmount,
+        OriginalAmount = p.OriginalAmount,
         PaymentProvider = p.PaymentProvider,
         MetadataJson = p.MetadataJson,
         BillingEmail = p.BillingEmail,
@@ -812,14 +910,18 @@ public sealed class PendingSignupService(
         BillingCycle = p.BillingCycle,
         BillingStatus = p.BillingStatus,
         NextInvoiceDate = p.NextInvoiceDate,
+        CurrentBillingAmount = p.CurrentBillingAmount,
+        CurrentBillingCurrency = p.CurrentBillingCurrency,
+        CurrentBillingCycle = p.CurrentBillingCycle,
         ExternalPaymentId = p.ExternalPaymentId,
         ProvisionedLicenseId = p.ProvisionedLicenseId,
         ProvisionedLicenseNumber = p.ProvisionedLicenseNumber,
         ProvisionedAt = p.ProvisionedAt,
-        ErrorMessage = p.ErrorMessage
+        ErrorMessage = p.ErrorMessage,
+        LegalAcceptance = legalAcceptance ?? LegalAcceptanceSummaryDto.None()
     };
 
-    private static PendingSignupDetailsDto MapToDetails(PendingSignup p) => new()
+    private static PendingSignupDetailsDto MapToDetails(PendingSignup p, LegalAcceptanceSummaryDto? legalAcceptance = null) => new()
     {
         Id = p.Id,
         CreatedAt = p.CreatedAt,
@@ -849,6 +951,16 @@ public sealed class PendingSignupService(
         Amount = p.Amount,
         Currency = p.Currency,
         BillingCycle = p.BillingCycle,
+        DiscountCodeId = p.DiscountCodeId,
+        DiscountCodeSnapshot = p.DiscountCodeSnapshot,
+        DiscountNameSnapshot = p.DiscountNameSnapshot,
+        DiscountTypeSnapshot = p.DiscountTypeSnapshot,
+        DiscountValueSnapshot = p.DiscountValueSnapshot,
+        DiscountFreeMonthsSnapshot = p.DiscountFreeMonthsSnapshot,
+        OriginalAmount = p.OriginalAmount,
+        DiscountAmount = p.DiscountAmount,
+        FinalAmount = p.FinalAmount,
+        DiscountRedeemedAt = p.DiscountRedeemedAt,
         PaidAt = p.PaidAt,
         ProvisionedAt = p.ProvisionedAt,
         CancelledAt = p.CancelledAt,
@@ -874,7 +986,12 @@ public sealed class PendingSignupService(
         InvoiceSentAt = p.InvoiceSentAt,
         InvoicePaidAt = p.InvoicePaidAt,
         NextInvoiceDate = p.NextInvoiceDate,
-        BillingNote = p.BillingNote
+        BillingNote = p.BillingNote,
+        CurrentBillingAmount = p.CurrentBillingAmount,
+        CurrentBillingCurrency = p.CurrentBillingCurrency,
+        CurrentBillingCycle = p.CurrentBillingCycle,
+        CurrentBillingAmountUpdatedAt = p.CurrentBillingAmountUpdatedAt,
+        LegalAcceptance = legalAcceptance
     };
 
     private static string? NormalizeOptional(string? value) =>

@@ -1,0 +1,28 @@
+@* Dezenter Footer mit Links zu den öffentlichen Legal-Seiten. *@
+
+<footer class="dsms-legal-footer @VariantClass" aria-label="Rechtliche Hinweise">
+    <nav class="dsms-legal-footer__nav">
+        <a href="/legal/impressum">Impressum</a>
+        <span class="dsms-legal-footer__sep" aria-hidden="true">·</span>
+        <a href="/legal/datenschutz">Datenschutz</a>
+        <span class="dsms-legal-footer__sep" aria-hidden="true">·</span>
+        <a href="/legal/agb">AGB</a>
+        <span class="dsms-legal-footer__sep" aria-hidden="true">·</span>
+        <a href="/legal/avv">AVV</a>
+        <span class="dsms-legal-footer__sep" aria-hidden="true">·</span>
+        <a href="/legal/tom">TOM</a>
+        <span class="dsms-legal-footer__sep" aria-hidden="true">·</span>
+        <a href="/legal/unterauftragnehmer">Unterauftragnehmer</a>
+    </nav>
+</footer>
+
+@code {
+    /// <summary>app = angemeldete App (linksbündig, kompakt); auth = Login/Signup/Legal-Seiten.</summary>
+    [Parameter]
+    public string Variant { get; set; } = "auth";
+
+    private string VariantClass =>
+        string.Equals(Variant, "app", StringComparison.OrdinalIgnoreCase)
+            ? "dsms-legal-footer--app"
+            : "dsms-legal-footer--auth";
+}

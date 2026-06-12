@@ -1,0 +1,167 @@
+@* Bearbeiten der DocumentLinks eines bestehenden Dokuments (Speichern erst beim Bestätigen). *@
+@if (_visible)
+{
+    <div class="modal fade show d-block dsms-document-links-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Dokument bearbeiten</h5>
+                    <button type="button" class="btn-close" @onclick="Cancel" disabled="@_saving"></button>
+                </div>
+                <div class="modal-body">
+                    @if (_loading)
+                    {
+                        <div class="dsms-loading">Lade …</div>
+                    }
+                    else if (_tenantId is not null)
+                    {
+                        <p class="mb-3">
+                            <span class="text-muted">Dokument:</span> <strong>@_fileName</strong>
+                        </p>
+
+                        <DocumentLinkTypePicker TenantId="_tenantId.Value"
+                                                SelectedItems="_selectedItems"
+                                                SelectedItemsChanged="OnSelectedItemsChanged" />
+
+                        @if (!string.IsNullOrEmpty(_message))
+                        {
+                            <div class="alert @(_isError ? "alert-danger" : "alert-success") dsms-alert mt-3 mb-0">@_message</div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel" disabled="@_saving">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveAsync" disabled="@(_loading || _saving)">
+                        @(_saving ? "Speichern …" : "Speichern")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private DocumentLinksService LinksService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private bool _visible;
+    private bool _loading;
+    private bool _saving;
+    private bool _isError;
+    private int? _tenantId;
+    private int _documentId;
+    private string _fileName = string.Empty;
+    private string? _message;
+    private List<DocumentLinkSelectionViewModel> _selectedItems = [];
+
+    public async Task ShowAsync(int documentId)
+    {
+        if (!await UserAccess.CanEditTenantOperationalContentAsync())
+        {
+            return;
+        }
+
+        _documentId = documentId;
+        _visible = true;
+        _loading = true;
+        _saving = false;
+        _message = null;
+        _isError = false;
+
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null)
+        {
+            _loading = false;
+            _visible = false;
+            return;
+        }
+
+        var document = await Db.EvidenceDocuments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.TenantId == _tenantId);
+
+        if (document is null)
+        {
+            _loading = false;
+            _visible = false;
+            return;
+        }
+
+        _fileName = document.FileName;
+        _selectedItems = (await LinksService.GetSelectionViewModelsForDocumentAsync(documentId, _tenantId.Value)).ToList();
+        _loading = false;
+    }
+
+    private Task OnSelectedItemsChanged(IList<DocumentLinkSelectionViewModel> items)
+    {
+        _selectedItems = items.ToList();
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_tenantId is null || _saving)
+        {
+            return;
+        }
+
+        _saving = true;
+        _message = null;
+        _isError = false;
+
+        try
+        {
+            var links = _selectedItems
+                .Select(i => new DocumentLinkTarget(i.EntityType, i.EntityId))
+                .Distinct()
+                .ToList();
+
+            var (result, errorMessage) = await LinksService.SetLinksForDocumentAsync(
+                _documentId,
+                _tenantId.Value,
+                links);
+
+            switch (result)
+            {
+                case UpdateDocumentLinksResult.Success:
+                    _visible = false;
+                    await OnSaved.InvokeAsync();
+                    break;
+                case UpdateDocumentLinksResult.PermissionDenied:
+                case UpdateDocumentLinksResult.InvalidTenantReference:
+                case UpdateDocumentLinksResult.NotFound:
+                    _message = errorMessage ?? "Speichern fehlgeschlagen.";
+                    _isError = true;
+                    break;
+                default:
+                    _message = "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.";
+                    _isError = true;
+                    break;
+            }
+        }
+        catch
+        {
+            _message = "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.";
+            _isError = true;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        if (_saving)
+        {
+            return;
+        }
+
+        _visible = false;
+    }
+}

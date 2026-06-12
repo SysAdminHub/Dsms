@@ -234,9 +234,9 @@ else
 
     </div>
 
-    <LinkedDocumentsSection ProcessingActivityIds="_linkedActivityIds"
-                            EmptyMessage="Keine Nachweisdokumente gefunden."
-                            EmptyHint="Dokumente können unter „Dokumente“ hochgeladen und Verarbeitungstätigkeiten zugeordnet werden. TOMs haben keine direkte Dokumenten-Verknüpfung – angezeigt werden Nachweise der zugeordneten Verarbeitungstätigkeiten." />
+    <LinkedDocumentsSection TomId="@_tom.Id"
+                            EmptyMessage="Keine Dokumente verknüpft."
+                            EmptyHint="Dokumente können unter „Dokumente“ hochgeladen und TOMs zugeordnet werden." />
 
 }
 
@@ -262,7 +262,6 @@ else
     private Tom? _tom;
 
     private List<ProcessingActivity> _linkedActivities = [];
-    private IReadOnlyList<int> _linkedActivityIds = [];
 
 
 
@@ -306,8 +305,6 @@ else
                 .OrderBy(p => p.Name)
 
                 .ToListAsync();
-
-            _linkedActivityIds = _linkedActivities.Select(a => a.Id).ToList();
 
         }
 

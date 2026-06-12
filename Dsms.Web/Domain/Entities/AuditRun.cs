@@ -28,5 +28,4 @@ public class AuditRun : ArchivableEntityBase, ITenantEntity
 
     public ICollection<AuditAnswer> Answers { get; set; } = [];
     public ICollection<Measure> Measures { get; set; } = [];
-    public ICollection<EvidenceDocument> Documents { get; set; } = [];
 }

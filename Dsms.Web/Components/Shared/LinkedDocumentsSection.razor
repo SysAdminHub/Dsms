@@ -1,4 +1,4 @@
-@* Verknüpfte Nachweisdokumente laden und anzeigen (mandantengebunden via EF Global Query Filter). *@
+@* Verknüpfte Nachweisdokumente laden und anzeigen (mandantengebunden via DocumentLinks). *@
 
 <div class="dsms-card @CssClass">
     <div class="dsms-card-header">@Title</div>
@@ -53,11 +53,12 @@
 </div>
 
 @code {
-    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private DocumentLinksService LinksService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
 
-    [Parameter] public string Title { get; set; } = "Verknüpfte Dokumente";
+    [Parameter] public string Title { get; set; } = "Verknüpfte Dokumente / Nachweise";
     [Parameter] public string CssClass { get; set; } = "mb-4";
-    [Parameter] public string EmptyMessage { get; set; } = "Keine Dokumente zugeordnet.";
+    [Parameter] public string EmptyMessage { get; set; } = "Keine Dokumente verknüpft.";
     [Parameter] public string? EmptyHint { get; set; } = "Dokumente können unter „Dokumente“ hochgeladen und zugeordnet werden.";
 
     [Parameter] public int? AuditRunId { get; set; }
@@ -66,7 +67,7 @@
     [Parameter] public int? ProcessingActivityId { get; set; }
     [Parameter] public int? DataProtectionImpactAssessmentId { get; set; }
     [Parameter] public int? PrivacyIncidentId { get; set; }
-    [Parameter] public IReadOnlyList<int>? ProcessingActivityIds { get; set; }
+    [Parameter] public int? TomId { get; set; }
 
     private bool _loading = true;
     private List<EvidenceDocument> _documents = [];
@@ -80,50 +81,79 @@
     {
         _loading = true;
 
-        IQueryable<EvidenceDocument> query = Db.EvidenceDocuments;
-
-        if (AuditRunId.HasValue)
-        {
-            query = query.Where(d => d.AuditRunId == AuditRunId);
-        }
-        else if (MeasureId.HasValue)
-        {
-            query = query.Where(d => d.MeasureId == MeasureId);
-        }
-        else if (ServiceProviderId.HasValue)
-        {
-            query = query.Where(d => d.ServiceProviderId == ServiceProviderId);
-        }
-        else if (ProcessingActivityId.HasValue)
-        {
-            query = query.Where(d => d.ProcessingActivityId == ProcessingActivityId);
-        }
-        else if (DataProtectionImpactAssessmentId.HasValue)
-        {
-            query = query.Where(d => d.DataProtectionImpactAssessmentId == DataProtectionImpactAssessmentId);
-        }
-        else if (PrivacyIncidentId.HasValue)
-        {
-            query = query.Where(d => d.PrivacyIncidentId == PrivacyIncidentId);
-        }
-        else if (ProcessingActivityIds is { Count: > 0 })
-        {
-            var ids = ProcessingActivityIds;
-            query = query.Where(d => d.ProcessingActivityId != null && ids.Contains(d.ProcessingActivityId.Value));
-        }
-        else
+        var tenantId = await CurrentUser.GetTenantIdAsync();
+        if (tenantId is null)
         {
             _documents = [];
             _loading = false;
             return;
         }
 
-        _documents = await query
-            .AsNoTracking()
-            .OrderByDescending(d => d.CreatedAt)
-            .ToListAsync();
+        if (!TryResolveEntity(out var entityType, out var entityId))
+        {
+            _documents = [];
+            _loading = false;
+            return;
+        }
 
+        _documents = (await LinksService.GetDocumentsForEntityAsync(entityType, entityId, tenantId.Value)).ToList();
         _loading = false;
+    }
+
+    private bool TryResolveEntity(out DocumentLinkedEntityType entityType, out int entityId)
+    {
+        if (AuditRunId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.AuditRun;
+            entityId = AuditRunId.Value;
+            return true;
+        }
+
+        if (MeasureId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.Measure;
+            entityId = MeasureId.Value;
+            return true;
+        }
+
+        if (ServiceProviderId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.ServiceProvider;
+            entityId = ServiceProviderId.Value;
+            return true;
+        }
+
+        if (ProcessingActivityId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.ProcessingActivity;
+            entityId = ProcessingActivityId.Value;
+            return true;
+        }
+
+        if (DataProtectionImpactAssessmentId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.Dsfa;
+            entityId = DataProtectionImpactAssessmentId.Value;
+            return true;
+        }
+
+        if (PrivacyIncidentId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.PrivacyIncident;
+            entityId = PrivacyIncidentId.Value;
+            return true;
+        }
+
+        if (TomId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.Tom;
+            entityId = TomId.Value;
+            return true;
+        }
+
+        entityType = default;
+        entityId = 0;
+        return false;
     }
 
     private static string FormatSize(long bytes) =>

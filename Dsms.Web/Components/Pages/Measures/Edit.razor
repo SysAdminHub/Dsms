@@ -172,7 +172,6 @@ else
         {
             _model = await Db.Measures
                 .Include(m => m.ProcessingActivityLinks)
-                .Include(m => m.Documents)
                 .FirstAsync(m => m.Id == Id && m.TenantId == _tenantId);
             _previousStatus = _model.Status;
             _previousTitle = _model.Title;

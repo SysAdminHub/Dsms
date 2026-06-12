@@ -33,7 +33,8 @@ public sealed class EmailService(
         string subject,
         string htmlBody,
         string? textBody = null,
-        bool bypassEnabledCheck = false)
+        bool bypassEnabledCheck = false,
+        IReadOnlyList<EmailAttachment>? attachments = null)
     {
         if (!IsValidEmail(toEmail))
         {
@@ -49,7 +50,7 @@ public sealed class EmailService(
 
         try
         {
-            var message = BuildMimeMessage(settings!, toEmail.Trim(), subject, htmlBody, textBody);
+            var message = BuildMimeMessage(settings!, toEmail.Trim(), subject, htmlBody, textBody, attachments);
             await SendViaSmtpAsync(settings!, message);
             return EmailOperationResult.Ok("Email wurde versendet.");
         }
@@ -91,7 +92,8 @@ public sealed class EmailService(
         string toEmail,
         string templateKey,
         IReadOnlyDictionary<string, string> variables,
-        bool bypassEnabledCheck = false)
+        bool bypassEnabledCheck = false,
+        IReadOnlyList<EmailAttachment>? attachments = null)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
         var template = await db.EmailTemplates.AsNoTracking()
@@ -108,7 +110,7 @@ public sealed class EmailService(
         }
 
         var rendered = templateRenderer.Render(template.Subject, template.HtmlContent, template.TextContent, variables);
-        return await SendEmailAsync(toEmail, rendered.Subject, rendered.HtmlBody, rendered.TextBody, bypassEnabledCheck);
+        return await SendEmailAsync(toEmail, rendered.Subject, rendered.HtmlBody, rendered.TextBody, bypassEnabledCheck, attachments);
     }
 
     public Task<EmailOperationResult> SendTestEmailAsync(string toEmail, bool bypassEnabledCheck = false) =>
@@ -238,7 +240,8 @@ public sealed class EmailService(
         string toEmail,
         string subject,
         string htmlBody,
-        string? textBody)
+        string? textBody,
+        IReadOnlyList<EmailAttachment>? attachments)
     {
         var from = new MailboxAddress(settings.SenderName ?? settings.SenderEmail, settings.SenderEmail!);
         var message = new MimeMessage
@@ -253,6 +256,23 @@ public sealed class EmailService(
             HtmlBody = htmlBody,
             TextBody = textBody ?? StripHtml(htmlBody)
         };
+
+        if (attachments is not null)
+        {
+            foreach (var attachment in attachments)
+            {
+                if (attachment.ContentBytes.Length == 0)
+                {
+                    continue;
+                }
+
+                builder.Attachments.Add(
+                    attachment.FileName,
+                    attachment.ContentBytes,
+                    ContentType.Parse(attachment.ContentType));
+            }
+        }
+
         message.Body = builder.ToMessageBody();
         return message;
     }

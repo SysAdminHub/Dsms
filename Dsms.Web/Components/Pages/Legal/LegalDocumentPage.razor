@@ -1,0 +1,76 @@
+@page "/legal/{DocumentRoute}"
+@layout LegalLayout
+@rendermode InteractiveServer
+@inject ILegalDocumentService LegalDocumentService
+
+<BrandedPageTitle Title="@_title" />
+
+@if (_loading)
+{
+    <div class="dsms-legal-page">
+        <div class="dsms-loading">Dokument wird geladen …</div>
+    </div>
+}
+else if (_document is null || !_document.IsFound)
+{
+    <div class="dsms-legal-page">
+        <div class="alert alert-warning dsms-alert">
+            @(_document?.ErrorMessage ?? "Das Dokument konnte nicht geladen werden.")
+        </div>
+    </div>
+}
+else
+{
+    <article class="dsms-legal-page">
+        <header class="dsms-legal-page__header">
+            <h1 class="dsms-legal-page__title">@_document.Title</h1>
+            @if (!string.IsNullOrWhiteSpace(_document.EffectiveDate))
+            {
+                <p class="dsms-legal-page__meta">Stand: @_document.EffectiveDate</p>
+            }
+            <p class="dsms-legal-page__actions">
+                <a class="btn btn-outline-primary btn-sm" href="@GetPdfDownloadUrl()">Als PDF herunterladen</a>
+            </p>
+        </header>
+
+        <div class="dsms-legal-content">
+            @((MarkupString)_document.Html)
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_document.Version))
+        {
+            <footer class="dsms-legal-page__version">
+                Dokumentversion: @_document.Version
+            </footer>
+        }
+    </article>
+}
+
+@code {
+    [Parameter]
+    public string DocumentRoute { get; set; } = string.Empty;
+
+    private LegalDocumentContent? _document;
+    private string _title = "Rechtliches Dokument";
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+
+        if (!LegalDocumentKeys.TryResolveKeyFromRoute(DocumentRoute, out var documentKey))
+        {
+            _document = LegalDocumentContent.NotFound(string.Empty, "Die angeforderte Seite wurde nicht gefunden.");
+            _title = "Seite nicht gefunden";
+            _loading = false;
+            return;
+        }
+
+        _title = LegalDocumentKeys.GetTitle(documentKey);
+        _document = await LegalDocumentService.GetDocumentAsync(documentKey);
+        _loading = false;
+    }
+
+    private string GetPdfDownloadUrl() =>
+        $"/legal/{Uri.EscapeDataString(DocumentRoute.Trim())}/pdf";
+}

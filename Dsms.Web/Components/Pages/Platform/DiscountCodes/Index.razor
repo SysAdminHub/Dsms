@@ -1,0 +1,163 @@
+@* Nur Superuser: plattformweite Rabattcodes. *@
+@page "/platform/discount-codes"
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Rabattcodes" />
+
+<PageHeader Title="Rabattcodes" Subtitle="Rabattcodes für Aktionen und Kampagnen verwalten">
+    <a class="btn btn-primary" href="platform/discount-codes/edit">Neuer Rabattcode</a>
+</PageHeader>
+
+<div class="dsms-card dsms-form-card mb-4">
+    <div class="dsms-card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Suche</label>
+                <input class="form-control" @bind="_search" @bind:event="oninput" placeholder="Code, Name …" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select class="form-select" @bind="_activeFilter">
+                    <option value="">Alle</option>
+                    <option value="true">Aktiv</option>
+                    <option value="false">Inaktiv</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Typ</label>
+                <select class="form-select" @bind="_typeFilter">
+                    <option value="">Alle</option>
+                    <option value="@DiscountCodeType.Percentage">@DiscountCodeLabels.GetTypeLabel(DiscountCodeType.Percentage)</option>
+                    <option value="@DiscountCodeType.FixedAmount">@DiscountCodeLabels.GetTypeLabel(DiscountCodeType.FixedAmount)</option>
+                    <option value="@DiscountCodeType.FreeMonths">@DiscountCodeLabels.GetTypeLabel(DiscountCodeType.FreeMonths)</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-outline-primary w-100" @onclick="LoadAsync">Anwenden</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_items.Count == 0)
+{
+    <div class="alert alert-info dsms-alert">Keine Rabattcodes gefunden.</div>
+}
+else
+{
+    <div class="dsms-card">
+        <div class="dsms-table-wrap">
+            <table class="table dsms-table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Typ</th>
+                        <th>Wert</th>
+                        <th>Planbindung</th>
+                        <th>Abrechnung</th>
+                        <th>Gültigkeit</th>
+                        <th>Nutzung</th>
+                        <th>Status</th>
+                        <th class="dsms-table-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _items)
+                    {
+                        <tr>
+                            <td><code>@item.Code</code></td>
+                            <td>@item.Name</td>
+                            <td>@DiscountCodeLabels.GetTypeLabel(item.DiscountType)</td>
+                            <td>@item.DiscountDisplayText</td>
+                            <td>@item.AppliesToPlanDisplayName</td>
+                            <td>@item.AppliesToBillingCycleDisplayText</td>
+                            <td class="small">@item.ValidityDisplayText</td>
+                            <td>@item.UsageDisplayText</td>
+                            <td>
+                                <StatusBadge Text="@(item.IsActive ? "Aktiv" : "Inaktiv")"
+                                             Variant="@(item.IsActive ? "success" : "default")" />
+                            </td>
+                            <td class="dsms-table-actions">
+                                <a class="btn btn-sm btn-outline-secondary" href="@($"platform/discount-codes/{item.Id}")">Details</a>
+                                <a class="btn btn-sm btn-outline-primary" href="@($"platform/discount-codes/edit/{item.Id}")">Bearbeiten</a>
+                                @if (item.IsActive)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-warning" disabled="@_toggling" @onclick="() => ToggleActiveAsync(item.Id, false)">Deaktivieren</button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-success" disabled="@_toggling" @onclick="() => ToggleActiveAsync(item.Id, true)">Aktivieren</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private IDiscountCodeService DiscountCodeService { get; set; } = null!;
+
+    private List<DiscountCodeListItemDto> _items = [];
+    private bool _loading = true;
+    private bool _toggling;
+    private string _search = "";
+    private string _activeFilter = "";
+    private string _typeFilter = "";
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        bool? activeFilter = _activeFilter switch
+        {
+            "true" => true,
+            "false" => false,
+            _ => null
+        };
+
+        DiscountCodeType? typeFilter = string.IsNullOrWhiteSpace(_typeFilter)
+            ? null
+            : Enum.TryParse<DiscountCodeType>(_typeFilter, out var parsed) ? parsed : null;
+
+        _items = (await DiscountCodeService.GetListAsync(
+            string.IsNullOrWhiteSpace(_search) ? null : _search,
+            activeFilter,
+            typeFilter)).ToList();
+
+        _loading = false;
+    }
+
+    private async Task ToggleActiveAsync(Guid id, bool activate)
+    {
+        _toggling = true;
+        try
+        {
+            if (activate)
+            {
+                await DiscountCodeService.ActivateAsync(id);
+            }
+            else
+            {
+                await DiscountCodeService.DeactivateAsync(id);
+            }
+
+            await LoadAsync();
+        }
+        finally
+        {
+            _toggling = false;
+        }
+    }
+}

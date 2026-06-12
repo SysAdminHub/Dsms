@@ -1,170 +1,29 @@
-@* Sidebar-Aktion zum Senden von Feedback; interaktives Insel-Rendering wie TenantSwitcher. *@
+@* Sidebar-Aktion zum Senden von Feedback; öffnet das globale Modal im MainLayout. *@
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
 
 <button type="button"
         class="nav-link dsms-nav-logout"
         title="Feedback oder Nachricht senden"
-        disabled="@_cooldown"
+        disabled="@ModalState.Cooldown"
         @onclick="Open">
     Feedback senden
 </button>
 
-@if (_visible)
-{
-    <div class="dsms-feedback-modal-backdrop">
-        <div class="dsms-feedback-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="@_dialogTitleId">
-            <div class="dsms-feedback-modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="@_dialogTitleId">Feedback oder Nachricht senden</h5>
-                    <button type="button" class="btn-close" @onclick="Close" aria-label="Schließen" disabled="@_sending"></button>
-                </div>
-                <div class="modal-body dsms-feedback-modal-body">
-                    @if (_success)
-                    {
-                        <div class="alert alert-success dsms-alert mb-0">
-                            @_message
-                        </div>
-                    }
-                    else
-                    {
-                        <p class="text-muted dsms-feedback-intro">
-                            Senden Sie uns eine Nachricht, einen Verbesserungsvorschlag oder melden Sie einen Fehler.
-                        </p>
-
-                        <div class="dsms-form">
-                            <div class="mb-3">
-                                <label class="form-label" for="@($"{_fieldId}-category")">Kategorie</label>
-                                <select id="@($"{_fieldId}-category")"
-                                        class="form-select"
-                                        @bind="_category"
-                                        disabled="@_sending">
-                                    <option value="">— Bitte wählen —</option>
-                                    @foreach (var category in FeedbackCategory.All)
-                                    {
-                                        <option value="@category">@category</option>
-                                    }
-                                </select>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label" for="@($"{_fieldId}-subject")">Betreff</label>
-                                <InputText id="@($"{_fieldId}-subject")"
-                                           class="form-control"
-                                           maxlength="200"
-                                           @bind-Value="_subject"
-                                           disabled="@_sending" />
-                            </div>
-
-                            <div class="mb-0">
-                                <label class="form-label" for="@($"{_fieldId}-message")">Nachricht</label>
-                                <InputTextArea id="@($"{_fieldId}-message")"
-                                               class="form-control dsms-feedback-textarea"
-                                               rows="6"
-                                               maxlength="5000"
-                                               @bind-Value="_messageText"
-                                               disabled="@_sending" />
-                            </div>
-                        </div>
-
-                        @if (!string.IsNullOrWhiteSpace(_message))
-                        {
-                            <div class="alert alert-danger dsms-alert mt-3 mb-0">
-                                @_message
-                            </div>
-                        }
-                    }
-                </div>
-                <div class="modal-footer">
-                    @if (_success)
-                    {
-                        <button type="button" class="btn btn-outline-secondary" @onclick="Close">Schließen</button>
-                    }
-                    else
-                    {
-                        <button type="button" class="btn btn-outline-secondary" @onclick="Close" disabled="@_sending">Abbrechen</button>
-                        <button type="button" class="btn btn-primary" @onclick="SendAsync" disabled="@_sending">
-                            @(_sending ? "Wird gesendet …" : "Absenden")
-                        </button>
-                    }
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
 @code {
-    [Inject] private IFeedbackService FeedbackService { get; set; } = null!;
-    [Inject] private NavigationManager NavigationManager { get; set; } = null!;
+    [Inject] private FeedbackModalState ModalState { get; set; } = null!;
 
-    private readonly string _fieldId = $"feedback-{Guid.NewGuid():N}";
-    private readonly string _dialogTitleId = $"feedback-title-{Guid.NewGuid():N}";
-    private bool _visible;
-    private bool _sending;
-    private bool _success;
-    private bool _cooldown;
-    private string _category = string.Empty;
-    private string _subject = string.Empty;
-    private string _messageText = string.Empty;
-    private string? _message;
-
-    private void Open()
+    protected override void OnInitialized()
     {
-        _visible = true;
-        _success = false;
-        _message = null;
-        ResetForm();
+        ModalState.Changed += OnModalStateChanged;
     }
 
-    private void Close()
+    private void Open() => ModalState.Open();
+
+    private void OnModalStateChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
     {
-        _visible = false;
-        _success = false;
-        _message = null;
-        _sending = false;
-    }
-
-    private void ResetForm()
-    {
-        _category = string.Empty;
-        _subject = string.Empty;
-        _messageText = string.Empty;
-    }
-
-    private async Task SendAsync()
-    {
-        _sending = true;
-        _message = null;
-
-        try
-        {
-            var result = await FeedbackService.SendFeedbackAsync(new FeedbackMessageModel
-            {
-                Category = _category,
-                Subject = _subject,
-                Message = _messageText,
-                CurrentUrl = NavigationManager.Uri
-            });
-
-            if (!result.Succeeded)
-            {
-                _message = result.Message;
-                return;
-            }
-
-            _success = true;
-            _message = result.Message;
-            _cooldown = true;
-            _ = ResetCooldownAsync();
-        }
-        finally
-        {
-            _sending = false;
-        }
-    }
-
-    private async Task ResetCooldownAsync()
-    {
-        await Task.Delay(3000);
-        _cooldown = false;
+        ModalState.Changed -= OnModalStateChanged;
     }
 }

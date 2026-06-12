@@ -153,7 +153,8 @@ public class ArchivingService(
         var spCount = await db.ProcessingActivityServiceProviders.CountAsync(l => l.ProcessingActivityId == id, ct);
         if (spCount > 0) warnings.Add($"{spCount} verknüpfte Dienstleister");
 
-        var docCount = await db.EvidenceDocuments.CountAsync(d => d.ProcessingActivityId == id, ct);
+        var docCount = await db.DocumentLinks.CountAsync(
+            l => l.LinkedEntityType == DocumentLinkedEntityType.ProcessingActivity && l.LinkedEntityId == id, ct);
         if (docCount > 0) warnings.Add($"{docCount} verknüpfte Dokument(e)");
 
         var auditCount = await db.ProcessingActivityAuditAnswers.CountAsync(l => l.ProcessingActivityId == id, ct);
@@ -164,7 +165,8 @@ public class ArchivingService(
 
     private async Task<IReadOnlyList<string>> GetDpiaWarningsAsync(int id, CancellationToken ct)
     {
-        var docCount = await db.EvidenceDocuments.CountAsync(d => d.DataProtectionImpactAssessmentId == id, ct);
+        var docCount = await db.DocumentLinks.CountAsync(
+            l => l.LinkedEntityType == DocumentLinkedEntityType.Dsfa && l.LinkedEntityId == id, ct);
         return docCount > 0 ? [$"{docCount} verknüpfte Dokument(e)"] : [];
     }
 
@@ -177,6 +179,10 @@ public class ArchivingService(
 
         var spCount = await db.ServiceProviderToms.CountAsync(l => l.TomId == id, ct);
         if (spCount > 0) warnings.Add($"{spCount} verknüpfte Dienstleister");
+
+        var docCount = await db.DocumentLinks.CountAsync(
+            l => l.LinkedEntityType == DocumentLinkedEntityType.Tom && l.LinkedEntityId == id, ct);
+        if (docCount > 0) warnings.Add($"{docCount} verknüpfte Dokument(e)");
 
         return warnings;
     }
@@ -191,7 +197,8 @@ public class ArchivingService(
         var tomCount = await db.ServiceProviderToms.CountAsync(l => l.ServiceProviderId == id, ct);
         if (tomCount > 0) warnings.Add($"{tomCount} verknüpfte TOM(s)");
 
-        var docCount = await db.EvidenceDocuments.CountAsync(d => d.ServiceProviderId == id, ct);
+        var docCount = await db.DocumentLinks.CountAsync(
+            l => l.LinkedEntityType == DocumentLinkedEntityType.ServiceProvider && l.LinkedEntityId == id, ct);
         if (docCount > 0) warnings.Add($"{docCount} verknüpfte Dokument(e)");
 
         return warnings;
@@ -210,7 +217,8 @@ public class ArchivingService(
         var measureCount = await db.Measures.CountAsync(m => m.AuditRunId == id, ct);
         if (measureCount > 0) warnings.Add($"{measureCount} verknüpfte Maßnahme(n)");
 
-        var docCount = await db.EvidenceDocuments.CountAsync(d => d.AuditRunId == id, ct);
+        var docCount = await db.DocumentLinks.CountAsync(
+            l => l.LinkedEntityType == DocumentLinkedEntityType.AuditRun && l.LinkedEntityId == id, ct);
         if (docCount > 0) warnings.Add($"{docCount} verknüpfte Dokument(e)");
 
         var answerCount = await db.AuditAnswers.CountAsync(a => a.AuditRunId == id, ct);
@@ -235,7 +243,8 @@ public class ArchivingService(
         var tomCount = await db.PrivacyIncidentToms.CountAsync(l => l.PrivacyIncidentId == id, ct);
         if (tomCount > 0) warnings.Add($"{tomCount} verknüpfte TOM(s)");
 
-        var docCount = await db.EvidenceDocuments.CountAsync(d => d.PrivacyIncidentId == id, ct);
+        var docCount = await db.DocumentLinks.CountAsync(
+            l => l.LinkedEntityType == DocumentLinkedEntityType.PrivacyIncident && l.LinkedEntityId == id, ct);
         if (docCount > 0) warnings.Add($"{docCount} verknüpfte Dokument(e)");
 
         return warnings;
@@ -248,7 +257,8 @@ public class ArchivingService(
         var paCount = await db.ProcessingActivityMeasures.CountAsync(l => l.MeasureId == id, ct);
         if (paCount > 0) warnings.Add($"{paCount} verknüpfte Verarbeitungstätigkeit(en)");
 
-        var docCount = await db.EvidenceDocuments.CountAsync(d => d.MeasureId == id, ct);
+        var docCount = await db.DocumentLinks.CountAsync(
+            l => l.LinkedEntityType == DocumentLinkedEntityType.Measure && l.LinkedEntityId == id, ct);
         if (docCount > 0) warnings.Add($"{docCount} verknüpfte Dokument(e)");
 
         return warnings;

@@ -430,6 +430,137 @@ namespace Dsms.Web.Migrations
                     b.ToTable("DataProtectionImpactAssessments", (string)null);
                 });
 
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DiscountCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("AppliesToBillingCycle")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<Guid?>("AppliesToPlanId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<int>("CurrentRedemptions")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<int>("DiscountType")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("FixedAmountValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("FreeMonths")
+                        .HasColumnType("int");
+
+                    b.Property<string>("InternalNote")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<int?>("MaxRedemptions")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<decimal?>("PercentageValue")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<DateTime?>("ValidFrom")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ValidUntil")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppliesToPlanId");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("IsActive");
+
+                    b.ToTable("DiscountCodes", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DocumentLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<int>("DocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LinkedEntityId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LinkedEntityType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("LinkedEntityType", "LinkedEntityId");
+
+                    b.HasIndex("TenantId", "LinkedEntityType", "LinkedEntityId");
+
+                    b.HasIndex("TenantId", "DocumentId", "LinkedEntityType", "LinkedEntityId")
+                        .IsUnique();
+
+                    b.ToTable("DocumentLinks", (string)null);
+                });
+
             modelBuilder.Entity("Dsms.Web.Domain.Entities.EmailSettings", b =>
                 {
                     b.Property<int>("Id")
@@ -557,18 +688,12 @@ namespace Dsms.Web.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("varchar(450)");
 
-                    b.Property<int?>("AuditRunId")
-                        .HasColumnType("int");
-
                     b.Property<string>("ContentType")
                         .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("DataProtectionImpactAssessmentId")
-                        .HasColumnType("int");
 
                     b.Property<string>("FileName")
                         .IsRequired()
@@ -580,18 +705,6 @@ namespace Dsms.Web.Migrations
 
                     b.Property<bool>("IsArchived")
                         .HasColumnType("tinyint(1)");
-
-                    b.Property<int?>("MeasureId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("PrivacyIncidentId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ProcessingActivityId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ServiceProviderId")
-                        .HasColumnType("int");
 
                     b.Property<string>("StoragePath")
                         .IsRequired()
@@ -609,25 +722,91 @@ namespace Dsms.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AuditRunId");
-
-                    b.HasIndex("DataProtectionImpactAssessmentId");
-
-                    b.HasIndex("MeasureId");
-
-                    b.HasIndex("PrivacyIncidentId");
-
-                    b.HasIndex("ProcessingActivityId");
-
-                    b.HasIndex("ServiceProviderId");
-
-                    b.HasIndex("TenantId", "DataProtectionImpactAssessmentId");
-
-                    b.HasIndex("TenantId", "PrivacyIncidentId");
-
-                    b.HasIndex("TenantId", "ProcessingActivityId");
+                    b.HasIndex("TenantId");
 
                     b.ToTable("EvidenceDocuments");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.LegalAcceptance", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AcceptedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("AcceptedDataProcessingAgreement")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("AcceptedPrivacyPolicy")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("AcceptedTerms")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("AnonymizedIpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("varchar(45)");
+
+                    b.Property<string>("CompanyNameSnapshot")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("EffectiveDate")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("LegalVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<Guid?>("PendingSignupId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("SignupEmail")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TenantNameSnapshot")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("varchar(512)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LegalVersion");
+
+                    b.HasIndex("PendingSignupId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TenantId", "LegalVersion");
+
+                    b.ToTable("LegalAcceptances", (string)null);
                 });
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.License", b =>
@@ -1065,6 +1244,25 @@ namespace Dsms.Web.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("varchar(10)");
 
+                    b.Property<decimal?>("CurrentBillingAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("CurrentBillingAmountUpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CurrentBillingAmountUpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("CurrentBillingCurrency")
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<string>("CurrentBillingCycle")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
                     b.Property<string>("CustomerEmail")
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
@@ -1073,6 +1271,35 @@ namespace Dsms.Web.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
+
+                    b.Property<decimal?>("DiscountAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("DiscountCodeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("DiscountCodeSnapshot")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<int?>("DiscountFreeMonthsSnapshot")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DiscountNameSnapshot")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("DiscountRedeemedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DiscountTypeSnapshot")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<decimal?>("DiscountValueSnapshot")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ErrorMessage")
                         .HasColumnType("text");
@@ -1091,6 +1318,10 @@ namespace Dsms.Web.Migrations
                     b.Property<DateTime?>("FailedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<decimal?>("FinalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("InternalNote")
                         .HasColumnType("text");
 
@@ -1105,6 +1336,10 @@ namespace Dsms.Web.Migrations
 
                     b.Property<DateOnly?>("NextInvoiceDate")
                         .HasColumnType("date");
+
+                    b.Property<decimal?>("OriginalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("PaidAt")
                         .HasColumnType("datetime(6)");
@@ -1950,6 +2185,11 @@ namespace Dsms.Web.Migrations
                         .HasColumnType("tinyint(1)")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("IsPromotionalPriceEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("IsPublicSignupEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("tinyint(1)")
@@ -2007,6 +2247,18 @@ namespace Dsms.Web.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("PromotionalBadgeText")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<decimal?>("PromotionalMonthlyPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("PromotionalYearlyPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("SortOrder")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -2036,6 +2288,14 @@ namespace Dsms.Web.Migrations
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("ContactName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Country")
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
@@ -2124,6 +2384,10 @@ namespace Dsms.Web.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("VatId")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("Website")
                         .HasMaxLength(500)
@@ -2500,57 +2764,63 @@ namespace Dsms.Web.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DiscountCode", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.SubscriptionPlan", "AppliesToPlan")
+                        .WithMany()
+                        .HasForeignKey("AppliesToPlanId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AppliesToPlan");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DocumentLink", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.EvidenceDocument", "Document")
+                        .WithMany("Links")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Document");
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("Dsms.Web.Domain.Entities.EvidenceDocument", b =>
                 {
-                    b.HasOne("Dsms.Web.Domain.Entities.AuditRun", "AuditRun")
-                        .WithMany("Documents")
-                        .HasForeignKey("AuditRunId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Dsms.Web.Domain.Entities.DataProtectionImpactAssessment", "DataProtectionImpactAssessment")
-                        .WithMany("Documents")
-                        .HasForeignKey("DataProtectionImpactAssessmentId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Dsms.Web.Domain.Entities.Measure", "Measure")
-                        .WithMany("Documents")
-                        .HasForeignKey("MeasureId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Dsms.Web.Domain.Entities.PrivacyIncident", "PrivacyIncident")
-                        .WithMany("Documents")
-                        .HasForeignKey("PrivacyIncidentId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Dsms.Web.Domain.Entities.ProcessingActivity", "ProcessingActivity")
-                        .WithMany("Documents")
-                        .HasForeignKey("ProcessingActivityId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Dsms.Web.Domain.Entities.ServiceProvider", "ServiceProvider")
-                        .WithMany("Documents")
-                        .HasForeignKey("ServiceProviderId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
                         .WithMany("Documents")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("AuditRun");
+                    b.Navigation("Tenant");
+                });
 
-                    b.Navigation("DataProtectionImpactAssessment");
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.LegalAcceptance", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
-                    b.Navigation("Measure");
-
-                    b.Navigation("PrivacyIncident");
-
-                    b.Navigation("ProcessingActivity");
-
-                    b.Navigation("ServiceProvider");
+                    b.HasOne("Dsms.Web.Data.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Tenant");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.Measure", b =>
@@ -2977,8 +3247,6 @@ namespace Dsms.Web.Migrations
                 {
                     b.Navigation("Answers");
 
-                    b.Navigation("Documents");
-
                     b.Navigation("Measures");
                 });
 
@@ -2989,9 +3257,9 @@ namespace Dsms.Web.Migrations
                     b.Navigation("Questions");
                 });
 
-            modelBuilder.Entity("Dsms.Web.Domain.Entities.DataProtectionImpactAssessment", b =>
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.EvidenceDocument", b =>
                 {
-                    b.Navigation("Documents");
+                    b.Navigation("Links");
                 });
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.License", b =>
@@ -3001,15 +3269,11 @@ namespace Dsms.Web.Migrations
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.Measure", b =>
                 {
-                    b.Navigation("Documents");
-
                     b.Navigation("ProcessingActivityLinks");
                 });
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.PrivacyIncident", b =>
                 {
-                    b.Navigation("Documents");
-
                     b.Navigation("MeasureLinks");
 
                     b.Navigation("ProcessingActivityLinks");
@@ -3023,8 +3287,6 @@ namespace Dsms.Web.Migrations
                 {
                     b.Navigation("AuditAnswerLinks");
 
-                    b.Navigation("Documents");
-
                     b.Navigation("DpiaAssessments");
 
                     b.Navigation("MeasureLinks");
@@ -3036,8 +3298,6 @@ namespace Dsms.Web.Migrations
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.ServiceProvider", b =>
                 {
-                    b.Navigation("Documents");
-
                     b.Navigation("ProcessingActivityLinks");
 
                     b.Navigation("TomLinks");

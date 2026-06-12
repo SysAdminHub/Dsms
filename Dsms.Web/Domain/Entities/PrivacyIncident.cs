@@ -68,7 +68,6 @@ public class PrivacyIncident : ArchivableEntityBase, ITenantEntity
     public string? ClosureSummary { get; set; }
     public DateTime? ClosedAt { get; set; }
 
-    public ICollection<EvidenceDocument> Documents { get; set; } = [];
     public ICollection<PrivacyIncidentProcessingActivity> ProcessingActivityLinks { get; set; } = [];
     public ICollection<PrivacyIncidentServiceProvider> ServiceProviderLinks { get; set; } = [];
     public ICollection<PrivacyIncidentMeasure> MeasureLinks { get; set; } = [];

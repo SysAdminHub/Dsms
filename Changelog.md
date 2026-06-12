@@ -26,6 +26,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Geändert
 
+- **Dokumentenverknüpfungen:** Many-to-Many über neue Tabelle `DocumentLinks` statt einzelner FK-Felder auf `EvidenceDocument`. Auswahlmodal mit Checkboxen, Suche und TOM-Unterstützung. Migration `AddDocumentLinksManyToMany` (idempotent für teilweise angewendete DB-Stände). Upload und Bearbeiten mit je einem Auswahl-Modal pro Bezugstyp.
+
 - **Registrierungsdetails (Superuser):** Trennung von Plan-Snapshot, Signup-Betrag/Rabatt und aktueller Abrechnungsbasis. Bei kostenlosen Startmonaten ist der spätere aktuell gültige Folgepreis sichtbar und editierbar.
 
 - **Interne Signup-Benachrichtigung:** Enthält nun Informationen zu verwendeten Rabattcodes, Rabattbetrag, finalem Betrag, kostenlosen Monaten und aktuell gültigem Folgepreis.

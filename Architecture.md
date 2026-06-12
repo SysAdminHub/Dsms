@@ -144,6 +144,7 @@ Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnec
 | `AuditAnswers` | `AuditAnswer` |
 | `Measures` | `Measure` |
 | `EvidenceDocuments` | `EvidenceDocument` |
+| `DocumentLinks` | `DocumentLink` (Many-to-Many Bezüge Dokument ↔ Fachobjekt) |
 | `ProcessingActivities` | `ProcessingActivity` |
 | `Toms` | `Tom` |
 | `ProcessingActivityToms` | `ProcessingActivityTom` |
@@ -212,24 +213,21 @@ License (Guid)
 Tenant
  ├── AuditTemplate (Tenant | Official | Community) ── AuditQuestion
  │        └── AuditRun ── AuditAnswer (Snapshot + FK AuditQuestion)
- │              ├── Measure (optional AuditAnswerId)
- │              └── EvidenceDocument
+ │              └── Measure (optional AuditAnswerId)
  ├── Measure (optional AuditRun, optional AuditAnswerId)
- ├── EvidenceDocument
+ ├── EvidenceDocument ←──→ Fachobjekte (DocumentLink: AuditRun, Measure, ServiceProvider, ProcessingActivity, Dsfa, PrivacyIncident, Tom)
  ├── ProcessingActivity (VVT) ←──→ Tom (ProcessingActivityTom)
  │        ←──→ ServiceProvider (ProcessingActivityServiceProvider, Rolle)
  │        ←──→ Measure (ProcessingActivityMeasure)
  │        ←──→ AuditAnswer (ProcessingActivityAuditAnswer)
  │        ── DataProtectionImpactAssessment (1:n DSFA)
- │        ── EvidenceDocument (ProcessingActivityId, optional)
  ├── Tom ←──→ ServiceProvider (ServiceProviderTom)
- ├── ServiceProvider ── EvidenceDocument (optional)
- ├── DataProtectionImpactAssessment ── EvidenceDocument (optional)
+ ├── ServiceProvider
+ ├── DataProtectionImpactAssessment
  ├── PrivacyIncident ←──→ ProcessingActivity (PrivacyIncidentProcessingActivity)
  │        ←──→ ServiceProvider (PrivacyIncidentServiceProvider)
  │        ←──→ Measure (PrivacyIncidentMeasure)
  │        ←──→ Tom (PrivacyIncidentTom)
- │        ── EvidenceDocument (PrivacyIncidentId, optional)
  └── Tom
 
 ApplicationUser.TenantId → logische Zuordnung (kein EF-FK auf Tenants)
@@ -264,7 +262,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ITenantDeletionService` / `TenantDeletionService` | Scoped | Löschanforderung markieren (`IsDeletionRequested`); Abbrechen nur Superuser |
 | `TenantDataEndpoints` | Minimal API | `POST /tenant-daten/export` – ZIP-Download mit serverseitiger Berechtigungsprüfung |
 | `DocumentUploadValidation` | Static | Dateityp-, MIME- und Größenprüfung für Uploads (PDF, DOCX, XLSX, JPG, PNG; max. 10 MB) |
-| `DocumentLinksService` | Scoped | Nachträgliches Aktualisieren der Verknüpfungen (`EvidenceDocument`-FKs) |
+| `DocumentLinksService` | Scoped | Many-to-Many-Verknüpfungen (`DocumentLink`); Laden, Setzen, Validierung mandantensicher |
 | `DocumentFileEndpoints` | Minimal API | `GET /documents/{id}/download` und `/view` – mandantengebunden via EF-Filter |
 | `ArchiveViewContextAccessor` | Scoped | Aktiv-/Archivansicht für EF Global Query Filter (`ShowArchivedOnly`) |
 | `IArchivingService` / `ArchivingService` | Scoped | Soft Delete: Archivieren, Wiederherstellen, Abhängigkeitswarnungen |
@@ -405,7 +403,7 @@ dotnet ef database update
 |-------------|--------|--------------|
 | TOMs | `ProcessingActivityTom` (bestehend) | Many-to-Many, `TenantId` auf Join |
 | Dienstleister | `ProcessingActivityServiceProvider` (bestehend) | Many-to-Many; Rolle nur bei Bearbeitung am Dienstleister, VVT-Verknüpfungsseite setzt Standard `DataProcessor` |
-| Dokumente | `EvidenceDocument.ProcessingActivityId` | 1:n (optionaler FK), analog zu Audit/Maßnahme/Dienstleister |
+| Dokumente | `DocumentLink` | Many-to-Many – ein Dokument kann mehrere Bezüge haben (Audit, Maßnahme, Dienstleister, VVT, DSFA, Vorfall, TOM) |
 | Maßnahmen | `ProcessingActivityMeasure` | Many-to-Many – Maßnahme kann mehreren VVT-Einträgen zugeordnet sein |
 | Audit-Antworten | `ProcessingActivityAuditAnswer` | Many-to-Many – keine `ProcessingActivityId` auf `AuditAnswer`, da Antworten über Durchlauf mandantenbezogen bleiben |
 | DSFA | `DataProtectionImpactAssessment` (1:n zu `ProcessingActivity`) | Pflicht-FK; `TenantId` + Indexe; Cascade beim Löschen der VVT |
@@ -472,7 +470,7 @@ Die Login-Seite ist an das DSMS-Design angepasst; viele Manage-/Register-Seiten 
 | Audit-Antwort ↔ VVT nur über Links-Seite | Direkte Zuordnung in `Answers.razor` bewusst zurückgestellt |
 | Kein FK `ApplicationUser` → `Tenant` | Referenzielle Integrität nur über Anwendungslogik |
 | UI/API für `AssignedUserId` fehlt | Datenmodell vorbereitet, nicht genutzt |
-| TOMs ohne direkte Dokumenten-Zuordnung | `EvidenceDocument` hat `AuditRunId`/`MeasureId`/`ServiceProviderId`; TOM nutzt Freitext `EvidenceReference` oder Verknüpfung über Dienstleister |
+| TOMs mit direkter Dokumenten-Verknüpfung | Über `DocumentLink` (EntityType `Tom`); zusätzlich Freitext `EvidenceReference` |
 | Keine Lösch-UI | Nur DB-Löschregeln definiert |
 | Register nicht verlinkt | Identity-Seite existiert, Produktfluss unklar |
 | Englische Enum-Labels | UX-Verbesserung durch Display-Namen |

@@ -32,6 +32,7 @@ public class ApplicationDbContext(
     public DbSet<AuditAnswer> AuditAnswers => Set<AuditAnswer>();
     public DbSet<Measure> Measures => Set<Measure>();
     public DbSet<EvidenceDocument> EvidenceDocuments => Set<EvidenceDocument>();
+    public DbSet<DocumentLink> DocumentLinks => Set<DocumentLink>();
     public DbSet<ProcessingActivity> ProcessingActivities => Set<ProcessingActivity>();
     public DbSet<Tom> Toms => Set<Tom>();
     public DbSet<ProcessingActivityTom> ProcessingActivityToms => Set<ProcessingActivityTom>();
@@ -330,15 +331,19 @@ public class ApplicationDbContext(
             e.Property(d => d.StoragePath).HasMaxLength(500).IsRequired();
             e.Property(d => d.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(d => d.Tenant).WithMany(t => t.Documents).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(d => d.AuditRun).WithMany(r => r.Documents).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(d => d.Measure).WithMany(m => m.Documents).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(d => d.ServiceProvider).WithMany(sp => sp.Documents).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(d => d.ProcessingActivity).WithMany(p => p.Documents).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(d => d.DataProtectionImpactAssessment).WithMany(dpia => dpia.Documents).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(d => d.PrivacyIncident).WithMany(i => i.Documents).OnDelete(DeleteBehavior.SetNull);
-            e.HasIndex(d => new { d.TenantId, d.ProcessingActivityId });
-            e.HasIndex(d => new { d.TenantId, d.DataProtectionImpactAssessmentId });
-            e.HasIndex(d => new { d.TenantId, d.PrivacyIncidentId });
+        });
+
+        builder.Entity<DocumentLink>(e =>
+        {
+            e.ToTable("DocumentLinks");
+            e.Property(l => l.CreatedByUserId).HasMaxLength(450);
+            e.HasOne(l => l.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.Document).WithMany(d => d.Links).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => l.DocumentId);
+            e.HasIndex(l => new { l.LinkedEntityType, l.LinkedEntityId });
+            e.HasIndex(l => new { l.TenantId, l.LinkedEntityType, l.LinkedEntityId });
+            e.HasIndex(l => new { l.TenantId, l.DocumentId, l.LinkedEntityType, l.LinkedEntityId }).IsUnique();
         });
 
         builder.Entity<PrivacyIncident>(e =>
@@ -767,6 +772,10 @@ public class ApplicationDbContext(
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 
         builder.Entity<PrivacyIncidentTom>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<DocumentLink>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
     }

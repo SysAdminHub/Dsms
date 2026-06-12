@@ -49,11 +49,7 @@ public class ProcessingActivityRelationsService(ApplicationDbContext db)
             .OrderBy(l => l.ServiceProvider.Name)
             .ToListAsync(ct);
 
-        var documents = await db.EvidenceDocuments
-            .AsNoTracking()
-            .Where(d => d.TenantId == tenantId && d.ProcessingActivityId == processingActivityId)
-            .OrderByDescending(d => d.CreatedAt)
-            .ToListAsync(ct);
+        var documents = await LoadLinkedDocumentsAsync(tenantId, processingActivityId, ct);
 
         var measureLinks = await db.ProcessingActivityMeasures
             .AsNoTracking()
@@ -315,34 +311,59 @@ public class ProcessingActivityRelationsService(ApplicationDbContext db)
     }
 
     /// <summary>
-    /// Setzt ProcessingActivityId nur für ausgewählte Dokumente; hebt Zuordnung für andere Dokumente dieser VVT auf.
+    /// Synchronisiert DocumentLinks für eine Verarbeitungstätigkeit; hebt Zuordnungen für abgewählte Dokumente auf.
     /// </summary>
     private async Task SyncDocumentLinksAsync(int tenantId, int processingActivityId, List<int> targetIds, CancellationToken ct)
     {
-        var currentlyLinked = await db.EvidenceDocuments
-            .Where(d => d.TenantId == tenantId && d.ProcessingActivityId == processingActivityId)
+        var currentlyLinked = await db.DocumentLinks
+            .Where(l => l.TenantId == tenantId
+                && l.LinkedEntityType == DocumentLinkedEntityType.ProcessingActivity
+                && l.LinkedEntityId == processingActivityId)
             .ToListAsync(ct);
 
-        foreach (var doc in currentlyLinked.Where(d => !targetIds.Contains(d.Id)))
+        var toRemove = currentlyLinked.Where(l => !targetIds.Contains(l.DocumentId)).ToList();
+        if (toRemove.Count > 0)
         {
-            doc.ProcessingActivityId = null;
-            doc.UpdatedAt = DateTime.UtcNow;
+            db.DocumentLinks.RemoveRange(toRemove);
         }
 
-        if (targetIds.Count == 0)
+        var existingDocIds = currentlyLinked.Select(l => l.DocumentId).ToHashSet();
+        foreach (var docId in targetIds.Where(id => !existingDocIds.Contains(id)))
         {
-            return;
+            db.DocumentLinks.Add(new DocumentLink
+            {
+                TenantId = tenantId,
+                DocumentId = docId,
+                LinkedEntityType = DocumentLinkedEntityType.ProcessingActivity,
+                LinkedEntityId = processingActivityId,
+                CreatedAt = DateTime.UtcNow
+            });
         }
+    }
 
-        var toAssign = await db.EvidenceDocuments
-            .Where(d => d.TenantId == tenantId && targetIds.Contains(d.Id))
+    private async Task<List<EvidenceDocument>> LoadLinkedDocumentsAsync(
+        int tenantId,
+        int processingActivityId,
+        CancellationToken ct)
+    {
+        var documentIds = await db.DocumentLinks
+            .AsNoTracking()
+            .Where(l => l.TenantId == tenantId
+                && l.LinkedEntityType == DocumentLinkedEntityType.ProcessingActivity
+                && l.LinkedEntityId == processingActivityId)
+            .Select(l => l.DocumentId)
             .ToListAsync(ct);
 
-        foreach (var doc in toAssign)
+        if (documentIds.Count == 0)
         {
-            doc.ProcessingActivityId = processingActivityId;
-            doc.UpdatedAt = DateTime.UtcNow;
+            return [];
         }
+
+        return await db.EvidenceDocuments
+            .AsNoTracking()
+            .Where(d => documentIds.Contains(d.Id))
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync(ct);
     }
 
     private async Task SyncMeasureLinksAsync(int tenantId, int processingActivityId, List<int> targetIds, CancellationToken ct)

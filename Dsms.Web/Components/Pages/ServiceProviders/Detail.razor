@@ -294,7 +294,6 @@ else
         _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
         _provider = await Db.ServiceProviders
-            .Include(s => s.Documents)
             .FirstOrDefaultAsync(s => s.Id == Id && s.TenantId == _tenantId);
 
         if (_provider is not null)

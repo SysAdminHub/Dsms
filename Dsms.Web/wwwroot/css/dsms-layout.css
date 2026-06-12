@@ -576,3 +576,44 @@ article.content {
 .dsms-table-row--archived td:first-child strong {
     opacity: 0.85;
 }
+
+@media print {
+    .sidebar,
+    .dsms-no-print,
+    .nav-tabs,
+    .dsms-page-help-btn,
+    #blazor-error-ui {
+        display: none !important;
+    }
+
+    .page {
+        display: block !important;
+    }
+
+    article.content {
+        padding: 0 !important;
+        max-width: none !important;
+    }
+
+    .dsms-org-chart-scroll {
+        overflow: visible !important;
+    }
+
+    .dsms-org-chart-container {
+        border: 1px solid #cbd5e1;
+        box-shadow: none;
+    }
+
+    .dsms-org-node {
+        break-inside: avoid;
+        box-shadow: none !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .dsms-org-tree-item::before,
+    .dsms-org-tree-item::after,
+    .dsms-org-tree-level::before {
+        border-color: #334155 !important;
+    }
+}

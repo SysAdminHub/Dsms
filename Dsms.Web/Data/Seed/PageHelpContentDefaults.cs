@@ -132,7 +132,17 @@ public static class PageHelpContentDefaults
             """
             In diesem Bereich dokumentieren Sie die organisatorischen Datenschutzrollen und Zuständigkeiten Ihres Unternehmens. Dazu gehören z. B. Geschäftsführung, Datenschutzbeauftragte Person, Datenschutzkoordinator, IT-Verantwortliche, HR-Verantwortliche oder Fachbereichsverantwortliche. Diese Rollen sind organisatorische Zuständigkeiten und nicht identisch mit den technischen Benutzerrollen der Anwendung. Eine Rolle kann optional mit einem App-Benutzer verknüpft oder vollständig als Freitext gepflegt werden.
 
-            Das grafische Datenschutz-Organigramm wird aus diesen Rollen und Berichtslinien aufgebaut.
+            Das Datenschutz-Organigramm zeigt die organisatorischen Berichtslinien. Über die Listenansicht können Datenschutzrollen verwaltet und bearbeitet werden.
+            """),
+        new(
+            Domain.PageHelpContentKeys.OrganizationOrgChart,
+            "Datenschutz-Organigramm",
+            "Organisatorische Berichtslinien",
+            "Grafische Darstellung der Datenschutzorganisation und Berichtslinien.",
+            """
+            Das Datenschutz-Organigramm zeigt die organisatorischen Datenschutzrollen und Berichtslinien des Mandanten. Die Darstellung basiert auf den gepflegten Datenschutzrollen und dem Feld „Berichtet an“. Technische App-Rollen wie Admin, Auditor oder User werden hier nicht als Hierarchie dargestellt. Sie können Rollen in der Tabellenansicht pflegen und über Berichtslinien miteinander verbinden.
+
+            Vertretungen werden als Hinweis angezeigt, aber nicht als Berichtslinie dargestellt.
             """),
         new(
             Domain.PageHelpContentKeys.Documents,

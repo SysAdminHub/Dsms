@@ -8,6 +8,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 - **Organisation / Datenschutzrollen:** Neues Modul zur Pflege organisatorischer Datenschutzrollen und Zuständigkeiten je Mandant (`DataProtectionRole`). Listen-, Erstell-, Bearbeit- und Detailansicht unter `/organization` mit Suche, Filtern, optionaler App-Benutzer-Verknüpfung, Berichtslinie und Vertretung (Freitext und Rollenreferenz). Kompakte Anzeige in Mandanten-Stammdaten; Export in Tenant-ZIP als `data-protection-roles.json`. Migration `AddDataProtectionRoles`. Demo-Seed für Demo-Mandanten.
 
+- **Datenschutz-Organigramm:** … Organigramm ist Standardansicht unter `/organization`; Listenansicht unter `/organization/list`.
+
 - **Mandantenfähige Dokumentkategorien:** Enum `DocumentCategory` durch Entity `DocumentCategory` mit mandantenspezifischer Verwaltung ersetzt. Standard-Kategorien werden pro Mandant automatisch angelegt; Admins können Kategorien anlegen, bearbeiten, sortieren und deaktivieren. Migration `ReplaceDocumentCategoryEnumWithTenantEntity`. Verwaltung unter `/documents/categories`.
 
 - **Dokumententypen:** `EvidenceDocument` um Pflichtfeld `DocumentType` (Enum) erweitert; farbige Typ-Badges in Liste und Detailseiten. Migration `AddEvidenceDocumentTypeAndCategory`.

@@ -26,7 +26,7 @@ else
     <PageHeader Title="@(_model.Id is null ? "Neue Datenschutzrolle" : "Datenschutzrolle bearbeiten")"
                 HelpKey="organization"
                 Subtitle="Organisatorische Zuständigkeit – unabhängig von technischen App-Rollen">
-        <a class="btn btn-outline-secondary" href="organization">Zur Liste</a>
+        <a class="btn btn-outline-secondary" href="organization/list">Zur Liste</a>
     </PageHeader>
 
     @if (!string.IsNullOrEmpty(_message))
@@ -138,7 +138,7 @@ else
                     <button type="submit" class="btn btn-primary" disabled="@_saving">
                         @(_saving ? "Speichern …" : "Speichern")
                     </button>
-                    <a class="btn btn-outline-secondary" href="organization">Abbrechen</a>
+                    <a class="btn btn-outline-secondary" href="organization/list">Abbrechen</a>
                 </div>
             </EditForm>
         </div>

@@ -276,7 +276,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `DocumentUploadValidation` | Static | Dateityp-, MIME- und Größenprüfung für Uploads (PDF, DOCX, XLSX, JPG, PNG; max. 10 MB) |
 | `DocumentLinksService` | Scoped | Many-to-Many-Verknüpfungen (`DocumentLink`); Laden, Setzen, Validierung mandantensicher |
 | `DocumentCategoryService` | Scoped | Mandanten-Kategorien für Dokumente (CRUD, Aktiv/Inaktiv, Auditlog) |
-| `DataProtectionRoleService` | Scoped | Organisatorische Datenschutzrollen (CRUD, Suche/Filter, Berichtslinie/Vertretung, Exportdaten, Auditlog) |
+| `DataProtectionRoleService` | Scoped | Organisatorische Datenschutzrollen (CRUD, Suche/Filter, Organigramm via `GetOrgChartAsync`, Berichtslinie/Vertretung, Exportdaten, Auditlog) |
 | `DocumentFileEndpoints` | Minimal API | `GET /documents/{id}/download` und `/view` – mandantengebunden via EF-Filter |
 | `ArchiveViewContextAccessor` | Scoped | Aktiv-/Archivansicht für EF Global Query Filter (`ShowArchivedOnly`) |
 | `IArchivingService` / `ArchivingService` | Scoped | Soft Delete: Archivieren, Wiederherstellen, Abhängigkeitswarnungen |

@@ -13,6 +13,7 @@ public static class PageHelpContentKeys
     public const string PrivacyIncidents = "privacy-incidents";
     public const string DataSubjectRequests = "data-subject-requests";
     public const string Organization = "organization";
+    public const string OrganizationOrgChart = "organization-org-chart";
     public const string Documents = "documents";
     public const string TenantData = "tenant-data";
     public const string Users = "users";
@@ -30,6 +31,7 @@ public static class PageHelpContentKeys
         PrivacyIncidents,
         DataSubjectRequests,
         Organization,
+        OrganizationOrgChart,
         Documents,
         TenantData,
         Users,

@@ -419,6 +419,127 @@ public class DataProtectionRoleService(
         CancellationToken ct = default) =>
         await SetActiveInternalAsync(id, tenantId, true, ct);
 
+    public async Task<DataProtectionOrgChartViewModel?> GetOrgChartAsync(
+        int tenantId,
+        DataProtectionOrgChartFilter? filter = null,
+        CancellationToken ct = default)
+    {
+        if (!await CanAccessTenantRolesAsync(tenantId))
+        {
+            return null;
+        }
+
+        filter ??= new DataProtectionOrgChartFilter();
+
+        var allRoles = await db.DataProtectionRoles
+            .AsNoTracking()
+            .Where(r => r.TenantId == tenantId)
+            .OrderBy(r => r.RoleTitle)
+            .ThenBy(r => r.PersonName)
+            .ToListAsync(ct);
+
+        var rolePool = filter.IncludeInactive
+            ? allRoles
+            : allRoles.Where(r => r.IsActive).ToList();
+
+        if (!string.IsNullOrWhiteSpace(filter.RoleTitle))
+        {
+            var title = filter.RoleTitle.Trim();
+            rolePool = rolePool
+                .Where(r => r.RoleTitle.Contains(title, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Department))
+        {
+            var department = filter.Department.Trim();
+            rolePool = rolePool
+                .Where(r => r.Department != null
+                    && r.Department.Contains(department, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.SearchText))
+        {
+            rolePool = ExpandSearchMatches(rolePool, filter.SearchText.Trim());
+        }
+
+        var fullDict = allRoles.ToDictionary(r => r.Id);
+        var userLabels = await LoadUserLabelsAsync(tenantId, ct);
+        var reportsToMap = rolePool.ToDictionary(r => r.Id, r => r.ReportsToRoleId);
+        var cycleIds = DetectCycleRoleIds(reportsToMap);
+        var orphanIds = rolePool
+            .Where(r => HasOrphanedReportsToReference(r, fullDict, rolePool))
+            .Select(r => r.Id)
+            .ToHashSet();
+
+        var warnings = new List<string>();
+        if (cycleIds.Count > 0)
+        {
+            warnings.Add("Es wurden zirkuläre Berichtslinien erkannt. Bitte prüfen Sie die Rollen in der Tabellenansicht.");
+        }
+
+        if (orphanIds.Count > 0)
+        {
+            warnings.Add("Eine Berichtslinie verweist auf eine nicht mehr vorhandene oder nicht sichtbare Rolle.");
+        }
+
+        if (rolePool.Any(r => !r.ReportsToRoleId.HasValue || cycleIds.Contains(r.Id) || orphanIds.Contains(r.Id)))
+        {
+            warnings.Add("Rollen ohne Berichtslinie werden als oberste Ebene angezeigt.");
+        }
+
+        var nodeMap = rolePool.ToDictionary(
+            r => r.Id,
+            r => CreateOrgChartNode(r, fullDict, userLabels, cycleIds.Contains(r.Id), orphanIds.Contains(r.Id)));
+
+        var roots = new List<DataProtectionOrgChartNodeViewModel>();
+        foreach (var role in rolePool)
+        {
+            if (cycleIds.Contains(role.Id))
+            {
+                continue;
+            }
+
+            var node = nodeMap[role.Id];
+            if (ShouldBeRootNode(role, fullDict, rolePool, cycleIds, orphanIds))
+            {
+                roots.Add(node);
+                continue;
+            }
+
+            var parentId = role.ReportsToRoleId!.Value;
+            if (nodeMap.TryGetValue(parentId, out var parent) && !cycleIds.Contains(parentId))
+            {
+                parent.Children.Add(node);
+            }
+            else
+            {
+                roots.Add(node);
+            }
+        }
+
+        SortOrgChartNodes(roots);
+
+        return new DataProtectionOrgChartViewModel
+        {
+            RootNodes = roots,
+            CycleNodes = rolePool
+                .Where(r => cycleIds.Contains(r.Id))
+                .Select(r => nodeMap[r.Id])
+                .ToList(),
+            Warnings = warnings.Distinct(StringComparer.Ordinal).ToList(),
+            ActiveCount = rolePool.Count(r => r.IsActive),
+            InactiveCount = rolePool.Count(r => !r.IsActive),
+            WithoutReportsToCount = rolePool.Count(r =>
+                !r.ReportsToRoleId.HasValue || cycleIds.Contains(r.Id) || orphanIds.Contains(r.Id)),
+            LinkedUserCount = rolePool.Count(r => !string.IsNullOrWhiteSpace(r.LinkedUserId)),
+            WithDeputyCount = rolePool.Count(r => r.DeputyRoleId.HasValue || !string.IsNullOrWhiteSpace(r.Deputy)),
+            HasRolesWithoutReportingLine = rolePool.Any(r =>
+                !r.ReportsToRoleId.HasValue || cycleIds.Contains(r.Id) || orphanIds.Contains(r.Id))
+        };
+    }
+
     public async Task<IReadOnlyList<DataProtectionRoleExportDto>> GetExportDataAsync(
         int tenantId,
         CancellationToken ct = default)
@@ -549,6 +670,19 @@ public class DataProtectionRoleService(
             return "Die gewählte Vertretung ist ungültig.";
         }
 
+        if (model.ReportsToRoleId.HasValue && currentRoleId.HasValue)
+        {
+            var reportsToMap = await db.DataProtectionRoles
+                .AsNoTracking()
+                .Where(r => r.TenantId == tenantId)
+                .ToDictionaryAsync(r => r.Id, r => r.ReportsToRoleId, ct);
+
+            if (WouldCreateCycle(currentRoleId.Value, model.ReportsToRoleId, reportsToMap))
+            {
+                return "Diese Berichtslinie würde eine zirkuläre Struktur erzeugen.";
+            }
+        }
+
         return null;
     }
 
@@ -637,6 +771,253 @@ public class DataProtectionRoleService(
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    internal static bool WouldCreateCycle(
+        int roleId,
+        int? newReportsToRoleId,
+        IReadOnlyDictionary<int, int?> reportsToMap)
+    {
+        if (!newReportsToRoleId.HasValue)
+        {
+            return false;
+        }
+
+        if (newReportsToRoleId.Value == roleId)
+        {
+            return true;
+        }
+
+        var visited = new HashSet<int>();
+        var current = newReportsToRoleId;
+        while (current.HasValue)
+        {
+            if (current.Value == roleId)
+            {
+                return true;
+            }
+
+            if (!visited.Add(current.Value))
+            {
+                return true;
+            }
+
+            if (!reportsToMap.TryGetValue(current.Value, out var parent))
+            {
+                break;
+            }
+
+            current = parent;
+        }
+
+        return false;
+    }
+
+    private static HashSet<int> DetectCycleRoleIds(IReadOnlyDictionary<int, int?> reportsToMap)
+    {
+        var cycleIds = new HashSet<int>();
+        foreach (var startId in reportsToMap.Keys)
+        {
+            var chain = new List<int>();
+            var indexMap = new Dictionary<int, int>();
+            var current = (int?)startId;
+
+            while (current.HasValue && reportsToMap.ContainsKey(current.Value))
+            {
+                if (indexMap.TryGetValue(current.Value, out var idx))
+                {
+                    for (var i = idx; i < chain.Count; i++)
+                    {
+                        cycleIds.Add(chain[i]);
+                    }
+
+                    break;
+                }
+
+                indexMap[current.Value] = chain.Count;
+                chain.Add(current.Value);
+                var parent = reportsToMap[current.Value];
+                if (!parent.HasValue)
+                {
+                    break;
+                }
+
+                current = parent;
+            }
+        }
+
+        return cycleIds;
+    }
+
+    private static bool HasOrphanedReportsToReference(
+        DataProtectionRole role,
+        IReadOnlyDictionary<int, DataProtectionRole> fullDict,
+        IReadOnlyCollection<DataProtectionRole> visibleRoles)
+    {
+        if (!role.ReportsToRoleId.HasValue)
+        {
+            return false;
+        }
+
+        if (!fullDict.ContainsKey(role.ReportsToRoleId.Value))
+        {
+            return true;
+        }
+
+        return visibleRoles.All(r => r.Id != role.ReportsToRoleId.Value);
+    }
+
+    private static bool ShouldBeRootNode(
+        DataProtectionRole role,
+        IReadOnlyDictionary<int, DataProtectionRole> fullDict,
+        IReadOnlyCollection<DataProtectionRole> visibleRoles,
+        IReadOnlySet<int> cycleIds,
+        IReadOnlySet<int> orphanIds)
+    {
+        if (!role.ReportsToRoleId.HasValue)
+        {
+            return true;
+        }
+
+        if (cycleIds.Contains(role.Id) || orphanIds.Contains(role.Id))
+        {
+            return true;
+        }
+
+        if (!fullDict.ContainsKey(role.ReportsToRoleId.Value))
+        {
+            return true;
+        }
+
+        return visibleRoles.All(r => r.Id != role.ReportsToRoleId.Value);
+    }
+
+    private static List<DataProtectionRole> ExpandSearchMatches(
+        IReadOnlyList<DataProtectionRole> rolePool,
+        string searchText)
+    {
+        var dict = rolePool.ToDictionary(r => r.Id);
+        var childrenMap = rolePool
+            .Where(r => r.ReportsToRoleId.HasValue && dict.ContainsKey(r.ReportsToRoleId.Value))
+            .GroupBy(r => r.ReportsToRoleId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Id).ToList());
+
+        bool Matches(DataProtectionRole role) =>
+            role.RoleTitle.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || (role.PersonName != null && role.PersonName.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            || (role.Email != null && role.Email.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            || (role.Department != null && role.Department.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            || (role.AreaOfResponsibility != null && role.AreaOfResponsibility.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+        var matchingIds = rolePool.Where(Matches).Select(r => r.Id).ToHashSet();
+        if (matchingIds.Count == 0)
+        {
+            return [];
+        }
+
+        var visibleIds = new HashSet<int>(matchingIds);
+        foreach (var id in matchingIds.ToList())
+        {
+            var current = dict[id].ReportsToRoleId;
+            while (current.HasValue && dict.TryGetValue(current.Value, out var parent))
+            {
+                visibleIds.Add(current.Value);
+                current = parent.ReportsToRoleId;
+            }
+        }
+
+        var queue = new Queue<int>(matchingIds);
+        while (queue.Count > 0)
+        {
+            var id = queue.Dequeue();
+            if (!childrenMap.TryGetValue(id, out var children))
+            {
+                continue;
+            }
+
+            foreach (var childId in children)
+            {
+                if (visibleIds.Add(childId))
+                {
+                    queue.Enqueue(childId);
+                }
+            }
+        }
+
+        return rolePool.Where(r => visibleIds.Contains(r.Id)).ToList();
+    }
+
+    private static DataProtectionOrgChartNodeViewModel CreateOrgChartNode(
+        DataProtectionRole role,
+        IReadOnlyDictionary<int, DataProtectionRole> fullDict,
+        IReadOnlyDictionary<string, string> userLabels,
+        bool isInCycle,
+        bool hasOrphanedReportsTo)
+    {
+        DataProtectionRole? deputyRole = null;
+        if (role.DeputyRoleId.HasValue)
+        {
+            fullDict.TryGetValue(role.DeputyRoleId.Value, out deputyRole);
+        }
+
+        var deputyDisplay = BuildHierarchyDisplay(role.Deputy, deputyRole);
+        var reportsToDisplay = role.ReportsToRoleId.HasValue && fullDict.TryGetValue(role.ReportsToRoleId.Value, out var reportsRole)
+            ? BuildHierarchyDisplay(null, reportsRole)
+            : null;
+
+        return new DataProtectionOrgChartNodeViewModel
+        {
+            Id = role.Id,
+            RoleTitle = role.RoleTitle,
+            PersonName = role.PersonName,
+            Email = role.Email,
+            Phone = role.Phone,
+            Department = role.Department,
+            AreaOfResponsibility = role.AreaOfResponsibility,
+            AreaOfResponsibilityShort = TruncateText(role.AreaOfResponsibility, 48),
+            IsActive = role.IsActive,
+            LinkedUserId = role.LinkedUserId,
+            LinkedUserDisplayName = GetUserLabel(null, role.LinkedUserId, userLabels),
+            ReportsToRoleId = role.ReportsToRoleId,
+            ReportsToFreeText = role.ReportsToRoleId.HasValue ? null : role.ReportsTo,
+            ReportsToDisplay = reportsToDisplay,
+            DeputyRoleId = role.DeputyRoleId,
+            DeputyDisplayText = deputyDisplay,
+            DeputyShortText = TruncateDeputy(deputyDisplay),
+            Remarks = role.Remarks,
+            IsInCycle = isInCycle,
+            HasOrphanedReportsTo = hasOrphanedReportsTo
+        };
+    }
+
+    private static void SortOrgChartNodes(List<DataProtectionOrgChartNodeViewModel> nodes)
+    {
+        nodes.Sort((a, b) => string.Compare(a.RoleTitle, b.RoleTitle, StringComparison.OrdinalIgnoreCase));
+        foreach (var node in nodes)
+        {
+            SortOrgChartNodes(node.Children);
+        }
+    }
+
+    private static string? TruncateText(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var text = value.Trim();
+        return text.Length <= maxLength ? text : text[..maxLength] + "…";
+    }
+
+    private static string? TruncateDeputy(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Length <= 42 ? value : "Vertretung vorhanden";
+    }
 }
 
 public sealed class TenantUserOption

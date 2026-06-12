@@ -96,7 +96,13 @@ else
                                        checked="@_selectedDocumentIds.Contains(doc.Id)"
                                        @onchange="e => Toggle(_selectedDocumentIds, doc.Id, (bool)e.Value!)" />
                                 <label class="form-check-label" for="@($"doc-{doc.Id}")">
-                                    @doc.FileName <span class="text-muted">(@doc.CreatedAt.ToLocalTime().ToString("g"))</span>
+                                    @doc.FileName
+                                    <DocumentTypeBadge Type="@doc.DocumentType" />
+                                    @if (doc.DocumentCategory is not null)
+                                    {
+                                        <DocumentCategoryBadge Category="doc.DocumentCategory" />
+                                    }
+                                    <span class="text-muted">(@doc.CreatedAt.ToLocalTime().ToString("g"))</span>
                                 </label>
                             </div>
                         }
@@ -210,7 +216,11 @@ else
 
         _allToms = await Db.Toms.Where(t => t.TenantId == _tenantId).OrderBy(t => t.Title).ToListAsync();
         _allServiceProviders = await Db.ServiceProviders.Where(s => s.TenantId == _tenantId).OrderBy(s => s.Name).ToListAsync();
-        _allDocuments = await Db.EvidenceDocuments.Where(d => d.TenantId == _tenantId).OrderByDescending(d => d.CreatedAt).ToListAsync();
+        _allDocuments = await Db.EvidenceDocuments
+            .Include(d => d.DocumentCategory)
+            .Where(d => d.TenantId == _tenantId)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync();
         _allMeasures = await Db.Measures.Where(m => m.TenantId == _tenantId).OrderBy(m => m.Title).ToListAsync();
 
         _allAuditAnswers = await Db.AuditAnswers

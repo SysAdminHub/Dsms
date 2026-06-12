@@ -361,6 +361,7 @@ public class ProcessingActivityRelationsService(ApplicationDbContext db)
 
         return await db.EvidenceDocuments
             .AsNoTracking()
+            .Include(d => d.DocumentCategory)
             .Where(d => documentIds.Contains(d.Id))
             .OrderByDescending(d => d.CreatedAt)
             .ToListAsync(ct);

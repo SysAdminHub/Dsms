@@ -58,6 +58,9 @@ public interface IUserAccessService
     /// <summary>Falldaten anonymisieren: nur Superuser und Admin.</summary>
     Task<bool> CanAnonymizeDataSubjectRequestsAsync();
 
+    /// <summary>Dokumentkategorien verwalten: Superuser und Mandanten-Admin.</summary>
+    Task<bool> CanManageDocumentCategoriesAsync();
+
     /// <summary>True, wenn die Rolle Superuser ist (plattformweit, kein Mandant erforderlich).</summary>
     static bool RoleRequiresNoTenant(string role) => role == Domain.DsmsRoles.Superuser;
 }

@@ -143,7 +143,8 @@ Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnec
 | `AuditRuns` | `AuditRun` |
 | `AuditAnswers` | `AuditAnswer` |
 | `Measures` | `Measure` |
-| `EvidenceDocuments` | `EvidenceDocument` |
+| `EvidenceDocuments` | `EvidenceDocument` (Metadaten inkl. `DocumentType`, optional `DocumentCategoryId` → `DocumentCategory`; Dateien im Dateisystem) |
+| `DocumentCategories` | `DocumentCategory` (mandantenbezogene, editierbare Kategorien) |
 | `DocumentLinks` | `DocumentLink` (Many-to-Many Bezüge Dokument ↔ Fachobjekt) |
 | `ProcessingActivities` | `ProcessingActivity` |
 | `Toms` | `Tom` |

@@ -20,6 +20,28 @@
         }
     </div>
 
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <label class="form-label" for="document-upload-type">Dokumenttyp <span class="text-danger">*</span></label>
+            <InputSelect id="document-upload-type" class="form-select" @bind-Value="_documentType">
+                @foreach (var type in EvidenceDocumentLabels.AllTypes)
+                {
+                    <option value="@type">@EvidenceDocumentLabels.GetTypeLabel(type)</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label" for="document-upload-category">Kategorie</label>
+            <InputSelect id="document-upload-category" class="form-select" @bind-Value="_documentCategoryIdValue">
+                <option value="">Keine Kategorie</option>
+                @foreach (var category in Categories)
+                {
+                    <option value="@category.Id">@category.Name</option>
+                }
+            </InputSelect>
+        </div>
+    </div>
+
     @ChildContent
 
     <div class="mt-3">
@@ -39,6 +61,7 @@
 
 @code {
     [Parameter, EditorRequired] public int TenantId { get; set; }
+    [Parameter] public IReadOnlyList<DocumentCategory> Categories { get; set; } = [];
     [Parameter] public IReadOnlyList<DocumentLinkTarget> SelectedLinks { get; set; } = [];
     [Parameter] public EventCallback OnUploaded { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
@@ -46,11 +69,14 @@
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private DocumentStorageService Storage { get; set; } = null!;
     [Inject] private DocumentLinksService LinksService { get; set; } = null!;
+    [Inject] private DocumentCategoryService CategoryService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private IBrowserFile? _selectedFile;
+    private DocumentType _documentType = DocumentType.Evidence;
+    private string _documentCategoryIdValue = string.Empty;
     private bool _uploading;
     private string? _message;
     private bool _isError;
@@ -111,12 +137,23 @@
                 }
             }
 
+            var categoryId = ParseCategoryId(_documentCategoryIdValue);
+            var (categoryValid, categoryError) = await CategoryService.ValidateCategoryForDocumentAsync(TenantId, categoryId);
+            if (!categoryValid)
+            {
+                _message = categoryError;
+                _isError = true;
+                return;
+            }
+
             await using var stream = file.OpenReadStream(DocumentUploadValidation.MaxFileSizeBytes);
             var path = await Storage.SaveAsync(TenantId, file.Name, stream);
 
             var document = new EvidenceDocument
             {
                 TenantId = TenantId,
+                DocumentType = _documentType,
+                DocumentCategoryId = categoryId,
                 FileName = file.Name,
                 ContentType = file.ContentType,
                 StoragePath = path,
@@ -165,6 +202,9 @@
         _message = null;
         _isError = false;
     }
+
+    private static int? ParseCategoryId(string value) =>
+        string.IsNullOrWhiteSpace(value) || !int.TryParse(value, out var id) ? null : id;
 
     private static string FormatSize(long bytes) =>
         bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024.0:F1} KB";

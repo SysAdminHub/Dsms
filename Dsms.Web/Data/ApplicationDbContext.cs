@@ -32,6 +32,7 @@ public class ApplicationDbContext(
     public DbSet<AuditAnswer> AuditAnswers => Set<AuditAnswer>();
     public DbSet<Measure> Measures => Set<Measure>();
     public DbSet<EvidenceDocument> EvidenceDocuments => Set<EvidenceDocument>();
+    public DbSet<DocumentCategory> DocumentCategories => Set<DocumentCategory>();
     public DbSet<DocumentLink> DocumentLinks => Set<DocumentLink>();
     public DbSet<ProcessingActivity> ProcessingActivities => Set<ProcessingActivity>();
     public DbSet<Tom> Toms => Set<Tom>();
@@ -331,10 +332,26 @@ public class ApplicationDbContext(
 
         builder.Entity<EvidenceDocument>(e =>
         {
+            e.Property(d => d.DocumentType).IsRequired();
             e.Property(d => d.FileName).HasMaxLength(255).IsRequired();
             e.Property(d => d.StoragePath).HasMaxLength(500).IsRequired();
             e.Property(d => d.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(d => d.Tenant).WithMany(t => t.Documents).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(d => d.DocumentCategory).WithMany(c => c.Documents).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(d => d.DocumentCategoryId);
+        });
+
+        builder.Entity<DocumentCategory>(e =>
+        {
+            e.ToTable("DocumentCategories");
+            e.Property(c => c.Name).HasMaxLength(100).IsRequired();
+            e.Property(c => c.Description).HasMaxLength(500);
+            e.Property(c => c.Color).HasMaxLength(20);
+            e.Property(c => c.CreatedByUserId).HasMaxLength(450);
+            e.Property(c => c.UpdatedByUserId).HasMaxLength(450);
+            e.HasOne(c => c.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(c => c.TenantId);
+            e.HasIndex(c => new { c.TenantId, c.Name }).IsUnique();
         });
 
         builder.Entity<DocumentLink>(e =>
@@ -879,6 +896,10 @@ public class ApplicationDbContext(
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 
         builder.Entity<DocumentLink>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<DocumentCategory>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
     }

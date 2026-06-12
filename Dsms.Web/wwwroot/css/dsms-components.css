@@ -584,6 +584,66 @@
 .dsms-badge--warning { background: var(--dsms-warning-bg); color: var(--dsms-warning); }
 .dsms-badge--danger { background: var(--dsms-danger-bg); color: var(--dsms-danger); }
 
+.dsms-badge--doc-evidence { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.dsms-badge--doc-policy { background: #ede9fe; color: #5b21b6; border: 1px solid #ddd6fe; }
+.dsms-badge--doc-form { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.dsms-badge--doc-contract { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+.dsms-badge--doc-template { background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; }
+.dsms-badge--doc-other { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+.dsms-document-type-badge,
+.dsms-document-category-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.dsms-document-category-badge__inactive {
+    font-weight: 500;
+    opacity: 0.85;
+    margin-left: 0.15rem;
+}
+
+.dsms-badge--cat-gray { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.dsms-badge--cat-blue { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.dsms-badge--cat-green { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.dsms-badge--cat-purple { background: #ede9fe; color: #5b21b6; border: 1px solid #ddd6fe; }
+.dsms-badge--cat-orange { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+.dsms-badge--cat-red { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+.dsms-badge--cat-cyan { background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; }
+
+.dsms-table td .dsms-document-type-badge + .dsms-document-category-badge,
+.dsms-table td .dsms-document-category-badge + .dsms-document-type-badge {
+    margin-left: 0.35rem;
+}
+
+.dsms-linked-docs-group-title {
+    font-size: var(--dsms-font-size-sm);
+    font-weight: 600;
+    color: var(--dsms-text-secondary);
+    margin: 0 0 0.5rem;
+}
+
+.dsms-linked-docs-group-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.dsms-linked-docs-group-item {
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--dsms-border-color, #e2e8f0);
+}
+
+.dsms-linked-docs-group-item:last-child {
+    border-bottom: none;
+}
+
 .dsms-table td .dsms-badge + .dsms-badge {
     margin-left: 0.35rem;
 }

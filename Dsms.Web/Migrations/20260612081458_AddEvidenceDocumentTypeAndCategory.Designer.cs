@@ -4,6 +4,7 @@ using Dsms.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Dsms.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260612081458_AddEvidenceDocumentTypeAndCategory")]
+    partial class AddEvidenceDocumentTypeAndCategory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -765,63 +768,6 @@ namespace Dsms.Web.Migrations
                     b.ToTable("DiscountCodes", (string)null);
                 });
 
-            modelBuilder.Entity("Dsms.Web.Domain.Entities.DocumentCategory", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Color")
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("CreatedByUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("varchar(450)");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsSystemDefault")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("UpdatedByUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("varchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("TenantId", "Name")
-                        .IsUnique();
-
-                    b.ToTable("DocumentCategories", (string)null);
-                });
-
             modelBuilder.Entity("Dsms.Web.Domain.Entities.DocumentLink", b =>
                 {
                     b.Property<int>("Id")
@@ -999,7 +945,7 @@ namespace Dsms.Web.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int?>("DocumentCategoryId")
+                    b.Property<int?>("DocumentCategory")
                         .HasColumnType("int");
 
                     b.Property<int>("DocumentType")
@@ -1031,8 +977,6 @@ namespace Dsms.Web.Migrations
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("DocumentCategoryId");
 
                     b.HasIndex("TenantId");
 
@@ -3178,17 +3122,6 @@ namespace Dsms.Web.Migrations
                     b.Navigation("AppliesToPlan");
                 });
 
-            modelBuilder.Entity("Dsms.Web.Domain.Entities.DocumentCategory", b =>
-                {
-                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
             modelBuilder.Entity("Dsms.Web.Domain.Entities.DocumentLink", b =>
                 {
                     b.HasOne("Dsms.Web.Domain.Entities.EvidenceDocument", "Document")
@@ -3210,18 +3143,11 @@ namespace Dsms.Web.Migrations
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.EvidenceDocument", b =>
                 {
-                    b.HasOne("Dsms.Web.Domain.Entities.DocumentCategory", "DocumentCategory")
-                        .WithMany("Documents")
-                        .HasForeignKey("DocumentCategoryId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
                         .WithMany("Documents")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("DocumentCategory");
 
                     b.Navigation("Tenant");
                 });
@@ -3686,11 +3612,6 @@ namespace Dsms.Web.Migrations
                     b.Navigation("ProcessingActivityLinks");
 
                     b.Navigation("ServiceProviderLinks");
-                });
-
-            modelBuilder.Entity("Dsms.Web.Domain.Entities.DocumentCategory", b =>
-                {
-                    b.Navigation("Documents");
                 });
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.EvidenceDocument", b =>

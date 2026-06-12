@@ -130,11 +130,26 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
     public Task LogEvidenceDocumentUploadedAsync(int id, string fileName, int tenantId) =>
         LogAsync("EvidenceDocumentUploaded", "Nachweisdokument wurde hochgeladen.", "EvidenceDocument", id, fileName, tenantId);
 
+    public Task LogEvidenceDocumentUpdatedAsync(int id, string fileName, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("EvidenceDocumentUpdated", "Dokumentmetadaten wurden geändert.", "EvidenceDocument", id, fileName, tenantId, changes);
+
     public Task LogEvidenceDocumentArchivedAsync(int id, string fileName, int tenantId) =>
         LogAsync("EvidenceDocumentArchived", "Nachweisdokument wurde archiviert.", "EvidenceDocument", id, fileName, tenantId);
 
     public Task LogEvidenceDocumentRestoredAsync(int id, string fileName, int tenantId) =>
         LogAsync("EvidenceDocumentRestored", "Nachweisdokument wurde wiederhergestellt.", "EvidenceDocument", id, fileName, tenantId);
+
+    public Task LogDocumentCategoryCreatedAsync(int id, string name, int tenantId) =>
+        LogAsync("DocumentCategoryCreated", "Dokumentkategorie wurde erstellt.", "DocumentCategory", id, name, tenantId);
+
+    public Task LogDocumentCategoryUpdatedAsync(int id, string name, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("DocumentCategoryUpdated", "Dokumentkategorie wurde geändert.", "DocumentCategory", id, name, tenantId, changes);
+
+    public Task LogDocumentCategoryDeactivatedAsync(int id, string name, int tenantId) =>
+        LogAsync("DocumentCategoryDeactivated", "Dokumentkategorie wurde deaktiviert.", "DocumentCategory", id, name, tenantId);
+
+    public Task LogDocumentCategoryReactivatedAsync(int id, string name, int tenantId) =>
+        LogAsync("DocumentCategoryReactivated", "Dokumentkategorie wurde reaktiviert.", "DocumentCategory", id, name, tenantId);
 
     public Task LogPrivacyIncidentCreatedAsync(int id, string title, int tenantId) =>
         LogAsync("PrivacyIncidentCreated", "Datenschutzvorfall wurde erstellt.", "PrivacyIncident", id, title, tenantId);

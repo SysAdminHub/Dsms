@@ -173,5 +173,8 @@ public class UserAccessService(
 
         return await IsSuperuserAsync() || await currentUser.IsInRoleAsync(DsmsRoles.Admin);
     }
+
+    /// <inheritdoc />
+    public Task<bool> CanManageDocumentCategoriesAsync() => CanManageTenantDataAsync();
 }
 

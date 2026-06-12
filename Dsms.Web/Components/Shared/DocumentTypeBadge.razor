@@ -1,0 +1,8 @@
+@* Badge für fachlichen Dokumenttyp. *@
+<span class="dsms-badge dsms-document-type-badge dsms-badge--@EvidenceDocumentLabels.GetTypeBadgeVariant(Type)">
+    @EvidenceDocumentLabels.GetTypeLabel(Type)
+</span>
+
+@code {
+    [Parameter, EditorRequired] public DocumentType Type { get; set; }
+}

@@ -128,11 +128,19 @@ public static class PageHelpContentDefaults
             Domain.PageHelpContentKeys.Documents,
             "Dokumente und Nachweise",
             "DSGVO Rechenschaftspflicht, Art. 5 Abs. 2 DSGVO",
-            "Laden Sie Nachweise, Verträge und Datenschutzdokumente hoch.",
+            "Laden Sie Nachweise, Richtlinien, Formulare, Verträge und weitere Dokumente hoch.",
             """
-            In diesem Bereich können Sie wichtige Nachweise und Dokumente zentral ablegen.
+            Im Dokumentenmodul können Nachweise, Richtlinien, Formulare, Verträge, Kommunikationsvorlagen und sonstige Dokumente zentral abgelegt werden. Dokumente können mit Verarbeitungstätigkeiten, TOMs, Maßnahmen, Dienstleistern, DSFA, Datenschutzvorfällen, Betroffenenanfragen und weiteren Objekten verknüpft werden.
 
-            Dazu gehören zum Beispiel AV-Verträge, TOM-Nachweise, Auditberichte, Richtlinien, Löschkonzepte oder Schulungsnachweise.
+            Dokumenttypen sind feste fachliche Gruppen wie Nachweis, Richtlinie, Formular, Vertrag, Kommunikationsvorlage und Sonstiges Dokument. Kategorien können pro Mandant individuell angepasst werden, z. B. Datenschutz, IT-Sicherheit, HR oder Lieferanten. So kann jeder Mandant seine Dokumente passend zur eigenen Organisation strukturieren.
+
+            Dokumenttypen im Überblick:
+            - Nachweis: Beleg für Umsetzung oder Prüfung
+            - Richtlinie: interne Vorgabe oder Regelung
+            - Formular: Vorlage zur Erfassung von Informationen
+            - Vertrag: vertragliches oder rechtliches Dokument
+            - Kommunikationsvorlage: Textvorlage für wiederkehrende Kommunikation
+            - Sonstiges Dokument: sonstige relevante Datei
 
             Ordnen Sie Dokumente möglichst den passenden Verarbeitungstätigkeiten, Dienstleistern, Audits oder Maßnahmen zu.
             """),

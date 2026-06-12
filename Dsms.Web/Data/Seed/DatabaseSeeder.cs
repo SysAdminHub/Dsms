@@ -35,6 +35,7 @@ public static class DatabaseSeeder
         await PageHelpContentSeeder.SeedAsync(db);
         await SubscriptionPlanSeeder.SeedAsync(db);
         await SeedRolesAsync(roleManager);
+        await EnsureDefaultCategoriesForAllTenantsAsync(db);
 
         var demoLicense = await EnsureDemoLicenseAsync(db);
         await EnsureDemoEnvironmentAsync(db, userManager, demoLicense);
@@ -48,6 +49,15 @@ public static class DatabaseSeeder
             {
                 await roleManager.CreateAsync(new IdentityRole(role));
             }
+        }
+    }
+
+    private static async Task EnsureDefaultCategoriesForAllTenantsAsync(ApplicationDbContext db)
+    {
+        var tenantIds = await db.Tenants.Select(t => t.Id).ToListAsync();
+        foreach (var tenantId in tenantIds)
+        {
+            await DocumentCategorySeeder.EnsureDefaultCategoriesAsync(db, tenantId);
         }
     }
 
@@ -159,7 +169,13 @@ public static class DatabaseSeeder
         }
 
         await db.SaveChangesAsync();
+        await EnsureTenantDocumentCategoriesAsync(db, tenant);
         return tenant;
+    }
+
+    private static async Task EnsureTenantDocumentCategoriesAsync(ApplicationDbContext db, Tenant tenant)
+    {
+        await DocumentCategorySeeder.EnsureDefaultCategoriesAsync(db, tenant.Id);
     }
 
     private static async Task EnsureDemoBusinessDataAsync(ApplicationDbContext db, Tenant tenant)
@@ -332,6 +348,9 @@ public static class DatabaseSeeder
 
     private static async Task EnsureDemoDocumentAsync(ApplicationDbContext db, Tenant tenant)
     {
+        await EnsureTenantDocumentCategoriesAsync(db, tenant);
+        var dataProtectionCategory = await DocumentCategorySeeder.FindDefaultCategoryAsync(db, tenant.Id, "Datenschutz");
+
         var document = await db.EvidenceDocuments
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(d => d.TenantId == tenant.Id && d.FileName == "demo-nachweis.pdf");
@@ -341,12 +360,21 @@ public static class DatabaseSeeder
             document = new EvidenceDocument
             {
                 TenantId = tenant.Id,
+                DocumentType = DocumentType.Evidence,
+                DocumentCategoryId = dataProtectionCategory?.Id,
                 FileName = "demo-nachweis.pdf",
                 StoragePath = $"demo/{tenant.Id}/demo-nachweis.pdf",
                 FileSizeBytes = 5 * 1024 * 1024,
                 ContentType = "application/pdf"
             };
             db.EvidenceDocuments.Add(document);
+            await db.SaveChangesAsync();
+        }
+        else if (document.DocumentType != DocumentType.Evidence
+            || document.DocumentCategoryId != dataProtectionCategory?.Id)
+        {
+            document.DocumentType = DocumentType.Evidence;
+            document.DocumentCategoryId = dataProtectionCategory?.Id;
             await db.SaveChangesAsync();
         }
 

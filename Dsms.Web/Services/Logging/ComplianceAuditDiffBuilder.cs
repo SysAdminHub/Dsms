@@ -170,6 +170,37 @@ public static class ComplianceAuditDiffBuilder
         return changes;
     }
 
+    public static List<AuditFieldChangeDto> ForEvidenceDocument(
+        DocumentType? previousType,
+        string? previousCategoryName,
+        DocumentType currentType,
+        string? currentCategoryName)
+    {
+        var changes = new List<AuditFieldChangeDto>();
+        AuditDiffHelper.AddIfChanged(changes, "DocumentType", "Dokumenttyp", previousType, currentType,
+            v => v is DocumentType t ? EvidenceDocumentLabels.GetTypeLabel(t) : AuditDiffHelper.FormatAuditValue(v));
+        AuditDiffHelper.AddIfChanged(changes, "DocumentCategory", "Kategorie", previousCategoryName, currentCategoryName);
+        return changes;
+    }
+
+    public static List<AuditFieldChangeDto> ForDocumentCategory(
+        string? previousName,
+        string? previousDescription,
+        string? previousColor,
+        int? previousSortOrder,
+        bool? previousIsActive,
+        DocumentCategoryEditModel current)
+    {
+        var changes = new List<AuditFieldChangeDto>();
+        AuditDiffHelper.AddIfChanged(changes, "Name", "Name", previousName, current.Name);
+        AuditDiffHelper.AddIfChanged(changes, "Description", "Beschreibung", previousDescription, current.Description);
+        AuditDiffHelper.AddIfChanged(changes, "Color", "Farbe", previousColor, current.Color,
+            v => v is string s ? DocumentCategoryColors.GetLabel(s) : AuditDiffHelper.FormatAuditValue(v));
+        AuditDiffHelper.AddIfChanged(changes, "SortOrder", "Sortierung", previousSortOrder, current.SortOrder);
+        AuditDiffHelper.AddIfChanged(changes, "IsActive", "Aktiv", previousIsActive, current.IsActive);
+        return changes;
+    }
+
     private static string GetAuditRunStatusLabel(AuditRunStatus status) => status switch
     {
         AuditRunStatus.Draft => "Entwurf",

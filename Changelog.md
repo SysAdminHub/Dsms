@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Mandantenfähige Dokumentkategorien:** Enum `DocumentCategory` durch Entity `DocumentCategory` mit mandantenspezifischer Verwaltung ersetzt. Standard-Kategorien werden pro Mandant automatisch angelegt; Admins können Kategorien anlegen, bearbeiten, sortieren und deaktivieren. Migration `ReplaceDocumentCategoryEnumWithTenantEntity`. Verwaltung unter `/documents/categories`.
+
+- **Dokumententypen:** `EvidenceDocument` um Pflichtfeld `DocumentType` (Enum) erweitert; farbige Typ-Badges in Liste und Detailseiten. Migration `AddEvidenceDocumentTypeAndCategory`.
+
 - **Betroffenenanfragen:** Neues Modul zur Dokumentation und Bearbeitung von Anfragen betroffener Personen nach DSGVO (Auskunft, Löschung, Berichtigung, Widerspruch u. a.). Listen-, Erstell-, Bearbeit- und Detailansicht mit Fristüberwachung, Verknüpfungen zu VVT, Maßnahmen, Dienstleistern und Dokumenten sowie endgültiger Anonymisierung personenbezogener Falldaten. Migration `AddDataSubjectRequests`.
 
 - **Rechtliche Zustimmung bei Registrierung (Schritt 2):** Drei Pflicht-Checkboxen auf `/signup` … Migrationen `AddLegalAcceptances`, `RenameLegalAcceptanceIpToAnonymized`.

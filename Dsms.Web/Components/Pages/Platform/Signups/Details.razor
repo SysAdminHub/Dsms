@@ -1,3 +1,4 @@
+@using Dsms.Web.Services.Legal
 @page "/platform/signups/{Id:guid}"
 @attribute [Authorize(Roles = DsmsRoles.Superuser)]
 @rendermode InteractiveServer
@@ -244,6 +245,60 @@ else
                         <dt class="col-sm-4">Checkout-URL</dt>
                         <dd class="col-sm-8">@(_signup.ExternalCheckoutUrl ?? "—")</dd>
                     </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Rechtliche Zustimmung</strong></div>
+                <div class="dsms-card-body">
+                    @if (_signup.LegalAcceptance?.HasAcceptance == true)
+                    {
+                        var legal = _signup.LegalAcceptance;
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">AGB / SaaS-Nutzungsbedingungen</dt>
+                            <dd class="col-sm-7">@LegalAcceptanceDisplayHelper.FormatYesNo(legal.AcceptedTerms)</dd>
+                            <dt class="col-sm-5">Datenschutzerklärung</dt>
+                            <dd class="col-sm-7">@LegalAcceptanceDisplayHelper.FormatYesNo(legal.AcceptedPrivacyPolicy)</dd>
+                            <dt class="col-sm-5">AVV inkl. TOM und Unterauftragnehmerliste</dt>
+                            <dd class="col-sm-7">@LegalAcceptanceDisplayHelper.FormatYesNo(legal.AcceptedDataProcessingAgreement)</dd>
+                            <dt class="col-sm-5">Dokumentversion</dt>
+                            <dd class="col-sm-7">@legal.LegalVersion</dd>
+                            <dt class="col-sm-5">Effective Date</dt>
+                            <dd class="col-sm-7">@(legal.EffectiveDate ?? "—")</dd>
+                            <dt class="col-sm-5">Zeitpunkt</dt>
+                            <dd class="col-sm-7">
+                                @(legal.AcceptedAtUtc?.ToLocalTime().ToString("g") ?? "—")
+                                @if (legal.AcceptedAtUtc.HasValue)
+                                {
+                                    <span class="text-muted small">(@legal.AcceptedAtUtc.Value.ToString("u"))</span>
+                                }
+                            </dd>
+                            <dt class="col-sm-5">TenantId</dt>
+                            <dd class="col-sm-7">@(legal.TenantId?.ToString() ?? "—")</dd>
+                            <dt class="col-sm-5">UserId</dt>
+                            <dd class="col-sm-7"><code>@(legal.UserId ?? "—")</code></dd>
+                            <dt class="col-sm-5">Anonymisierte IP-Adresse</dt>
+                            <dd class="col-sm-7">
+                                @if (!string.IsNullOrWhiteSpace(legal.AnonymizedIpAddress))
+                                {
+                                    <code>@legal.AnonymizedIpAddress</code>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Nicht verfügbar</span>
+                                }
+                            </dd>
+                            @if (!string.IsNullOrWhiteSpace(legal.UserAgent))
+                            {
+                                <dt class="col-sm-5">User-Agent</dt>
+                                <dd class="col-sm-7 small">@legal.UserAgent</dd>
+                            }
+                        </dl>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0">Keine Legal-Zustimmung gefunden.</p>
+                    }
                 </div>
             </div>
 

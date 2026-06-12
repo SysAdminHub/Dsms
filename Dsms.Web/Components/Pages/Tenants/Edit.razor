@@ -54,12 +54,24 @@
                     <InputText class="form-control" @bind-Value="_model.City" />
                 </div>
                 <div class="col-md-6 mb-3">
+                    <label class="form-label">Land</label>
+                    <InputText class="form-control" @bind-Value="_model.Country" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Ansprechpartner</label>
+                    <InputText class="form-control" @bind-Value="_model.ContactName" />
+                </div>
+                <div class="col-md-6 mb-3">
                     <label class="form-label">Telefon</label>
                     <InputText class="form-control" @bind-Value="_model.Phone" />
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label">E-Mail-Adresse</label>
                     <InputText class="form-control" @bind-Value="_model.Email" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Umsatzsteuer-ID</label>
+                    <InputText class="form-control" @bind-Value="_model.VatId" />
                 </div>
                 <div class="col-12 mb-3">
                     <label class="form-label">Internet-Adresse / Website</label>
@@ -170,6 +182,9 @@
                 HouseNumber = tenant.HouseNumber,
                 PostalCode = tenant.PostalCode,
                 City = tenant.City,
+                Country = tenant.Country,
+                ContactName = tenant.ContactName,
+                VatId = tenant.VatId,
                 Phone = tenant.Phone,
                 Email = tenant.Email,
                 Website = tenant.Website,

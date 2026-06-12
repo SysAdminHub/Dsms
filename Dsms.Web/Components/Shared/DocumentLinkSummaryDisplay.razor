@@ -1,0 +1,32 @@
+@* Kompakte Anzeige ausgewählter oder gespeicherter Dokumentbezüge. *@
+
+@if (Summary.TotalCount == 0)
+{
+    <span class="text-muted">@EmptyText</span>
+}
+else if (Summary.TotalCount == 1 && !string.IsNullOrEmpty(Summary.SingleDisplayText))
+{
+    <span>@Summary.SingleDisplayText</span>
+}
+else
+{
+    <span>@Summary.CompactDisplayText</span>
+    @if (ShowDetailsLink && Summary.DetailLines.Count > 0)
+    {
+        <details class="dsms-link-summary-details ms-1 d-inline">
+            <summary class="text-muted small">Details anzeigen</summary>
+            <ul class="small text-muted mb-0 ps-3">
+                @foreach (var line in Summary.DetailLines)
+                {
+                    <li>@line</li>
+                }
+            </ul>
+        </details>
+    }
+}
+
+@code {
+    [Parameter] public DocumentLinkSummaryViewModel Summary { get; set; } = new();
+    [Parameter] public string EmptyText { get; set; } = "Noch keine Bezüge ausgewählt";
+    [Parameter] public bool ShowDetailsLink { get; set; } = true;
+}

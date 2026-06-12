@@ -29,13 +29,6 @@
     }
     else
     {
-        @if (!string.IsNullOrEmpty(_errorMessage))
-        {
-            <div class="dsms-signup-alert-wrap">
-                <div class="alert alert-danger dsms-alert mb-0">@_errorMessage</div>
-            </div>
-        }
-
         <h2 class="dsms-signup-plans-heading">Tarif auswählen</h2>
 
         <div class="dsms-signup-plan-row">
@@ -165,9 +158,39 @@
                         <label class="form-label">Unternehmensname *</label>
                         <InputText class="form-control" @bind-Value="_model.CustomerName" />
                     </div>
-                    <div class="mb-4">
+                    <div class="mb-3">
                         <label class="form-label">E-Mail-Adresse des Unternehmens</label>
                         <InputText class="form-control" @bind-Value="_model.CustomerEmail" placeholder="Optional – sonst Admin-E-Mail" />
+                    </div>
+
+                    <h5 class="mb-3 mt-2">Unternehmensadresse</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Straße und Hausnummer *</label>
+                        <InputText class="form-control" @bind-Value="_model.TenantStreet" />
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Postleitzahl *</label>
+                            <InputText class="form-control" @bind-Value="_model.TenantPostalCode" />
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Ort *</label>
+                            <InputText class="form-control" @bind-Value="_model.TenantCity" />
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Land *</label>
+                            <InputText class="form-control" @bind-Value="_model.TenantCountry" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Telefonnummer</label>
+                            <InputText class="form-control" @bind-Value="_model.TenantPhone" />
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">Umsatzsteuer-ID</label>
+                        <InputText class="form-control" @bind-Value="_model.TenantVatId" />
                     </div>
 
                     <h5 class="mb-3">Erster Mandant</h5>
@@ -182,7 +205,7 @@
 
                     <h5 class="mb-3">Administrator</h5>
                     <div class="mb-3">
-                        <label class="form-label">Name des Administrators *</label>
+                        <label class="form-label">Name des Administrators / Ansprechpartner *</label>
                         <InputText class="form-control" @bind-Value="_model.AdminDisplayName" />
                     </div>
                     <div class="mb-4">
@@ -345,15 +368,56 @@
                         </div>
                     }
 
-                    <div class="form-check mb-4">
-                        <InputCheckbox class="form-check-input" @bind-Value="_model.AcceptTerms" id="acceptTerms" />
-                        <label class="form-check-label" for="acceptTerms">
-                            Ich akzeptiere die <a href="#" @onclick="PreventLink" @onclick:preventDefault>Nutzungsbedingungen</a>
-                            und <a href="#" @onclick="PreventLink" @onclick:preventDefault>Datenschutzhinweise</a>.
-                        </label>
+                    <div class="dsms-signup-legal-consent mb-3">
+                        <h5 class="mb-3">Rechtliche Zustimmung</h5>
+                        <div class="form-check mb-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.AcceptAgb" id="acceptAgb" />
+                            <label class="form-check-label" for="acceptAgb">
+                                Ich akzeptiere die <a href="/legal/agb" target="_blank" rel="noopener noreferrer">AGB / SaaS-Nutzungsbedingungen</a>.
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.AcceptPrivacyPolicy" id="acceptPrivacyPolicy" />
+                            <label class="form-check-label" for="acceptPrivacyPolicy">
+                                Ich habe die <a href="/legal/datenschutz" target="_blank" rel="noopener noreferrer">Datenschutzerklärung</a> zur Kenntnis genommen.
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.AcceptDataProcessingAgreement" id="acceptDpa" />
+                            <label class="form-check-label" for="acceptDpa">
+                                Ich akzeptiere den <a href="/legal/avv" target="_blank" rel="noopener noreferrer">Auftragsverarbeitungsvertrag</a>
+                                einschließlich <a href="/legal/tom" target="_blank" rel="noopener noreferrer">TOM-Anlage</a>
+                                und <a href="/legal/unterauftragnehmer" target="_blank" rel="noopener noreferrer">Unterauftragnehmerliste</a>.
+                            </label>
+                        </div>
                     </div>
 
-                    <button type="submit" class="w-100 btn btn-primary btn-lg" disabled="@_submitting">
+                    @if (!string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <div id="signup-validation-summary"
+                             class="dsms-signup-validation-summary alert alert-danger dsms-alert"
+                             role="alert"
+                             aria-live="polite">
+                            @{
+                                var summaryMessages = GetSubmitErrorMessages();
+                            }
+                            @if (summaryMessages.Count > 1)
+                            {
+                                <ul class="dsms-signup-validation-summary__list mb-0">
+                                    @foreach (var message in summaryMessages)
+                                    {
+                                        <li>@message</li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <span>@summaryMessages[0]</span>
+                            }
+                        </div>
+                    }
+
+                    <button type="submit" class="w-100 btn btn-primary btn-lg mt-2" disabled="@_submitting">
                         @GetSubmitButtonText(selectedPlan.IsFree)
                     </button>
                 </EditForm>
@@ -373,16 +437,46 @@
 
     [Inject] private IPublicSignupService PublicSignupService { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private IJSRuntime Js { get; set; } = null!;
+
+    private const string LegalErrorAgb = "Bitte akzeptieren Sie die AGB / SaaS-Nutzungsbedingungen.";
+    private const string LegalErrorPrivacy = "Bitte bestätigen Sie, dass Sie die Datenschutzerklärung zur Kenntnis genommen haben.";
+    private const string LegalErrorDpa = "Bitte akzeptieren Sie den Auftragsverarbeitungsvertrag einschließlich TOM-Anlage und Unterauftragnehmerliste.";
 
     private List<PublicSignupPlanDto> _publicPlans = [];
-    private PublicSignupFormDto _model = new();
+    private PublicSignupFormDto _model = new() { TenantCountry = "Deutschland" };
     private bool _loading = true;
     private bool _submitting;
     private bool _discountApplying;
+    private bool _scrollToErrors;
     private string? _errorMessage;
     private string? _discountMessage;
     private bool _discountIsSuccess;
     private DiscountCodeValidationResult? _appliedDiscount;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_scrollToErrors)
+        {
+            return;
+        }
+
+        _scrollToErrors = false;
+        try
+        {
+            await Js.InvokeVoidAsync(
+                "eval",
+                "document.getElementById('signup-validation-summary')?.scrollIntoView({behavior:'smooth',block:'nearest'})");
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit disconnected – kein Scroll nötig.
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering – Scroll erst nach interaktivem Render.
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -552,6 +646,36 @@
             _model.BillingCompanyName = _model.CustomerName.Trim();
         }
 
+        if (string.IsNullOrWhiteSpace(_model.TenantStreet)
+            && !string.IsNullOrWhiteSpace(_model.BillingStreet))
+        {
+            _model.TenantStreet = _model.BillingStreet.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.TenantPostalCode)
+            && !string.IsNullOrWhiteSpace(_model.BillingPostalCode))
+        {
+            _model.TenantPostalCode = _model.BillingPostalCode.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.TenantCity)
+            && !string.IsNullOrWhiteSpace(_model.BillingCity))
+        {
+            _model.TenantCity = _model.BillingCity.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.TenantCountry)
+            && !string.IsNullOrWhiteSpace(_model.BillingCountry))
+        {
+            _model.TenantCountry = _model.BillingCountry.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.TenantVatId)
+            && !string.IsNullOrWhiteSpace(_model.BillingVatId))
+        {
+            _model.TenantVatId = _model.BillingVatId.Trim();
+        }
+
         if (string.IsNullOrWhiteSpace(_model.BillingEmail))
         {
             if (!string.IsNullOrWhiteSpace(_model.CustomerEmail))
@@ -583,6 +707,7 @@
             if (_model.SelectedPlanId == Guid.Empty)
             {
                 _errorMessage = "Bitte wählen Sie einen Tarif aus.";
+                _scrollToErrors = true;
             }
 
             return;
@@ -598,6 +723,7 @@
             if (!result.Success)
             {
                 _errorMessage = result.ErrorMessage;
+                _scrollToErrors = true;
                 return;
             }
 
@@ -620,6 +746,35 @@
         }
 
         return isFreePlan ? "Kostenlos registrieren" : "Zugang erstellen";
+    }
+
+    private IReadOnlyList<string> GetSubmitErrorMessages()
+    {
+        if (string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            return [];
+        }
+
+        var messages = new List<string>();
+        var remaining = _errorMessage;
+
+        foreach (var legalMessage in new[] { LegalErrorAgb, LegalErrorPrivacy, LegalErrorDpa })
+        {
+            if (!remaining.Contains(legalMessage, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            messages.Add(legalMessage);
+            remaining = remaining.Replace(legalMessage, string.Empty, StringComparison.Ordinal).Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(remaining))
+        {
+            messages.Add(remaining.Trim());
+        }
+
+        return messages.Count > 0 ? messages : [_errorMessage];
     }
 
     private static string FormatCount(int? value) =>
@@ -711,10 +866,5 @@
         }
 
         return $"Reguläre Rechnung ab Monat {startMonth}: {amount}";
-    }
-
-    private static void PreventLink()
-    {
-        // Platzhalter bis echte Links vorhanden sind.
     }
 }

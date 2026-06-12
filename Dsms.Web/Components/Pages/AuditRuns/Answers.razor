@@ -141,7 +141,6 @@ else
 
         _run = await Db.AuditRuns
             .Include(r => r.AuditTemplate)
-            .Include(r => r.Documents)
             .FirstOrDefaultAsync(r => r.Id == Id && r.TenantId == _tenantId);
 
         if (_run is null) return;

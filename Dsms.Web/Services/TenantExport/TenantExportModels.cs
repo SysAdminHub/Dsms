@@ -303,6 +303,12 @@ public sealed class PrivacyIncidentExportDto
     public IReadOnlyList<int> LinkedTomIds { get; init; } = [];
 }
 
+public sealed class DocumentLinkExportDto
+{
+    public string EntityType { get; init; } = string.Empty;
+    public int EntityId { get; init; }
+}
+
 public sealed class DocumentMetadataExportDto
 {
     public int DocumentId { get; init; }
@@ -313,6 +319,7 @@ public sealed class DocumentMetadataExportDto
     public long FileSizeBytes { get; init; }
     public string? ModuleReference { get; init; }
     public int? EntityId { get; init; }
+    public IReadOnlyList<DocumentLinkExportDto> LinkedEntities { get; init; } = [];
     public DateTime CreatedAt { get; init; }
     public string? CreatedByUserId { get; init; }
     public string RelativePathInZip { get; init; } = string.Empty;

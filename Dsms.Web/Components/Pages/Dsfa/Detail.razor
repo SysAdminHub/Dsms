@@ -176,7 +176,6 @@ else
         _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
         _dpia = await Db.DataProtectionImpactAssessments
-            .Include(d => d.Documents)
             .FirstOrDefaultAsync(d => d.Id == Id && d.TenantId == _tenantId);
 
         if (_dpia is not null)

@@ -2,6 +2,7 @@ using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Services.Licenses;
+using Dsms.Web.Services.Legal;
 using Dsms.Web.Services.Logging;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,7 @@ public sealed class PendingSignupService(
     IUserAccessService access,
     UserManager<ApplicationUser> userManager,
     ILogService logService,
+    ILegalAcceptanceService legalAcceptanceService,
     ICurrentUserContext currentUser) : IPendingSignupService
 {
     public async Task<IReadOnlyList<PendingSignupListDto>> GetAllAsync(
@@ -76,10 +78,16 @@ public sealed class PendingSignupService(
             query = query.Where(p => p.NextInvoiceDate != null && p.NextInvoiceDate <= until);
         }
 
-        return await query
+        var entities = await query
             .OrderByDescending(p => p.CreatedAt)
-            .Select(p => MapToList(p))
             .ToListAsync();
+
+        var legalSummaries = await legalAcceptanceService.GetSummariesByPendingSignupIdsAsync(
+            entities.Select(p => p.Id).ToList());
+
+        return entities
+            .Select(p => MapToList(p, legalSummaries.GetValueOrDefault(p.Id)))
+            .ToList();
     }
 
     public async Task<PendingSignupDetailsDto?> GetByIdAsync(Guid id)
@@ -88,7 +96,16 @@ public sealed class PendingSignupService(
         await using var db = await dbFactory.CreateDbContextAsync();
 
         var entity = await db.PendingSignups.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
-        return entity is null ? null : MapToDetails(entity);
+        if (entity is null)
+        {
+            return null;
+        }
+
+        var legalAcceptance = await legalAcceptanceService.GetSummaryForSignupAsync(
+            entity.Id,
+            entity.ProvisionedTenantId);
+
+        return MapToDetails(entity, legalAcceptance);
     }
 
     public async Task<Guid> CreateAsync(CreatePendingSignupDto dto)
@@ -748,12 +765,13 @@ public sealed class PendingSignupService(
         await EnsureSuperuserAsync();
         await using var db = await dbFactory.CreateDbContextAsync();
 
-        return await db.PendingSignups
+        var entities = await db.PendingSignups
             .AsNoTracking()
             .Where(p => p.Status == PendingSignupStatuses.PendingPayment)
             .OrderByDescending(p => p.CreatedAt)
-            .Select(p => MapToList(p))
             .ToListAsync();
+
+        return entities.Select(p => MapToList(p)).ToList();
     }
 
     public async Task<IReadOnlyList<PendingSignupListDto>> GetExpiredAsync()
@@ -761,12 +779,13 @@ public sealed class PendingSignupService(
         await EnsureSuperuserAsync();
         await using var db = await dbFactory.CreateDbContextAsync();
 
-        return await db.PendingSignups
+        var entities = await db.PendingSignups
             .AsNoTracking()
             .Where(p => p.Status == PendingSignupStatuses.Expired)
             .OrderByDescending(p => p.CreatedAt)
-            .Select(p => MapToList(p))
             .ToListAsync();
+
+        return entities.Select(p => MapToList(p)).ToList();
     }
 
     public async Task<PendingSignupDetailsDto?> GetByExternalPaymentIdAsync(string externalPaymentId)
@@ -782,7 +801,16 @@ public sealed class PendingSignupService(
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.ExternalPaymentId == externalPaymentId.Trim());
 
-        return entity is null ? null : MapToDetails(entity);
+        if (entity is null)
+        {
+            return null;
+        }
+
+        var legalAcceptance = await legalAcceptanceService.GetSummaryForSignupAsync(
+            entity.Id,
+            entity.ProvisionedTenantId);
+
+        return MapToDetails(entity, legalAcceptance);
     }
 
     private static void ValidateCreateDto(CreatePendingSignupDto dto)
@@ -855,7 +883,7 @@ public sealed class PendingSignupService(
             : $"{entity.InternalNote}\n{note.Trim()}";
     }
 
-    private static PendingSignupListDto MapToList(PendingSignup p) => new()
+    private static PendingSignupListDto MapToList(PendingSignup p, LegalAcceptanceSummaryDto? legalAcceptance = null) => new()
     {
         Id = p.Id,
         CreatedAt = p.CreatedAt,
@@ -889,10 +917,11 @@ public sealed class PendingSignupService(
         ProvisionedLicenseId = p.ProvisionedLicenseId,
         ProvisionedLicenseNumber = p.ProvisionedLicenseNumber,
         ProvisionedAt = p.ProvisionedAt,
-        ErrorMessage = p.ErrorMessage
+        ErrorMessage = p.ErrorMessage,
+        LegalAcceptance = legalAcceptance ?? LegalAcceptanceSummaryDto.None()
     };
 
-    private static PendingSignupDetailsDto MapToDetails(PendingSignup p) => new()
+    private static PendingSignupDetailsDto MapToDetails(PendingSignup p, LegalAcceptanceSummaryDto? legalAcceptance = null) => new()
     {
         Id = p.Id,
         CreatedAt = p.CreatedAt,
@@ -961,7 +990,8 @@ public sealed class PendingSignupService(
         CurrentBillingAmount = p.CurrentBillingAmount,
         CurrentBillingCurrency = p.CurrentBillingCurrency,
         CurrentBillingCycle = p.CurrentBillingCycle,
-        CurrentBillingAmountUpdatedAt = p.CurrentBillingAmountUpdatedAt
+        CurrentBillingAmountUpdatedAt = p.CurrentBillingAmountUpdatedAt,
+        LegalAcceptance = legalAcceptance
     };
 
     private static string? NormalizeOptional(string? value) =>

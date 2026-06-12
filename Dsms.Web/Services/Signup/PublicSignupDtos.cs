@@ -38,9 +38,17 @@ public sealed class PublicSignupFormDto
     public string? CustomerEmail { get; set; }
     public string TenantName { get; set; } = string.Empty;
     public string? TenantLegalName { get; set; }
+    public string TenantStreet { get; set; } = string.Empty;
+    public string TenantPostalCode { get; set; } = string.Empty;
+    public string TenantCity { get; set; } = string.Empty;
+    public string TenantCountry { get; set; } = "Deutschland";
+    public string? TenantPhone { get; set; }
+    public string? TenantVatId { get; set; }
     public string AdminDisplayName { get; set; } = string.Empty;
     public string AdminEmail { get; set; } = string.Empty;
-    public bool AcceptTerms { get; set; }
+    public bool AcceptAgb { get; set; }
+    public bool AcceptPrivacyPolicy { get; set; }
+    public bool AcceptDataProcessingAgreement { get; set; }
 
     public string BillingCompanyName { get; set; } = string.Empty;
     public string BillingEmail { get; set; } = string.Empty;

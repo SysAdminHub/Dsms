@@ -188,7 +188,6 @@ else
         if (Id is > 0)
         {
             var existing = await Db.DataProtectionImpactAssessments
-                .Include(d => d.Documents)
                 .FirstOrDefaultAsync(d => d.Id == Id && d.TenantId == _tenantId);
 
             if (existing is null)

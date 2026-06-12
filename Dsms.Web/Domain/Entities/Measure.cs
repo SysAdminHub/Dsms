@@ -25,8 +25,6 @@ public class Measure : ArchivableEntityBase, ITenantEntity
     public DateTime? CompletedAt { get; set; }
     public string? AssignedUserId { get; set; }
 
-    public ICollection<EvidenceDocument> Documents { get; set; } = [];
-
     /// <summary>Verarbeitungstätigkeiten, denen diese Maßnahme zugeordnet ist.</summary>
     public ICollection<ProcessingActivityMeasure> ProcessingActivityLinks { get; set; } = [];
 }

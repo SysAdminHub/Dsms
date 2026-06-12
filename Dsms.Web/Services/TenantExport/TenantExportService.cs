@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dsms.Web.Configuration;
 using Dsms.Web.Data;
+using Dsms.Web.Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -713,11 +714,28 @@ public class TenantExportService(
             .Where(d => d.TenantId == tenantId)
             .ToListAsync(ct);
 
+        var allLinks = await db.DocumentLinks
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(l => l.TenantId == tenantId)
+            .ToListAsync(ct);
+
+        var linksByDocument = allLinks.GroupBy(l => l.DocumentId).ToDictionary(g => g.Key, g => g.ToList());
+
         var metadata = new List<DocumentMetadataExportDto>();
         var files = new List<DocumentFileEntry>();
 
         foreach (var doc in docs)
         {
+            var docLinks = linksByDocument.GetValueOrDefault(doc.Id) ?? [];
+            var linkedEntities = docLinks
+                .Select(l => new DocumentLinkExportDto
+                {
+                    EntityType = MapEntityTypeForExport(l.LinkedEntityType),
+                    EntityId = l.LinkedEntityId
+                })
+                .ToList();
+
             var safeName = SanitizeFileName(doc.FileName);
             var zipPath = $"documents/files/{doc.Id}-{safeName}";
             var fullPath = documentStorage.GetFullPath(doc.StoragePath);
@@ -728,6 +746,7 @@ public class TenantExportService(
                 warnings.Add($"Dokument {doc.Id} ({doc.FileName}): Datei im Storage nicht gefunden.");
             }
 
+            var firstLink = linkedEntities.FirstOrDefault();
             metadata.Add(new DocumentMetadataExportDto
             {
                 DocumentId = doc.Id,
@@ -735,8 +754,9 @@ public class TenantExportService(
                 FileName = doc.FileName,
                 ContentType = doc.ContentType,
                 FileSizeBytes = doc.FileSizeBytes,
-                ModuleReference = ResolveModuleReference(doc),
-                EntityId = ResolveEntityId(doc),
+                ModuleReference = firstLink?.EntityType,
+                EntityId = firstLink?.EntityId,
+                LinkedEntities = linkedEntities,
                 CreatedAt = doc.CreatedAt,
                 CreatedByUserId = doc.UploadedByUserId,
                 RelativePathInZip = zipPath,
@@ -753,24 +773,17 @@ public class TenantExportService(
         return (metadata, files);
     }
 
-    private static string? ResolveModuleReference(Domain.Entities.EvidenceDocument doc)
+    private static string MapEntityTypeForExport(DocumentLinkedEntityType type) => type switch
     {
-        if (doc.ProcessingActivityId.HasValue) return "ProcessingActivity";
-        if (doc.DataProtectionImpactAssessmentId.HasValue) return "Dsfa";
-        if (doc.ServiceProviderId.HasValue) return "ServiceProvider";
-        if (doc.AuditRunId.HasValue) return "AuditRun";
-        if (doc.MeasureId.HasValue) return "Measure";
-        if (doc.PrivacyIncidentId.HasValue) return "PrivacyIncident";
-        return null;
-    }
-
-    private static int? ResolveEntityId(Domain.Entities.EvidenceDocument doc) =>
-        doc.ProcessingActivityId
-        ?? doc.DataProtectionImpactAssessmentId
-        ?? doc.ServiceProviderId
-        ?? doc.AuditRunId
-        ?? doc.MeasureId
-        ?? doc.PrivacyIncidentId;
+        DocumentLinkedEntityType.AuditRun => "AuditRun",
+        DocumentLinkedEntityType.Measure => "Measure",
+        DocumentLinkedEntityType.ServiceProvider => "ServiceProvider",
+        DocumentLinkedEntityType.ProcessingActivity => "ProcessingActivity",
+        DocumentLinkedEntityType.Dsfa => "Dsfa",
+        DocumentLinkedEntityType.PrivacyIncident => "PrivacyIncident",
+        DocumentLinkedEntityType.Tom => "Tom",
+        _ => type.ToString()
+    };
 
     private static string BuildZipFileName(string tenantName, string productName)
     {

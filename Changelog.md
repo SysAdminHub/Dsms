@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Rechtliche Zustimmung bei Registrierung (Schritt 2):** Drei Pflicht-Checkboxen auf `/signup` … Migrationen `AddLegalAcceptances`, `RenameLegalAcceptanceIpToAnonymized`.
+
+- **Legal-Dokumente (Schritt 3):** PDF-Generierung (QuestPDF) für alle Legal-Dokumente, Download-Button auf `/legal/*` und Endpoint `/legal/{route}/pdf`. Registrierungs-Bestätigungsmail mit PDF-Anhängen (AGB, Datenschutz, kombiniertes AVV/TOM/Unterauftragnehmer-Paket). E-Mail-Vorlage `SignupLegalConfirmation`.
+
 - **Registrierungen:** Editierbare aktuelle Abrechnungsdaten für Superuser (aktuell gültiger Betrag, Währung, Abrechnungszeitraum). Der historische Plan-Snapshot bleibt unverändert. Migration `AddPendingSignupCurrentBillingAmount`.
 
 - **Öffentliche Registrierung / Provisioning:** Rabattcodes werden beim erfolgreichen Public-Signup-Provisioning final eingelöst. Nach erfolgreicher Provisionierung wird der Nutzungszähler erhöht und die Einlösung protokolliert (`DiscountCodeRedeemed`). Migration `AddPendingSignupDiscountRedemptionFields`.
@@ -21,6 +25,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 - **Tarif-/Planverwaltung:** Optionale Sonderpreise für monatliche und jährliche Preise ergänzt. Pläne können ein frei editierbares Angebots-Badge anzeigen, z. B. „Limitiertes Angebot“. Migration `AddSubscriptionPlanPromotionalPrices`.
 
 ### Geändert
+
+- **Dokumentenverknüpfungen:** Many-to-Many über neue Tabelle `DocumentLinks` statt einzelner FK-Felder auf `EvidenceDocument`. Auswahlmodal mit Checkboxen, Suche und TOM-Unterstützung. Migration `AddDocumentLinksManyToMany` (idempotent für teilweise angewendete DB-Stände). Upload und Bearbeiten mit je einem Auswahl-Modal pro Bezugstyp.
 
 - **Registrierungsdetails (Superuser):** Trennung von Plan-Snapshot, Signup-Betrag/Rabatt und aktueller Abrechnungsbasis. Bei kostenlosen Startmonaten ist der spätere aktuell gültige Folgepreis sichtbar und editierbar.
 

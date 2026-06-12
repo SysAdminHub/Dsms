@@ -15,6 +15,9 @@ internal static class TenantComplianceFields
         tenant.HouseNumber = NormalizeOptional(model.HouseNumber);
         tenant.PostalCode = NormalizeOptional(model.PostalCode);
         tenant.City = NormalizeOptional(model.City);
+        tenant.Country = NormalizeOptional(model.Country);
+        tenant.ContactName = NormalizeOptional(model.ContactName);
+        tenant.VatId = NormalizeOptional(model.VatId);
         tenant.Phone = NormalizeOptional(model.Phone);
         tenant.Email = NormalizeOptional(model.Email);
         tenant.Website = NormalizeOptional(model.Website);
@@ -40,6 +43,9 @@ internal static class TenantComplianceFields
         HouseNumber = model.HouseNumber,
         PostalCode = model.PostalCode,
         City = model.City,
+        Country = model.Country,
+        ContactName = model.ContactName,
+        VatId = model.VatId,
         Phone = model.Phone,
         Email = model.Email,
         Website = model.Website,
@@ -59,6 +65,9 @@ internal static class TenantComplianceFields
         HouseNumber = tenant.HouseNumber,
         PostalCode = tenant.PostalCode,
         City = tenant.City,
+        Country = tenant.Country,
+        ContactName = tenant.ContactName,
+        VatId = tenant.VatId,
         Phone = tenant.Phone,
         Email = tenant.Email,
         Website = tenant.Website,
@@ -74,11 +83,15 @@ internal static class TenantComplianceFields
     public static TenantComplianceInfoDto ToDto(Tenant tenant) => new()
     {
         TenantName = tenant.Name,
+        ContractDateUtc = tenant.CreatedAt,
         LegalName = tenant.LegalName,
         Street = tenant.Street,
         HouseNumber = tenant.HouseNumber,
         PostalCode = tenant.PostalCode,
         City = tenant.City,
+        Country = tenant.Country,
+        ContactName = tenant.ContactName,
+        VatId = tenant.VatId,
         Phone = tenant.Phone,
         Email = tenant.Email,
         Website = tenant.Website,
@@ -113,6 +126,9 @@ internal static class TenantComplianceFields
         tenant.HouseNumber,
         tenant.PostalCode,
         tenant.City,
+        tenant.Country,
+        tenant.ContactName,
+        tenant.VatId,
         tenant.Phone,
         tenant.Email,
         tenant.Website,

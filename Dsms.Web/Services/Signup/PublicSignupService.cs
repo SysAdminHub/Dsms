@@ -14,7 +14,13 @@ using Dsms.Web.Domain.Enums;
 
 using Dsms.Web.Services.DiscountCodes;
 
+using Dsms.Web.Services.Legal;
+
+using Dsms.Web.Services.Privacy;
+
 using Dsms.Web.Services.SubscriptionPlans;
+
+using Microsoft.AspNetCore.Http;
 
 
 
@@ -32,7 +38,15 @@ public sealed class PublicSignupService(
 
     ISignupNotificationService signupNotificationService,
 
+    ISignupLegalEmailService signupLegalEmailService,
+
     IDiscountCodeValidationService discountCodeValidation,
+
+    ILegalDocumentService legalDocumentService,
+
+    IIpAnonymizationService ipAnonymizationService,
+
+    IHttpContextAccessor httpContextAccessor,
 
     ILogService logService) : IPublicSignupService
 
@@ -351,6 +365,16 @@ public sealed class PublicSignupService(
         var request = BuildProvisionRequest(selectedPlan.Id, form, provisioningDiscount);
         request.PendingSignupId = pendingSignupId;
 
+        var legalAcceptanceResult = await BuildLegalAcceptanceInputAsync(form, pendingSignupId);
+        if (legalAcceptanceResult.ErrorMessage is not null)
+        {
+            await MarkProvisioningFailedAsync(pendingSignupId, legalAcceptanceResult.ErrorMessage);
+            await TryLogFailedAsync(selectedPlan.Id, adminEmail, legalAcceptanceResult.ErrorMessage);
+            return PublicSignupSubmitResult.Failed(legalAcceptanceResult.ErrorMessage);
+        }
+
+        request.LegalAcceptance = legalAcceptanceResult.Input;
+
         ProvisionCustomerResultDto result;
 
 
@@ -411,6 +435,12 @@ public sealed class PublicSignupService(
 
         await TrySendSignupNotificationAsync(pendingSignupId, result.PasswordSetupEmailSent);
 
+        await TrySendSignupLegalConfirmationAsync(
+            result.TenantId!.Value,
+            adminEmail,
+            form.AdminDisplayName.Trim(),
+            DateTime.UtcNow);
+
         if (discountResult.IsApplied)
         {
             await TryLogDiscountAppliedAsync(selectedPlan.Id, form, billingCycle, discountResult);
@@ -441,6 +471,26 @@ public sealed class PublicSignupService(
         catch
         {
             // Fehler werden im SignupNotificationService protokolliert; Signup bleibt erfolgreich.
+        }
+    }
+
+    private async Task TrySendSignupLegalConfirmationAsync(
+        int tenantId,
+        string recipientEmail,
+        string contactName,
+        DateTime registrationDateUtc)
+    {
+        try
+        {
+            await signupLegalEmailService.TrySendSignupLegalConfirmationAsync(
+                tenantId,
+                recipientEmail,
+                contactName,
+                registrationDateUtc);
+        }
+        catch
+        {
+            // Fehler werden im SignupLegalEmailService protokolliert; Signup bleibt erfolgreich.
         }
     }
 
@@ -776,11 +826,85 @@ public sealed class PublicSignupService(
 
 
 
-        if (!form.AcceptTerms)
+        var legalError = ValidateLegalConsent(form);
+        if (legalError is not null)
+        {
+            return legalError;
+        }
+
+
+
+        return ValidateTenantAddress(form);
+
+
+
+    }
+
+
+
+    private static string? ValidateLegalConsent(PublicSignupFormDto form)
+    {
+        var errors = new List<string>();
+
+        if (!form.AcceptAgb)
+        {
+            errors.Add("Bitte akzeptieren Sie die AGB / SaaS-Nutzungsbedingungen.");
+        }
+
+        if (!form.AcceptPrivacyPolicy)
+        {
+            errors.Add("Bitte bestätigen Sie, dass Sie die Datenschutzerklärung zur Kenntnis genommen haben.");
+        }
+
+        if (!form.AcceptDataProcessingAgreement)
+        {
+            errors.Add("Bitte akzeptieren Sie den Auftragsverarbeitungsvertrag einschließlich TOM-Anlage und Unterauftragnehmerliste.");
+        }
+
+        return errors.Count == 0 ? null : string.Join(" ", errors);
+    }
+
+
+
+    private static string? ValidateTenantAddress(PublicSignupFormDto form)
+
+    {
+
+        if (string.IsNullOrWhiteSpace(form.TenantStreet))
 
         {
 
-            return "Bitte akzeptieren Sie die Nutzungsbedingungen und Datenschutzhinweise.";
+            return "Bitte geben Sie Straße und Hausnummer ein.";
+
+        }
+
+
+
+        if (string.IsNullOrWhiteSpace(form.TenantPostalCode))
+
+        {
+
+            return "Bitte geben Sie die Postleitzahl ein.";
+
+        }
+
+
+
+        if (string.IsNullOrWhiteSpace(form.TenantCity))
+
+        {
+
+            return "Bitte geben Sie den Ort ein.";
+
+        }
+
+
+
+        if (string.IsNullOrWhiteSpace(form.TenantCountry))
+
+        {
+
+            return "Bitte geben Sie das Land ein.";
 
         }
 
@@ -919,6 +1043,18 @@ public sealed class PublicSignupService(
 
             TenantLegalName = string.IsNullOrWhiteSpace(form.TenantLegalName) ? null : form.TenantLegalName.Trim(),
 
+            TenantStreet = form.TenantStreet.Trim(),
+
+            TenantPostalCode = form.TenantPostalCode.Trim(),
+
+            TenantCity = form.TenantCity.Trim(),
+
+            TenantCountry = form.TenantCountry.Trim(),
+
+            TenantPhone = NormalizeOptional(form.TenantPhone),
+
+            TenantVatId = NormalizeOptional(form.TenantVatId),
+
             AdminEmail = adminEmail,
 
             AdminDisplayName = form.AdminDisplayName.Trim(),
@@ -935,6 +1071,43 @@ public sealed class PublicSignupService(
 
         };
 
+    }
+
+
+
+    private async Task<(LegalAcceptanceInputDto? Input, string? ErrorMessage)> BuildLegalAcceptanceInputAsync(
+        PublicSignupFormDto form,
+        Guid pendingSignupId)
+    {
+        var metadata = await legalDocumentService.GetMetadataAsync();
+        if (metadata is null || string.IsNullOrWhiteSpace(metadata.Version))
+        {
+            return (null, "Die rechtlichen Dokumente sind derzeit nicht verfügbar. Bitte versuchen Sie es später erneut.");
+        }
+
+        var httpContext = httpContextAccessor.HttpContext;
+        var rawIpAddress = LogIpAnonymizer.GetClientIpAddress(httpContext);
+        var anonymizedIpAddress = ipAnonymizationService.AnonymizeIpAddress(rawIpAddress);
+
+        var userAgent = httpContext?.Request.Headers.UserAgent.FirstOrDefault();
+        var acceptedAtUtc = DateTime.UtcNow;
+        var adminEmail = form.AdminEmail.Trim();
+
+        return (new LegalAcceptanceInputDto
+        {
+            AcceptedTerms = form.AcceptAgb,
+            AcceptedPrivacyPolicy = form.AcceptPrivacyPolicy,
+            AcceptedDataProcessingAgreement = form.AcceptDataProcessingAgreement,
+            LegalVersion = metadata.Version.Trim(),
+            EffectiveDate = metadata.EffectiveDate.Trim(),
+            AcceptedAtUtc = acceptedAtUtc,
+            AnonymizedIpAddress = anonymizedIpAddress,
+            UserAgent = userAgent,
+            PendingSignupId = pendingSignupId,
+            SignupEmail = adminEmail,
+            TenantNameSnapshot = form.TenantName.Trim(),
+            CompanyNameSnapshot = form.CustomerName.Trim()
+        }, null);
     }
 
 

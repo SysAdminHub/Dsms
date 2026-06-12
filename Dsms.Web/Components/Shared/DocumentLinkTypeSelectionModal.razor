@@ -1,0 +1,162 @@
+@* Modal zur Mehrfachauswahl von Dokumentbezügen für einen einzelnen Bezugstyp. *@
+@if (_visible)
+{
+    <div class="modal fade show d-block dsms-document-links-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@_title</h5>
+                    <button type="button" class="btn-close" @onclick="Cancel"></button>
+                </div>
+                <div class="modal-body">
+                    @if (_loading)
+                    {
+                        <div class="dsms-loading">Lade …</div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label visually-hidden" for="document-link-type-search">@_searchPlaceholder</label>
+                            <input id="document-link-type-search"
+                                   class="form-control"
+                                   placeholder="@_searchPlaceholder"
+                                   @bind="_searchTerm"
+                                   @bind:event="oninput" />
+                        </div>
+
+                        @if (!_filteredItems.Any())
+                        {
+                            <div class="alert alert-info dsms-alert mb-0">
+                                @(string.IsNullOrWhiteSpace(_searchTerm)
+                                    ? "Keine Einträge vorhanden."
+                                    : "Keine passenden Einträge gefunden.")
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="dsms-checkbox-list">
+                                @foreach (var item in _filteredItems)
+                                {
+                                    var checkboxId = $"doc-link-{_entityType}-{item.EntityId}";
+                                    <div class="form-check">
+                                        <input type="checkbox"
+                                               class="form-check-input"
+                                               id="@checkboxId"
+                                               checked="@item.IsSelected"
+                                               @onchange="e => ToggleItem(item, (bool)e.Value!)" />
+                                        <label class="form-check-label" for="@checkboxId">
+                                            @item.DisplayName
+                                            @if (item.IsArchived)
+                                            {
+                                                <span class="badge bg-secondary ms-1">archiviert</span>
+                                            }
+                                        </label>
+                                        @if (!string.IsNullOrWhiteSpace(item.Description))
+                                        {
+                                            <div class="form-text">@Truncate(item.Description, 120)</div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" @onclick="Confirm" disabled="@_loading">Übernehmen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Inject] private DocumentLinksService LinksService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+
+    [Parameter] public EventCallback<IReadOnlyList<DocumentLinkSelectionViewModel>> OnApplied { get; set; }
+
+    private bool _visible;
+    private bool _loading;
+    private int? _tenantId;
+    private DocumentLinkedEntityType _entityType;
+    private string _title = string.Empty;
+    private string _searchPlaceholder = "Suchen…";
+    private string _searchTerm = string.Empty;
+    private List<DocumentLinkSelectionViewModel> _items = [];
+
+    private IEnumerable<DocumentLinkSelectionViewModel> _filteredItems =>
+        string.IsNullOrWhiteSpace(_searchTerm)
+            ? _items
+            : _items.Where(MatchesSearch);
+
+    public async Task ShowAsync(
+        DocumentLinkedEntityType entityType,
+        IReadOnlyList<DocumentLinkTarget> allSelectedLinks)
+    {
+        if (!await UserAccess.CanEditTenantOperationalContentAsync())
+        {
+            return;
+        }
+
+        _entityType = entityType;
+        _title = DocumentLinkLabels.GetModalTitle(entityType);
+        _searchPlaceholder = DocumentLinkLabels.GetSearchPlaceholder(entityType);
+        _searchTerm = string.Empty;
+        _visible = true;
+        _loading = true;
+
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null)
+        {
+            _loading = false;
+            _visible = false;
+            return;
+        }
+
+        _items = (await LinksService.GetAvailableLinkTargetsForTypeAsync(
+                _tenantId.Value,
+                entityType,
+                allSelectedLinks))
+            .Select(i => new DocumentLinkSelectionViewModel
+            {
+                EntityType = i.EntityType,
+                EntityId = i.EntityId,
+                DisplayName = i.DisplayName,
+                Description = i.Description,
+                IsArchived = i.IsArchived,
+                IsSelected = i.IsSelected
+            })
+            .ToList();
+
+        _loading = false;
+    }
+
+    private bool MatchesSearch(DocumentLinkSelectionViewModel item)
+    {
+        var term = _searchTerm.Trim();
+        return item.DisplayName.Contains(term, StringComparison.CurrentCultureIgnoreCase)
+            || (item.Description?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false);
+    }
+
+    private void ToggleItem(DocumentLinkSelectionViewModel item, bool selected)
+    {
+        item.IsSelected = selected;
+    }
+
+    private async Task Confirm()
+    {
+        _visible = false;
+        await OnApplied.InvokeAsync(_items.Where(i => i.IsSelected).ToList());
+    }
+
+    private void Cancel()
+    {
+        _visible = false;
+    }
+
+    private static string Truncate(string value, int maxLength) =>
+        value.Length <= maxLength ? value : value[..maxLength] + "…";
+}

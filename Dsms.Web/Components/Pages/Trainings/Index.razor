@@ -101,6 +101,7 @@ else
                             <th>Zielgruppe</th>
                             <th>Status</th>
                             <th>Verantwortlich</th>
+                            <th>Teilnehmer</th>
                             <th>Nachweise</th>
                             <th>Vorlage</th>
                             <th class="dsms-table-actions"></th>
@@ -119,15 +120,39 @@ else
                                                  Variant="@TrainingLabels.GetStatusVariant(t.Status)" />
                                 </td>
                                 <td>@row.ResponsibleDisplay</td>
+                                <td class="small">
+                                    @{
+                                        var ps = row.ParticipantStats;
+                                    }
+                                    @if (ps.TotalAssigned == 0)
+                                    {
+                                        <span>—</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@ps.TotalAssigned zugewiesen</span>
+                                        @if (ps.InvitedCount > 0)
+                                        {
+                                            <span class="text-muted"> · @ps.InvitedCount eingeladen</span>
+                                        }
+                                        @if (ps.CompletedCount > 0)
+                                        {
+                                            <span class="text-muted"> · @ps.CompletedCount abgeschlossen</span>
+                                        }
+                                    }
+                                </td>
                                 <td>@(row.LinkedDocumentCount > 0 ? row.LinkedDocumentCount.ToString() : "—")</td>
                                 <td>@(row.TemplateTitle ?? "—")</td>
                                 <td class="dsms-table-actions">
                                     <div class="dsms-table-action-stack">
                                         <a class="btn btn-sm btn-outline-secondary" href="@($"trainings/{t.Id}")">Anzeigen</a>
+                                        @if (_canViewParticipants)
+                                        {
+                                            <a class="btn btn-sm btn-outline-primary" href="@($"trainings/{t.Id}?tab=participants")">Teilnehmer</a>
+                                        }
                                         @if (row.CanEdit && !_showArchived)
                                         {
                                             <a class="btn btn-sm btn-outline-primary" href="@($"trainings/edit/{t.Id}")">Bearbeiten</a>
-                                            <a class="btn btn-sm btn-outline-secondary" href="@($"documents?prefillTrainingId={t.Id}")">Nachweise</a>
                                         }
                                         @if (row.CanEdit)
                                         {
@@ -151,11 +176,13 @@ else
 
 @code {
     [Inject] private TrainingService TrainingService { get; set; } = null!;
+    [Inject] private TrainingParticipantService ParticipantService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
 
     private int? _tenantId;
     private bool _canEdit;
+    private bool _canViewParticipants;
     private bool _showArchived;
     private List<TrainingListRow>? _rows;
     private List<TrainingListRow> _filteredRows = [];
@@ -181,6 +208,7 @@ else
         if (_tenantId is null) return;
 
         _canEdit = await TrainingService.CanEditAsync();
+        _canViewParticipants = await ParticipantService.CanViewAsync(_tenantId.Value);
         await LoadDataAsync();
     }
 

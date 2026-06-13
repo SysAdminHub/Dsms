@@ -92,7 +92,7 @@ public static class PageHelpContentDefaults
             "Art. 32 DSGVO, Art. 39 DSGVO, Awareness",
             "Dokumentieren Sie konkrete Datenschutzschulungen und Awareness-Maßnahmen.",
             """
-            In diesem Bereich verwalten Sie konkrete Online-Schulungen und Awareness-Maßnahmen. Schulungen können aktiv, inaktiv oder archiviert sein. Aktive Schulungen können später von zugewiesenen Teilnehmern durchgeführt werden. Inaktive Schulungen sind vorbereitet oder pausiert. Archivierte Schulungen werden nicht mehr aktiv genutzt. Schulungen können frei erstellt oder aus Schulungsvorlagen erzeugt werden. Teilnehmerzahlen und Abschlüsse werden später automatisch über die Teilnehmerverwaltung ermittelt. Nachweise wie Teilnehmerlisten oder Zertifikate werden über das Dokumentenmodul verknüpft.
+            In diesem Bereich verwalten Sie konkrete Online-Schulungen und Awareness-Maßnahmen. Schulungen können aktiv, inaktiv oder archiviert sein. Im Tab „Teilnehmer“ weisen Sie Personen per E-Mail zu und versenden Einladungen mit 6-stelligem Zugangscode. Teilnehmer sind keine App-Benutzer und erhalten kein Passwort. Nachweise wie Teilnehmerlisten oder Zertifikate werden über das Dokumentenmodul verknüpft.
             """),
         new(
             Domain.PageHelpContentKeys.AuditRuns,

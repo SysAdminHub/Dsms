@@ -36,6 +36,11 @@ public class Training : ArchivableEntityBase, ITenantEntity
     public bool ProofMissing { get; set; }
     public string? Notes { get; set; }
 
+    /// <summary>Anzahl Tage, die neu erzeugte Zugangscodes für diese Schulung gültig sind.</summary>
+    public int AccessCodeValidityDays { get; set; } = 14;
+
     public string? CreatedByUserId { get; set; }
     public string? UpdatedByUserId { get; set; }
+
+    public ICollection<TrainingAssignment> Assignments { get; set; } = [];
 }

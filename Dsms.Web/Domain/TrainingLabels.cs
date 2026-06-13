@@ -105,4 +105,32 @@ public static class TrainingLabels
         TrainingStatus.Active,
         TrainingStatus.Archived
     ];
+
+    public static string GetAssignmentStatusLabel(TrainingAssignmentStatus status) => status switch
+    {
+        TrainingAssignmentStatus.Assigned => "Zugewiesen",
+        TrainingAssignmentStatus.Invited => "Eingeladen",
+        TrainingAssignmentStatus.CodeExpired => "Code abgelaufen",
+        TrainingAssignmentStatus.Locked => "Gesperrt",
+        TrainingAssignmentStatus.Started => "Gestartet",
+        TrainingAssignmentStatus.Completed => "Abgeschlossen",
+        TrainingAssignmentStatus.Cancelled => "Abgebrochen",
+        _ => status.ToString()
+    };
+
+    public static string GetAssignmentStatusVariant(TrainingAssignmentStatus status) => status switch
+    {
+        TrainingAssignmentStatus.Assigned => "default",
+        TrainingAssignmentStatus.Invited => "primary",
+        TrainingAssignmentStatus.CodeExpired => "warning",
+        TrainingAssignmentStatus.Locked => "danger",
+        TrainingAssignmentStatus.Started => "info",
+        TrainingAssignmentStatus.Completed => "success",
+        TrainingAssignmentStatus.Cancelled => "default",
+        _ => "default"
+    };
+
+    public const string ParticipantAlreadyAssigned = "Dieser Teilnehmer ist dieser Schulung bereits zugewiesen.";
+    public const string ParticipantNotFound = "Schulungsteilnehmer wurde nicht gefunden.";
+    public const string AssignmentNotFound = "Schulungszuweisung wurde nicht gefunden.";
 }

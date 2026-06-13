@@ -124,6 +124,11 @@ builder.Services.AddScoped<TrainingTemplateAssetService>();
 builder.Services.AddScoped<TrainingQuestionService>();
 builder.Services.AddScoped<TrainingTemplateService>();
 builder.Services.AddScoped<TrainingService>();
+builder.Services.Configure<TrainingAccessOptions>(builder.Configuration.GetSection(TrainingAccessOptions.SectionName));
+builder.Services.AddScoped<TrainingAccessCodeService>();
+builder.Services.AddScoped<TrainingParticipantService>();
+builder.Services.AddScoped<TrainingAssignmentService>();
+builder.Services.AddScoped<TrainingInvitationService>();
 
 builder.Services.AddAuthentication(options =>
     {

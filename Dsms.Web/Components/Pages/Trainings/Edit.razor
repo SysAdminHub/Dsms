@@ -137,6 +137,25 @@ else
                     </InputSelect>
                 </div>
 
+                <h3 class="h6 mb-3">Teilnehmerzugang</h3>
+                <div class="mb-4">
+                    <label class="form-label" for="access-code-validity">Zugangscode gültig für</label>
+                    <div class="d-flex align-items-center gap-2" style="max-width: 200px">
+                        <InputNumber id="access-code-validity" class="form-control" @bind-Value="_model.AccessCodeValidityDays"
+                                     min="1" max="@_maxAccessCodeValidityDays" />
+                        <span>Tage</span>
+                    </div>
+                    <div class="form-text text-muted">
+                        Legt fest, wie lange neu versendete Zugangscodes für diese Schulung gültig sind.
+                    </div>
+                    @if (_model.Id > 0)
+                    {
+                        <div class="form-text text-muted mt-1">
+                            Änderungen gelten für neu versendete Zugangscodes. Bereits versendete Codes behalten ihr aktuelles Ablaufdatum.
+                        </div>
+                    }
+                </div>
+
                 <h3 class="h6 mb-3">Verantwortung</h3>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
@@ -222,6 +241,8 @@ else
 
     private bool HasLinkedTemplate => _model.TrainingTemplateId.HasValue;
     private List<string> _warnings = [];
+    private int _maxAccessCodeValidityDays = 90;
+    private int _defaultAccessCodeValidityDays = 14;
 
     protected override async Task OnInitializedAsync()
     {
@@ -234,6 +255,9 @@ else
             _loading = false;
             return;
         }
+
+        _defaultAccessCodeValidityDays = TrainingService.GetDefaultAccessCodeValidityDays();
+        _maxAccessCodeValidityDays = TrainingService.GetMaxAccessCodeValidityDays();
 
         _tenantUsers = (await TrainingService.GetTenantUsersAsync(_tenantId.Value)).ToList();
         _availableTemplates = (await TrainingService.GetAvailableTemplatesForTrainingCreationAsync(_tenantId.Value)).ToList();
@@ -265,7 +289,8 @@ else
             {
                 TenantId = _tenantId.Value,
                 Status = TrainingStatus.Inactive,
-                ParticipantCount = 0
+                ParticipantCount = 0,
+                AccessCodeValidityDays = _defaultAccessCodeValidityDays
             };
             SyncDropdownTemplateValue();
         }
@@ -310,7 +335,8 @@ else
             {
                 TenantId = _tenantId.Value,
                 Status = TrainingStatus.Inactive,
-                ParticipantCount = 0
+                ParticipantCount = 0,
+                AccessCodeValidityDays = _defaultAccessCodeValidityDays
             };
             return;
         }
@@ -322,7 +348,8 @@ else
             {
                 TenantId = _tenantId.Value,
                 Status = TrainingStatus.Inactive,
-                ParticipantCount = 0
+                ParticipantCount = 0,
+                AccessCodeValidityDays = _defaultAccessCodeValidityDays
             };
             return;
         }
@@ -453,7 +480,8 @@ else
             TargetAudience = template.TargetAudience,
             Status = TrainingStatus.Inactive,
             ParticipantCount = 0,
-            ProofMissing = false
+            ProofMissing = false,
+            AccessCodeValidityDays = _defaultAccessCodeValidityDays
         };
     }
 
@@ -484,6 +512,13 @@ else
         if (!TrainingStatusMapper.IsValid(_model.Status))
         {
             _saveError = "Bitte wählen Sie einen gültigen Status aus.";
+            _saving = false;
+            return;
+        }
+
+        if (_model.AccessCodeValidityDays < 1 || _model.AccessCodeValidityDays > _maxAccessCodeValidityDays)
+        {
+            _saveError = $"Die Gültigkeit des Zugangscodes muss zwischen 1 und {_maxAccessCodeValidityDays} Tagen liegen.";
             _saving = false;
             return;
         }

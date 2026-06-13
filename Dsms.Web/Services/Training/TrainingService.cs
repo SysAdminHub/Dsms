@@ -4,6 +4,7 @@ using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
 using Dsms.Web.Services.Logging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using TrainingEntity = Dsms.Web.Domain.Entities.Training;
 
 namespace Dsms.Web.Services.Training;
@@ -15,8 +16,11 @@ public class TrainingService(
     ICurrentUserContext currentUser,
     ArchiveViewContextAccessor archiveView,
     TrainingTemplateAccessService templateAccess,
+    TrainingAssignmentService assignmentService,
+    IOptions<TrainingAccessOptions> accessOptions,
     IComplianceAuditLogService complianceAuditLog)
 {
+    private readonly TrainingAccessOptions _accessOptions = accessOptions.Value;
     public async Task<bool> CanViewAsync(int trainingId, CancellationToken ct = default)
     {
         var training = await db.Trainings
@@ -77,12 +81,15 @@ public class TrainingService(
             .Select(g => new { TrainingId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.TrainingId, x => x.Count, ct);
 
+        var participantStats = await assignmentService.GetStatsForTrainingsAsync(tenantId, trainingIds, ct);
+
         var canEdit = await CanEditAsync(ct);
         return trainings.Select(t => new TrainingListRow(
             t,
             t.TrainingTemplate?.Title,
             GetResponsibleDisplay(t),
             docCounts.GetValueOrDefault(t.Id),
+            participantStats.GetValueOrDefault(t.Id, new TrainingParticipantStats(0, 0, 0)),
             canEdit)).ToList();
     }
 
@@ -132,6 +139,10 @@ public class TrainingService(
         return TrainingTemplateLoadResult.Ok(template);
     }
 
+    public int GetDefaultAccessCodeValidityDays() => _accessOptions.DefaultValidityDays;
+
+    public int GetMaxAccessCodeValidityDays() => _accessOptions.MaxValidityDays;
+
     public async Task<TrainingOperationResult> CreateFreeAsync(TrainingEntity model, CancellationToken ct = default)
     {
         var tenantId = await access.GetCurrentTenantIdAsync();
@@ -147,12 +158,16 @@ public class TrainingService(
         if (ValidateTrainingStatus(model.Status) is { } statusError)
             return statusError;
 
+        if (ValidateAccessCodeValidityDays(model.AccessCodeValidityDays) is { } validityError)
+            return validityError;
+
         var userId = await currentUser.GetUserIdAsync();
         var now = DateTime.UtcNow;
 
         model.TenantId = tenantId.Value;
         model.ParticipantCount = 0;
         model.ProofMissing = false;
+        model.AccessCodeValidityDays = NormalizeAccessCodeValidityDays(model.AccessCodeValidityDays);
         model.CreatedAt = now;
         model.CreatedByUserId = userId;
         model.UpdatedAt = now;
@@ -201,6 +216,7 @@ public class TrainingService(
             Status = TrainingStatus.Inactive,
             ParticipantCount = 0,
             ProofMissing = false,
+            AccessCodeValidityDays = _accessOptions.DefaultValidityDays,
             CreatedAt = now,
             CreatedByUserId = userId,
             UpdatedAt = now,
@@ -239,6 +255,9 @@ public class TrainingService(
         if (ValidateTrainingStatus(model.Status) is { } statusError)
             return statusError;
 
+        if (ValidateAccessCodeValidityDays(model.AccessCodeValidityDays) is { } validityError)
+            return validityError;
+
         var oldStatus = tracked.Status;
         var userId = await currentUser.GetUserIdAsync();
         var now = DateTime.UtcNow;
@@ -262,6 +281,7 @@ public class TrainingService(
         tracked.ResponsibleName = model.ResponsibleName;
         tracked.ProofMissing = false;
         tracked.Notes = model.Notes;
+        tracked.AccessCodeValidityDays = NormalizeAccessCodeValidityDays(model.AccessCodeValidityDays);
         tracked.UpdatedAt = now;
         tracked.UpdatedByUserId = userId;
 
@@ -378,6 +398,23 @@ public class TrainingService(
         TrainingStatusMapper.IsValid(TrainingStatusMapper.Normalize(status))
             ? null
             : TrainingOperationResult.Fail("Bitte wählen Sie einen gültigen Status aus.");
+
+    private TrainingOperationResult? ValidateAccessCodeValidityDays(int days)
+    {
+        var max = _accessOptions.MaxValidityDays;
+        if (days < 1 || days > max)
+        {
+            return TrainingOperationResult.Fail(
+                $"Die Gültigkeit des Zugangscodes muss zwischen 1 und {max} Tagen liegen.");
+        }
+
+        return null;
+    }
+
+    private int NormalizeAccessCodeValidityDays(int days) =>
+        days >= 1 && days <= _accessOptions.MaxValidityDays
+            ? days
+            : _accessOptions.DefaultValidityDays;
 
     public static void NormalizeStatusFields(TrainingEntity training)
     {

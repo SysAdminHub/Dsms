@@ -64,6 +64,8 @@ public class ApplicationDbContext(
     public DbSet<TrainingQuestion> TrainingQuestions => Set<TrainingQuestion>();
     public DbSet<TrainingQuestionOption> TrainingQuestionOptions => Set<TrainingQuestionOption>();
     public DbSet<Training> Trainings => Set<Training>();
+    public DbSet<TrainingParticipant> TrainingParticipants => Set<TrainingParticipant>();
+    public DbSet<TrainingAssignment> TrainingAssignments => Set<TrainingAssignment>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -477,6 +479,7 @@ public class ApplicationDbContext(
             e.Property(t => t.TargetAudience).HasMaxLength(200);
             e.Property(t => t.ResponsibleName).HasMaxLength(200);
             e.Property(t => t.Notes).HasColumnType("text");
+            e.Property(t => t.AccessCodeValidityDays).HasDefaultValue(14);
             e.Property(t => t.CreatedByUserId).HasMaxLength(450);
             e.Property(t => t.UpdatedByUserId).HasMaxLength(450);
             e.Property(t => t.ArchivedByUserId).HasMaxLength(450);
@@ -492,6 +495,49 @@ public class ApplicationDbContext(
             e.HasIndex(t => t.RepeatDueAt);
             e.HasIndex(t => new { t.TenantId, t.Status });
             e.HasIndex(t => new { t.TenantId, t.RepeatDueAt });
+        });
+
+        builder.Entity<TrainingParticipant>(e =>
+        {
+            e.ToTable("TrainingParticipants");
+            e.Property(p => p.Name).HasMaxLength(200);
+            e.Property(p => p.Email).HasMaxLength(255).IsRequired();
+            e.Property(p => p.Department).HasMaxLength(200);
+            e.Property(p => p.ExternalReference).HasMaxLength(100);
+            e.Property(p => p.CreatedByUserId).HasMaxLength(450);
+            e.Property(p => p.UpdatedByUserId).HasMaxLength(450);
+            e.Property(p => p.ArchivedByUserId).HasMaxLength(450);
+            e.HasOne(p => p.Tenant).WithMany(t => t.TrainingParticipants).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(p => p.TenantId);
+            e.HasIndex(p => p.Email);
+            e.HasIndex(p => new { p.TenantId, p.Email }).IsUnique();
+            e.HasIndex(p => new { p.TenantId, p.IsActive });
+        });
+
+        builder.Entity<TrainingAssignment>(e =>
+        {
+            e.ToTable("TrainingAssignments");
+            e.Property(a => a.ParticipantNameSnapshot).HasMaxLength(200);
+            e.Property(a => a.ParticipantEmailSnapshot).HasMaxLength(255).IsRequired();
+            e.Property(a => a.AccessCodeHash).HasMaxLength(500);
+            e.Property(a => a.InvitationSentByUserId).HasMaxLength(450);
+            e.Property(a => a.CreatedByUserId).HasMaxLength(450);
+            e.Property(a => a.UpdatedByUserId).HasMaxLength(450);
+            e.Property(a => a.ArchivedByUserId).HasMaxLength(450);
+            e.HasOne(a => a.Tenant).WithMany(t => t.TrainingAssignments).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(a => a.Training).WithMany(t => t.Assignments).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(a => a.TrainingParticipant).WithMany(p => p.Assignments)
+                .HasForeignKey(a => a.TrainingParticipantId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(a => a.InvitationSentByUser).WithMany()
+                .HasForeignKey(a => a.InvitationSentByUserId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(a => a.TenantId);
+            e.HasIndex(a => a.TrainingId);
+            e.HasIndex(a => a.TrainingParticipantId);
+            e.HasIndex(a => a.ParticipantEmailSnapshot);
+            e.HasIndex(a => a.Status);
+            e.HasIndex(a => a.AccessCodeExpiresAtUtc);
+            e.HasIndex(a => a.LockedUntilUtc);
+            e.HasIndex(a => new { a.TenantId, a.TrainingId });
         });
 
         builder.Entity<DocumentLink>(e =>
@@ -983,6 +1029,8 @@ public class ApplicationDbContext(
         ApplyArchivableTenantFilter<PrivacyIncident>(builder);
         ApplyArchivableTenantFilter<DataSubjectRequest>(builder);
         ApplyArchivableTenantFilter<Training>(builder);
+        ApplyArchivableTenantFilter<TrainingParticipant>(builder);
+        ApplyArchivableTenantFilter<TrainingAssignment>(builder);
 
         builder.Entity<ProcessingActivityTom>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue

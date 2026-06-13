@@ -170,6 +170,8 @@ Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnec
 | `TrainingQuestions` | `TrainingQuestion` (Quizfrage) |
 | `TrainingQuestionOptions` | `TrainingQuestionOption` (Antwortoption) |
 | `Trainings` | `Training` (konkrete Schulungsdurchführung je Mandant) |
+| `TrainingParticipants` | `TrainingParticipant` (Stammdaten Schulungsteilnehmer je Mandant; keine App-Benutzer) |
+| `TrainingAssignments` | `TrainingAssignment` (Zuweisung Teilnehmer ↔ Schulung, Zugangscode-Hash, Einladungsstatus) |
 | `EmailSettings` | `EmailSettings` (plattformweit, kein Mandantenfilter) |
 | `EmailTemplates` | `EmailTemplate` (plattformweit, eindeutiger `TemplateKey`) |
 | `PageHelpContents` | `PageHelpContent` (plattformweit, eindeutiger `Key`; Hilfetexte für Fachseiten) |
@@ -197,7 +199,9 @@ Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `To
 
 **`TrainingTemplate`** (Schulungen & Awareness, Vorlagen): erbt von `ArchivableEntityBase` mit nullable `TenantId`. Mandantenvorlage: `TenantId` gesetzt, `IsGlobal = false`. Globale Vorlage: `TenantId = null`, `IsGlobal = true` (Superuser). Community-Felder vorbereitet. Kind-Entities mit Markdown, Assets und Quiz. Keine Teilnehmer-Tabellen.
 
-**`Training`** (konkrete Schulung/Durchführung): erbt von `ArchivableEntityBase`, Pflicht-`TenantId`, optional `TrainingTemplateId` (V1: Referenz, kein Inhaltssnapshot – siehe TODO in Entity). Felder: Titel, Beschreibung, `TrainingType`, Zielgruppe, Termine (`ScheduledAt`, `CompletedAt`, `RepeatDueAt`), `TrainingStatus`, Verantwortlicher (User/Freitext), `ParticipantCount` (manuell), `ProofMissing`, Notizen. Nachweise über normale `EvidenceDocument` + `DocumentLinks` (nicht über Template-Assets). Kein Teilnehmerportal in V1.
+**`Training`** (konkrete Schulung/Durchführung): erbt von `ArchivableEntityBase`, Pflicht-`TenantId`, optional `TrainingTemplateId` (V1: Referenz, kein Inhaltssnapshot – siehe TODO in Entity). Felder: Titel, Beschreibung, `TrainingType`, Zielgruppe, `TrainingStatus`, Verantwortlicher (User/Freitext), `AccessCodeValidityDays` (1–90, Standard 14), Notizen. Teilnehmerzahlen werden aus `TrainingAssignments` berechnet (Legacy-Feld `ParticipantCount` in DB, nicht mehr führend in UI). Nachweise über normale `EvidenceDocument` + `DocumentLinks`. Teilnehmerportal: Platzhalter `/schulung/teilnahme` (Prompt 5).
+
+**`TrainingParticipant`** / **`TrainingAssignment`**: Schulungsteilnehmer sind fachliche Datensätze, keine Identity-Benutzer. Zuweisung mit E-Mail-Snapshot, 6-stelliger Zugangscode (nur Hash via `PasswordHasher`), Einladungsstatus (`TrainingAssignmentStatus`), Sperrlogik vorbereitet. E-Mail-Vorlage `TrainingInvitation`.
 
 Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen, **`TenantOnboardingTask`** (mandantenbezogene Dashboard-Checkliste „Erste Schritte“; eindeutiger Index `TenantId` + `Key`).
 
@@ -293,7 +297,11 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IAuditTemplateService` / `AuditTemplateService` | Scoped | Mandantensichere Sichtbarkeit, Bearbeitungsrechte, Archivierung, Community-Workflow und Fragen-CRUD; Frage-Snapshots beim Auditstart |
 | `TrainingTemplateAccessService` | Scoped | Gemeinsame Berechtigungs-/Sichtbarkeitslogik für Schulungsvorlagen |
 | `TrainingTemplateService` | Scoped | CRUD Vorlagen/Karten, Validierung, `CopyTemplateAsync`, Markdown-Asset-Auflösung |
-| `TrainingService` | Scoped | CRUD konkrete Schulungen, Erstellung aus Vorlage, Fälligkeitslogik, Mandanten-/Berechtigungsprüfung |
+| `TrainingService` | Scoped | CRUD konkrete Schulungen, Erstellung aus Vorlage, Mandanten-/Berechtigungsprüfung |
+| `TrainingParticipantService` | Scoped | Stammdaten Schulungsteilnehmer (CRUD, FindOrCreateByEmail) |
+| `TrainingAssignmentService` | Scoped | Zuweisungen Teilnehmer ↔ Schulung, Bulk-Import, Code-Validierung (vorbereitet) |
+| `TrainingAccessCodeService` | Scoped | 6-stelliger Code (RNG), Hash/Verify via `PasswordHasher`, Sperrlogik |
+| `TrainingInvitationService` | Scoped | Einladungs-E-Mails mit Zugangscode (Status `Invited` nur bei erfolgreichem Versand) |
 | `TrainingTemplateAssetService` | Scoped | Schulungsasset-Upload, Validierung, Archivierung, Datei-Kopie |
 | `TrainingQuestionService` | Scoped | Quiz-Fragen/-Optionen, `ValidateQuizAsync` |
 | `TrainingAssetStorageService` | Scoped | Dateisystem unter `Storage:TrainingAssetPath` (Default: `Data/training-assets/`) |
@@ -303,7 +311,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 
 **Admin-UI (Schulungsvorlagen):** `/training-templates` (Liste), `/training-templates/edit` (Neu), `/training-templates/edit/{id}` (Bearbeiten). Button „Schulung erstellen“ → `/trainings/edit?templateId={id}`.
 
-**Admin-UI (Schulungen):** `/trainings` (Liste), `/trainings/edit` (Neu), `/trainings/edit/{id}` (Bearbeiten), `/trainings/{id}` (Detail). Nachweise: `/documents?prefillTrainingId={id}`.
+**Admin-UI (Schulungen):** `/trainings` (Liste), `/trainings/edit` (Neu), `/trainings/edit/{id}` (Bearbeiten), `/trainings/{id}` (Detail mit Tab „Teilnehmer“). Nachweise: `/documents?prefillTrainingId={id}`. Platzhalter Teilnehmerzugang: `/schulung/teilnahme`.
 
 | `IdentityRedirectManager` | Scoped | Weiterleitungen nach Login/Logout |
 | `IdentityRevalidatingAuthenticationStateProvider` | Scoped | Auth-State-Revalidierung für Blazor |

@@ -1,0 +1,586 @@
+@using Dsms.Web.Domain.Enums
+@using Dsms.Web.Services.Training
+
+@if (!CanView)
+{
+    <div class="alert alert-warning dsms-alert">Keine Berechtigung für Teilnehmerdaten.</div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert alert-success dsms-alert">@_message</div>
+    }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger dsms-alert">@_error</div>
+    }
+
+    <p class="text-muted small mb-2">
+        Neue Zugangscodes sind für diese Schulung @AccessCodeValidityDays Tage gültig.
+    </p>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        @if (CanManage)
+        {
+            <button type="button" class="btn btn-primary" @onclick="OpenAddModal">Teilnehmer hinzufügen</button>
+            <button type="button" class="btn btn-outline-primary" @onclick="OpenBulkModal">Mehrere Teilnehmer hinzufügen</button>
+            <button type="button" class="btn btn-outline-secondary" @onclick="ConfirmSendAllInvitations" disabled="@_busy">
+                Alle offenen Einladungen senden
+            </button>
+        }
+        <span class="text-muted small align-self-center">
+            @(_rows.Count) Zuweisung@(_rows.Count == 1 ? "" : "en")
+        </span>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="dsms-loading">Lade Teilnehmer …</div>
+    }
+    else if (_rows.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">Noch keine Teilnehmer zugewiesen.</div>
+    }
+    else
+    {
+        <div class="dsms-table-wrap">
+            <table class="table dsms-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>E-Mail</th>
+                        <th>Abteilung</th>
+                        <th>Status</th>
+                        <th>Einladung gesendet</th>
+                        <th>Code gültig bis</th>
+                        <th>Fehlversuche</th>
+                        <th>Abgeschlossen</th>
+                        @if (CanManage)
+                        {
+                            <th class="dsms-table-actions"></th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _rows)
+                    {
+                        var a = row.Assignment;
+                        var status = GetDisplayStatus(row);
+                        <tr>
+                            <td>@(row.DisplayName)</td>
+                            <td>@a.ParticipantEmailSnapshot</td>
+                            <td>@(a.TrainingParticipant?.Department ?? "—")</td>
+                            <td>
+                                <StatusBadge Text="@TrainingLabels.GetAssignmentStatusLabel(status)"
+                                             Variant="@TrainingLabels.GetAssignmentStatusVariant(status)" />
+                            </td>
+                            <td>@(a.InvitationSentAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
+                            <td>
+                                @if (a.AccessCodeExpiresAtUtc is DateTime expires)
+                                {
+                                    @(expires.ToLocalTime().ToString("g"))
+                                    @if (row.IsCodeExpired)
+                                    {
+                                        <span class="text-warning small"> (abgelaufen)</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (row.IsLocked && a.LockedUntilUtc is DateTime lockedUntil)
+                                {
+                                    <span class="text-danger">Gesperrt bis @lockedUntil.ToLocalTime().ToString("g")</span>
+                                }
+                                else if (a.FailedAccessAttempts > 0)
+                                {
+                                    @a.FailedAccessAttempts
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </td>
+                            <td>@(a.CompletedAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
+                            @if (CanManage)
+                            {
+                                <td class="dsms-table-actions">
+                                    <div class="dsms-table-action-stack">
+                                        @if (a.Status is TrainingAssignmentStatus.Assigned or TrainingAssignmentStatus.CodeExpired or TrainingAssignmentStatus.Locked)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                                    disabled="@_busy"
+                                                    @onclick="() => SendInvitationAsync(a.Id)">
+                                                Einladung senden
+                                            </button>
+                                        }
+                                        @if (a.Status is TrainingAssignmentStatus.Invited or TrainingAssignmentStatus.CodeExpired or TrainingAssignmentStatus.Locked)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                    disabled="@_busy"
+                                                    @onclick="() => ResendInvitationAsync(a.Id)">
+                                                Erneut senden
+                                            </button>
+                                        }
+                                        @if (a.Status != TrainingAssignmentStatus.Cancelled && a.Status != TrainingAssignmentStatus.Completed)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-warning"
+                                                    disabled="@_busy"
+                                                    @onclick="() => CancelAssignmentAsync(a.Id)">
+                                                Zuweisung abbrechen
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (_showAddModal)
+    {
+        <div class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,.4);">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Teilnehmer hinzufügen</h5>
+                        <button type="button" class="btn-close" @onclick="CloseAddModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ul class="nav nav-tabs mb-3">
+                            <li class="nav-item">
+                                <button type="button" class="nav-link @(_addMode == AddMode.New ? "active" : "")"
+                                        @onclick="() => _addMode = AddMode.New">Neu erfassen</button>
+                            </li>
+                            <li class="nav-item">
+                                <button type="button" class="nav-link @(_addMode == AddMode.Existing ? "active" : "")"
+                                        @onclick="() => _addMode = AddMode.Existing">Vorhandenen wählen</button>
+                            </li>
+                        </ul>
+
+                        @if (_addMode == AddMode.New)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Name (optional)</label>
+                                <input class="form-control" @bind="_addName" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">E-Mail *</label>
+                                <input class="form-control" type="email" @bind="_addEmail" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Abteilung (optional)</label>
+                                <input class="form-control" @bind="_addDepartment" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Teilnehmer suchen</label>
+                                <input class="form-control mb-2" @bind="_participantSearch" @bind:event="oninput"
+                                       placeholder="Name oder E-Mail …" />
+                                <select class="form-select" size="8" @bind="_selectedParticipantId">
+                                    <option value="0">— Bitte wählen —</option>
+                                    @foreach (var p in FilteredParticipants())
+                                    {
+                                        <option value="@p.Id">@(p.Name ?? p.Email) &lt;@p.Email&gt;</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="send-invite" @bind="_sendInvitationOnAdd" />
+                            <label class="form-check-label" for="send-invite">Einladung direkt senden</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseAddModal">Abbrechen</button>
+                        <button type="button" class="btn btn-primary" @onclick="SaveAddAsync" disabled="@_busy">Hinzufügen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_showBulkModal)
+    {
+        <div class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,.4);">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Mehrere Teilnehmer hinzufügen</h5>
+                        <button type="button" class="btn-close" @onclick="CloseBulkModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="form-text">Erlaubte Formate pro Zeile:</p>
+                        <ul class="form-text small">
+                            <li><code>Name;E-Mail;Abteilung</code></li>
+                            <li><code>Name;E-Mail</code></li>
+                            <li><code>E-Mail</code></li>
+                        </ul>
+                        <textarea class="form-control font-monospace" rows="10"
+                                  @bind="_bulkText" @bind:after="OnBulkTextChangedAsync"
+                                  placeholder="Max Mustermann;max@example.com;IT&#10;Erika Beispiel;erika@example.com&#10;test@example.com"></textarea>
+
+                        @if (!string.IsNullOrEmpty(_bulkSyntaxError))
+                        {
+                            <div class="alert alert-danger dsms-alert mt-3">
+                                <strong>Der Import wurde nicht durchgeführt, weil einige Zeilen ungültig sind.</strong>
+                                <pre class="mb-0 mt-2 small" style="white-space: pre-wrap;">@_bulkSyntaxError</pre>
+                            </div>
+                        }
+
+                        @if (_bulkPreview is not null)
+                        {
+                            <div class="alert alert-info dsms-alert mt-3">
+                                <strong>Zusammenfassung:</strong>
+                                @_bulkPreview.ValidCount gültige Teilnehmer,
+                                @_bulkPreview.AlreadyAssignedCount bereits zugewiesen,
+                                @_bulkPreview.InvalidCount ungültige Zeilen.
+                            </div>
+                        }
+
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="bulk-send-invite" @bind="_sendInvitationOnBulk" />
+                            <label class="form-check-label" for="bulk-send-invite">Einladungen direkt senden</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseBulkModal">Abbrechen</button>
+                        <button type="button" class="btn btn-primary" @onclick="ExecuteBulkAsync"
+                                disabled="@(_busy || string.IsNullOrWhiteSpace(_bulkText))">
+                            @(_busy ? "Importiere …" : "Importieren")
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_showConfirmSendAll)
+    {
+        <div class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,.4);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Einladungen senden</h5>
+                        <button type="button" class="btn-close" @onclick="() => _showConfirmSendAll = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        Möchten Sie Einladungen an @_pendingInviteCount Teilnehmer senden?
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="() => _showConfirmSendAll = false">Abbrechen</button>
+                        <button type="button" class="btn btn-primary" @onclick="SendAllInvitationsAsync" disabled="@_busy">Senden</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int TrainingId { get; set; }
+    [Parameter] public int TenantId { get; set; }
+    [Parameter] public int AccessCodeValidityDays { get; set; } = 14;
+    [Parameter] public bool CanView { get; set; }
+    [Parameter] public bool CanManage { get; set; }
+
+    [Inject] private TrainingAssignmentService AssignmentService { get; set; } = null!;
+    [Inject] private TrainingInvitationService InvitationService { get; set; } = null!;
+    [Inject] private TrainingParticipantService ParticipantService { get; set; } = null!;
+
+    private enum AddMode { New, Existing }
+
+    private List<TrainingAssignmentRow> _rows = [];
+    private List<Domain.Entities.TrainingParticipant> _participants = [];
+    private bool _loading = true;
+    private bool _busy;
+    private string? _message;
+    private string? _error;
+
+    private bool _showAddModal;
+    private AddMode _addMode = AddMode.New;
+    private string _addName = string.Empty;
+    private string _addEmail = string.Empty;
+    private string _addDepartment = string.Empty;
+    private bool _sendInvitationOnAdd;
+    private string _participantSearch = string.Empty;
+    private int _selectedParticipantId;
+
+    private bool _showBulkModal;
+    private string _bulkText = string.Empty;
+    private TrainingBulkImportPreview? _bulkPreview;
+    private string? _bulkSyntaxError;
+    private bool _sendInvitationOnBulk;
+
+    private const string BulkImportSyntaxHelp =
+        "Erlaubte Formate:\n\n" +
+        "Name;E-Mail;Abteilung\n" +
+        "Name;E-Mail\n" +
+        "E-Mail\n\n" +
+        "Beispiele:\n\n" +
+        "Max Mustermann;max@example.com;IT\n" +
+        "Erika Beispiel;erika@example.com\n" +
+        "test@example.com";
+
+    private bool _showConfirmSendAll;
+    private int _pendingInviteCount;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (CanView)
+            await LoadAsync();
+        else
+            _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        _rows = (await AssignmentService.GetAssignmentsForTrainingAsync(TrainingId, TenantId)).ToList();
+        _participants = (await ParticipantService.GetActiveParticipantsAsync(TenantId)).ToList();
+        _loading = false;
+    }
+
+    private TrainingAssignmentStatus GetDisplayStatus(TrainingAssignmentRow row)
+    {
+        if (row.IsCodeExpired && row.Assignment.Status == TrainingAssignmentStatus.Invited)
+            return TrainingAssignmentStatus.CodeExpired;
+        if (row.IsLocked)
+            return TrainingAssignmentStatus.Locked;
+        return row.Assignment.Status;
+    }
+
+    private IEnumerable<Domain.Entities.TrainingParticipant> FilteredParticipants()
+    {
+        if (string.IsNullOrWhiteSpace(_participantSearch))
+            return _participants;
+
+        var term = _participantSearch.Trim();
+        return _participants.Where(p =>
+            p.Email.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (p.Name?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false));
+    }
+
+    private void OpenAddModal()
+    {
+        _addMode = AddMode.New;
+        _addName = _addEmail = _addDepartment = string.Empty;
+        _selectedParticipantId = 0;
+        _sendInvitationOnAdd = false;
+        _showAddModal = true;
+    }
+
+    private void CloseAddModal() => _showAddModal = false;
+
+    private async Task SaveAddAsync()
+    {
+        _busy = true;
+        _error = null;
+        _message = null;
+
+        TrainingAssignmentOperationResult result;
+        if (_addMode == AddMode.Existing)
+        {
+            if (_selectedParticipantId <= 0)
+            {
+                _error = "Bitte wählen Sie einen Teilnehmer.";
+                _busy = false;
+                return;
+            }
+
+            result = await AssignmentService.AddParticipantToTrainingAsync(
+                TrainingId, _selectedParticipantId, TenantId, sendInvitation: false);
+        }
+        else
+        {
+            result = await AssignmentService.AddParticipantByEmailAsync(
+                TrainingId, _addEmail, _addName, _addDepartment, TenantId, sendInvitation: false);
+        }
+
+        if (!result.Success)
+        {
+            _error = result.Message;
+            _busy = false;
+            return;
+        }
+
+        if (_sendInvitationOnAdd && result.AssignmentId is int assignmentId)
+        {
+            var invite = await InvitationService.SendInvitationAsync(assignmentId, TenantId);
+            if (!invite.Success)
+                _error = invite.Message;
+            else
+                _message = "Teilnehmer hinzugefügt und Einladung gesendet.";
+        }
+        else
+        {
+            _message = "Teilnehmer hinzugefügt.";
+        }
+
+        _showAddModal = false;
+        await LoadAsync();
+        _busy = false;
+    }
+
+    private void OpenBulkModal()
+    {
+        _bulkText = string.Empty;
+        _bulkPreview = null;
+        _bulkSyntaxError = null;
+        _sendInvitationOnBulk = false;
+        _showBulkModal = true;
+    }
+
+    private void CloseBulkModal() => _showBulkModal = false;
+
+    private async Task OnBulkTextChangedAsync()
+    {
+        _bulkSyntaxError = null;
+        if (string.IsNullOrWhiteSpace(_bulkText))
+        {
+            _bulkPreview = null;
+            return;
+        }
+
+        _bulkPreview = await AssignmentService.PreviewBulkImportAsync(TrainingId, TenantId, _bulkText);
+    }
+
+    private async Task ExecuteBulkAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_bulkText))
+            return;
+
+        _busy = true;
+        _error = null;
+        _bulkSyntaxError = null;
+
+        var preview = await AssignmentService.PreviewBulkImportAsync(TrainingId, TenantId, _bulkText);
+        _bulkPreview = preview;
+
+        if (preview.InvalidCount > 0)
+        {
+            _bulkSyntaxError = BuildBulkSyntaxErrorMessage(preview);
+            _busy = false;
+            return;
+        }
+
+        var result = await AssignmentService.ExecuteBulkImportAsync(TrainingId, TenantId, _bulkText);
+
+        if (result.FailureCount > 0 && result.SuccessCount == 0)
+        {
+            _bulkSyntaxError = string.Join(Environment.NewLine, result.Errors);
+            _busy = false;
+            return;
+        }
+
+        var invitedCount = 0;
+        var inviteFailures = 0;
+        if (_sendInvitationOnBulk && result.SuccessCount > 0)
+        {
+            var inviteResult = await InvitationService.SendInvitationsForTrainingAsync(
+                TrainingId, TenantId, includeLocked: false);
+            invitedCount = inviteResult.SuccessCount;
+            inviteFailures = inviteResult.FailureCount;
+        }
+
+        _message = $"Import erfolgreich: {result.SuccessCount} Teilnehmer hinzugefügt, {preview.AlreadyAssignedCount} bereits zugewiesen";
+        if (_sendInvitationOnBulk)
+            _message += $", {invitedCount} Einladungen gesendet.";
+
+        if (inviteFailures > 0)
+            _error = $"Import erfolgreich, aber {inviteFailures} Einladung(en) konnte(n) nicht gesendet werden.";
+        else if (result.FailureCount > 0)
+            _error = string.Join("; ", result.Errors);
+
+        _showBulkModal = false;
+        await LoadAsync();
+        _busy = false;
+    }
+
+    private static string BuildBulkSyntaxErrorMessage(TrainingBulkImportPreview preview)
+    {
+        var details = preview.Lines
+            .Where(l => !l.IsValid)
+            .Select(l => $"Zeile {l.LineNumber}: {l.ErrorMessage}")
+            .ToList();
+
+        return string.Join(Environment.NewLine, details) + Environment.NewLine + Environment.NewLine + BulkImportSyntaxHelp;
+    }
+
+    private async Task SendInvitationAsync(int assignmentId)
+    {
+        _busy = true;
+        _error = null;
+        var result = await InvitationService.SendInvitationAsync(assignmentId, TenantId);
+        if (result.Success)
+            _message = "Einladung gesendet.";
+        else
+            _error = result.Message;
+        await LoadAsync();
+        _busy = false;
+    }
+
+    private async Task ResendInvitationAsync(int assignmentId)
+    {
+        _busy = true;
+        _error = null;
+        var result = await InvitationService.ResendInvitationAsync(assignmentId, TenantId);
+        if (result.Success)
+            _message = "Einladung erneut gesendet.";
+        else
+            _error = result.Message;
+        await LoadAsync();
+        _busy = false;
+    }
+
+    private async Task CancelAssignmentAsync(int assignmentId)
+    {
+        _busy = true;
+        _error = null;
+        var result = await AssignmentService.CancelAssignmentAsync(assignmentId, TenantId);
+        if (result.Success)
+            _message = "Zuweisung abgebrochen.";
+        else
+            _error = result.Message;
+        await LoadAsync();
+        _busy = false;
+    }
+
+    private void ConfirmSendAllInvitations()
+    {
+        _pendingInviteCount = _rows.Count(r =>
+        {
+            var s = GetDisplayStatus(r);
+            return s is TrainingAssignmentStatus.Assigned or TrainingAssignmentStatus.CodeExpired;
+        });
+        if (_pendingInviteCount == 0)
+        {
+            _error = "Keine offenen Teilnehmer für Einladungen.";
+            return;
+        }
+        _showConfirmSendAll = true;
+    }
+
+    private async Task SendAllInvitationsAsync()
+    {
+        _busy = true;
+        _error = null;
+        _showConfirmSendAll = false;
+        var result = await InvitationService.SendInvitationsForTrainingAsync(TrainingId, TenantId, includeLocked: false);
+        _message = $"{result.SuccessCount} Einladungen gesendet.";
+        if (result.FailureCount > 0)
+            _error = $"{result.FailureCount} Fehler: {string.Join("; ", result.Errors)}";
+        await LoadAsync();
+        _busy = false;
+    }
+}

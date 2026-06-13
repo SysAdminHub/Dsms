@@ -266,6 +266,31 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
         LogAsync("TrainingProofRemoved", "Nachweis-Verknüpfung wurde entfernt.", "Training", trainingId, trainingTitle, tenantId,
             metadata: new { DocumentId = documentId, FileName = fileName });
 
+    public Task LogTrainingParticipantCreatedAsync(int participantId, int tenantId) =>
+        LogAsync("TrainingParticipantCreated", "Schulungsteilnehmer wurde erstellt.", "TrainingParticipant", participantId, participantId.ToString(), tenantId);
+
+    public Task LogTrainingParticipantUpdatedAsync(int participantId, int tenantId) =>
+        LogAsync("TrainingParticipantUpdated", "Schulungsteilnehmer wurde geändert.", "TrainingParticipant", participantId, participantId.ToString(), tenantId);
+
+    public Task LogTrainingParticipantArchivedAsync(int participantId, int tenantId) =>
+        LogAsync("TrainingParticipantArchived", "Schulungsteilnehmer wurde deaktiviert.", "TrainingParticipant", participantId, participantId.ToString(), tenantId);
+
+    public Task LogTrainingParticipantAssignedAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId) =>
+        LogAsync("TrainingParticipantAssigned", "Teilnehmer wurde einer Schulung zugewiesen.", "Training", trainingId, trainingTitle, tenantId,
+            metadata: new { AssignmentId = assignmentId, ParticipantId = participantId });
+
+    public Task LogTrainingAssignmentCancelledAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId) =>
+        LogAsync("TrainingAssignmentCancelled", "Schulungszuweisung wurde abgebrochen.", "Training", trainingId, trainingTitle, tenantId,
+            metadata: new { AssignmentId = assignmentId, ParticipantId = participantId });
+
+    public Task LogTrainingInvitationSentAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId) =>
+        LogAsync("TrainingInvitationSent", "Schulungseinladung wurde gesendet.", "Training", trainingId, trainingTitle, tenantId,
+            metadata: new { AssignmentId = assignmentId, ParticipantId = participantId });
+
+    public Task LogTrainingInvitationResentAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId) =>
+        LogAsync("TrainingInvitationResent", "Schulungseinladung wurde erneut gesendet.", "Training", trainingId, trainingTitle, tenantId,
+            metadata: new { AssignmentId = assignmentId, ParticipantId = participantId });
+
     private Task LogUpdateAsync(
         string action,
         string description,

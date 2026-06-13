@@ -9,6 +9,7 @@ public sealed record TrainingListRow(
     string? TemplateTitle,
     string ResponsibleDisplay,
     int LinkedDocumentCount,
+    TrainingParticipantStats ParticipantStats,
     bool CanEdit);
 
 public sealed class TrainingOperationResult

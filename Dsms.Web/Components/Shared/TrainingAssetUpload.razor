@@ -1,0 +1,125 @@
+@using Dsms.Web.Services.Training
+
+<div class="training-asset-upload">
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger dsms-alert">@_error</div>
+    }
+    @if (!string.IsNullOrEmpty(_success))
+    {
+        <div class="alert alert-success dsms-alert">@_success</div>
+    }
+
+    <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label">Datei</label>
+            <InputFile OnChange="OnFileSelected" accept=".png,.jpg,.jpeg,.webp,.gif" class="form-control" />
+            <div class="form-text">PNG, JPG, WEBP, GIF – max. @(_maxMb) MB</div>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Asset-Schlüssel</label>
+            <input class="form-control" @bind="_assetKey" @bind:event="oninput" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Alternativtext</label>
+            <input class="form-control" @bind="_altText" />
+        </div>
+        <div class="col-md-2">
+            <button type="button" class="btn btn-primary w-100" disabled="@(_selectedFile is null || _uploading)" @onclick="UploadAsync">
+                Hochladen
+            </button>
+        </div>
+    </div>
+    @if (_selectedFile is not null)
+    {
+        <div class="form-text mt-2">Ausgewählt: @_selectedFile.Name (@FormatSize(_selectedFile.Size))</div>
+    }
+</div>
+
+@code {
+    [Inject] private TrainingTemplateAssetService AssetService { get; set; } = null!;
+
+    [Parameter, EditorRequired] public int TemplateId { get; set; }
+    [Parameter] public IEnumerable<string> ExistingAssetKeys { get; set; } = [];
+    [Parameter] public EventCallback OnUploaded { get; set; }
+    [Parameter] public EventCallback<string> OnAssetKeyReady { get; set; }
+
+    private IBrowserFile? _selectedFile;
+    private string _assetKey = "";
+    private string? _altText;
+    private string? _error;
+    private string? _success;
+    private bool _uploading;
+    private readonly long _maxMb = TrainingAssetUploadValidation.MaxTrainingAssetSizeBytes / (1024 * 1024);
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        _success = null;
+        _selectedFile = e.FileCount > 0 ? e.File : null;
+        if (_selectedFile is not null && string.IsNullOrWhiteSpace(_assetKey))
+        {
+            _assetKey = AssetService.GenerateAssetKey(_selectedFile.Name, ExistingAssetKeys);
+        }
+    }
+
+    private async Task UploadAsync()
+    {
+        _error = null;
+        _success = null;
+
+        if (_selectedFile is null)
+        {
+            _error = "Keine Datei ausgewählt.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_assetKey))
+        {
+            _error = "Asset-Schlüssel ist erforderlich.";
+            return;
+        }
+
+        _uploading = true;
+        try
+        {
+            await using var stream = _selectedFile.OpenReadStream(TrainingAssetUploadValidation.MaxTrainingAssetSizeBytes);
+            var result = await AssetService.SaveAssetAsync(
+                TemplateId,
+                _assetKey,
+                _selectedFile.Name,
+                _selectedFile.ContentType,
+                _selectedFile.Size,
+                stream,
+                _altText);
+
+            if (!result.Success)
+            {
+                _error = result.Message;
+                return;
+            }
+
+            _success = "Bild wurde hochgeladen.";
+            _selectedFile = null;
+            _assetKey = "";
+            _altText = null;
+            await OnUploaded.InvokeAsync();
+        }
+        catch (Exception)
+        {
+            _error = "Upload fehlgeschlagen.";
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    public async Task NotifyInsertKey(string assetKey)
+    {
+        await OnAssetKeyReady.InvokeAsync(assetKey);
+    }
+
+    private static string FormatSize(long bytes) =>
+        bytes < 1024 * 1024 ? $"{bytes / 1024.0:F1} KB" : $"{bytes / (1024.0 * 1024.0):F1} MB";
+}

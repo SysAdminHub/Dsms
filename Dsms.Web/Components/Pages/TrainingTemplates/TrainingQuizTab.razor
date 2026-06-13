@@ -1,0 +1,350 @@
+@using Dsms.Web.Services.Training
+
+@if (!string.IsNullOrEmpty(_error))
+{
+    <div class="alert alert-danger dsms-alert">@_error</div>
+}
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="alert alert-success dsms-alert">@_message</div>
+}
+
+@if (!ReadOnly)
+{
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Neue Frage</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-1">
+                    <label class="form-label">Nr.</label>
+                    <input type="number" class="form-control" @bind="_newQuestion.SortOrder" />
+                </div>
+                <div class="col-md-7">
+                    <label class="form-label">Fragetext</label>
+                    <input class="form-control" @bind="_newQuestion.QuestionText" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Fragetyp</label>
+                    <select class="form-select" @bind="_newQuestion.QuestionType">
+                        @foreach (var qt in Enum.GetValues<TrainingQuestionType>())
+                        {
+                            <option value="@qt">@TrainingLabels.GetQuestionTypeLabel(qt)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Erklärung (optional)</label>
+                    <textarea class="form-control" rows="2" @bind="_newQuestion.Explanation"></textarea>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Punkte</label>
+                    <input type="number" class="form-control" @bind="_newQuestion.Points" min="1" />
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind="_newQuestion.IsRequired" id="new-q-required" />
+                        <label class="form-check-label" for="new-q-required">Pflichtfrage</label>
+                    </div>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="button" class="btn btn-outline-primary" @onclick="AddQuestionAsync">Frage hinzufügen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (Questions.Count == 0)
+{
+    <div class="alert alert-info dsms-alert">Noch keine Quizfragen.</div>
+}
+else
+{
+    @foreach (var question in Questions.OrderBy(q => q.SortOrder))
+    {
+        <div class="dsms-card mb-3">
+            <div class="dsms-card-header d-flex justify-content-between">
+                <span>Frage @question.SortOrder · @TrainingLabels.GetQuestionTypeLabel(question.QuestionType)</span>
+                @if (!ReadOnly)
+                {
+                    <button type="button" class="btn btn-sm btn-outline-warning" @onclick="() => DeactivateQuestionAsync(question.Id)">
+                        Frage entfernen
+                    </button>
+                }
+            </div>
+            <div class="dsms-card-body">
+                @if (_editingQuestionId == question.Id && !ReadOnly)
+                {
+                    <div class="mb-3">
+                        <input class="form-control mb-2" @bind="_editQuestion.QuestionText" />
+                        <textarea class="form-control mb-2" rows="2" placeholder="Erklärung" @bind="_editQuestion.Explanation"></textarea>
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="SaveQuestionAsync">Frage speichern</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">Abbrechen</button>
+                    </div>
+                }
+                else
+                {
+                    <p class="mb-1"><strong>@question.QuestionText</strong></p>
+                    @if (!string.IsNullOrEmpty(question.Explanation))
+                    {
+                        <p class="text-muted small">@question.Explanation</p>
+                    }
+                    @if (!ReadOnly)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary mb-3" @onclick="() => StartEditQuestion(question)">Bearbeiten</button>
+                    }
+                }
+
+                <ul class="list-unstyled mb-3">
+                    @foreach (var option in question.Options.OrderBy(o => o.SortOrder))
+                    {
+                        <li class="mb-2 border rounded p-2">
+                            @if (_editingOptionId == option.Id && !ReadOnly)
+                            {
+                                <input class="form-control mb-2" @bind="_editOption.AnswerText" />
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" @bind="_editOption.IsCorrect" id="@($"opt-c-{option.Id}")" />
+                                    <label class="form-check-label" for="@($"opt-c-{option.Id}")">Korrekt</label>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary" @onclick="SaveOptionAsync">Speichern</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">Abbrechen</button>
+                            }
+                            else
+                            {
+                                <span>@(option.IsCorrect ? "✓ " : "")@option.AnswerText</span>
+                                @if (!ReadOnly)
+                                {
+                                    <button type="button" class="btn btn-sm btn-link" @onclick="() => StartEditOption(option)">Bearbeiten</button>
+                                }
+                            }
+                        </li>
+                    }
+                </ul>
+
+                @if (!ReadOnly)
+                {
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-1">
+                            <input type="number" class="form-control form-control-sm" @bind="_newOptionSort[question.Id]" placeholder="Nr." />
+                        </div>
+                        <div class="col-md-7">
+                            <input class="form-control form-control-sm" @bind="_newOptionText[question.Id]" placeholder="Neue Antwort" />
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="_newOptionCorrect[question.Id]" id="@($"new-opt-{question.Id}")" />
+                                <label class="form-check-label" for="@($"new-opt-{question.Id}")">Korrekt</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary w-100"
+                                    @onclick="() => AddOptionAsync(question.Id)">Antwort hinzufügen</button>
+                        </div>
+                    </div>
+                }
+
+                @if (ShowPreview)
+                {
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="small text-muted mb-2">Vorschau</div>
+                        @if (question.QuestionType == TrainingQuestionType.SingleChoice)
+                        {
+                            @foreach (var option in question.Options.Where(o => o.IsActive).OrderBy(o => o.SortOrder))
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" disabled name="@($"preview-{question.Id}")" />
+                                    <label class="form-check-label">@option.AnswerText</label>
+                                    @if (ShowCorrectAnswers && option.IsCorrect)
+                                    {
+                                        <span class="badge bg-success ms-1">korrekt</span>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            @foreach (var option in question.Options.Where(o => o.IsActive).OrderBy(o => o.SortOrder))
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" disabled />
+                                    <label class="form-check-label">@option.AnswerText</label>
+                                    @if (ShowCorrectAnswers && option.IsCorrect)
+                                    {
+                                        <span class="badge bg-success ms-1">korrekt</span>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <button type="button" class="btn btn-outline-secondary" @onclick="ValidateQuizAsync">Quiz prüfen</button>
+    @if (_quizValidation is not null)
+    {
+        <div class="mt-3">
+            @if (_quizValidation is { IsValid: true })
+            {
+                <div class="alert alert-success dsms-alert">Quizstruktur ist gültig.</div>
+            }
+            else if (_quizValidation is { IsValid: false } validation)
+            {
+                <ul class="text-danger">
+                    @foreach (var err in validation.Errors)
+                    {
+                        <li>@err</li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Inject] private TrainingQuestionService QuestionService { get; set; } = null!;
+
+    [Parameter, EditorRequired] public int TemplateId { get; set; }
+    [Parameter] public int? TenantId { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool ShowPreview { get; set; } = true;
+    [Parameter] public bool ShowCorrectAnswers { get; set; } = true;
+    [Parameter] public List<TrainingQuestion> Questions { get; set; } = [];
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private TrainingQuestion _newQuestion = new() { Points = 1, IsRequired = true, IsActive = true };
+    private TrainingQuestion _editQuestion = new();
+    private TrainingQuestionOption _editOption = new();
+    private int? _editingQuestionId;
+    private int? _editingOptionId;
+    private readonly Dictionary<int, string> _newOptionText = new();
+    private readonly Dictionary<int, int> _newOptionSort = new();
+    private readonly Dictionary<int, bool> _newOptionCorrect = new();
+    private string? _error;
+    private string? _message;
+    private TrainingTemplateValidationResult? _quizValidation;
+
+    protected override void OnParametersSet()
+    {
+        foreach (var q in Questions)
+        {
+            _newOptionText.TryAdd(q.Id, "");
+            _newOptionSort.TryAdd(q.Id, q.Options.Count + 1);
+            _newOptionCorrect.TryAdd(q.Id, false);
+        }
+
+        if (_newQuestion.TrainingTemplateId != TemplateId)
+        {
+            _newQuestion = new TrainingQuestion
+            {
+                TrainingTemplateId = TemplateId,
+                SortOrder = Questions.Count + 1,
+                Points = 1,
+                IsRequired = true,
+                IsActive = true,
+                QuestionType = TrainingQuestionType.SingleChoice
+            };
+        }
+    }
+
+    private async Task AddQuestionAsync()
+    {
+        _error = null;
+        _newQuestion.TrainingTemplateId = TemplateId;
+        var result = await QuestionService.SaveQuestionAsync(_newQuestion);
+        if (!result.Success) { _error = result.Message; return; }
+        _message = "Frage hinzugefügt.";
+        _newQuestion = new TrainingQuestion
+        {
+            TrainingTemplateId = TemplateId,
+            SortOrder = Questions.Count + 2,
+            Points = 1,
+            IsRequired = true,
+            IsActive = true
+        };
+        await OnChanged.InvokeAsync();
+    }
+
+    private void StartEditQuestion(TrainingQuestion q)
+    {
+        _editingQuestionId = q.Id;
+        _editQuestion = new TrainingQuestion
+        {
+            Id = q.Id,
+            TrainingTemplateId = q.TrainingTemplateId,
+            SortOrder = q.SortOrder,
+            QuestionText = q.QuestionText,
+            QuestionType = q.QuestionType,
+            Explanation = q.Explanation,
+            Points = q.Points,
+            IsRequired = q.IsRequired,
+            IsActive = q.IsActive
+        };
+    }
+
+    private async Task SaveQuestionAsync()
+    {
+        var result = await QuestionService.SaveQuestionAsync(_editQuestion);
+        if (!result.Success) { _error = result.Message; return; }
+        CancelEdit();
+        await OnChanged.InvokeAsync();
+    }
+
+    private void StartEditOption(TrainingQuestionOption o)
+    {
+        _editingOptionId = o.Id;
+        _editOption = new TrainingQuestionOption
+        {
+            Id = o.Id,
+            TrainingQuestionId = o.TrainingQuestionId,
+            SortOrder = o.SortOrder,
+            AnswerText = o.AnswerText,
+            IsCorrect = o.IsCorrect,
+            Explanation = o.Explanation,
+            IsActive = o.IsActive
+        };
+    }
+
+    private async Task SaveOptionAsync()
+    {
+        var result = await QuestionService.SaveOptionAsync(_editOption);
+        if (!result.Success) { _error = result.Message; return; }
+        CancelEdit();
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task AddOptionAsync(int questionId)
+    {
+        var option = new TrainingQuestionOption
+        {
+            TrainingQuestionId = questionId,
+            SortOrder = _newOptionSort.GetValueOrDefault(questionId, 1),
+            AnswerText = _newOptionText.GetValueOrDefault(questionId, ""),
+            IsCorrect = _newOptionCorrect.GetValueOrDefault(questionId),
+            IsActive = true
+        };
+        var result = await QuestionService.SaveOptionAsync(option);
+        if (!result.Success) { _error = result.Message; return; }
+        _newOptionText[questionId] = "";
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task DeactivateQuestionAsync(int questionId)
+    {
+        var result = await QuestionService.DeactivateQuestionAsync(TemplateId, questionId);
+        if (!result.Success) { _error = result.Message; return; }
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task ValidateQuizAsync()
+    {
+        _quizValidation = await QuestionService.ValidateQuizAsync(TemplateId, TenantId);
+    }
+
+    private void CancelEdit()
+    {
+        _editingQuestionId = null;
+        _editingOptionId = null;
+    }
+}

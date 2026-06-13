@@ -164,6 +164,12 @@ Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnec
 | `DataSubjectRequestMeasures` | `DataSubjectRequestMeasure` |
 | `DataSubjectRequestServiceProviders` | `DataSubjectRequestServiceProvider` |
 | `DataProtectionRoles` | `DataProtectionRole` (organisatorische Datenschutzrollen je Mandant; optional `LinkedUserId`, `ReportsToRoleId`, `DeputyRoleId`) |
+| `TrainingTemplates` | `TrainingTemplate` (Schulungsvorlage; mandanteneigen oder global; Karten, Assets, Quiz) |
+| `TrainingTemplateSections` | `TrainingTemplateSection` (Markdown-Karte pro Vorlage) |
+| `TrainingTemplateAssets` | `TrainingTemplateAsset` (Bilder/Medien, getrennt vom Dokumentenmodul) |
+| `TrainingQuestions` | `TrainingQuestion` (Quizfrage) |
+| `TrainingQuestionOptions` | `TrainingQuestionOption` (Antwortoption) |
+| `Trainings` | `Training` (konkrete Schulungsdurchführung je Mandant) |
 | `EmailSettings` | `EmailSettings` (plattformweit, kein Mandantenfilter) |
 | `EmailTemplates` | `EmailTemplate` (plattformweit, eindeutiger `TemplateKey`) |
 | `PageHelpContents` | `PageHelpContent` (plattformweit, eindeutiger `Key`; Hilfetexte für Fachseiten) |
@@ -185,9 +191,13 @@ Archivierbare Module erben von **`ArchivableEntityBase`** (`EntityBase` + `IArch
 - `ArchivedAt` (DateTime?, optional)
 - `ArchivedByUserId` (string?, Identity-User-ID)
 
-Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `Tom`, `ServiceProvider`, `AuditTemplate`, `AuditRun`, `Measure`, `PrivacyIncident`, `DataSubjectRequest`, `EvidenceDocument`.
+Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `Tom`, `ServiceProvider`, `AuditTemplate`, `TrainingTemplate`, `Training`, `AuditRun`, `Measure`, `PrivacyIncident`, `DataSubjectRequest`, `EvidenceDocument`.
 
 **`AuditTemplate`** erbt nur von `ArchivableEntityBase` (nicht `ITenantEntity`): `TenantId` bei eigenen Vorlagen gesetzt, bei globalen Vorlagen (`Official`, `Community`) `null`. Zusätzlich `CommunityStatus` und Prüffelder für Einreichungen. Sichtbarkeit: eigene Mandantenvorlagen + globale `Official`/`Community` über Query Filter. Community-Freigabe erstellt separate globale Kopie; Ursprungsvorlage bleibt beim Mandanten (`CommunityStatus = Approved`).
+
+**`TrainingTemplate`** (Schulungen & Awareness, Vorlagen): erbt von `ArchivableEntityBase` mit nullable `TenantId`. Mandantenvorlage: `TenantId` gesetzt, `IsGlobal = false`. Globale Vorlage: `TenantId = null`, `IsGlobal = true` (Superuser). Community-Felder vorbereitet. Kind-Entities mit Markdown, Assets und Quiz. Keine Teilnehmer-Tabellen.
+
+**`Training`** (konkrete Schulung/Durchführung): erbt von `ArchivableEntityBase`, Pflicht-`TenantId`, optional `TrainingTemplateId` (V1: Referenz, kein Inhaltssnapshot – siehe TODO in Entity). Felder: Titel, Beschreibung, `TrainingType`, Zielgruppe, Termine (`ScheduledAt`, `CompletedAt`, `RepeatDueAt`), `TrainingStatus`, Verantwortlicher (User/Freitext), `ParticipantCount` (manuell), `ProofMissing`, Notizen. Nachweise über normale `EvidenceDocument` + `DocumentLinks` (nicht über Template-Assets). Kein Teilnehmerportal in V1.
 
 Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen, **`TenantOnboardingTask`** (mandantenbezogene Dashboard-Checkliste „Erste Schritte“; eindeutiger Index `TenantId` + `Key`).
 
@@ -281,6 +291,20 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ArchiveViewContextAccessor` | Scoped | Aktiv-/Archivansicht für EF Global Query Filter (`ShowArchivedOnly`) |
 | `IArchivingService` / `ArchivingService` | Scoped | Soft Delete: Archivieren, Wiederherstellen, Abhängigkeitswarnungen |
 | `IAuditTemplateService` / `AuditTemplateService` | Scoped | Mandantensichere Sichtbarkeit, Bearbeitungsrechte, Archivierung, Community-Workflow und Fragen-CRUD; Frage-Snapshots beim Auditstart |
+| `TrainingTemplateAccessService` | Scoped | Gemeinsame Berechtigungs-/Sichtbarkeitslogik für Schulungsvorlagen |
+| `TrainingTemplateService` | Scoped | CRUD Vorlagen/Karten, Validierung, `CopyTemplateAsync`, Markdown-Asset-Auflösung |
+| `TrainingService` | Scoped | CRUD konkrete Schulungen, Erstellung aus Vorlage, Fälligkeitslogik, Mandanten-/Berechtigungsprüfung |
+| `TrainingTemplateAssetService` | Scoped | Schulungsasset-Upload, Validierung, Archivierung, Datei-Kopie |
+| `TrainingQuestionService` | Scoped | Quiz-Fragen/-Optionen, `ValidateQuizAsync` |
+| `TrainingAssetStorageService` | Scoped | Dateisystem unter `Storage:TrainingAssetPath` (Default: `Data/training-assets/`) |
+| `TrainingAssetUploadValidation` | Static | Bildtypen PNG/JPG/WEBP/GIF, max. 5 MB, AssetKey-Format |
+| `TrainingMarkdownAssetResolver` | Static | Platzhalter `{{asset:…}}` erkennen und in Bild-URLs umsetzen |
+| `TrainingAssetEndpoints` | Minimal API | `GET /training-assets/{templateId}/{assetKey}` – autorisiert, mandantensicher |
+
+**Admin-UI (Schulungsvorlagen):** `/training-templates` (Liste), `/training-templates/edit` (Neu), `/training-templates/edit/{id}` (Bearbeiten). Button „Schulung erstellen“ → `/trainings/edit?templateId={id}`.
+
+**Admin-UI (Schulungen):** `/trainings` (Liste), `/trainings/edit` (Neu), `/trainings/edit/{id}` (Bearbeiten), `/trainings/{id}` (Detail). Nachweise: `/documents?prefillTrainingId={id}`.
+
 | `IdentityRedirectManager` | Scoped | Weiterleitungen nach Login/Logout |
 | `IdentityRevalidatingAuthenticationStateProvider` | Scoped | Auth-State-Revalidierung für Blazor |
 | `IdentityNoOpEmailSender` | Singleton | Identity-Stub (Passwort-Reset etc. noch ohne Workflow-Anbindung) |

@@ -51,6 +51,7 @@ public class TenantExportService(
         var toms = await LoadTomsAsync(db, tenantId, ct);
         var processors = await LoadProcessorsAsync(db, tenantId, ct);
         var measures = await LoadMeasuresAsync(db, tenantId, ct);
+        var trainings = await LoadTrainingsAsync(db, tenantId, ct);
         var privacyIncidents = await LoadPrivacyIncidentsAsync(db, tenantId, ct);
         var auditTemplates = await LoadAuditTemplatesAsync(db, tenantId, ct);
         var auditRuns = await LoadAuditRunsAsync(db, tenantId, ct);
@@ -79,6 +80,7 @@ public class TenantExportService(
             AddJsonEntry(archive, "toms.json", toms);
             AddJsonEntry(archive, "processors.json", processors);
             AddJsonEntry(archive, "measures.json", measures);
+            AddJsonEntry(archive, "trainings.json", trainings);
             AddJsonEntry(archive, "privacy-incidents.json", privacyIncidents);
             AddJsonEntry(archive, "audit-templates.json", auditTemplates);
             AddJsonEntry(archive, "audit-runs.json", auditRuns);
@@ -442,6 +444,41 @@ public class TenantExportService(
         }).ToList();
     }
 
+    private static async Task<IReadOnlyList<TrainingExportDto>> LoadTrainingsAsync(
+        ApplicationDbContext db, int tenantId, CancellationToken ct)
+    {
+        var items = await db.Trainings
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Include(t => t.TrainingTemplate)
+            .Where(t => t.TenantId == tenantId)
+            .ToListAsync(ct);
+
+        return items.Select(t => new TrainingExportDto
+        {
+            Id = t.Id,
+            TrainingTemplateId = t.TrainingTemplateId,
+            TemplateTitle = t.TrainingTemplate?.Title,
+            Title = t.Title,
+            Description = t.Description,
+            TrainingType = t.TrainingType.ToString(),
+            TargetAudience = t.TargetAudience,
+            Status = t.Status.ToString(),
+            ScheduledAt = t.ScheduledAt,
+            CompletedAt = t.CompletedAt,
+            RepeatDueAt = t.RepeatDueAt,
+            ResponsibleUserId = t.ResponsibleUserId,
+            ResponsibleName = t.ResponsibleName,
+            ParticipantCount = t.ParticipantCount,
+            ProofMissing = t.ProofMissing,
+            Notes = t.Notes,
+            IsArchived = t.IsArchived,
+            ArchivedAt = t.ArchivedAt,
+            CreatedAt = t.CreatedAt,
+            UpdatedAt = t.UpdatedAt
+        }).ToList();
+    }
+
     private static async Task<IReadOnlyList<PrivacyIncidentExportDto>> LoadPrivacyIncidentsAsync(
         ApplicationDbContext db, int tenantId, CancellationToken ct)
     {
@@ -785,6 +822,7 @@ public class TenantExportService(
         DocumentLinkedEntityType.Dsfa => "Dsfa",
         DocumentLinkedEntityType.PrivacyIncident => "PrivacyIncident",
         DocumentLinkedEntityType.Tom => "Tom",
+        DocumentLinkedEntityType.Training => "Training",
         _ => type.ToString()
     };
 

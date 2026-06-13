@@ -54,5 +54,7 @@ public class Tenant : EntityBase
     public ICollection<DataProtectionImpactAssessment> DpiaAssessments { get; set; } = [];
     public ICollection<PrivacyIncident> PrivacyIncidents { get; set; } = [];
     public ICollection<DataSubjectRequest> DataSubjectRequests { get; set; } = [];
+    public ICollection<TrainingTemplate> TrainingTemplates { get; set; } = [];
+    public ICollection<Training> Trainings { get; set; } = [];
     public ICollection<UserTenant> UserTenants { get; set; } = [];
 }

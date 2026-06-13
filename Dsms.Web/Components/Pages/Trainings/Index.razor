@@ -1,0 +1,259 @@
+@page "/trainings"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Schulungen" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Schulungen & Awareness" HelpKey="trainings" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <PageHeader Title="Schulungen & Awareness" HelpKey="trainings"
+                Subtitle="Verwalten Sie Online-Schulungen und Awareness-Maßnahmen.">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
+            @if (_canEdit && !_showArchived)
+            {
+                <a class="btn btn-primary" href="trainings/create">Neue Schulung</a>
+            }
+        </div>
+    </PageHeader>
+
+    <div class="dsms-card mb-3">
+        <div class="dsms-card-body">
+            <div class="d-flex flex-wrap gap-2">
+                @foreach (var filter in _quickFilters)
+                {
+                    <button type="button"
+                            class="btn btn-sm @(_quickFilter == filter.Key ? "btn-primary" : "btn-outline-secondary")"
+                            @onclick="() => SetQuickFilter(filter.Key)">
+                        @filter.Label
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label" for="tr-search">Suche</label>
+                    <input id="tr-search" class="form-control" @bind="_searchText" @bind:event="oninput" @onkeyup="ApplyFilters" placeholder="Titel, Beschreibung, Zielgruppe …" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="tr-status">Status</label>
+                    <select id="tr-status" class="form-select" @bind="_filterStatus" @bind:after="ApplyFilters">
+                        <option value="">Alle</option>
+                        @foreach (var status in TrainingLabels.AllTrainingStatuses)
+                        {
+                            <option value="@status">@TrainingLabels.GetStatusLabel(status)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="tr-type">Schulungstyp</label>
+                    <select id="tr-type" class="form-select" @bind="_filterType" @bind:after="ApplyFilters">
+                        <option value="">Alle Typen</option>
+                        @foreach (var type in TrainingLabels.AllTrainingTypes)
+                        {
+                            <option value="@type">@TrainingLabels.GetTrainingTypeLabel(type)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="tr-template">Vorlage</label>
+                    <select id="tr-template" class="form-select" @bind="_filterTemplateId" @bind:after="ApplyFilters">
+                        <option value="">Alle</option>
+                        <option value="0">Ohne Vorlage</option>
+                        @foreach (var template in _templateFilterOptions)
+                        {
+                            <option value="@template.Id">@template.Title</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_rows is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else if (_filteredRows.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">
+            @(_showArchived ? "Keine archivierten Schulungen." : "Keine Schulungen gefunden.")
+        </div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Typ</th>
+                            <th>Zielgruppe</th>
+                            <th>Status</th>
+                            <th>Verantwortlich</th>
+                            <th>Nachweise</th>
+                            <th>Vorlage</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in _filteredRows)
+                        {
+                            var t = row.Training;
+                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
+                                <td><strong>@t.Title</strong></td>
+                                <td>@TrainingLabels.GetTrainingTypeLabel(t.TrainingType)</td>
+                                <td>@(t.TargetAudience ?? "—")</td>
+                                <td>
+                                    <StatusBadge Text="@TrainingLabels.GetStatusLabel(t.Status)"
+                                                 Variant="@TrainingLabels.GetStatusVariant(t.Status)" />
+                                </td>
+                                <td>@row.ResponsibleDisplay</td>
+                                <td>@(row.LinkedDocumentCount > 0 ? row.LinkedDocumentCount.ToString() : "—")</td>
+                                <td>@(row.TemplateTitle ?? "—")</td>
+                                <td class="dsms-table-actions">
+                                    <div class="dsms-table-action-stack">
+                                        <a class="btn btn-sm btn-outline-secondary" href="@($"trainings/{t.Id}")">Anzeigen</a>
+                                        @if (row.CanEdit && !_showArchived)
+                                        {
+                                            <a class="btn btn-sm btn-outline-primary" href="@($"trainings/edit/{t.Id}")">Bearbeiten</a>
+                                            <a class="btn btn-sm btn-outline-secondary" href="@($"documents?prefillTrainingId={t.Id}")">Nachweise</a>
+                                        }
+                                        @if (row.CanEdit)
+                                        {
+                                            <ArchiveListActions TEntity="Domain.Entities.Training"
+                                                                EntityId="@t.Id"
+                                                                ItemName="@t.Title"
+                                                                EntityLabel="Schulung"
+                                                                CanEdit="@row.CanEdit"
+                                                                OnChanged="LoadDataAsync" />
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private TrainingService TrainingService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canEdit;
+    private bool _showArchived;
+    private List<TrainingListRow>? _rows;
+    private List<TrainingListRow> _filteredRows = [];
+    private List<(int Id, string Title)> _templateFilterOptions = [];
+
+    private string _searchText = string.Empty;
+    private string _filterStatus = string.Empty;
+    private string _filterType = string.Empty;
+    private string _filterTemplateId = string.Empty;
+    private TrainingQuickFilter _quickFilter = TrainingQuickFilter.All;
+
+    private readonly (TrainingQuickFilter Key, string Label)[] _quickFilters =
+    [
+        (TrainingQuickFilter.All, "Alle"),
+        (TrainingQuickFilter.Active, "Aktiv"),
+        (TrainingQuickFilter.Inactive, "Inaktiv"),
+        (TrainingQuickFilter.Archived, "Archiviert")
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canEdit = await TrainingService.CanEditAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        if (_tenantId is null) return;
+
+        _showArchived = ArchiveView.ShowArchivedOnly;
+        _rows = (await TrainingService.GetListRowsAsync(_tenantId.Value)).ToList();
+
+        _templateFilterOptions = _rows
+            .Where(r => r.Training.TrainingTemplateId.HasValue && !string.IsNullOrWhiteSpace(r.TemplateTitle))
+            .GroupBy(r => r.Training.TrainingTemplateId!.Value)
+            .Select(g => (g.Key, g.First().TemplateTitle!))
+            .OrderBy(x => x.Item2)
+            .ToList();
+
+        ApplyFilters();
+    }
+
+    private void SetQuickFilter(TrainingQuickFilter filter)
+    {
+        _quickFilter = filter;
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        if (_rows is null)
+        {
+            _filteredRows = [];
+            return;
+        }
+
+        IEnumerable<TrainingListRow> query = _rows;
+
+        if (_quickFilter != TrainingQuickFilter.All)
+        {
+            query = query.Where(r => TrainingService.MatchesQuickFilter(r.Training, _quickFilter, DateTime.UtcNow));
+        }
+
+        if (!string.IsNullOrWhiteSpace(_searchText))
+        {
+            var term = _searchText.Trim();
+            query = query.Where(r =>
+            {
+                var t = r.Training;
+                return t.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || (t.Description?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (t.TargetAudience?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (t.ResponsibleName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (t.Notes?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || r.ResponsibleDisplay.Contains(term, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+
+        if (Enum.TryParse<TrainingStatus>(_filterStatus, out var status))
+        {
+            query = query.Where(r => TrainingStatusMapper.Normalize(r.Training.Status) == status);
+        }
+
+        if (Enum.TryParse<TrainingType>(_filterType, out var type))
+        {
+            query = query.Where(r => r.Training.TrainingType == type);
+        }
+
+        if (int.TryParse(_filterTemplateId, out var templateFilter))
+        {
+            query = templateFilter == 0
+                ? query.Where(r => r.Training.TrainingTemplateId is null)
+                : query.Where(r => r.Training.TrainingTemplateId == templateFilter);
+        }
+
+        _filteredRows = query.ToList();
+    }
+}

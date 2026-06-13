@@ -1,0 +1,212 @@
+@using Dsms.Web.Services.Training
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="dsms-card">
+            <div class="dsms-card-header d-flex justify-content-between align-items-center">
+                <span>Karten (@Sections.Count)</span>
+                @if (!ReadOnly)
+                {
+                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddSection">Neue Karte</button>
+                }
+            </div>
+            <ul class="list-group list-group-flush">
+                @foreach (var section in Sections.OrderBy(s => s.SortOrder))
+                {
+                    <li class="list-group-item @(section.Id == SelectedSectionId ? "active" : "")"
+                        style="cursor:pointer" @onclick="() => SelectSection(section.Id)">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div>
+                                <strong>@(section.SortOrder).</strong> @(section.Title)
+                            </div>
+                            @if (!ReadOnly && section.Id > 0)
+                            {
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-secondary" @onclick:stopPropagation="true"
+                                            @onclick="() => MoveSection(section.Id, -1)">↑</button>
+                                    <button type="button" class="btn btn-outline-secondary" @onclick:stopPropagation="true"
+                                            @onclick="() => MoveSection(section.Id, 1)">↓</button>
+                                </div>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        @if (_editSection is null)
+        {
+            <div class="alert alert-info dsms-alert">Wählen Sie eine Karte oder legen Sie eine neue an.</div>
+        }
+        else
+        {
+            @if (!string.IsNullOrEmpty(_message))
+            {
+                <div class="alert alert-success dsms-alert">@_message</div>
+            }
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div class="alert alert-danger dsms-alert">@_error</div>
+            }
+
+            <div class="dsms-card">
+                <div class="dsms-card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Titel</label>
+                        <input class="form-control" @bind="_editSection.Title" disabled="@ReadOnly" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Reihenfolge</label>
+                        <input type="number" class="form-control" style="max-width:120px" @bind="_editSection.SortOrder" disabled="@ReadOnly" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Markdown-Inhalt</label>
+                        <TrainingMarkdownEditor Markdown="@_editSection.ContentMarkdown"
+                                                MarkdownChanged="OnMarkdownChanged"
+                                                TemplateId="TemplateId"
+                                                TenantId="TenantId"
+                                                ReadOnly="ReadOnly"
+                                                AssetKeyToInsert="AssetKeyToInsert" />
+                    </div>
+                    @if (!ReadOnly)
+                    {
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-primary" @onclick="SaveSectionAsync">Karte speichern</button>
+                            @if (_editSection.Id > 0)
+                            {
+                                <button type="button" class="btn btn-outline-secondary" @onclick="DuplicateSectionAsync">Duplizieren</button>
+                                <button type="button" class="btn btn-outline-warning" @onclick="DeactivateSectionAsync">Deaktivieren</button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Inject] private TrainingTemplateService TemplateService { get; set; } = null!;
+
+    [Parameter, EditorRequired] public int TemplateId { get; set; }
+    [Parameter] public int? TenantId { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public List<TrainingTemplateSection> Sections { get; set; } = [];
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public string? AssetKeyToInsert { get; set; }
+
+    private int? SelectedSectionId { get; set; }
+    private TrainingTemplateSection? _editSection;
+    private string? _message;
+    private string? _error;
+
+    protected override void OnParametersSet()
+    {
+        if (SelectedSectionId.HasValue)
+            _editSection = Sections.FirstOrDefault(s => s.Id == SelectedSectionId);
+    }
+
+    private void SelectSection(int id)
+    {
+        SelectedSectionId = id;
+        _editSection = Sections.FirstOrDefault(s => s.Id == id);
+        if (_editSection is not null)
+            _editSection = CloneSection(_editSection);
+        _message = null;
+        _error = null;
+    }
+
+    private void AddSection()
+    {
+        var nextOrder = Sections.Count == 0 ? 1 : Sections.Max(s => s.SortOrder) + 1;
+        _editSection = new TrainingTemplateSection
+        {
+            TrainingTemplateId = TemplateId,
+            SortOrder = nextOrder,
+            Title = "Neue Karte",
+            ContentMarkdown = "",
+            IsActive = true
+        };
+        SelectedSectionId = null;
+    }
+
+    private async Task SaveSectionAsync()
+    {
+        if (_editSection is null) return;
+        _error = null;
+        _message = null;
+
+        if (string.IsNullOrWhiteSpace(_editSection.Title))
+        {
+            _error = "Titel ist erforderlich.";
+            return;
+        }
+
+        var result = await TemplateService.SaveSectionAsync(_editSection);
+        if (!result.Success)
+        {
+            _error = result.Message;
+            return;
+        }
+
+        _message = "Karte gespeichert.";
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task DuplicateSectionAsync()
+    {
+        if (_editSection is null) return;
+        var copy = CloneSection(_editSection);
+        copy.Id = 0;
+        copy.Title = $"{copy.Title} (Kopie)";
+        copy.SortOrder = Sections.Max(s => s.SortOrder) + 1;
+        _editSection = copy;
+        await SaveSectionAsync();
+    }
+
+    private async Task DeactivateSectionAsync()
+    {
+        if (_editSection?.Id is not int sectionId || sectionId == 0) return;
+        var result = await TemplateService.DeactivateSectionAsync(TemplateId, sectionId);
+        if (!result.Success)
+        {
+            _error = result.Message;
+            return;
+        }
+
+        SelectedSectionId = null;
+        _editSection = null;
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task MoveSection(int sectionId, int direction)
+    {
+        var ordered = Sections.OrderBy(s => s.SortOrder).ToList();
+        var index = ordered.FindIndex(s => s.Id == sectionId);
+        var newIndex = index + direction;
+        if (index < 0 || newIndex < 0 || newIndex >= ordered.Count) return;
+
+        (ordered[index], ordered[newIndex]) = (ordered[newIndex], ordered[index]);
+        await TemplateService.ReorderSectionsAsync(TemplateId, ordered.Select(s => s.Id).ToList());
+        await OnChanged.InvokeAsync();
+    }
+
+    private Task OnMarkdownChanged(string value)
+    {
+        if (_editSection is not null)
+            _editSection.ContentMarkdown = value;
+        return Task.CompletedTask;
+    }
+
+    private static TrainingTemplateSection CloneSection(TrainingTemplateSection s) => new()
+    {
+        Id = s.Id,
+        TrainingTemplateId = s.TrainingTemplateId,
+        TenantId = s.TenantId,
+        SortOrder = s.SortOrder,
+        Title = s.Title,
+        ContentMarkdown = s.ContentMarkdown,
+        IsActive = s.IsActive
+    };
+}

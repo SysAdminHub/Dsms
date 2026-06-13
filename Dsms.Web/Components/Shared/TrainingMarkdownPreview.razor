@@ -1,0 +1,51 @@
+@using Dsms.Web.Services.Training
+
+<div class="training-markdown-preview dsms-card">
+    <div class="dsms-card-body">
+        @if (_loading)
+        {
+            <div class="dsms-loading">Vorschau wird geladen …</div>
+        }
+        else if (string.IsNullOrWhiteSpace(Markdown))
+        {
+            <div class="text-muted">Kein Inhalt.</div>
+        }
+        else
+        {
+            <div class="training-markdown-content">@((MarkupString)_html)</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Inject] private TrainingTemplateService TemplateService { get; set; } = null!;
+
+    [Parameter] public int TemplateId { get; set; }
+    [Parameter] public int? TenantId { get; set; }
+    [Parameter] public string? Markdown { get; set; }
+
+    private string _html = "";
+    private bool _loading = true;
+    private string? _lastMarkdown;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_lastMarkdown == Markdown && !string.IsNullOrEmpty(_html))
+            return;
+
+        _lastMarkdown = Markdown;
+        _loading = true;
+
+        if (string.IsNullOrWhiteSpace(Markdown))
+        {
+            _html = "";
+            _loading = false;
+            return;
+        }
+
+        var resolved = await TemplateService.PrepareMarkdownForRenderingAsync(
+            Markdown, TemplateId, TenantId);
+        _html = TrainingMarkdownRenderer.ToHtml(resolved);
+        _loading = false;
+    }
+}

@@ -1,0 +1,126 @@
+@using Dsms.Web.Services.Training
+
+@if (!ReadOnly)
+{
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Bild hochladen</div>
+        <div class="dsms-card-body">
+            <TrainingAssetUpload TemplateId="TemplateId"
+                                 ExistingAssetKeys="TemplateAssets.Select(a => a.AssetKey)"
+                                 OnUploaded="HandleUploadedAsync" />
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="alert alert-success dsms-alert">@_message</div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+    <div class="alert alert-danger dsms-alert">@_error</div>
+}
+
+@if (TemplateAssets.Count == 0)
+{
+    <div class="alert alert-info dsms-alert">Noch keine Bilder vorhanden.</div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var asset in TemplateAssets.OrderBy(a => a.AssetKey))
+        {
+            <div class="col-md-6 col-lg-4">
+                <div class="dsms-card h-100">
+                    <div class="dsms-card-body">
+                        <div class="mb-2">
+                            <img src="@($"/training-assets/{TemplateId}/{asset.AssetKey}")"
+                                 alt="@(asset.AltText ?? asset.AssetKey)"
+                                 class="img-fluid rounded border" />
+                        </div>
+                        <div><strong>@asset.AssetKey</strong></div>
+                        <div class="small text-muted">@asset.OriginalFileName</div>
+                        <div class="small">@asset.ContentType · @(asset.FileSizeBytes / 1024) KB</div>
+                        <div class="mt-2">
+                            <label class="form-label small">Alternativtext</label>
+                            <input class="form-control form-control-sm" value="@GetAlt(asset.Id)"
+                                   @onchange="e => SetAlt(asset.Id, e.Value?.ToString())" disabled="@ReadOnly" />
+                        </div>
+                        <div class="mt-2 d-flex flex-wrap gap-1">
+                            <code class="small">{{asset:@asset.AssetKey}}</code>
+                        </div>
+                        <div class="mt-2 d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    @onclick="() => InsertIntoMarkdown(asset.AssetKey)">
+                                In Markdown einfügen
+                            </button>
+                            @if (!ReadOnly)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-warning"
+                                        @onclick="() => ArchiveAssetAsync(asset)">
+                                    Entfernen
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Inject] private TrainingTemplateAssetService AssetService { get; set; } = null!;
+
+    [Parameter, EditorRequired] public int TemplateId { get; set; }
+    [Parameter] public int? TenantId { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public List<TrainingTemplateAsset> TemplateAssets { get; set; } = [];
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public EventCallback<string> OnInsertAssetKey { get; set; }
+
+    private readonly Dictionary<int, string> _altDraft = new();
+    private string? _message;
+    private string? _error;
+
+    private string GetAlt(int id) =>
+        _altDraft.TryGetValue(id, out var v) ? v : TemplateAssets.FirstOrDefault(a => a.Id == id)?.AltText ?? "";
+
+    private void SetAlt(int id, string? value) => _altDraft[id] = value ?? "";
+
+    protected override void OnParametersSet()
+    {
+        foreach (var asset in TemplateAssets)
+            _altDraft.TryAdd(asset.Id, asset.AltText ?? "");
+    }
+
+    private async Task HandleUploadedAsync() => await OnChanged.InvokeAsync();
+
+    private async Task InsertIntoMarkdown(string assetKey)
+    {
+        await OnInsertAssetKey.InvokeAsync(assetKey);
+        _message = $"Platzhalter für „{assetKey}“ kann in der Karte eingefügt werden (Tab „Karten“).";
+    }
+
+    private async Task ArchiveAssetAsync(TrainingTemplateAsset asset)
+    {
+        _error = null;
+        _message = null;
+
+        if (await AssetService.IsAssetKeyUsedInSectionsAsync(TemplateId, asset.AssetKey))
+        {
+            _error = "Dieses Bild wird in Schulungskarten verwendet. Entfernen Sie zuerst den Platzhalter im Markdown.";
+            return;
+        }
+
+        var result = await AssetService.ArchiveAssetAsync(asset.Id);
+        if (!result.Success)
+        {
+            _error = result.Message;
+            return;
+        }
+
+        _message = "Bild wurde entfernt.";
+        await OnChanged.InvokeAsync();
+    }
+}

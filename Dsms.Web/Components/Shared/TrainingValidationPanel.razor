@@ -1,0 +1,51 @@
+@if (Report is null)
+{
+    <div class="dsms-loading">Prüfung läuft …</div>
+}
+else
+{
+    @if (Report.IsValid && Report.Warnings.Count == 0)
+    {
+        <div class="alert alert-success dsms-alert">Vorlage ist bereit zur Nutzung.</div>
+    }
+    else if (Report.IsValid)
+    {
+        <div class="alert alert-info dsms-alert">Vorlage ist grundsätzlich gültig, es gibt Hinweise.</div>
+    }
+    else
+    {
+        <div class="alert alert-danger dsms-alert">Vorlage hat Fehler und sollte vor der Nutzung korrigiert werden.</div>
+    }
+
+    @if (Report.Successes.Count > 0)
+    {
+        <ul class="list-unstyled mb-3">
+            @foreach (var item in Report.Successes)
+            {
+                <li class="text-success">✓ @item</li>
+            }
+        </ul>
+    }
+    @if (Report.Warnings.Count > 0)
+    {
+        <ul class="list-unstyled mb-3">
+            @foreach (var item in Report.Warnings)
+            {
+                <li class="text-warning">⚠ @item</li>
+            }
+        </ul>
+    }
+    @if (Report.Errors.Count > 0)
+    {
+        <ul class="list-unstyled mb-0">
+            @foreach (var item in Report.Errors)
+            {
+                <li class="text-danger">✗ @item</li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    [Parameter] public TrainingTemplateValidationReport? Report { get; set; }
+}

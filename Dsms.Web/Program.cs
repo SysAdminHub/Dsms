@@ -23,6 +23,7 @@ using Dsms.Web.Services.Onboarding;
 using Dsms.Web.Services.PageHelp;
 using Dsms.Web.Services.Legal;
 using Dsms.Web.Services.Privacy;
+using Dsms.Web.Services.Training;
 using Microsoft.AspNetCore.Components.Authorization;
 using QuestPDF.Infrastructure;
 using Microsoft.AspNetCore.DataProtection;
@@ -117,6 +118,12 @@ builder.Services.AddScoped<ILogService, LogService>();
 builder.Services.AddScoped<ILogQueryService, LogQueryService>();
 builder.Services.AddScoped<ILicenseCreateGuard, LicenseCreateGuard>();
 builder.Services.AddScoped<IComplianceAuditLogService, ComplianceAuditLogService>();
+builder.Services.AddScoped<TrainingTemplateAccessService>();
+builder.Services.AddScoped<TrainingAssetStorageService>();
+builder.Services.AddScoped<TrainingTemplateAssetService>();
+builder.Services.AddScoped<TrainingQuestionService>();
+builder.Services.AddScoped<TrainingTemplateService>();
+builder.Services.AddScoped<TrainingService>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -215,6 +222,7 @@ app.MapPost("/tenant/switch", async (
 // Minimal-API-Endpunkte für Identity-Formulare (Logout, externe Logins, …).
 app.MapAdditionalIdentityEndpoints();
 app.MapDocumentFileEndpoints();
+app.MapTrainingAssetEndpoints();
 app.MapTenantDataEndpoints();
 app.MapLegalDocumentEndpoints();
 

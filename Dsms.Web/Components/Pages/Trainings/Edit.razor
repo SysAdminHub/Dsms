@@ -1,0 +1,515 @@
+@page "/trainings/edit"
+@page "/trainings/edit/{Id:int}"
+@page "/trainings/create"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Schulung" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Schulung" HelpKey="trainings" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (!_canEdit)
+{
+    <PageHeader Title="Schulung" HelpKey="trainings" />
+    <div class="alert alert-warning dsms-alert">Keine Berechtigung zum Bearbeiten von Schulungen.</div>
+    <a class="btn btn-outline-secondary" href="trainings">Zur Liste</a>
+}
+else if (_loading)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_notFound)
+{
+    <PageHeader Title="Schulung" HelpKey="trainings" />
+    <div class="alert alert-warning dsms-alert">Schulung nicht gefunden.</div>
+    <a class="btn btn-outline-secondary" href="trainings">Zur Liste</a>
+}
+else
+{
+    <PageHeader Title="@(_model.Id == 0 ? "Schulung anlegen" : "Schulung bearbeiten")" HelpKey="trainings">
+        @if (_model.Id > 0)
+        {
+            <a class="btn btn-outline-secondary" href="@($"trainings/{_model.Id}")">Anzeigen</a>
+        }
+        <a class="btn btn-outline-secondary" href="trainings">Zur Liste</a>
+    </PageHeader>
+
+    @foreach (var warning in _warnings)
+    {
+        <div class="alert alert-warning dsms-alert">@warning</div>
+    }
+
+    @if (!string.IsNullOrEmpty(_templateQueryError))
+    {
+        <div class="alert alert-warning dsms-alert">@_templateQueryError</div>
+    }
+
+    @if (!string.IsNullOrEmpty(_templateLinkRemovedMessage))
+    {
+        <div class="alert alert-info dsms-alert">@_templateLinkRemovedMessage</div>
+    }
+
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+                <ValidationSummary class="alert alert-danger dsms-alert" />
+
+                <h3 class="h6 mb-3">Stammdaten</h3>
+
+                @if (_canChangeTemplate)
+                {
+                    <div class="mb-3">
+                        <label class="form-label" for="training-template-select">Vorlage auswählen</label>
+                        <select id="training-template-select"
+                                class="form-select"
+                                @bind="_dropdownTemplateValue"
+                                @bind:after="OnTemplateDropdownChangedAsync">
+                            <option value="">Keine Vorlage verwenden</option>
+                            @foreach (var template in _availableTemplates)
+                            {
+                                <option value="@template.Id">@template.DropdownLabel</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                <div class="mb-3">
+                    <label class="form-label">Basierend auf Vorlage</label>
+                    @if (_selectedTemplate is not null)
+                    {
+                        <div class="dsms-template-info-box">
+                            <div class="fw-semibold">@_selectedTemplate.Title</div>
+                            <div class="text-muted small">
+                                @TrainingLabels.GetTrainingTypeLabel(_selectedTemplate.TrainingType) · @_selectedTemplate.OriginLabel
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-muted">Keine Vorlage verknüpft</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Titel <span class="text-danger">*</span></label>
+                    <InputText class="form-control" @bind-Value="_model.Title" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Beschreibung</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.Description" rows="3" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Zielgruppe</label>
+                    <InputText class="form-control" @bind-Value="_model.TargetAudience" />
+                </div>
+                @if (HasLinkedTemplate)
+                {
+                    <div class="mb-4">
+                        <label class="form-label">Schulungstyp</label>
+                        <div>@TrainingLabels.GetTrainingTypeLabel(_model.TrainingType)</div>
+                        <div class="form-text text-muted">aus Vorlage übernommen</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-4">
+                        <label class="form-label">Schulungstyp <span class="text-danger">*</span></label>
+                        <InputSelect class="form-select" @bind-Value="_model.TrainingType">
+                            @foreach (var type in TrainingLabels.AllTrainingTypes)
+                            {
+                                <option value="@type">@TrainingLabels.GetTrainingTypeLabel(type)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                }
+
+                <h3 class="h6 mb-3">Status</h3>
+                <div class="mb-4">
+                    <label class="form-label">Status <span class="text-danger">*</span></label>
+                    <InputSelect class="form-select" @bind-Value="_model.Status">
+                        @foreach (var status in TrainingLabels.EditableTrainingStatuses)
+                        {
+                            <option value="@status">@TrainingLabels.GetStatusLabel(status)</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <h3 class="h6 mb-3">Verantwortung</h3>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Verantwortlicher Benutzer</label>
+                        <InputSelect class="form-select" @bind-Value="_model.ResponsibleUserId">
+                            <option value="">— keiner —</option>
+                            @foreach (var user in _tenantUsers)
+                            {
+                                <option value="@user.Id">@(user.DisplayName ?? user.Email)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Verantwortlicher Name (Freitext)</label>
+                        <InputText class="form-control" @bind-Value="_model.ResponsibleName" />
+                    </div>
+                </div>
+
+                @if (_model.Id > 0)
+                {
+                    <h3 class="h6 mb-3">Nachweise</h3>
+                    <div class="mb-4">
+                        <p class="form-text text-muted mb-2">
+                            Nachweise werden als Dokumente im Dokumentenmodul verknüpft.
+                        </p>
+                        <a class="btn btn-outline-secondary" href="@($"documents?prefillTrainingId={_model.Id}")">
+                            Nachweise verwalten
+                        </a>
+                    </div>
+                }
+
+                <h3 class="h6 mb-3">Notizen</h3>
+                <div class="mb-4">
+                    <InputTextArea class="form-control" @bind-Value="_model.Notes" rows="3" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(_saveError))
+                {
+                    <div class="alert alert-danger dsms-alert">@_saveError</div>
+                }
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                    <a class="btn btn-outline-secondary" href="@GetCancelHref()">Abbrechen</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<TrainingTemplateApplyModal @ref="_templateApplyModal"
+                            OnApplyValues="ConfirmApplyTemplateValuesAsync"
+                            OnLinkOnly="ConfirmLinkTemplateOnlyAsync"
+                            OnCancel="CancelTemplateSelectionAsync" />
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "templateId")]
+    public int? TemplateId { get; set; }
+
+    [Inject] private TrainingService TrainingService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canEdit;
+    private bool _canChangeTemplate = true;
+    private bool _loading = true;
+    private bool _notFound;
+    private bool _saving;
+    private string? _saveError;
+    private string? _templateQueryError;
+    private string? _templateLinkRemovedMessage;
+    private Domain.Entities.Training _model = new();
+    private List<ApplicationUser> _tenantUsers = [];
+    private List<TrainingTemplateSelectionItem> _availableTemplates = [];
+    private TrainingTemplateSelectionItem? _selectedTemplate;
+    private TrainingTemplateApplyModal? _templateApplyModal;
+    private int? _pendingTemplateId;
+    private int? _previousTemplateId;
+    private string _dropdownTemplateValue = "";
+
+    private bool HasLinkedTemplate => _model.TrainingTemplateId.HasValue;
+    private List<string> _warnings = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canEdit = await TrainingService.CanEditAsync();
+        if (!_canEdit)
+        {
+            _loading = false;
+            return;
+        }
+
+        _tenantUsers = (await TrainingService.GetTenantUsersAsync(_tenantId.Value)).ToList();
+        _availableTemplates = (await TrainingService.GetAvailableTemplatesForTrainingCreationAsync(_tenantId.Value)).ToList();
+
+        if (Id > 0)
+        {
+            var existing = await TrainingService.GetByIdAsync(Id, _tenantId.Value);
+            if (existing is null)
+            {
+                _notFound = true;
+                _loading = false;
+                return;
+            }
+
+            _model = existing;
+            _canChangeTemplate = !existing.IsArchived
+                && TrainingStatusMapper.Normalize(existing.Status) != TrainingStatus.Archived;
+            await SetSelectedTemplateFromModelAsync();
+            SyncDropdownTemplateValue();
+        }
+        else if (TemplateId is int templateId)
+        {
+            await ApplyTemplateFromQueryAsync(templateId);
+            SyncDropdownTemplateValue();
+        }
+        else
+        {
+            _model = new Domain.Entities.Training
+            {
+                TenantId = _tenantId.Value,
+                Status = TrainingStatus.Inactive,
+                ParticipantCount = 0
+            };
+            SyncDropdownTemplateValue();
+        }
+
+        UpdateWarnings();
+        _loading = false;
+    }
+
+    private void SyncDropdownTemplateValue() =>
+        _dropdownTemplateValue = _model.TrainingTemplateId?.ToString() ?? string.Empty;
+
+    private async Task SetSelectedTemplateFromModelAsync()
+    {
+        if (_model.TrainingTemplateId is not int templateId)
+        {
+            _selectedTemplate = null;
+            return;
+        }
+
+        _selectedTemplate = _availableTemplates.FirstOrDefault(t => t.Id == templateId);
+        if (_selectedTemplate is not null)
+            return;
+
+        var result = await TrainingService.GetTemplateForTrainingCreationAsync(templateId, _tenantId!.Value);
+        if (result.Status == TrainingTemplateLoadStatus.Ok && result.Template is not null)
+        {
+            _selectedTemplate = ToSelectionItem(result.Template);
+            return;
+        }
+
+        if (_model.TrainingTemplate is not null)
+            _selectedTemplate = ToSelectionItem(_model.TrainingTemplate);
+    }
+
+    private async Task ApplyTemplateFromQueryAsync(int templateId)
+    {
+        var result = await TrainingService.GetTemplateForTrainingCreationAsync(templateId, _tenantId!.Value);
+        if (result.Status == TrainingTemplateLoadStatus.NotFound)
+        {
+            _templateQueryError = "Die ausgewählte Vorlage konnte nicht gefunden werden.";
+            _model = new Domain.Entities.Training
+            {
+                TenantId = _tenantId.Value,
+                Status = TrainingStatus.Inactive,
+                ParticipantCount = 0
+            };
+            return;
+        }
+
+        if (result.Status == TrainingTemplateLoadStatus.NotAvailable || result.Template is null)
+        {
+            _templateQueryError = "Die ausgewählte Vorlage ist nicht verfügbar.";
+            _model = new Domain.Entities.Training
+            {
+                TenantId = _tenantId.Value,
+                Status = TrainingStatus.Inactive,
+                ParticipantCount = 0
+            };
+            return;
+        }
+
+        ApplyTemplateValues(result.Template);
+        _selectedTemplate = ToSelectionItem(result.Template);
+        SyncDropdownTemplateValue();
+    }
+
+    private TrainingTemplateSelectionItem ToSelectionItem(TrainingTemplate template) =>
+        new(
+            template.Id,
+            template.Title,
+            template.TrainingType,
+            template.TargetAudience,
+            template.Description,
+            template.RecommendedRepeatAfterMonths,
+            TrainingTemplateAccessService.IsGlobalTemplate(template),
+            TrainingLabels.GetOriginLabel(template),
+            $"{template.Title} — {TrainingLabels.GetTrainingTypeLabel(template.TrainingType)} — {TrainingLabels.GetOriginLabel(template)}");
+
+    private async Task OnTemplateDropdownChangedAsync()
+    {
+        _templateLinkRemovedMessage = null;
+        _templateQueryError = null;
+
+        if (!int.TryParse(_dropdownTemplateValue, out var templateId))
+        {
+            _previousTemplateId = _model.TrainingTemplateId;
+            _model.TrainingTemplateId = null;
+            _selectedTemplate = null;
+
+            if (_previousTemplateId.HasValue)
+            {
+                _templateLinkRemovedMessage =
+                    "Die Verknüpfung zur Vorlage wurde entfernt. Bereits übernommene Inhalte bleiben erhalten.";
+            }
+
+            return;
+        }
+
+        var template = _availableTemplates.FirstOrDefault(t => t.Id == templateId);
+        if (template is null)
+        {
+            SyncDropdownTemplateValue();
+            return;
+        }
+
+        _previousTemplateId = _model.TrainingTemplateId;
+        _pendingTemplateId = templateId;
+
+        if (HasRelevantManualInput())
+        {
+            _templateApplyModal?.Show(
+                template.Title,
+                $"{TrainingLabels.GetTrainingTypeLabel(template.TrainingType)} · {template.OriginLabel}");
+            return;
+        }
+
+        await ApplySelectedTemplateAsync(template, applyValues: true);
+    }
+
+    private bool HasRelevantManualInput() =>
+        !string.IsNullOrWhiteSpace(_model.Title)
+        || !string.IsNullOrWhiteSpace(_model.Description)
+        || !string.IsNullOrWhiteSpace(_model.TargetAudience);
+
+    private async Task ConfirmApplyTemplateValuesAsync()
+    {
+        if (_pendingTemplateId is not int templateId)
+            return;
+
+        var template = _availableTemplates.FirstOrDefault(t => t.Id == templateId);
+        if (template is null)
+            return;
+
+        await ApplySelectedTemplateAsync(template, applyValues: true);
+        _pendingTemplateId = null;
+    }
+
+    private async Task ConfirmLinkTemplateOnlyAsync()
+    {
+        if (_pendingTemplateId is not int templateId)
+            return;
+
+        var template = _availableTemplates.FirstOrDefault(t => t.Id == templateId);
+        if (template is null)
+            return;
+
+        await ApplySelectedTemplateAsync(template, applyValues: false);
+        _pendingTemplateId = null;
+    }
+
+    private async Task CancelTemplateSelectionAsync()
+    {
+        _pendingTemplateId = null;
+        SyncDropdownTemplateValue();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ApplySelectedTemplateAsync(TrainingTemplateSelectionItem template, bool applyValues)
+    {
+        _model.TrainingTemplateId = template.Id;
+        _selectedTemplate = template;
+        _model.TrainingType = template.TrainingType;
+        SyncDropdownTemplateValue();
+
+        if (applyValues)
+        {
+            _model.Title = template.Title;
+            _model.Description = template.Description;
+            _model.TargetAudience = template.TargetAudience;
+        }
+
+        UpdateWarnings();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplyTemplateValues(TrainingTemplate template)
+    {
+        _model = new Domain.Entities.Training
+        {
+            TenantId = _tenantId!.Value,
+            TrainingTemplateId = template.Id,
+            Title = template.Title,
+            Description = template.Description,
+            TrainingType = template.TrainingType,
+            TargetAudience = template.TargetAudience,
+            Status = TrainingStatus.Inactive,
+            ParticipantCount = 0,
+            ProofMissing = false
+        };
+    }
+
+    private void UpdateWarnings()
+    {
+        _warnings = [];
+    }
+
+    private async Task SaveAsync()
+    {
+        _saveError = null;
+        _saving = true;
+
+        if (string.IsNullOrWhiteSpace(_model.Title))
+        {
+            _saveError = "Titel ist Pflicht.";
+            _saving = false;
+            return;
+        }
+
+        if (!HasLinkedTemplate && !TrainingLabels.AllTrainingTypes.Contains(_model.TrainingType))
+        {
+            _saveError = "Bitte wählen Sie einen Schulungstyp aus.";
+            _saving = false;
+            return;
+        }
+
+        if (!TrainingStatusMapper.IsValid(_model.Status))
+        {
+            _saveError = "Bitte wählen Sie einen gültigen Status aus.";
+            _saving = false;
+            return;
+        }
+
+        TrainingService.NormalizeStatusFields(_model);
+
+        TrainingOperationResult result;
+        if (_model.Id == 0)
+        {
+            result = await TrainingService.CreateFreeAsync(_model);
+        }
+        else
+        {
+            result = await TrainingService.UpdateAsync(_model);
+        }
+
+        _saving = false;
+
+        if (!result.Success)
+        {
+            _saveError = result.ErrorMessage;
+            return;
+        }
+
+        Navigation.NavigateTo($"trainings/{result.TrainingId}");
+    }
+
+    private string GetCancelHref() => _model.Id > 0 ? $"trainings/{_model.Id}" : "trainings";
+}

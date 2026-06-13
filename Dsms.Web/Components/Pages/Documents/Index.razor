@@ -5,6 +5,8 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 
+@using Dsms.Web.Domain.Enums
+
 <BrandedPageTitle Title="Dokumente" />
 
 @if (_tenantId is null)
@@ -206,6 +208,9 @@ else
     private string _filterTypeValue = string.Empty;
     private string _filterCategoryValue = string.Empty;
 
+    [SupplyParameterFromQuery(Name = "prefillTrainingId")]
+    public int? PrefillTrainingId { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         _tenantId = await CurrentUser.GetTenantIdAsync();
@@ -214,6 +219,33 @@ else
         _canEdit = await UserAccess.CanEditTenantOperationalContentAsync();
         _canManageCategories = await UserAccess.CanManageDocumentCategoriesAsync();
         await LoadDataAsync();
+        await ApplyTrainingPrefillAsync();
+    }
+
+    private async Task ApplyTrainingPrefillAsync()
+    {
+        if (!_canEdit || _tenantId is null || PrefillTrainingId is not int trainingId || trainingId <= 0)
+            return;
+
+        var training = await Db.Trainings
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == trainingId && t.TenantId == _tenantId);
+
+        if (training is null)
+            return;
+
+        _pendingSelectedItems =
+        [
+            new DocumentLinkSelectionViewModel
+            {
+                EntityType = DocumentLinkedEntityType.Training,
+                EntityId = training.Id,
+                DisplayName = training.Title,
+                IsSelected = true
+            }
+        ];
+        _pendingLinks = [new DocumentLinkTarget(DocumentLinkedEntityType.Training, training.Id)];
     }
 
     private async Task LoadDataAsync()

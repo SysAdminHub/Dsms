@@ -125,6 +125,13 @@ else if (_summary is not null)
                             LegendItems="@DashboardChartBuilder.AuditLegend(_summary)"
                             DetailsUrl="audit-runs"
                             EmptyText="Noch keine Audits erfasst." />
+
+        <DonutDashboardCard Title="Schulungen"
+                            Total="@_summary.TotalTrainingsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.TrainingStatusGroups, _summary.TotalTrainingsCount)"
+                            LegendItems="@DashboardChartBuilder.TrainingLegend(_summary)"
+                            DetailsUrl="trainings"
+                            EmptyText="Noch keine Schulungen erfasst." />
     </div>
 
     <div class="dsms-dashboard-bottom-grid">

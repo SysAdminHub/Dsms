@@ -2,6 +2,7 @@ using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Enums;
 using Dsms.Web.Models.Dashboard;
+using Dsms.Web.Services.Training;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dsms.Web.Services;
@@ -233,6 +234,21 @@ public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
         var dataSubjectRequestStatusGroups = ClassifyDataSubjectRequests(dataSubjectRequests);
         var measureStatusGroups = await ClassifyMeasuresAsync(db, tenantId, today, ct);
         var auditStatusGroups = await ClassifyAuditsAsync(db, tenantId, ct);
+        var trainingStatusGroups = await ClassifyTrainingsAsync(db, tenantId, ct);
+
+        var trainings = await db.Trainings
+            .Where(t => t.TenantId == tenantId && !t.IsArchived)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        var todayUtc = DateTime.UtcNow;
+        var totalTrainings = trainings.Count;
+        var activeTrainingsCount = trainings.Count(t => TrainingStatusMapper.Normalize(t.Status) == TrainingStatus.Active);
+        var inactiveTrainingsCount = trainings.Count(t => TrainingStatusMapper.Normalize(t.Status) == TrainingStatus.Inactive);
+        var trainingTemplatesCount = await db.TrainingTemplates
+            .Where(t => t.IsActive && !t.IsArchived
+                && ((t.IsGlobal && t.TenantId == null) || (t.TenantId == tenantId && !t.IsGlobal)))
+            .CountAsync(ct);
 
         // Fälligkeit zuerst, damit dringende Maßnahmen oben erscheinen.
         var recentMeasures = await db.Measures
@@ -300,6 +316,11 @@ public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
             dataSubjectRequestStatusGroups,
             measureStatusGroups,
             auditStatusGroups,
+            trainingStatusGroups,
+            totalTrainings,
+            activeTrainingsCount,
+            inactiveTrainingsCount,
+            trainingTemplatesCount,
             recentMeasures,
             recentAudits);
     }
@@ -711,6 +732,46 @@ public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
 
         return new DashboardStatusGroupCounts(critical, warning, good, neutral);
     }
+
+    private static async Task<DashboardStatusGroupCounts> ClassifyTrainingsAsync(
+        ApplicationDbContext db,
+        int tenantId,
+        CancellationToken ct)
+    {
+        var trainings = await db.Trainings
+            .Where(t => t.TenantId == tenantId && !t.IsArchived)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        if (trainings.Count == 0)
+            return new DashboardStatusGroupCounts(0, 0, 0, 0);
+
+        var todayUtc = DateTime.UtcNow;
+        var critical = 0;
+        var warning = 0;
+        var good = 0;
+        var neutral = 0;
+
+        foreach (var training in trainings)
+        {
+            var status = TrainingStatusMapper.Normalize(training.Status);
+            if (status == TrainingStatus.Active)
+            {
+                good++;
+                continue;
+            }
+
+            if (status == TrainingStatus.Inactive)
+            {
+                warning++;
+                continue;
+            }
+
+            neutral++;
+        }
+
+        return new DashboardStatusGroupCounts(critical, warning, good, neutral);
+    }
 }
 
 /// <summary>Read-only-Snapshot der Dashboard-Daten für eine Anzeige.</summary>
@@ -766,5 +827,10 @@ public record DashboardSummary(
     DashboardStatusGroupCounts DataSubjectRequestStatusGroups,
     DashboardStatusGroupCounts MeasureStatusGroups,
     DashboardStatusGroupCounts AuditStatusGroups,
+    DashboardStatusGroupCounts TrainingStatusGroups,
+    int TotalTrainingsCount,
+    int ActiveTrainingsCount,
+    int InactiveTrainingsCount,
+    int TrainingTemplatesCount,
     IReadOnlyList<Domain.Entities.Measure> RecentMeasures,
     IReadOnlyList<Domain.Entities.AuditRun> RecentAudits);

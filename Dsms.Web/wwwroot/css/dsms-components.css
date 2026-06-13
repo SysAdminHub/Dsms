@@ -1026,6 +1026,15 @@
     white-space: pre-wrap;
 }
 
+.dsms-template-info-box {
+    padding: var(--dsms-space-2) var(--dsms-space-3);
+    border: 1px solid var(--dsms-border);
+    border-radius: var(--dsms-radius-md);
+    background: var(--dsms-info-bg);
+    font-size: var(--dsms-font-size-sm);
+    line-height: var(--dsms-line-height-normal);
+}
+
 /* ---- Lizenznutzung ---- */
 .dsms-license-usage-badge {
     display: inline-block;
@@ -1393,4 +1402,35 @@
         padding-left: 8px;
         padding-right: 8px;
     }
+}
+
+/* Schulungs-Markdown-Vorschau */
+.training-markdown-content {
+    line-height: 1.6;
+}
+
+.training-markdown-content h1,
+.training-markdown-content h2,
+.training-markdown-content h3 {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.training-markdown-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--dsms-radius-sm, 4px);
+    margin: 0.75rem 0;
+}
+
+.training-markdown-content blockquote {
+    border-left: 3px solid var(--dsms-color-border, #dee2e6);
+    padding-left: 1rem;
+    color: var(--dsms-color-text-muted, #6c757d);
+    margin: 0.75rem 0;
+}
+
+.training-markdown-editor textarea.font-monospace {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.9rem;
 }

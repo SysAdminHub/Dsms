@@ -75,6 +75,26 @@ public static class PageHelpContentDefaults
             Prüfen Sie regelmäßig, ob Ihre Vorlagen die relevanten Themen Ihrer Organisation abdecken.
             """),
         new(
+            Domain.PageHelpContentKeys.TrainingTemplates,
+            "Schulungsvorlagen",
+            "Art. 32 DSGVO, Art. 39 DSGVO, Awareness",
+            "Erstellen und verwalten Sie wiederverwendbare Schulungsinhalte für Datenschutz und Awareness.",
+            """
+            Schulungsvorlagen enthalten wiederverwendbare Inhalte für Datenschutz- und Awareness-Schulungen. Eine Vorlage besteht aus mehreren Karten mit Markdown-Inhalten.
+
+            Bilder können direkt in der Vorlage hochgeladen und über Platzhalter wie {{asset:beispielbild}} eingefügt werden. Optional kann ein Multiple-Choice-Quiz gepflegt werden, das später zur Teilnahmebestätigung verwendet wird.
+
+            Eine Karte ist ein einzelner Lernabschnitt. Markdown ermöglicht einfache Textformatierung. Ein Asset ist ein Bild oder Medium innerhalb der Vorlage. Das Quiz ist der Fragenkatalog zur Wissensprüfung. Die Bestehensgrenze ist die Mindestpunktzahl in Prozent.
+            """),
+        new(
+            Domain.PageHelpContentKeys.Trainings,
+            "Schulungen",
+            "Art. 32 DSGVO, Art. 39 DSGVO, Awareness",
+            "Dokumentieren Sie konkrete Datenschutzschulungen und Awareness-Maßnahmen.",
+            """
+            In diesem Bereich verwalten Sie konkrete Online-Schulungen und Awareness-Maßnahmen. Schulungen können aktiv, inaktiv oder archiviert sein. Aktive Schulungen können später von zugewiesenen Teilnehmern durchgeführt werden. Inaktive Schulungen sind vorbereitet oder pausiert. Archivierte Schulungen werden nicht mehr aktiv genutzt. Schulungen können frei erstellt oder aus Schulungsvorlagen erzeugt werden. Teilnehmerzahlen und Abschlüsse werden später automatisch über die Teilnehmerverwaltung ermittelt. Nachweise wie Teilnehmerlisten oder Zertifikate werden über das Dokumentenmodul verknüpft.
+            """),
+        new(
             Domain.PageHelpContentKeys.AuditRuns,
             "Audit-Durchläufe",
             "DSGVO Rechenschaftspflicht, Art. 5 Abs. 2 DSGVO",

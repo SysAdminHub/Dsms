@@ -129,6 +129,8 @@ builder.Services.AddScoped<TrainingAccessCodeService>();
 builder.Services.AddScoped<TrainingParticipantService>();
 builder.Services.AddScoped<TrainingAssignmentService>();
 builder.Services.AddScoped<TrainingInvitationService>();
+builder.Services.AddScoped<TrainingParticipantSessionService>();
+builder.Services.AddScoped<TrainingParticipantPortalService>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -228,6 +230,8 @@ app.MapPost("/tenant/switch", async (
 app.MapAdditionalIdentityEndpoints();
 app.MapDocumentFileEndpoints();
 app.MapTrainingAssetEndpoints();
+app.MapTrainingParticipantAssetEndpoints();
+app.MapTrainingParticipantLoginEndpoints();
 app.MapTenantDataEndpoints();
 app.MapLegalDocumentEndpoints();
 

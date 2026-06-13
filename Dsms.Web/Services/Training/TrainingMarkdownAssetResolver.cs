@@ -76,4 +76,30 @@ public static partial class TrainingMarkdownAssetResolver
 
     public static string BuildAssetUrl(int trainingTemplateId, string assetKey) =>
         $"/training-assets/{trainingTemplateId}/{assetKey}";
+
+    public static string BuildPortalAssetUrl(string assetKey) =>
+        $"/training-portal-assets/{assetKey}";
+
+    public static string ResolvePortalAssetPlaceholders(
+        string? markdown,
+        IReadOnlySet<string> availableAssetKeys,
+        IReadOnlyDictionary<string, string> assetKeyToAltText)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+            return string.Empty;
+
+        return AssetPlaceholderRegex().Replace(markdown, match =>
+        {
+            var assetKey = match.Groups[1].Value.ToLowerInvariant();
+            if (!availableAssetKeys.Contains(assetKey))
+                return $"*[Bild nicht gefunden: {assetKey}]*";
+
+            var url = BuildPortalAssetUrl(assetKey);
+            var alt = assetKeyToAltText.TryGetValue(assetKey, out var altText) && !string.IsNullOrWhiteSpace(altText)
+                ? altText
+                : assetKey;
+
+            return $"![{alt}]({url})";
+        });
+    }
 }

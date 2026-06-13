@@ -1,0 +1,46 @@
+@using Dsms.Web.Services.Training
+
+<div class="training-markdown-preview">
+    @if (_loading)
+    {
+        <div class="dsms-loading">Inhalt wird geladen …</div>
+    }
+    else if (string.IsNullOrWhiteSpace(Markdown))
+    {
+        <div class="text-muted">Kein Inhalt.</div>
+    }
+    else
+    {
+        <div class="training-markdown-content">@((MarkupString)_html)</div>
+    }
+</div>
+
+@code {
+    [Inject] private TrainingParticipantPortalService PortalService { get; set; } = null!;
+
+    [Parameter] public int TemplateId { get; set; }
+    [Parameter] public string? Markdown { get; set; }
+
+    private string _html = "";
+    private bool _loading = true;
+    private string? _lastMarkdown;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_lastMarkdown == Markdown && !string.IsNullOrEmpty(_html))
+            return;
+
+        _lastMarkdown = Markdown;
+        _loading = true;
+
+        if (string.IsNullOrWhiteSpace(Markdown))
+        {
+            _html = "";
+            _loading = false;
+            return;
+        }
+
+        _html = await PortalService.PrepareMarkdownHtmlAsync(Markdown, TemplateId);
+        _loading = false;
+    }
+}

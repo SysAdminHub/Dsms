@@ -10,4 +10,7 @@ public class TrainingAccessOptions
     public int MaxFailedAccessAttempts { get; set; } = 5;
     public int LockoutMinutes { get; set; } = 15;
     public string AccessPath { get; set; } = "/schulung/teilnahme";
+    public string PortalContentPath { get; set; } = "/schulung/teilnahme/inhalt";
+    public int SessionLifetimeHours { get; set; } = 2;
+    public string ParticipantSessionCookieName { get; set; } = ".Dsms.TrainingParticipant";
 }

@@ -38,7 +38,19 @@ public class TrainingAssignmentService(
             .ThenBy(a => a.ParticipantEmailSnapshot)
             .ToListAsync(ct);
 
-        return assignments.Select(a => ToRow(a, utcNow)).ToList();
+        var assignmentIds = assignments.Select(a => a.Id).ToList();
+        var attempts = assignmentIds.Count == 0
+            ? []
+            : await db.TrainingQuizAttempts
+                .Where(a => assignmentIds.Contains(a.TrainingAssignmentId) && a.SubmittedAtUtc != null)
+                .OrderByDescending(a => a.AttemptNumber)
+                .ToListAsync(ct);
+
+        var latestAttempts = attempts
+            .GroupBy(a => a.TrainingAssignmentId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        return assignments.Select(a => ToRow(a, utcNow, latestAttempts.GetValueOrDefault(a.Id))).ToList();
     }
 
     public async Task<TrainingParticipantStats> GetStatsForTrainingAsync(
@@ -101,6 +113,32 @@ public class TrainingAssignmentService(
             .Include(a => a.Training)
             .Include(a => a.TrainingParticipant)
             .FirstOrDefaultAsync(a => a.Id == assignmentId && a.TenantId == tenantId, ct);
+    }
+
+    public async Task<TrainingAssignmentDetail?> GetAssignmentDetailAsync(
+        int assignmentId,
+        int tenantId,
+        CancellationToken ct = default)
+    {
+        var assignment = await GetAssignmentByIdAsync(assignmentId, tenantId, ct);
+        if (assignment is null)
+            return null;
+
+        var templateId = assignment.Training.TrainingTemplateId;
+        var totalSections = templateId is null
+            ? 0
+            : await db.TrainingTemplateSections
+                .CountAsync(s => s.TrainingTemplateId == templateId && s.IsActive, ct);
+
+        var viewedSections = await db.TrainingAssignmentSectionProgress
+            .CountAsync(p => p.TrainingAssignmentId == assignmentId, ct);
+
+        var quizAttempts = await db.TrainingQuizAttempts
+            .Where(a => a.TrainingAssignmentId == assignmentId)
+            .OrderByDescending(a => a.AttemptNumber)
+            .ToListAsync(ct);
+
+        return new TrainingAssignmentDetail(assignment, viewedSections, totalSections, quizAttempts);
     }
 
     public async Task<TrainingAssignmentOperationResult> AddParticipantToTrainingAsync(
@@ -450,7 +488,10 @@ public class TrainingAssignmentService(
     private async Task<TrainingEntity?> GetTrainingAsync(int trainingId, int tenantId, CancellationToken ct) =>
         await db.Trainings.FirstOrDefaultAsync(t => t.Id == trainingId && t.TenantId == tenantId, ct);
 
-    private static TrainingAssignmentRow ToRow(TrainingAssignment assignment, DateTime utcNow)
+    private static TrainingAssignmentRow ToRow(
+        TrainingAssignment assignment,
+        DateTime utcNow,
+        TrainingQuizAttempt? latestQuizAttempt)
     {
         var isExpired = assignment.AccessCodeExpiresAtUtc is not null
             && assignment.AccessCodeExpiresAtUtc <= utcNow
@@ -464,7 +505,9 @@ public class TrainingAssignmentService(
                 ?? assignment.TrainingParticipant?.Name
                 ?? assignment.ParticipantEmailSnapshot,
             isExpired,
-            isLocked);
+            isLocked,
+            latestQuizAttempt?.Passed,
+            latestQuizAttempt?.ScorePercent);
     }
 
     private void RefreshExpiredStatus(TrainingAssignment assignment, DateTime utcNow)

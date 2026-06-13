@@ -37,9 +37,13 @@ public class TrainingAssignment : ArchivableEntityBase, ITenantEntity
     public TrainingAssignmentStatus Status { get; set; } = TrainingAssignmentStatus.Assigned;
 
     public DateTime? StartedAtUtc { get; set; }
+    public DateTime? LastAccessAtUtc { get; set; }
     public DateTime? CompletedAtUtc { get; set; }
     public DateTime? ParticipationConfirmedAtUtc { get; set; }
 
     public string? CreatedByUserId { get; set; }
     public string? UpdatedByUserId { get; set; }
+
+    public ICollection<TrainingAssignmentSectionProgress> SectionProgress { get; set; } = [];
+    public ICollection<TrainingQuizAttempt> QuizAttempts { get; set; } = [];
 }

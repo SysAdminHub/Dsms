@@ -1,21 +1,62 @@
 @page "/schulung/teilnahme"
-@layout PublicSignupLayout
-@rendermode InteractiveServer
+@layout TrainingParticipantLayout
+@using Dsms.Web.Services.Training
+@using Microsoft.AspNetCore.Antiforgery
+@inject IHttpContextAccessor HttpContextAccessor
+@inject IAntiforgery Antiforgery
 
 <BrandedPageTitle Title="Schulungszugang" />
 
-<div class="dsms-public-signup-page">
-    <header class="dsms-public-signup-header dsms-login-brand">
-        <BrandLogo />
-        <h1>Schulungszugang</h1>
-    </header>
-
+<div class="dsms-training-participant-page">
     <div class="dsms-card">
+        <div class="dsms-card-header">
+            <h1 class="h4 mb-0">Schulungszugang</h1>
+        </div>
         <div class="dsms-card-body">
-            <p>Der Schulungszugang wird im nächsten Schritt aktiviert.</p>
-            <p class="text-muted small mb-0">
-                Sie haben eine Einladungs-E-Mail mit Zugangscode erhalten? Die Anmeldung mit E-Mail und Code wird hier bald verfügbar sein.
+            <p class="text-muted small">
+                Bitte verwenden Sie die E-Mail-Adresse und den 6-stelligen Zugangscode aus Ihrer Einladung.
             </p>
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div class="alert alert-danger dsms-alert">@_error</div>
+            }
+
+            @if (_antiforgeryTokens is not null)
+            {
+                <form method="post" action="/schulung/teilnahme/login">
+                    <input type="hidden" name="@_antiforgeryTokens.FormFieldName" value="@_antiforgeryTokens.RequestToken" />
+                    <div class="mb-3">
+                        <label class="form-label" for="participant-email">E-Mail-Adresse</label>
+                        <input id="participant-email" class="form-control" type="email" name="email"
+                               autocomplete="email" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="participant-code">Zugangscode</label>
+                        <input id="participant-code" class="form-control" type="text" name="code"
+                               inputmode="numeric" maxlength="6" pattern="[0-9]{6}"
+                               autocomplete="one-time-code" placeholder="000000" required />
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Schulung starten</button>
+                </form>
+            }
         </div>
     </div>
 </div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+
+    private string? _error;
+    private AntiforgeryTokenSet? _antiforgeryTokens;
+
+    protected override void OnInitialized()
+    {
+        _error = string.IsNullOrWhiteSpace(Error) ? null : Uri.UnescapeDataString(Error);
+
+        var httpContext = HttpContextAccessor.HttpContext;
+        if (httpContext is not null)
+            _antiforgeryTokens = Antiforgery.GetAndStoreTokens(httpContext);
+    }
+}

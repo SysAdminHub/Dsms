@@ -66,6 +66,9 @@ public class ApplicationDbContext(
     public DbSet<Training> Trainings => Set<Training>();
     public DbSet<TrainingParticipant> TrainingParticipants => Set<TrainingParticipant>();
     public DbSet<TrainingAssignment> TrainingAssignments => Set<TrainingAssignment>();
+    public DbSet<TrainingAssignmentSectionProgress> TrainingAssignmentSectionProgress => Set<TrainingAssignmentSectionProgress>();
+    public DbSet<TrainingQuizAttempt> TrainingQuizAttempts => Set<TrainingQuizAttempt>();
+    public DbSet<TrainingQuizAnswer> TrainingQuizAnswers => Set<TrainingQuizAnswer>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -538,6 +541,44 @@ public class ApplicationDbContext(
             e.HasIndex(a => a.AccessCodeExpiresAtUtc);
             e.HasIndex(a => a.LockedUntilUtc);
             e.HasIndex(a => new { a.TenantId, a.TrainingId });
+        });
+
+        builder.Entity<TrainingAssignmentSectionProgress>(e =>
+        {
+            e.ToTable("TrainingAssignmentSectionProgress");
+            e.HasOne(p => p.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(p => p.TrainingAssignment).WithMany(a => a.SectionProgress).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(p => p.TrainingTemplateSection).WithMany().OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(p => p.TenantId);
+            e.HasIndex(p => p.TrainingAssignmentId);
+            e.HasIndex(p => p.TrainingTemplateSectionId);
+            e.HasIndex(p => new { p.TrainingAssignmentId, p.TrainingTemplateSectionId }).IsUnique();
+        });
+
+        builder.Entity<TrainingQuizAttempt>(e =>
+        {
+            e.ToTable("TrainingQuizAttempts");
+            e.HasOne(a => a.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(a => a.TrainingAssignment).WithMany(x => x.QuizAttempts).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(a => a.TenantId);
+            e.HasIndex(a => a.TrainingAssignmentId);
+            e.HasIndex(a => a.AttemptNumber);
+            e.HasIndex(a => a.SubmittedAtUtc);
+            e.HasIndex(a => a.Passed);
+        });
+
+        builder.Entity<TrainingQuizAnswer>(e =>
+        {
+            e.ToTable("TrainingQuizAnswers");
+            e.Property(a => a.AnswerTextSnapshot).HasMaxLength(1000);
+            e.HasOne(a => a.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(a => a.TrainingQuizAttempt).WithMany(x => x.Answers).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(a => a.TrainingQuestion).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(a => a.TrainingQuestionOption).WithMany().OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(a => a.TenantId);
+            e.HasIndex(a => a.TrainingQuizAttemptId);
+            e.HasIndex(a => a.TrainingQuestionId);
+            e.HasIndex(a => a.TrainingQuestionOptionId);
         });
 
         builder.Entity<DocumentLink>(e =>
@@ -1106,6 +1147,18 @@ public class ApplicationDbContext(
         ApplyTrainingChildTenantFilter<TrainingTemplateAsset>(builder);
         ApplyTrainingChildTenantFilter<TrainingQuestion>(builder);
         ApplyTrainingChildTenantFilter<TrainingQuestionOption>(builder);
+
+        builder.Entity<TrainingAssignmentSectionProgress>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<TrainingQuizAttempt>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<TrainingQuizAnswer>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
     }
 
     private void ApplyTrainingChildTenantFilter<TEntity>(ModelBuilder builder)

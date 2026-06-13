@@ -50,13 +50,15 @@ else
                     <tr>
                         <th>Name</th>
                         <th>E-Mail</th>
-                        <th>Abteilung</th>
                         <th>Status</th>
-                        <th>Einladung gesendet</th>
-                        <th>Code gültig bis</th>
-                        <th>Fehlversuche</th>
+                        <th>Eingeladen</th>
+                        <th>Gestartet</th>
                         <th>Abgeschlossen</th>
-                        @if (CanManage)
+                        <th>Bestätigt</th>
+                        <th>Quiz</th>
+                        <th>Score</th>
+                        <th>Code gültig bis</th>
+                        @if (CanView)
                         {
                             <th class="dsms-table-actions"></th>
                         }
@@ -70,12 +72,25 @@ else
                         <tr>
                             <td>@(row.DisplayName)</td>
                             <td>@a.ParticipantEmailSnapshot</td>
-                            <td>@(a.TrainingParticipant?.Department ?? "—")</td>
                             <td>
                                 <StatusBadge Text="@TrainingLabels.GetAssignmentStatusLabel(status)"
                                              Variant="@TrainingLabels.GetAssignmentStatusVariant(status)" />
                             </td>
                             <td>@(a.InvitationSentAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
+                            <td>@(a.StartedAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
+                            <td>@(a.CompletedAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
+                            <td>@(a.ParticipationConfirmedAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
+                            <td>
+                                @if (row.QuizPassed is bool passed)
+                                {
+                                    @(passed ? "Ja" : "Nein")
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </td>
+                            <td>@(row.LastQuizScorePercent is int score ? $"{score} %" : "—")</td>
                             <td>
                                 @if (a.AccessCodeExpiresAtUtc is DateTime expires)
                                 {
@@ -90,48 +105,41 @@ else
                                     <span>—</span>
                                 }
                             </td>
-                            <td>
-                                @if (row.IsLocked && a.LockedUntilUtc is DateTime lockedUntil)
-                                {
-                                    <span class="text-danger">Gesperrt bis @lockedUntil.ToLocalTime().ToString("g")</span>
-                                }
-                                else if (a.FailedAccessAttempts > 0)
-                                {
-                                    @a.FailedAccessAttempts
-                                }
-                                else
-                                {
-                                    <span>—</span>
-                                }
-                            </td>
-                            <td>@(a.CompletedAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
-                            @if (CanManage)
+                            @if (CanView)
                             {
                                 <td class="dsms-table-actions">
                                     <div class="dsms-table-action-stack">
-                                        @if (a.Status is TrainingAssignmentStatus.Assigned or TrainingAssignmentStatus.CodeExpired or TrainingAssignmentStatus.Locked)
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                disabled="@_busy"
+                                                @onclick="() => OpenDetailModalAsync(a.Id)">
+                                            Details
+                                        </button>
+                                        @if (CanManage)
                                         {
-                                            <button type="button" class="btn btn-sm btn-outline-primary"
-                                                    disabled="@_busy"
-                                                    @onclick="() => SendInvitationAsync(a.Id)">
-                                                Einladung senden
-                                            </button>
-                                        }
-                                        @if (a.Status is TrainingAssignmentStatus.Invited or TrainingAssignmentStatus.CodeExpired or TrainingAssignmentStatus.Locked)
-                                        {
-                                            <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                    disabled="@_busy"
-                                                    @onclick="() => ResendInvitationAsync(a.Id)">
-                                                Erneut senden
-                                            </button>
-                                        }
-                                        @if (a.Status != TrainingAssignmentStatus.Cancelled && a.Status != TrainingAssignmentStatus.Completed)
-                                        {
-                                            <button type="button" class="btn btn-sm btn-outline-warning"
-                                                    disabled="@_busy"
-                                                    @onclick="() => CancelAssignmentAsync(a.Id)">
-                                                Zuweisung abbrechen
-                                            </button>
+                                            @if (a.Status is TrainingAssignmentStatus.Assigned or TrainingAssignmentStatus.CodeExpired or TrainingAssignmentStatus.Locked)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        disabled="@_busy"
+                                                        @onclick="() => SendInvitationAsync(a.Id)">
+                                                    Einladung senden
+                                                </button>
+                                            }
+                                            @if (a.Status is TrainingAssignmentStatus.Invited or TrainingAssignmentStatus.CodeExpired or TrainingAssignmentStatus.Locked)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                        disabled="@_busy"
+                                                        @onclick="() => ResendInvitationAsync(a.Id)">
+                                                    Erneut senden
+                                                </button>
+                                            }
+                                            @if (a.Status != TrainingAssignmentStatus.Cancelled && a.Status != TrainingAssignmentStatus.Completed)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-warning"
+                                                        disabled="@_busy"
+                                                        @onclick="() => CancelAssignmentAsync(a.Id)">
+                                                    Zuweisung abbrechen
+                                                </button>
+                                            }
                                         }
                                     </div>
                                 </td>
@@ -284,6 +292,58 @@ else
             </div>
         </div>
     }
+
+    @if (_showDetailModal && _detail is not null)
+    {
+        var d = _detail.Assignment;
+        <div class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,.4);">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Teilnehmerdetails</h5>
+                        <button type="button" class="btn-close" @onclick="CloseDetailModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <dl class="row">
+                            <dt class="col-sm-4">Name</dt>
+                            <dd class="col-sm-8">@(_rows.FirstOrDefault(r => r.Assignment.Id == d.Id)?.DisplayName ?? "—")</dd>
+                            <dt class="col-sm-4">E-Mail</dt>
+                            <dd class="col-sm-8">@d.ParticipantEmailSnapshot</dd>
+                            <dt class="col-sm-4">Status</dt>
+                            <dd class="col-sm-8">@TrainingLabels.GetAssignmentStatusLabel(d.Status)</dd>
+                            <dt class="col-sm-4">Fortschritt Karten</dt>
+                            <dd class="col-sm-8">@_detail.ViewedSectionCount von @_detail.TotalSectionCount angesehen</dd>
+                            <dt class="col-sm-4">Gestartet</dt>
+                            <dd class="col-sm-8">@(d.StartedAtUtc?.ToLocalTime().ToString("g") ?? "—")</dd>
+                            <dt class="col-sm-4">Abgeschlossen</dt>
+                            <dd class="col-sm-8">@(d.CompletedAtUtc?.ToLocalTime().ToString("g") ?? "—")</dd>
+                            <dt class="col-sm-4">Teilnahme bestätigt</dt>
+                            <dd class="col-sm-8">@(d.ParticipationConfirmedAtUtc?.ToLocalTime().ToString("g") ?? "—")</dd>
+                            <dt class="col-sm-4">Fehlversuche</dt>
+                            <dd class="col-sm-8">@d.FailedAccessAttempts</dd>
+                        </dl>
+                        @if (_detail.QuizAttempts.Count > 0)
+                        {
+                            <h6 class="mt-3">Quizversuche</h6>
+                            <ul class="list-unstyled mb-0">
+                                @foreach (var attempt in _detail.QuizAttempts)
+                                {
+                                    <li class="mb-1">
+                                        Versuch @attempt.AttemptNumber:
+                                        @attempt.ScorePercent % (@(attempt.Passed ? "bestanden" : "nicht bestanden"))
+                                        · @(attempt.SubmittedAtUtc?.ToLocalTime().ToString("g") ?? "—")
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseDetailModal">Schließen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -334,6 +394,9 @@ else
     private bool _showConfirmSendAll;
     private int _pendingInviteCount;
 
+    private bool _showDetailModal;
+    private TrainingAssignmentDetail? _detail;
+
     protected override async Task OnParametersSetAsync()
     {
         if (CanView)
@@ -358,6 +421,18 @@ else
         if (row.IsLocked)
             return TrainingAssignmentStatus.Locked;
         return row.Assignment.Status;
+    }
+
+    private async Task OpenDetailModalAsync(int assignmentId)
+    {
+        _detail = await AssignmentService.GetAssignmentDetailAsync(assignmentId, TenantId);
+        _showDetailModal = _detail is not null;
+    }
+
+    private void CloseDetailModal()
+    {
+        _showDetailModal = false;
+        _detail = null;
     }
 
     private IEnumerable<Domain.Entities.TrainingParticipant> FilteredParticipants()

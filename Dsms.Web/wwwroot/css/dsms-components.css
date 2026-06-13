@@ -1434,3 +1434,54 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 0.9rem;
 }
+
+/* Teilnehmerportal – Schulungskarten */
+.training-participant-card__header {
+    padding: var(--dsms-space-4) var(--dsms-space-6);
+    border-bottom: 1px solid var(--dsms-border);
+    background: #fafbfc;
+    font-weight: 600;
+    font-size: var(--dsms-font-size-sm);
+    color: var(--dsms-text-secondary);
+}
+
+.training-participant-card__body {
+    padding: var(--dsms-space-6);
+}
+
+.training-participant-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--dsms-space-4);
+    padding: var(--dsms-space-5) var(--dsms-space-6) var(--dsms-space-6);
+    border-top: 1px solid var(--dsms-border);
+    background: var(--dsms-surface);
+}
+
+.training-participant-card__actions--end {
+    justify-content: flex-end;
+}
+
+@media (max-width: 575.98px) {
+    .training-participant-card__header,
+    .training-participant-card__body,
+    .training-participant-card__actions {
+        padding-left: var(--dsms-space-4);
+        padding-right: var(--dsms-space-4);
+    }
+
+    .training-participant-card__actions {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+
+    .training-participant-card__actions--end {
+        align-items: stretch;
+    }
+
+    .training-participant-card__actions .btn {
+        width: 100%;
+    }
+}

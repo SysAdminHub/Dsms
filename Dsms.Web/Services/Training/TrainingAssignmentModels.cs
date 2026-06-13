@@ -11,12 +11,20 @@ public sealed record TrainingAssignmentRow(
     TrainingAssignment Assignment,
     string DisplayName,
     bool IsCodeExpired,
-    bool IsLocked);
+    bool IsLocked,
+    bool? QuizPassed,
+    int? LastQuizScorePercent);
 
 public sealed record TrainingParticipantStats(
     int TotalAssigned,
     int InvitedCount,
     int CompletedCount);
+
+public sealed record TrainingAssignmentDetail(
+    TrainingAssignment Assignment,
+    int ViewedSectionCount,
+    int TotalSectionCount,
+    IReadOnlyList<TrainingQuizAttempt> QuizAttempts);
 
 public sealed record TrainingAssignmentOperationResult(
     bool Success,

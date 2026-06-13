@@ -46,13 +46,16 @@ public sealed record TrainingBulkImportLineResult(
     string? Email,
     string? Name,
     string? Department,
-    bool AlreadyAssigned);
+    bool AlreadyAssigned,
+    bool IsExistingParticipant);
 
 public sealed record TrainingBulkImportPreview(
     IReadOnlyList<TrainingBulkImportLineResult> Lines,
     int ValidCount,
     int AlreadyAssignedCount,
-    int InvalidCount);
+    int InvalidCount,
+    int ReusedParticipantCount,
+    int NewParticipantCount);
 
 public sealed record TrainingInvitationBatchResult(
     int SuccessCount,

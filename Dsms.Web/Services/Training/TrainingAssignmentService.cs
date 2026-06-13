@@ -240,7 +240,7 @@ public class TrainingAssignmentService(
         CancellationToken ct = default)
     {
         if (!await CanManageAsync(ct))
-            return new TrainingBulkImportPreview([], 0, 0, 0);
+            return new TrainingBulkImportPreview([], 0, 0, 0, 0, 0);
 
         var existingEmails = await db.TrainingAssignments
             .Where(a => a.TrainingId == trainingId
@@ -275,7 +275,7 @@ public class TrainingAssignmentService(
                 lines.Add(new TrainingBulkImportLineResult(
                     lineNumber, rawLine, false,
                     "Zu viele Spalten. Bitte maximal Name;E-Mail;Abteilung verwenden.",
-                    null, null, null, false));
+                    null, null, null, false, false));
                 continue;
             }
 
@@ -293,7 +293,7 @@ public class TrainingAssignmentService(
             if (string.IsNullOrWhiteSpace(email) || !TrainingParticipantService.IsValidEmail(email))
             {
                 lines.Add(new TrainingBulkImportLineResult(
-                    lineNumber, rawLine, false, "Ungültige E-Mail-Adresse.", email, name, department, false));
+                    lineNumber, rawLine, false, "Ungültige E-Mail-Adresse.", email, name, department, false, false));
                 continue;
             }
 
@@ -301,20 +301,26 @@ public class TrainingAssignmentService(
             if (!seenInBatch.Add(normalized))
             {
                 lines.Add(new TrainingBulkImportLineResult(
-                    lineNumber, rawLine, false, "Duplikat in der Eingabe.", email, name, department, false));
+                    lineNumber, rawLine, false, "Doppelte E-Mail in der Eingabe.", email, name, department, false, false));
                 continue;
             }
 
+            var existingParticipant = await db.TrainingParticipants
+                .AnyAsync(p => p.TenantId == tenantId && p.NormalizedEmail == normalized, ct);
+
             var alreadyAssigned = existingSet.Contains(normalized);
             lines.Add(new TrainingBulkImportLineResult(
-                lineNumber, rawLine, true, null, normalized, name, department, alreadyAssigned));
+                lineNumber, rawLine, true, null, normalized, name, department, alreadyAssigned, existingParticipant));
         }
 
+        var validLines = lines.Where(l => l.IsValid).ToList();
         return new TrainingBulkImportPreview(
             lines,
-            lines.Count(l => l.IsValid && !l.AlreadyAssigned),
-            lines.Count(l => l.IsValid && l.AlreadyAssigned),
-            lines.Count(l => !l.IsValid));
+            validLines.Count(l => !l.AlreadyAssigned),
+            validLines.Count(l => l.AlreadyAssigned),
+            lines.Count(l => !l.IsValid),
+            validLines.Count(l => l.IsExistingParticipant && !l.AlreadyAssigned),
+            validLines.Count(l => !l.IsExistingParticipant && !l.AlreadyAssigned));
     }
 
     public async Task<TrainingInvitationBatchResult> ExecuteBulkImportAsync(

@@ -100,6 +100,8 @@ public interface IComplianceAuditLogService
     Task LogTrainingParticipantCreatedAsync(int participantId, int tenantId);
     Task LogTrainingParticipantUpdatedAsync(int participantId, int tenantId);
     Task LogTrainingParticipantArchivedAsync(int participantId, int tenantId);
+    Task LogTrainingParticipantDeactivatedAsync(int participantId, int tenantId);
+    Task LogTrainingParticipantReactivatedAsync(int participantId, int tenantId);
     Task LogTrainingParticipantAssignedAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId);
     Task LogTrainingAssignmentCancelledAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId);
     Task LogTrainingInvitationSentAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId);

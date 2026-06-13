@@ -1,0 +1,147 @@
+@page "/trainings/participants/edit/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using Dsms.Web.Services.Training
+
+<BrandedPageTitle Title="Teilnehmer bearbeiten" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Teilnehmer bearbeiten" HelpKey="training-participants" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (!_canManage)
+{
+    <PageHeader Title="Teilnehmer bearbeiten" HelpKey="training-participants" />
+    <div class="alert alert-warning dsms-alert">Keine Berechtigung zum Bearbeiten von Teilnehmern.</div>
+}
+else if (_notFound)
+{
+    <PageHeader Title="Teilnehmer bearbeiten" HelpKey="training-participants" />
+    <div class="alert alert-warning dsms-alert">Teilnehmer nicht gefunden.</div>
+}
+else
+{
+    <PageHeader Title="Teilnehmer bearbeiten"
+                HelpKey="training-participants"
+                Subtitle="Stammdaten des Schulungsteilnehmers">
+        <a class="btn btn-outline-secondary" href="trainings/participants/@Id">Zurück</a>
+    </PageHeader>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_messageIsError ? "alert-danger" : "alert-success") dsms-alert">@_message</div>
+    }
+
+    <div class="alert alert-info dsms-alert small">
+        Wenn Sie die E-Mail-Adresse ändern, bleiben E-Mail-Snapshots in bestehenden Schulungszuweisungen unverändert.
+        Neue Zuweisungen verwenden die aktualisierte E-Mail.
+    </div>
+
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+                <div class="mb-3">
+                    <label class="form-label" for="tp-name">Name</label>
+                    <InputText id="tp-name" class="form-control" @bind-Value="_model.Name" maxlength="200" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="tp-email">E-Mail-Adresse <span class="text-danger">*</span></label>
+                    <InputText id="tp-email" class="form-control" @bind-Value="_model.Email" maxlength="255" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="tp-dept">Abteilung</label>
+                    <InputText id="tp-dept" class="form-control" @bind-Value="_model.Department" maxlength="200" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="tp-ext">Externe Referenz</label>
+                    <InputText id="tp-ext" class="form-control" @bind-Value="_model.ExternalReference" maxlength="100" />
+                </div>
+                <div class="form-check mb-4">
+                    <InputCheckbox id="tp-active" class="form-check-input" @bind-Value="_model.IsActive" />
+                    <label class="form-check-label" for="tp-active">Aktiv</label>
+                </div>
+                <button type="submit" class="btn btn-primary" disabled="@_busy">Speichern</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private TrainingParticipantService ParticipantService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canManage;
+    private bool _notFound;
+    private bool _busy;
+    private string? _message;
+    private bool _messageIsError;
+    private ParticipantEditModel _model = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        _canManage = await ParticipantService.CanManageAsync();
+        _notFound = false;
+        _message = null;
+
+        if (_tenantId is null || !_canManage) return;
+
+        var participant = await ParticipantService.GetByIdAsync(Id, _tenantId.Value);
+        if (participant is null)
+        {
+            _notFound = true;
+            return;
+        }
+
+        _model = new ParticipantEditModel
+        {
+            Name = participant.Name,
+            Email = participant.Email,
+            Department = participant.Department,
+            ExternalReference = participant.ExternalReference,
+            IsActive = participant.IsActive
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_tenantId is null) return;
+
+        _busy = true;
+        _message = null;
+
+        var result = await ParticipantService.UpdateParticipantAsync(
+            Id,
+            _tenantId.Value,
+            _model.Email,
+            _model.Name,
+            _model.Department,
+            _model.ExternalReference,
+            _model.IsActive);
+
+        _busy = false;
+
+        if (!result.Success)
+        {
+            _message = result.Message;
+            _messageIsError = true;
+            return;
+        }
+
+        Navigation.NavigateTo($"trainings/participants/{Id}");
+    }
+
+    private sealed class ParticipantEditModel
+    {
+        public string? Name { get; set; }
+        public string Email { get; set; } = "";
+        public string? Department { get; set; }
+        public string? ExternalReference { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+}

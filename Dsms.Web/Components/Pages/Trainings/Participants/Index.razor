@@ -1,0 +1,194 @@
+@page "/trainings/participants"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using Dsms.Web.Services.Training
+
+<BrandedPageTitle Title="Schulungsteilnehmer" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Schulungsteilnehmer" HelpKey="training-participants" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (!_canView)
+{
+    <PageHeader Title="Schulungsteilnehmer" HelpKey="training-participants" />
+    <div class="alert alert-warning dsms-alert">Keine Berechtigung für Teilnehmerdaten.</div>
+}
+else
+{
+    <PageHeader Title="Schulungsteilnehmer"
+                HelpKey="training-participants"
+                Subtitle="Verwalten Sie Teilnehmer und sehen Sie, welche Schulungen bereits zugewiesen, gestartet oder abgeschlossen wurden." />
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label" for="tp-search">Suche</label>
+                    <input id="tp-search" class="form-control" @bind="_searchText" @bind:event="oninput"
+                           @onkeyup="LoadDataAsync" placeholder="Name, E-Mail, Abteilung …" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="tp-filter">Filter</label>
+                    <select id="tp-filter" class="form-select" @bind="_filter" @bind:after="LoadDataAsync">
+                        <option value="@TrainingParticipantListFilter.Active">Aktiv</option>
+                        <option value="@TrainingParticipantListFilter.All">Alle</option>
+                        <option value="@TrainingParticipantListFilter.Inactive">Inaktiv</option>
+                        <option value="@TrainingParticipantListFilter.HasOpen">Hat offene Schulungen</option>
+                        <option value="@TrainingParticipantListFilter.HasCompleted">Hat abgeschlossene Schulungen</option>
+                        <option value="@TrainingParticipantListFilter.NeverCompleted">Noch nie abgeschlossen</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="tp-dept">Abteilung</label>
+                    <select id="tp-dept" class="form-select" @bind="_department" @bind:after="LoadDataAsync">
+                        <option value="">Alle Abteilungen</option>
+                        @foreach (var dept in _departments)
+                        {
+                            <option value="@dept">@dept</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="dsms-loading">Lade Teilnehmer …</div>
+    }
+    else if (_rows.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">Keine Teilnehmer gefunden.</div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>E-Mail</th>
+                            <th>Abteilung</th>
+                            <th>Status</th>
+                            <th>Schulungen</th>
+                            <th>Letzte Teilnahme</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in _rows)
+                        {
+                            var p = row.Participant;
+                            <tr>
+                                <td>
+                                    <a href="trainings/participants/@p.Id">@(p.Name ?? p.Email)</a>
+                                </td>
+                                <td>@p.Email</td>
+                                <td>@(p.Department ?? "—")</td>
+                                <td>
+                                    @if (p.IsActive && !p.IsArchived)
+                                    {
+                                        <StatusBadge Text="Aktiv" Variant="success" />
+                                    }
+                                    else
+                                    {
+                                        <StatusBadge Text="Inaktiv" Variant="warning" />
+                                    }
+                                </td>
+                                <td class="small">
+                                    @row.TotalAssignments gesamt
+                                    @if (row.OpenCount > 0 || row.CompletedCount > 0)
+                                    {
+                                        <span class="text-muted">
+                                            · @row.OpenCount offen · @row.CompletedCount abgeschlossen
+                                        </span>
+                                    }
+                                </td>
+                                <td>@(row.LastParticipationUtc?.ToLocalTime().ToString("g") ?? "—")</td>
+                                <td class="dsms-table-actions">
+                                    <div class="dsms-table-action-stack">
+                                        <a class="btn btn-sm btn-outline-secondary" href="trainings/participants/@p.Id">Anzeigen</a>
+                                        @if (_canManage)
+                                        {
+                                            <a class="btn btn-sm btn-outline-primary" href="trainings/participants/edit/@p.Id">Bearbeiten</a>
+                                            @if (p.IsActive && !p.IsArchived)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-warning"
+                                                        disabled="@_busy" @onclick="() => ToggleActiveAsync(p.Id, false)">
+                                                    Deaktivieren
+                                                </button>
+                                            }
+                                            else if (!p.IsArchived)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-success"
+                                                        disabled="@_busy" @onclick="() => ToggleActiveAsync(p.Id, true)">
+                                                    Reaktivieren
+                                                </button>
+                                            }
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private TrainingParticipantService ParticipantService { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canView;
+    private bool _canManage;
+    private bool _loading = true;
+    private bool _busy;
+    private string _searchText = "";
+    private string _department = "";
+    private TrainingParticipantListFilter _filter = TrainingParticipantListFilter.Active;
+    private List<TrainingParticipantListRow> _rows = [];
+    private List<string> _departments = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canView = await ParticipantService.CanViewAsync(_tenantId.Value);
+        _canManage = await ParticipantService.CanManageAsync();
+        if (_canView)
+            await LoadDataAsync();
+        else
+            _loading = false;
+    }
+
+    private async Task LoadDataAsync()
+    {
+        if (_tenantId is null || !_canView) return;
+
+        _loading = true;
+        _departments = (await ParticipantService.GetDepartmentsAsync(_tenantId.Value)).ToList();
+        _rows = (await ParticipantService.GetParticipantOverviewAsync(
+            _tenantId.Value,
+            _searchText,
+            _filter,
+            string.IsNullOrWhiteSpace(_department) ? null : _department)).ToList();
+        _loading = false;
+    }
+
+    private async Task ToggleActiveAsync(int id, bool active)
+    {
+        if (_tenantId is null) return;
+
+        _busy = true;
+        await ParticipantService.SetParticipantActiveAsync(id, _tenantId.Value, active);
+        await LoadDataAsync();
+        _busy = false;
+    }
+}

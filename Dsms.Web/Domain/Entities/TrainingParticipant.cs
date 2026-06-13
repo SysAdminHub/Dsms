@@ -11,6 +11,8 @@ public class TrainingParticipant : ArchivableEntityBase, ITenantEntity
 
     public string? Name { get; set; }
     public string Email { get; set; } = string.Empty;
+    /// <summary>Normalisierte E-Mail (trim, lowercase) für eindeutige Suche pro Mandant.</summary>
+    public string NormalizedEmail { get; set; } = string.Empty;
     public string? Department { get; set; }
     public string? ExternalReference { get; set; }
 

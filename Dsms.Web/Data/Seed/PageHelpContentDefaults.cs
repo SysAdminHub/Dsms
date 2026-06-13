@@ -95,6 +95,14 @@ public static class PageHelpContentDefaults
             In diesem Bereich verwalten Sie konkrete Online-Schulungen und Awareness-Maßnahmen. Schulungen können aktiv, inaktiv oder archiviert sein. Im Tab „Teilnehmer“ weisen Sie Personen per E-Mail zu und versenden Einladungen mit 6-stelligem Zugangscode. Teilnehmer sind keine App-Benutzer und erhalten kein Passwort. Teilnehmer können Schulungen ohne App-Konto über E-Mail-Adresse und Zugangscode unter /schulung/teilnahme durchführen. Fortschritt, Quizversuche und Teilnahmebestätigung werden pro Zuweisung dokumentiert. Nachweise wie Teilnehmerlisten oder Zertifikate werden über das Dokumentenmodul verknüpft.
             """),
         new(
+            Domain.PageHelpContentKeys.TrainingParticipants,
+            "Schulungsteilnehmer",
+            "Art. 32 DSGVO, Art. 39 DSGVO",
+            "Alle Schulungsteilnehmer des Mandanten und deren Schulungshistorie.",
+            """
+            In der Teilnehmerübersicht sehen Sie alle Schulungsteilnehmer des Mandanten und deren Schulungshistorie. Teilnehmer sind keine normalen Benutzer der Datenschutz-Cloud. Sie erhalten bei Bedarf Zugangscodes für einzelne Schulungen. E-Mail-Adressen werden pro Mandant eindeutig geführt, damit keine doppelten Teilnehmer entstehen.
+            """),
+        new(
             Domain.PageHelpContentKeys.AuditRuns,
             "Audit-Durchläufe",
             "DSGVO Rechenschaftspflicht, Art. 5 Abs. 2 DSGVO",

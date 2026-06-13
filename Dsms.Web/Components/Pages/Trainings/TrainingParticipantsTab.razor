@@ -70,7 +70,16 @@ else
                         var a = row.Assignment;
                         var status = GetDisplayStatus(row);
                         <tr>
-                            <td>@(row.DisplayName)</td>
+                            <td>
+                                @if (a.TrainingParticipantId is int participantId)
+                                {
+                                    <a href="trainings/participants/@participantId">@(row.DisplayName)</a>
+                                }
+                                else
+                                {
+                                    @(row.DisplayName)
+                                }
+                            </td>
                             <td>@a.ParticipantEmailSnapshot</td>
                             <td>
                                 <StatusBadge Text="@TrainingLabels.GetAssignmentStatusLabel(status)"
@@ -249,8 +258,9 @@ else
                         {
                             <div class="alert alert-info dsms-alert mt-3">
                                 <strong>Zusammenfassung:</strong>
-                                @_bulkPreview.ValidCount gültige Teilnehmer,
-                                @_bulkPreview.AlreadyAssignedCount bereits zugewiesen,
+                                @_bulkPreview.NewParticipantCount neue Teilnehmer,
+                                @_bulkPreview.ReusedParticipantCount vorhandene Teilnehmer wiederverwendet,
+                                @_bulkPreview.AlreadyAssignedCount bereits dieser Schulung zugewiesen,
                                 @_bulkPreview.InvalidCount ungültige Zeilen.
                             </div>
                         }

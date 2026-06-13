@@ -92,6 +92,12 @@
 
                 <div class="nav-item">
 
+                    <NavLink class="nav-link" href="measures">Maßnahmen</NavLink>
+
+                </div>
+
+                <div class="nav-item">
+
                     <NavLink class="nav-link" href="organization">Organisation</NavLink>
 
                 </div>
@@ -122,11 +128,15 @@
 
                 </div>
 
-                <div class="nav-item">
+                <AuthorizeView Roles="@($"{DsmsRoles.Superuser},{DsmsRoles.Admin},{DsmsRoles.Auditor}")" Context="trainingParticipantsNav">
 
-                    <NavLink class="nav-link" href="measures">Maßnahmen</NavLink>
+                    <div class="nav-item">
 
-                </div>
+                        <NavLink class="nav-link" href="trainings/participants">Teilnehmer</NavLink>
+
+                    </div>
+
+                </AuthorizeView>
 
                 <div class="nav-item">
 

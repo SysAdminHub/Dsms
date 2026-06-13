@@ -1,6 +1,7 @@
 using Dsms.Web.Data;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
+using Dsms.Web.Services.Training;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dsms.Web.Data.Seed;
@@ -76,7 +77,8 @@ public static class TrainingSeeder
                 {
                     TenantId = tenantId,
                     Name = name,
-                    Email = email,
+                    Email = TrainingParticipantService.NormalizeEmail(email),
+                    NormalizedEmail = TrainingParticipantService.NormalizeEmail(email),
                     Department = department,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow

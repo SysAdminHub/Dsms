@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Teilnehmerübersicht (Schulungen):** Seite `/trainings/participants` mit Suche, Filtern, Schulungsstatistiken und Detailansicht inkl. Schulungshistorie. Bearbeitung unter `/trainings/participants/edit/{id}`. `NormalizedEmail` mit eindeutigem Index pro Mandant. Sidebar: „Teilnehmer“ unter Schulungen, „Maßnahmen“ zurück unter Compliance.
+
 - **Teilnehmerportal (Schulungen):** Öffentlicher Zugang unter `/schulung/teilnahme` (E-Mail + 6-stelliger Code, kein App-Login). Schulungsansicht unter `/schulung/teilnahme/inhalt` mit Karten, Markdown/Assets, Fortschritt, Quiz und Teilnahmebestätigung. Signierte HttpOnly-Cookie-Session (2 h). Neue Tabellen `TrainingAssignmentSectionProgress`, `TrainingQuizAttempts`, `TrainingQuizAnswers`. Geschützter Asset-Endpunkt `/training-portal-assets/{assetKey}`. Layout `TrainingParticipantLayout`. Admin-Teilnehmerliste erweitert (Gestartet, Quiz, Score, Detailmodal). Migration `AddTrainingParticipantPortalProgressAndQuiz`.
 
 - **Teilnehmerverwaltung (Schulungen):** Entities `TrainingParticipant` und `TrainingAssignment`, Enum `TrainingAssignmentStatus`. Migration `AddTrainingParticipantsAndAssignments`. 6-stelliger Zugangscode (kryptografisch, nur Hash), Einladungs-E-Mails, Admin-Tab „Teilnehmer“ in Schulungsdetail inkl. Bulk-Import. Keine App-Rolle für Teilnehmer.

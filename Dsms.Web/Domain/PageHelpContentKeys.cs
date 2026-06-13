@@ -17,6 +17,7 @@ public static class PageHelpContentKeys
     public const string Documents = "documents";
     public const string TrainingTemplates = "training-templates";
     public const string Trainings = "trainings";
+    public const string TrainingParticipants = "training-participants";
     public const string TenantData = "tenant-data";
     public const string Users = "users";
     public const string License = "license";
@@ -37,6 +38,7 @@ public static class PageHelpContentKeys
         Documents,
         TrainingTemplates,
         Trainings,
+        TrainingParticipants,
         TenantData,
         Users,
         License

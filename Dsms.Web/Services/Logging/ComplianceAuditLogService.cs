@@ -273,7 +273,13 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
         LogAsync("TrainingParticipantUpdated", "Schulungsteilnehmer wurde geändert.", "TrainingParticipant", participantId, participantId.ToString(), tenantId);
 
     public Task LogTrainingParticipantArchivedAsync(int participantId, int tenantId) =>
-        LogAsync("TrainingParticipantArchived", "Schulungsteilnehmer wurde deaktiviert.", "TrainingParticipant", participantId, participantId.ToString(), tenantId);
+        LogAsync("TrainingParticipantArchived", "Schulungsteilnehmer wurde archiviert.", "TrainingParticipant", participantId, participantId.ToString(), tenantId);
+
+    public Task LogTrainingParticipantDeactivatedAsync(int participantId, int tenantId) =>
+        LogAsync("TrainingParticipantDeactivated", "Schulungsteilnehmer wurde deaktiviert.", "TrainingParticipant", participantId, participantId.ToString(), tenantId);
+
+    public Task LogTrainingParticipantReactivatedAsync(int participantId, int tenantId) =>
+        LogAsync("TrainingParticipantReactivated", "Schulungsteilnehmer wurde reaktiviert.", "TrainingParticipant", participantId, participantId.ToString(), tenantId);
 
     public Task LogTrainingParticipantAssignedAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId) =>
         LogAsync("TrainingParticipantAssigned", "Teilnehmer wurde einer Schulung zugewiesen.", "Training", trainingId, trainingTitle, tenantId,

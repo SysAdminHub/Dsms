@@ -505,6 +505,7 @@ public class ApplicationDbContext(
             e.ToTable("TrainingParticipants");
             e.Property(p => p.Name).HasMaxLength(200);
             e.Property(p => p.Email).HasMaxLength(255).IsRequired();
+            e.Property(p => p.NormalizedEmail).HasMaxLength(255).IsRequired();
             e.Property(p => p.Department).HasMaxLength(200);
             e.Property(p => p.ExternalReference).HasMaxLength(100);
             e.Property(p => p.CreatedByUserId).HasMaxLength(450);
@@ -512,8 +513,8 @@ public class ApplicationDbContext(
             e.Property(p => p.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(p => p.Tenant).WithMany(t => t.TrainingParticipants).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(p => p.TenantId);
-            e.HasIndex(p => p.Email);
-            e.HasIndex(p => new { p.TenantId, p.Email }).IsUnique();
+            e.HasIndex(p => p.NormalizedEmail);
+            e.HasIndex(p => new { p.TenantId, p.NormalizedEmail }).IsUnique();
             e.HasIndex(p => new { p.TenantId, p.IsActive });
         });
 

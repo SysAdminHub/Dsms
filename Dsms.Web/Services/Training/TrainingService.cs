@@ -33,10 +33,11 @@ public class TrainingService(
 
     public async Task<bool> CanViewAsync(TrainingEntity training, CancellationToken ct = default)
     {
-        if (!await access.CanAccessTenantAsync(training.TenantId))
+        if (!await access.CanAccessTenantBusinessModulesAsync())
             return false;
 
-        return await access.GetCurrentTenantIdAsync() is not null || await access.IsSuperuserAsync();
+        var tenantId = await access.GetCurrentTenantIdAsync();
+        return tenantId.HasValue && training.TenantId == tenantId;
     }
 
     public async Task<bool> CanEditAsync(CancellationToken ct = default) =>

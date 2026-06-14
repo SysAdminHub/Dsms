@@ -1,0 +1,29 @@
+@* Banner für aktiven Supportmodus (Superuser). *@
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inject ISupportAccessService SupportAccess
+@inject NavigationManager Navigation
+
+@if (_session is not null)
+{
+    <div class="alert alert-warning dsms-support-mode-banner mb-0 rounded-0 border-0" role="status">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <span>
+                <strong>Supportmodus aktiv für Mandant: @_session.TenantName.</strong>
+                Gültig bis: @_session.ValidUntil.ToLocalTime().ToString("dd.MM.yyyy HH:mm").
+            </span>
+            <a class="btn btn-sm btn-outline-dark"
+               href="@SupportAccessEndpoints.BuildExitUrl(Navigation.ToBaseRelativePath(Navigation.Uri))">
+                Supportmodus beenden
+            </a>
+        </div>
+    </div>
+}
+
+@code {
+    private SupportAccessSessionInfo? _session;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _session = await SupportAccess.GetCurrentSupportSessionAsync();
+    }
+}

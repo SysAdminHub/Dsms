@@ -24,6 +24,7 @@ using Dsms.Web.Services.PageHelp;
 using Dsms.Web.Services.Legal;
 using Dsms.Web.Services.Privacy;
 using Dsms.Web.Services.Training;
+using Dsms.Web.Services.Support;
 using Microsoft.AspNetCore.Components.Authorization;
 using QuestPDF.Infrastructure;
 using Microsoft.AspNetCore.DataProtection;
@@ -60,8 +61,11 @@ builder.Services.AddSession(options =>
 });
 
 builder.Services.AddScoped<TenantContextAccessor>();
+builder.Services.AddScoped<SupportContextAccessor>();
 builder.Services.AddScoped<ArchiveViewContextAccessor>();
 builder.Services.AddScoped<ITenantContextService, TenantContextService>();
+builder.Services.AddScoped<ISupportContextService, SupportContextService>();
+builder.Services.AddScoped<ISupportAccessService, SupportAccessService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddSingleton<IApplicationInfoService, ApplicationInfoService>();
@@ -225,6 +229,12 @@ app.MapPost("/tenant/switch", async (
         context.Request.Form["returnUrl"].FirstOrDefault());
 })
 .RequireAuthorization();
+
+app.MapGet("/platform/support-access/enter/{grantId:int}", SupportAccessEndpoints.EnterSupportModeAsync)
+    .RequireAuthorization();
+
+app.MapGet("/platform/support-access/exit", SupportAccessEndpoints.ExitSupportModeAsync)
+    .RequireAuthorization();
 
 // Minimal-API-Endpunkte für Identity-Formulare (Logout, externe Logins, …).
 app.MapAdditionalIdentityEndpoints();

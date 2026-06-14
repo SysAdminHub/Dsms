@@ -1,8 +1,9 @@
 @*
     Stellt sicher, dass ein aktiver Mandant gesetzt ist, bevor Compliance-Seiten angezeigt werden.
-    Versucht bei leerem Cache zuerst eine Wiederherstellung aus der Session, bevor umgeleitet wird.
+    Superuser arbeiten ohne Mandantenkontext (Plattform-Administration).
 *@
 @inject ITenantService TenantService
+@inject IUserAccessService UserAccess
 @inject NavigationManager Navigation
 @inject ILogger<TenantContextGate> Logger
 
@@ -30,7 +31,12 @@ else if (_redirecting)
             return;
         }
 
-        // Recovery aus Session, falls der Circuit-Cache leer ist (z. B. nach Inaktivität).
+        if (await UserAccess.IsSuperuserAsync())
+        {
+            _ready = true;
+            return;
+        }
+
         var tenantId = await TenantService.EnsureTenantContextAsync();
         if (tenantId.HasValue)
         {

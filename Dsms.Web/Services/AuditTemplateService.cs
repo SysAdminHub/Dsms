@@ -24,11 +24,22 @@ public sealed class AuditTemplateService(
     {
         if (IsGlobalTemplate(template))
         {
-            return await access.GetCurrentTenantIdAsync() is not null || await access.IsSuperuserAsync();
+            if (await access.CanManageGlobalAuditTemplatesAsync())
+            {
+                return true;
+            }
+
+            var tenantId = await access.GetCurrentTenantIdAsync();
+            return tenantId.HasValue && await access.CanAccessTenantBusinessModulesAsync();
         }
 
-        var tenantId = await access.GetCurrentTenantIdAsync();
-        return tenantId.HasValue && template.TenantId == tenantId;
+        if (!await access.CanAccessTenantBusinessModulesAsync())
+        {
+            return false;
+        }
+
+        var currentTenantId = await access.GetCurrentTenantIdAsync();
+        return currentTenantId.HasValue && template.TenantId == currentTenantId;
     }
 
     public async Task<bool> CanEditAsync(AuditTemplate template, CancellationToken ct = default)
@@ -40,17 +51,12 @@ public sealed class AuditTemplateService(
 
         if (IsGlobalTemplate(template))
         {
-            return await access.IsSuperuserAsync();
+            return await access.CanManageGlobalAuditTemplatesAsync();
         }
 
         if (template.CommunityStatus == CommunityStatus.Submitted)
         {
-            return await access.IsSuperuserAsync();
-        }
-
-        if (await access.IsSuperuserAsync())
-        {
-            return true;
+            return await access.CanManageGlobalAuditTemplatesAsync();
         }
 
         return await access.CanEditComplianceContentAsync();
@@ -69,24 +75,19 @@ public sealed class AuditTemplateService(
 
     public async Task<bool> CanCreateTenantTemplateAsync(CancellationToken ct = default)
     {
-        if (await access.GetCurrentTenantIdAsync() is null)
+        if (!await access.CanAccessTenantBusinessModulesAsync())
         {
             return false;
-        }
-
-        if (await access.IsSuperuserAsync())
-        {
-            return true;
         }
 
         return await access.CanEditComplianceContentAsync();
     }
 
     public Task<bool> CanCreateOfficialTemplateAsync(CancellationToken ct = default) =>
-        access.IsSuperuserAsync();
+        access.CanManageGlobalAuditTemplatesAsync();
 
     public Task<bool> CanReviewCommunityAsync(CancellationToken ct = default) =>
-        access.IsSuperuserAsync();
+        access.CanManageGlobalAuditTemplatesAsync();
 
     public async Task<bool> CanSubmitToCommunityAsync(AuditTemplate template, CancellationToken ct = default)
     {
@@ -111,11 +112,6 @@ public sealed class AuditTemplateService(
             return false;
         }
 
-        if (await access.IsSuperuserAsync())
-        {
-            return true;
-        }
-
         return await access.CanEditComplianceContentAsync();
     }
 
@@ -131,15 +127,13 @@ public sealed class AuditTemplateService(
 
     public async Task<AuditTemplate?> GetByIdAsync(int id, CancellationToken ct = default)
     {
-        var template = await db.AuditTemplates
-            .Include(t => t.Questions)
-            .FirstOrDefaultAsync(t => t.Id == id, ct);
-
+        var template = await LoadTemplateByIdAsync(id, ct);
         if (template is null || !await CanViewAsync(template, ct))
         {
             return null;
         }
 
+        await db.Entry(template).Collection(t => t.Questions).LoadAsync(ct);
         return template;
     }
 
@@ -169,6 +163,24 @@ public sealed class AuditTemplateService(
         }
 
         return await VisibleTemplatesQuery(tenantId.Value)
+            .Include(t => t.Questions)
+            .OrderByDescending(t => archiveView.ShowArchivedOnly ? t.ArchivedAt : t.CreatedAt)
+            .ThenBy(t => t.Title)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<AuditTemplate>> ListGlobalTemplatesAsync(CancellationToken ct = default)
+    {
+        if (!await access.CanManageGlobalAuditTemplatesAsync())
+        {
+            return [];
+        }
+
+        return await db.AuditTemplates
+            .IgnoreQueryFilters()
+            .Where(t => t.TemplateType == AuditTemplateType.Official
+                || t.TemplateType == AuditTemplateType.Community)
+            .Where(t => t.IsArchived == archiveView.ShowArchivedOnly)
             .Include(t => t.Questions)
             .OrderByDescending(t => archiveView.ShowArchivedOnly ? t.ArchivedAt : t.CreatedAt)
             .ThenBy(t => t.Title)
@@ -480,7 +492,7 @@ public sealed class AuditTemplateService(
     public async Task<AuditTemplateOperationResult> AddQuestionAsync(
         int templateId, int sortOrder, string? category, string text, CancellationToken ct = default)
     {
-        var template = await GetTemplateForQuestionMutationAsync(templateId, ct);
+        var template = await GetTemplateForQuestionMutationAsync(templateId, questionId: null, ct);
         if (template is null)
         {
             return new AuditTemplateOperationResult(false, AuditTemplateLabels.QuestionEditDenied);
@@ -491,24 +503,32 @@ public sealed class AuditTemplateService(
             return new AuditTemplateOperationResult(false, AuditTemplateLabels.QuestionTextRequired);
         }
 
-        db.AuditQuestions.Add(new AuditQuestion
+        var question = new AuditQuestion
         {
             AuditTemplateId = templateId,
             SortOrder = sortOrder,
             Category = string.IsNullOrWhiteSpace(category) ? null : category.Trim(),
             Text = text.Trim(),
             IsRequired = true
-        });
+        };
+        db.AuditQuestions.Add(question);
         template.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(ct);
+
+        if (IsGlobalTemplate(template))
+        {
+            await complianceAuditLog.LogGlobalAuditTemplateQuestionCreatedAsync(
+                template.Id, template.Title, question.Id);
+        }
+
         return new AuditTemplateOperationResult(true);
     }
 
     public async Task<AuditTemplateOperationResult> UpdateQuestionAsync(
         int templateId, int questionId, int sortOrder, string? category, string text, CancellationToken ct = default)
     {
-        var template = await GetTemplateForQuestionMutationAsync(templateId, ct);
+        var template = await GetTemplateForQuestionMutationAsync(templateId, questionId, ct);
         if (template is null)
         {
             return new AuditTemplateOperationResult(false, AuditTemplateLabels.QuestionEditDenied);
@@ -533,13 +553,20 @@ public sealed class AuditTemplateService(
         template.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(ct);
+
+        if (IsGlobalTemplate(template))
+        {
+            await complianceAuditLog.LogGlobalAuditTemplateQuestionUpdatedAsync(
+                template.Id, template.Title, question.Id);
+        }
+
         return new AuditTemplateOperationResult(true, AuditTemplateLabels.QuestionUpdated);
     }
 
     public async Task<AuditTemplateOperationResult> DeleteQuestionAsync(
         int templateId, int questionId, CancellationToken ct = default)
     {
-        var template = await GetTemplateForQuestionMutationAsync(templateId, ct);
+        var template = await GetTemplateForQuestionMutationAsync(templateId, questionId, ct);
         if (template is null)
         {
             return new AuditTemplateOperationResult(false, AuditTemplateLabels.QuestionDeleteDenied);
@@ -562,18 +589,49 @@ public sealed class AuditTemplateService(
         template.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(ct);
+
+        if (IsGlobalTemplate(template))
+        {
+            await complianceAuditLog.LogGlobalAuditTemplateQuestionDeletedAsync(
+                template.Id, template.Title, questionId);
+        }
+
         return new AuditTemplateOperationResult(true, AuditTemplateLabels.QuestionDeleted);
     }
 
-    private async Task<AuditTemplate?> GetTemplateForQuestionMutationAsync(int templateId, CancellationToken ct)
+    private async Task<AuditTemplate?> LoadTemplateByIdAsync(int templateId, CancellationToken ct)
     {
-        var template = await db.AuditTemplates.FirstOrDefaultAsync(t => t.Id == templateId, ct);
-        if (template is null || !await CanEditAsync(template, ct))
+        if (await access.CanManageGlobalAuditTemplatesAsync() && !await access.HasTenantContextAsync())
+        {
+            return await db.AuditTemplates
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => t.Id == templateId, ct);
+        }
+
+        return await db.AuditTemplates
+            .FirstOrDefaultAsync(t => t.Id == templateId, ct);
+    }
+
+    private async Task<AuditTemplate?> GetTemplateForQuestionMutationAsync(
+        int templateId, int? questionId, CancellationToken ct)
+    {
+        var template = await LoadTemplateByIdAsync(templateId, ct);
+        if (template is null)
         {
             return null;
         }
 
-        return template;
+        if (await CanEditAsync(template, ct))
+        {
+            return template;
+        }
+
+        if (await access.IsSuperuserAsync() && !IsGlobalTemplate(template))
+        {
+            await complianceAuditLog.LogTenantAuditTemplateQuestionAccessDeniedAsync(templateId, questionId);
+        }
+
+        return null;
     }
 
     private static bool IsGlobalTemplate(AuditTemplate template) =>

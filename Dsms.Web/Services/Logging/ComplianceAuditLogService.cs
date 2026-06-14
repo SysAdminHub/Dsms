@@ -127,6 +127,27 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
         LogAsync("AuditTemplateImported", "Auditvorlage wurde importiert.", "AuditTemplate", id, title, tenantId,
             metadata: new { SourceTemplateId = sourceTemplateId });
 
+    public Task LogGlobalAuditTemplateQuestionCreatedAsync(int templateId, string templateTitle, int questionId) =>
+        LogAsync("GlobalAuditTemplateQuestionCreated", "Frage einer globalen Auditvorlage wurde erstellt.",
+            "AuditTemplate", templateId, templateTitle, null,
+            metadata: new { QuestionId = questionId, Result = "Success" });
+
+    public Task LogGlobalAuditTemplateQuestionUpdatedAsync(int templateId, string templateTitle, int questionId) =>
+        LogAsync("GlobalAuditTemplateQuestionUpdated", "Frage einer globalen Auditvorlage wurde geändert.",
+            "AuditTemplate", templateId, templateTitle, null,
+            metadata: new { QuestionId = questionId, Result = "Success" });
+
+    public Task LogGlobalAuditTemplateQuestionDeletedAsync(int templateId, string templateTitle, int questionId) =>
+        LogAsync("GlobalAuditTemplateQuestionDeleted", "Frage einer globalen Auditvorlage wurde gelöscht.",
+            "AuditTemplate", templateId, templateTitle, null,
+            metadata: new { QuestionId = questionId, Result = "Success" });
+
+    public Task LogTenantAuditTemplateQuestionAccessDeniedAsync(int templateId, int? questionId) =>
+        LogAsync("TenantAuditTemplateQuestionAccessDenied",
+            "Zugriff auf mandantenspezifische Auditvorlagen-Frage verweigert.",
+            "AuditTemplate", templateId, templateId.ToString(), null,
+            metadata: new { QuestionId = questionId, Result = "Denied" });
+
     public Task LogEvidenceDocumentUploadedAsync(int id, string fileName, int tenantId) =>
         LogAsync("EvidenceDocumentUploaded", "Nachweisdokument wurde hochgeladen.", "EvidenceDocument", id, fileName, tenantId);
 

@@ -16,7 +16,10 @@ public class TrainingTemplateAccessService(
     public async Task<bool> CanViewAsync(TrainingTemplate template, CancellationToken ct = default)
     {
         if (IsGlobalTemplate(template))
-            return await access.GetCurrentTenantIdAsync() is not null || await access.IsSuperuserAsync();
+            return await access.CanAccessTenantBusinessModulesAsync();
+
+        if (!await access.CanAccessTenantBusinessModulesAsync())
+            return false;
 
         var tenantId = await access.GetCurrentTenantIdAsync();
         return tenantId.HasValue && template.TenantId == tenantId;
@@ -28,24 +31,18 @@ public class TrainingTemplateAccessService(
             return false;
 
         if (IsGlobalTemplate(template))
-            return await access.IsSuperuserAsync();
+            return await access.CanManageGlobalAuditTemplatesAsync();
 
         if (template.CommunityStatus == CommunityTemplateStatus.Submitted)
-            return await access.IsSuperuserAsync();
-
-        if (await access.IsSuperuserAsync())
-            return true;
+            return await access.CanManageGlobalAuditTemplatesAsync();
 
         return await access.CanEditComplianceContentAsync();
     }
 
     public async Task<bool> CanCreateTenantTemplateAsync(CancellationToken ct = default)
     {
-        if (await access.GetCurrentTenantIdAsync() is null)
+        if (!await access.CanAccessTenantBusinessModulesAsync())
             return false;
-
-        if (await access.IsSuperuserAsync())
-            return true;
 
         return await access.CanEditComplianceContentAsync();
     }

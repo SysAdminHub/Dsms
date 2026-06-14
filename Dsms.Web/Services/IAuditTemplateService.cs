@@ -17,6 +17,7 @@ public interface IAuditTemplateService
     Task<AuditTemplate?> GetByIdAsync(int id, CancellationToken ct = default);
     Task<AuditTemplate?> GetSubmittedForReviewAsync(int id, CancellationToken ct = default);
     Task<IReadOnlyList<AuditTemplate>> ListVisibleAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<AuditTemplate>> ListGlobalTemplatesAsync(CancellationToken ct = default);
     Task<IReadOnlyList<AuditTemplate>> ListActiveForAuditStartAsync(CancellationToken ct = default);
     Task<IReadOnlyList<CommunitySubmissionRow>> ListSubmittedForReviewAsync(CancellationToken ct = default);
 

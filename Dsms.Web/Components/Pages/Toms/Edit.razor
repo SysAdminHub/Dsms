@@ -10,7 +10,7 @@
 
 @page "/toms/edit/{Id:int}"
 
-@attribute [Authorize(Roles = DsmsRoles.ComplianceEditor)]
+@attribute [Authorize]
 
 @rendermode InteractiveServer
 
@@ -27,6 +27,18 @@
     <PageHeader Title="TOM" />
 
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+
+}
+
+else if (!_canEdit)
+
+{
+
+    <PageHeader Title="TOM" />
+
+    <div class="alert alert-warning dsms-alert">@_accessDeniedMessage</div>
+
+    <a class="btn btn-outline-secondary" href="toms">Zur Liste</a>
 
 }
 
@@ -273,8 +285,12 @@ else
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
     [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
 
     private int? _tenantId;
+
+    private bool _canEdit;
+    private string _accessDeniedMessage = "Keine Berechtigung zum Bearbeiten von TOMs.";
 
     private bool _notFound;
 
@@ -306,6 +322,13 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
 
         if (_tenantId is null) return;
+
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
+        if (!_canEdit)
+        {
+            _accessDeniedMessage = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
 
 
 
@@ -410,6 +433,12 @@ else
 
             return;
 
+        }
+
+        if (!await UserAccess.CanEditComplianceContentAsync())
+        {
+            _saveError = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
         }
 
 

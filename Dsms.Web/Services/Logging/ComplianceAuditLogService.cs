@@ -346,6 +346,14 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
         LogAsync("TrainingInvitationResent", "Schulungseinladung wurde erneut gesendet.", "Training", trainingId, trainingTitle, tenantId,
             metadata: new { AssignmentId = assignmentId, ParticipantId = participantId });
 
+    public Task LogDocumentLinkedAsync(int documentId, string fileName, int tenantId, string linkedEntityType, int linkedEntityId) =>
+        LogAsync("DocumentLinked", "Dokument wurde verknüpft.", "EvidenceDocument", documentId, fileName, tenantId,
+            metadata: new { LinkedEntityType = linkedEntityType, LinkedEntityId = linkedEntityId });
+
+    public Task LogDocumentUnlinkedAsync(int documentId, string fileName, int tenantId, string linkedEntityType, int linkedEntityId) =>
+        LogAsync("DocumentUnlinked", "Dokument-Verknüpfung wurde entfernt.", "EvidenceDocument", documentId, fileName, tenantId,
+            metadata: new { LinkedEntityType = linkedEntityType, LinkedEntityId = linkedEntityId });
+
     private Task LogUpdateAsync(
         string action,
         string description,
@@ -408,6 +416,13 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
             tenantId: tenantId,
             oldValues: oldValues,
             newValues: newValues,
-            metadata: metadata,
+            metadata: EnrichAuditMetadata(entityType, metadata),
             isVisibleToAdmin: true);
+
+    private static object? EnrichAuditMetadata(string entityType, object? metadata)
+    {
+        var module = AuditLogPresentationHelper.ResolveModule(entityType, null);
+        var enrichment = new { Module = module, Result = "Success" };
+        return metadata is null ? enrichment : LogJsonHelper.MergeMetadata(metadata, enrichment);
+    }
 }

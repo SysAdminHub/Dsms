@@ -348,7 +348,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ISignupLegalEmailService` / `SignupLegalEmailService` | Scoped | Bestätigungsmail nach Public Signup mit Legal-PDF-Anhängen |
 | `IIpAnonymizationService` / `IpAnonymizationService` | Scoped | Anonymisiert IP-Adressen vor Speicherung in Nachweisdatensätzen (IPv4 /24, IPv6 /64) |
 | `ILogService` / `LogService` | Scoped | Zentrales Audit- und Systemprotokoll (`LogEntry`-Tabelle); siehe `Logging.md` |
-| `ILogQueryService` / `LogQueryService` | Scoped | Abfrage für Superuser-Protokolle und Admin-Auditlog mit Mandanten-/Lizenzfilter |
+| `ILogQueryService` / `LogQueryService` | Scoped | Superuser-Protokoll (`GetPlatformLogsAsync`: alle Mandanten, Metadaten-only Details); Admin-Auditlog (`GetAdminAuditLogsAsync`: Lizenz/Mandantenfilter, inkl. Feldänderungen) |
 | `ILicenseCreateGuard` / `LicenseCreateGuard` | Scoped | Lizenzlimit-Prüfung mit automatischer Audit-Protokollierung bei Blockierung |
 
 Details und Code-Beispiele: **`Logging.md`** im Projektroot.

@@ -116,4 +116,7 @@ public interface IComplianceAuditLogService
     Task LogTrainingAssignmentCancelledAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId);
     Task LogTrainingInvitationSentAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId);
     Task LogTrainingInvitationResentAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId);
+
+    Task LogDocumentLinkedAsync(int documentId, string fileName, int tenantId, string linkedEntityType, int linkedEntityId);
+    Task LogDocumentUnlinkedAsync(int documentId, string fileName, int tenantId, string linkedEntityType, int linkedEntityId);
 }

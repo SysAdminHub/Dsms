@@ -112,9 +112,16 @@ Zentrale Methode: `LogIpAnonymizer.AnonymizeIpAddress(string? ipAddress)`
 
 | Rolle | Route | Sichtbarkeit |
 |-------|-------|--------------|
-| Superuser | `/platform/logs` | Alle Kategorien inkl. System/Security |
+| Superuser | `/platform/logs` | Alle `LogEntries` mandantenübergreifend (Audit, System, Security); nur Metadaten, keine Fachinhalte in der Details-Ansicht |
 | Admin (Kundenadmin) | `/admin/auditlog` | Nur `Audit` mit `IsVisibleToAdmin == true` der eigenen Lizenz |
 | User / Auditor | – | Keine Logansicht in V1 |
+
+### Plattform-Protokoll (Superuser)
+
+- **Query:** `LogQueryService.GetPlatformLogsAsync` – keine Filterung auf `CurrentTenantId`; alle Mandanten-Events sichtbar.
+- **Datenschutz:** In der Details-Ansicht werden `OldValuesJson`/`NewValuesJson` nicht angezeigt; `EntityName` bei Fachmodulen redigiert (`AuditLogPresentationHelper`).
+- **Filter:** Zeitraum, Kategorie, Severity, Benutzer, Aktion, Lizenz, Mandant-ID/-Name, Modul, Entitätstyp, Ergebnis, Supportmodus, Beschreibung.
+- **Modul:** Wird aus `EntityType` abgeleitet oder aus `MetadataJson.Module` gelesen; fachliche Logs schreiben `Module` und `Result` über `ComplianceAuditLogService`.
 
 ## Login-Protokollierung
 

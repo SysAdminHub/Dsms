@@ -14,6 +14,8 @@ public sealed class LogEntryListItemDto
     public string? TenantName { get; init; }
     public string? EntityType { get; init; }
     public string? EntityName { get; init; }
+    public string? Module { get; init; }
+    public int? TenantId { get; init; }
 }
 
 public sealed class LogEntryDetailsDto
@@ -54,6 +56,14 @@ public sealed class LogEntryDetailsDto
     public string? ExceptionDetails { get; init; }
 
     public bool IsVisibleToAdmin { get; init; }
+
+    public string? Module { get; init; }
+    public string? Result { get; init; }
+    public bool IsSupportMode { get; init; }
+    public int? SupportAccessGrantId { get; init; }
+
+    /// <summary>Fachliche Änderungsdetails – nur für Mandanten-Admins, nicht im Plattform-Protokoll.</summary>
+    public bool IncludeFieldChanges { get; init; }
 }
 
 public sealed class LogQueryFilter
@@ -68,6 +78,10 @@ public sealed class LogQueryFilter
     public string? EntityType { get; set; }
     public string? Action { get; set; }
     public string? SearchText { get; set; }
+    public string? TenantName { get; set; }
+    public string? Module { get; set; }
+    public string? Result { get; set; }
+    public bool? IsSupportMode { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 50;
 }

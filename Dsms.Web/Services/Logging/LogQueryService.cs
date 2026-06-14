@@ -17,10 +17,12 @@ public sealed class LogQueryService(
         }
 
         await using var db = await dbFactory.CreateDbContextAsync();
+        // LogEntries haben keinen Mandanten-Query-Filter – Superuser sieht alle Audit-Metadaten mandantenübergreifend.
         var query = db.LogEntries.AsNoTracking();
         query = ApplyCommonFilters(query, filter);
+        query = ApplyPlatformFilters(query, filter);
 
-        return await ExecuteQueryAsync(query, filter);
+        return await ExecutePlatformQueryAsync(query, filter);
     }
 
     public async Task<LogEntryDetailsDto?> GetPlatformLogDetailsAsync(Guid logId)
@@ -32,7 +34,7 @@ public sealed class LogQueryService(
 
         await using var db = await dbFactory.CreateDbContextAsync();
         var entry = await db.LogEntries.AsNoTracking().FirstOrDefaultAsync(l => l.Id == logId);
-        return entry is null ? null : MapToDetails(entry, includeTechnicalDetails: true);
+        return entry is null ? null : MapToPlatformDetails(entry);
     }
 
     public async Task<AdminAuditLogQueryResult> GetAdminAuditLogsAsync(LogQueryFilter filter)
@@ -100,7 +102,7 @@ public sealed class LogQueryService(
         }
 
         query = ApplyAdminFilters(query, filter);
-        var data = await ExecuteQueryAsync(query, filter);
+        var data = await ExecuteAdminQueryAsync(query, filter);
 
         return new AdminAuditLogQueryResult
         {
@@ -138,7 +140,7 @@ public sealed class LogQueryService(
                 || (l.TenantId != null && tenantIds.Contains(l.TenantId.Value)))
             .FirstOrDefaultAsync();
 
-        return entry is null ? null : MapToDetails(entry, includeTechnicalDetails: false);
+        return entry is null ? null : MapToAdminDetails(entry);
     }
 
     private static IQueryable<Domain.Entities.LogEntry> ApplyCommonFilters(
@@ -182,6 +184,12 @@ public sealed class LogQueryService(
             query = query.Where(l => l.TenantId == tenantId);
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.TenantName))
+        {
+            var tenantName = filter.TenantName.Trim();
+            query = query.Where(l => l.TenantName != null && l.TenantName.Contains(tenantName));
+        }
+
         if (!string.IsNullOrWhiteSpace(filter.EntityType))
         {
             query = query.Where(l => l.EntityType == filter.EntityType);
@@ -196,6 +204,42 @@ public sealed class LogQueryService(
         {
             var term = filter.SearchText.Trim();
             query = query.Where(l => l.Description.Contains(term));
+        }
+
+        return query;
+    }
+
+    private static IQueryable<Domain.Entities.LogEntry> ApplyPlatformFilters(
+        IQueryable<Domain.Entities.LogEntry> query,
+        LogQueryFilter filter)
+    {
+        if (!string.IsNullOrWhiteSpace(filter.Module))
+        {
+            var entityTypes = AuditLogPresentationHelper.GetEntityTypesForModule(filter.Module);
+            if (entityTypes.Count > 0)
+            {
+                query = query.Where(l => l.EntityType != null && entityTypes.Contains(l.EntityType));
+            }
+            else
+            {
+                var module = filter.Module.Trim();
+                query = query.Where(l => l.MetadataJson != null && l.MetadataJson.Contains($"\"Module\":\"{module}\""));
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Result))
+        {
+            var result = filter.Result.Trim();
+            query = query.Where(l => l.MetadataJson != null && l.MetadataJson.Contains($"\"Result\":\"{result}\""));
+        }
+
+        if (filter.IsSupportMode is bool supportMode)
+        {
+            query = supportMode
+                ? query.Where(l => l.Description.StartsWith("[Supportmodus]")
+                    || (l.MetadataJson != null && l.MetadataJson.Contains("\"SupportMode\":true")))
+                : query.Where(l => !l.Description.StartsWith("[Supportmodus]")
+                    && (l.MetadataJson == null || !l.MetadataJson.Contains("\"SupportMode\":true")));
         }
 
         return query;
@@ -235,7 +279,33 @@ public sealed class LogQueryService(
         return query;
     }
 
-    private static async Task<LogQueryResult> ExecuteQueryAsync(
+    private static async Task<LogQueryResult> ExecutePlatformQueryAsync(
+        IQueryable<Domain.Entities.LogEntry> query,
+        LogQueryFilter filter)
+    {
+        var page = Math.Max(1, filter.Page);
+        var pageSize = Math.Clamp(filter.PageSize, 10, 200);
+
+        query = query.OrderByDescending(l => l.CreatedAt);
+
+        var totalCount = await query.CountAsync();
+        var entries = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var items = entries.Select(MapToPlatformListItem).ToList();
+
+        return new LogQueryResult
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    private static async Task<LogQueryResult> ExecuteAdminQueryAsync(
         IQueryable<Domain.Entities.LogEntry> query,
         LogQueryFilter filter)
     {
@@ -274,9 +344,55 @@ public sealed class LogQueryService(
         };
     }
 
-    private static LogEntryDetailsDto MapToDetails(
-        Domain.Entities.LogEntry entry,
-        bool includeTechnicalDetails) => new()
+    private static LogEntryListItemDto MapToPlatformListItem(Domain.Entities.LogEntry entry) => new()
+    {
+        Id = entry.Id,
+        CreatedAt = entry.CreatedAt,
+        LogCategory = entry.LogCategory,
+        Severity = entry.Severity,
+        Action = entry.Action,
+        Description = entry.Description,
+        UserDisplayName = entry.UserDisplayName,
+        UserEmail = entry.UserEmail,
+        LicenseNumber = entry.LicenseNumber,
+        TenantName = entry.TenantName,
+        TenantId = entry.TenantId,
+        EntityType = entry.EntityType,
+        EntityName = AuditLogPresentationHelper.RedactEntityNameForPlatform(entry.EntityType, entry.EntityName),
+        Module = AuditLogPresentationHelper.ResolveModule(entry.EntityType, entry.MetadataJson)
+    };
+
+    private static LogEntryDetailsDto MapToPlatformDetails(Domain.Entities.LogEntry entry) => new()
+    {
+        Id = entry.Id,
+        CreatedAt = entry.CreatedAt,
+        LogCategory = entry.LogCategory,
+        Severity = entry.Severity,
+        Action = entry.Action,
+        Description = entry.Description,
+        EntityType = entry.EntityType,
+        EntityId = entry.EntityId,
+        EntityName = AuditLogPresentationHelper.RedactEntityNameForPlatform(entry.EntityType, entry.EntityName),
+        UserId = entry.UserId,
+        UserEmail = entry.UserEmail,
+        UserDisplayName = entry.UserDisplayName,
+        LicenseId = entry.LicenseId,
+        LicenseNumber = entry.LicenseNumber,
+        TenantId = entry.TenantId,
+        TenantName = entry.TenantName,
+        IpAddressAnonymized = entry.IpAddressAnonymized,
+        UserAgent = entry.UserAgent,
+        CorrelationId = entry.CorrelationId,
+        Module = AuditLogPresentationHelper.ResolveModule(entry.EntityType, entry.MetadataJson),
+        Result = AuditLogPresentationHelper.ResolveResult(entry.MetadataJson, entry.Description),
+        IsSupportMode = AuditLogPresentationHelper.ResolveIsSupportMode(entry.MetadataJson, entry.Description),
+        SupportAccessGrantId = AuditLogPresentationHelper.ResolveSupportAccessGrantId(entry.MetadataJson),
+        MetadataJson = SanitizePlatformMetadata(entry.MetadataJson),
+        IsVisibleToAdmin = entry.IsVisibleToAdmin,
+        IncludeFieldChanges = false
+    };
+
+    private static LogEntryDetailsDto MapToAdminDetails(Domain.Entities.LogEntry entry) => new()
     {
         Id = entry.Id,
         CreatedAt = entry.CreatedAt,
@@ -294,17 +410,25 @@ public sealed class LogQueryService(
         LicenseNumber = entry.LicenseNumber,
         TenantId = entry.TenantId,
         TenantName = entry.TenantName,
-        IpAddressAnonymized = includeTechnicalDetails ? entry.IpAddressAnonymized : null,
-        UserAgent = includeTechnicalDetails ? entry.UserAgent : null,
-        RequestPath = includeTechnicalDetails ? entry.RequestPath : null,
-        CorrelationId = includeTechnicalDetails ? entry.CorrelationId : null,
-        Source = includeTechnicalDetails ? entry.Source : null,
         OldValuesJson = entry.OldValuesJson,
         NewValuesJson = entry.NewValuesJson,
         MetadataJson = entry.MetadataJson,
-        ExceptionType = includeTechnicalDetails ? entry.ExceptionType : null,
-        ExceptionMessage = includeTechnicalDetails ? entry.ExceptionMessage : null,
-        ExceptionDetails = includeTechnicalDetails ? entry.ExceptionDetails : null,
-        IsVisibleToAdmin = entry.IsVisibleToAdmin
+        IsVisibleToAdmin = entry.IsVisibleToAdmin,
+        IncludeFieldChanges = true
     };
+
+    private static string? SanitizePlatformMetadata(string? metadataJson)
+    {
+        if (string.IsNullOrWhiteSpace(metadataJson))
+        {
+            return null;
+        }
+
+        if (!AuditLogChangeParser.HasDisplayableMetadata(metadataJson))
+        {
+            return null;
+        }
+
+        return metadataJson;
+    }
 }

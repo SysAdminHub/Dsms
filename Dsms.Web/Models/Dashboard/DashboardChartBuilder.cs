@@ -101,6 +101,13 @@ public static class DashboardChartBuilder
         Legend("abgeschlossen", s.CompletedAuditsCount, DashboardChartColors.Success)
     ];
 
+    public static IReadOnlyList<DashboardLegendItem> TrainingLegend(DashboardSummary s) =>
+    [
+        Legend("aktiv", s.ActiveTrainingsCount, DashboardChartColors.Success),
+        Legend("inaktiv", s.InactiveTrainingsCount, DashboardChartColors.Neutral),
+        Legend("Vorlagen", s.TrainingTemplatesCount, DashboardChartColors.Warning)
+    ];
+
     private static DashboardLegendItem Legend(string label, int value, string color) => new()
     {
         Label = label,

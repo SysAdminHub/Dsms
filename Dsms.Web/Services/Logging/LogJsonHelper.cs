@@ -54,6 +54,55 @@ public static class LogJsonHelper
         }
     }
 
+    public static object? MergeMetadata(object? existing, object additional)
+    {
+        var merged = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+        if (existing is not null)
+        {
+            foreach (var pair in ToDictionary(existing))
+            {
+                merged[pair.Key] = pair.Value;
+            }
+        }
+
+        foreach (var pair in ToDictionary(additional))
+        {
+            merged[pair.Key] = pair.Value;
+        }
+
+        return merged;
+    }
+
+    private static Dictionary<string, object?> ToDictionary(object value)
+    {
+        if (value is IDictionary dict)
+        {
+            var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            foreach (DictionaryEntry entry in dict)
+            {
+                var key = entry.Key?.ToString() ?? string.Empty;
+                if (!string.IsNullOrEmpty(key))
+                {
+                    result[key] = entry.Value;
+                }
+            }
+
+            return result;
+        }
+
+        var sanitized = SanitizeValue(value);
+        if (sanitized is Dictionary<string, object?> sanitizedDict)
+        {
+            return sanitizedDict;
+        }
+
+        return new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Value"] = sanitized
+        };
+    }
+
     private static object? SanitizeValue(object? value)
     {
         if (value is null)

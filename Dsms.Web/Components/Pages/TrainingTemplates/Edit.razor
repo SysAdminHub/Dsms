@@ -1,0 +1,388 @@
+@page "/training-templates/edit"
+@page "/training-templates/edit/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="@_pageTitle" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Schulungsvorlage" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_accessDenied)
+{
+    <PageHeader Title="Schulungsvorlage" />
+    <div class="alert alert-danger dsms-alert">Zugriff verweigert.</div>
+    <a class="btn btn-outline-secondary" href="training-templates">Zurück</a>
+}
+else if (_createDenied)
+{
+    <PageHeader Title="Schulungsvorlage" />
+    <div class="alert alert-danger dsms-alert">Sie dürfen keine Schulungsvorlagen anlegen.</div>
+    <a class="btn btn-outline-secondary" href="training-templates">Zurück</a>
+}
+else
+{
+    <PageHeader Title="@_pageTitle" HelpKey="training-templates">
+        <div class="d-flex flex-wrap gap-2">
+            @if (_model.Id > 0)
+            {
+                <button type="button" class="btn btn-outline-secondary" @onclick="ValidateAsync">Vorlage prüfen</button>
+                @if (_canCopy)
+                {
+                    <button type="button" class="btn btn-outline-primary" disabled="@_copyBusy" @onclick="CopyAsync">In Mandant kopieren</button>
+                }
+            }
+            @if (!_readOnly && _activeTab != "preview")
+            {
+                <button type="button" class="btn btn-primary" @onclick="SaveStammdatenAsync">Speichern</button>
+            }
+            <a class="btn btn-outline-secondary" href="training-templates">Zurück</a>
+        </div>
+    </PageHeader>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <StatusBadge Text="@TrainingLabels.GetOriginLabel(_model)" Variant="@TrainingLabels.GetOriginBadgeVariant(_model)" />
+        @if (_model.IsGlobal && _model.TenantId is null)
+        {
+            <StatusBadge Text="Global" Variant="primary" />
+        }
+        @{
+            var cs = TrainingLabels.GetCommunityStatusBadge(_model.CommunityStatus);
+        }
+        @if (cs is not null)
+        {
+            <StatusBadge Text="@cs" Variant="warning" />
+        }
+        <StatusBadge Text="@(_model.IsActive && !_model.IsArchived ? "Aktiv" : "Inaktiv")"
+                     Variant="@(_model.IsActive && !_model.IsArchived ? "success" : "default")" />
+    </div>
+
+    @if (_readOnly && _model.IsGlobal && _model.TenantId is null)
+    {
+        <div class="alert alert-info dsms-alert">
+            Globale Vorlagen können kopiert und anschließend angepasst werden.
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success dsms-alert">@_successMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(_saveError))
+    {
+        <div class="alert alert-danger dsms-alert">@_saveError</div>
+    }
+
+    @if (_validationReport is not null)
+    {
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header">Ergebnis: Vorlage prüfen</div>
+            <div class="dsms-card-body">
+                <TrainingValidationPanel Report="_validationReport" />
+            </div>
+        </div>
+    }
+
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item"><button type="button" class="nav-link @TabClass("stammdaten")" @onclick='() => SetTab("stammdaten")'>Stammdaten</button></li>
+        @if (_model.Id > 0)
+        {
+            <li class="nav-item"><button type="button" class="nav-link @TabClass("sections")" @onclick='() => SetTab("sections")'>Karten / Inhalte</button></li>
+            <li class="nav-item"><button type="button" class="nav-link @TabClass("assets")" @onclick='() => SetTab("assets")'>Bilder / Medien</button></li>
+            <li class="nav-item"><button type="button" class="nav-link @TabClass("quiz")" @onclick='() => SetTab("quiz")'>Quiz</button></li>
+            <li class="nav-item"><button type="button" class="nav-link @TabClass("preview")" @onclick='() => SetTab("preview")'>Vorschau</button></li>
+        }
+    </ul>
+
+    @if (_activeTab == "stammdaten")
+    {
+        <div class="dsms-card dsms-form-card">
+            <div class="dsms-card-body">
+                @if (_readOnly)
+                {
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Titel</dt><dd class="col-sm-9">@_model.Title</dd>
+                        <dt class="col-sm-3">Typ</dt><dd class="col-sm-9">@TrainingLabels.GetTrainingTypeLabel(_model.TrainingType)</dd>
+                        <dt class="col-sm-3">Zielgruppe</dt><dd class="col-sm-9">@(_model.TargetAudience ?? "—")</dd>
+                        <dt class="col-sm-3">Dauer</dt><dd class="col-sm-9">@(_model.EstimatedDurationMinutes?.ToString() ?? "—") Min.</dd>
+                        <dt class="col-sm-3">Wiederholung</dt><dd class="col-sm-9">@(_model.RecommendedRepeatAfterMonths?.ToString() ?? "—") Mon.</dd>
+                        <dt class="col-sm-3">Quiz erforderlich</dt><dd class="col-sm-9">@(_model.IsQuizRequired ? "Ja" : "Nein")</dd>
+                        <dt class="col-sm-3">Bestehensgrenze</dt><dd class="col-sm-9">@_model.PassingScorePercent %</dd>
+                    </dl>
+                }
+                else
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Titel *</label>
+                        <InputText class="form-control" @bind-Value="_model.Title" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Beschreibung</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.Description" rows="3" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Schulungstyp *</label>
+                        <InputSelect class="form-select" @bind-Value="_model.TrainingType">
+                            @foreach (var type in TrainingLabels.AllTrainingTypes)
+                            {
+                                <option value="@type">@TrainingLabels.GetTrainingTypeLabel(type)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Zielgruppe</label>
+                        <InputText class="form-control" @bind-Value="_model.TargetAudience" placeholder="z. B. Alle Mitarbeitenden" />
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Geschätzte Dauer (Minuten)</label>
+                            <InputNumber class="form-control" @bind-Value="_model.EstimatedDurationMinutes" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Wiederholung nach (Monaten)</label>
+                            <InputNumber class="form-control" @bind-Value="_model.RecommendedRepeatAfterMonths" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Bestehensgrenze (%)</label>
+                            <InputNumber class="form-control" @bind-Value="_model.PassingScorePercent" min="0" max="100" />
+                        </div>
+                    </div>
+                    <div class="form-check mb-2">
+                        <InputCheckbox class="form-check-input" @bind-Value="_model.IsQuizRequired" id="quizRequired" />
+                        <label class="form-check-label" for="quizRequired">Quiz erforderlich</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <InputCheckbox class="form-check-input" @bind-Value="_model.IsActive" id="templateActive" />
+                        <label class="form-check-label" for="templateActive">Aktiv</label>
+                    </div>
+                    @if (_isGlobalCreateMode || (_model.IsGlobal && _model.TenantId is null))
+                    {
+                        <div class="form-check mb-3">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.IsGlobal" id="isGlobal" disabled="@(!_isSuperuser)" />
+                            <label class="form-check-label" for="isGlobal">Als globale Vorlage bereitstellen</label>
+                        </div>
+                        @if (_model.CommunityStatus != CommunityTemplateStatus.None)
+                        {
+                            <p class="text-muted small">Community-Status: @TrainingLabels.GetCommunityStatusLabel(_model.CommunityStatus)</p>
+                        }
+                    }
+                }
+            </div>
+        </div>
+    }
+    else if (_model.Id > 0)
+    {
+        @switch (_activeTab)
+        {
+            case "sections":
+                <TrainingSectionsTab TemplateId="_model.Id"
+                                     TenantId="_tenantId"
+                                     ReadOnly="_readOnly"
+                                     Sections="_sections"
+                                     AssetKeyToInsert="_assetKeyToInsert"
+                                     OnChanged="ReloadAsync" />
+                break;
+            case "assets":
+                <TrainingAssetsTab TemplateId="_model.Id"
+                                   TenantId="_tenantId"
+                                   ReadOnly="_readOnly"
+                                   TemplateAssets="_assets"
+                                   OnInsertAssetKey="OnInsertAssetKey"
+                                   OnChanged="ReloadAsync" />
+                break;
+            case "quiz":
+                <TrainingQuizTab TemplateId="_model.Id"
+                                 TenantId="_tenantId"
+                                 ReadOnly="_readOnly"
+                                 Questions="_questions"
+                                 OnChanged="ReloadAsync" />
+                break;
+            case "preview":
+                <TrainingPreviewTab Template="_model"
+                                    Sections="_sections"
+                                    Questions="_questions" />
+                break;
+        }
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [SupplyParameterFromQuery(Name = "type")] public string? CreateType { get; set; }
+
+    [Inject] private TrainingTemplateService TemplateService { get; set; } = null!;
+    [Inject] private TrainingQuestionService QuestionService { get; set; } = null!;
+    [Inject] private TrainingTemplateAssetService AssetService { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _accessDenied;
+    private bool _createDenied;
+    private bool _readOnly;
+    private bool _canCopy;
+    private bool _copyBusy;
+    private bool _isSuperuser;
+    private bool _isGlobalCreateMode;
+    private string _activeTab = "stammdaten";
+    private string _pageTitle = "Schulungsvorlage";
+    private string? _successMessage;
+    private string? _saveError;
+    private string? _assetKeyToInsert;
+    private TrainingTemplate _model = new()
+    {
+        IsActive = true,
+        IsQuizRequired = true,
+        PassingScorePercent = 80,
+        RecommendedRepeatAfterMonths = 12,
+        TrainingType = TrainingType.PrivacyBasics
+    };
+    private List<TrainingTemplateSection> _sections = [];
+    private List<TrainingTemplateAsset> _assets = [];
+    private List<TrainingQuestion> _questions = [];
+    private TrainingTemplateValidationReport? _validationReport;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _isSuperuser = await UserAccess.IsSuperuserAsync();
+        _isGlobalCreateMode = string.Equals(CreateType, "global", StringComparison.OrdinalIgnoreCase) && _isSuperuser;
+
+        if (Id == 0)
+        {
+            _pageTitle = _isGlobalCreateMode ? "Neue globale Schulungsvorlage" : "Neue Schulungsvorlage";
+            if (_isGlobalCreateMode)
+            {
+                if (!await TemplateService.CanCreateGlobalTemplateAsync())
+                {
+                    _createDenied = true;
+                    return;
+                }
+                _model.IsGlobal = true;
+            }
+            else if (!await TemplateService.CanCreateTenantTemplateAsync())
+            {
+                _createDenied = true;
+            }
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var template = await TemplateService.GetTemplateByIdAsync(Id, _tenantId);
+        if (template is null)
+        {
+            _accessDenied = true;
+            return;
+        }
+
+        _model = template;
+        _pageTitle = template.Title;
+        _readOnly = !await TemplateService.CanEditAsync(template);
+        _canCopy = await TemplateService.CanCopyToTenantAsync(template);
+        _sections = template.Sections.OrderBy(s => s.SortOrder).ToList();
+        _assets = template.Assets.OrderBy(a => a.AssetKey).ToList();
+        _questions = template.Questions.OrderBy(q => q.SortOrder).ToList();
+    }
+
+    private async Task ReloadAsync()
+    {
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task SaveStammdatenAsync()
+    {
+        _saveError = null;
+        _successMessage = null;
+
+        if (string.IsNullOrWhiteSpace(_model.Title))
+        {
+            _saveError = "Titel ist erforderlich.";
+            return;
+        }
+
+        if (_model.PassingScorePercent is < 0 or > 100)
+        {
+            _saveError = "Bestehensgrenze muss zwischen 0 und 100 liegen.";
+            return;
+        }
+
+        if (_model.EstimatedDurationMinutes is <= 0)
+            _model.EstimatedDurationMinutes = null;
+        if (_model.RecommendedRepeatAfterMonths is <= 0)
+            _model.RecommendedRepeatAfterMonths = null;
+
+        TrainingTemplateOperationResult result;
+        if (_model.Id == 0)
+        {
+            result = await TemplateService.CreateTemplateAsync(_model);
+            if (result.Success && result.TemplateId is int newId)
+            {
+                Navigation.NavigateTo($"training-templates/edit/{newId}", replace: true);
+                return;
+            }
+        }
+        else
+        {
+            result = await TemplateService.UpdateTemplateAsync(_model);
+        }
+
+        if (!result.Success)
+        {
+            _saveError = result.Message;
+            return;
+        }
+
+        _successMessage = "Gespeichert.";
+        if (_model.Id > 0)
+            await LoadAsync();
+    }
+
+    private async Task ValidateAsync()
+    {
+        _validationReport = await TemplateService.BuildValidationReportAsync(_model.Id, _tenantId);
+    }
+
+    private async Task CopyAsync()
+    {
+        _copyBusy = true;
+        try
+        {
+            var result = await TemplateService.CopyToCurrentTenantAsync(_model.Id);
+            if (result.Success && result.TemplateId is int newId)
+                Navigation.NavigateTo($"training-templates/edit/{newId}");
+            else
+                _saveError = result.Message;
+        }
+        finally
+        {
+            _copyBusy = false;
+        }
+    }
+
+    private void SetTab(string tab)
+    {
+        _activeTab = tab;
+        if (tab == "sections" && !string.IsNullOrEmpty(_assetKeyToInsert))
+            _successMessage = $"Asset „{_assetKeyToInsert}“ kann in der Karte eingefügt werden.";
+    }
+
+    private Task OnInsertAssetKey(string assetKey)
+    {
+        _assetKeyToInsert = assetKey;
+        _activeTab = "sections";
+        _successMessage = $"Platzhalter {{asset:{assetKey}}} – wechseln Sie zum Tab „Karten“ und nutzen Sie „Bild einfügen“.";
+        return Task.CompletedTask;
+    }
+
+    private string TabClass(string tab) => _activeTab == tab ? "active" : "";
+}

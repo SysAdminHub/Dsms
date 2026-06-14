@@ -4,7 +4,7 @@
 *@
 @page "/audit-runs/edit"
 @page "/audit-runs/edit/{Id:int}"
-@attribute [Authorize(Roles = DsmsRoles.ComplianceEditor)]
+@attribute [Authorize]
 @rendermode InteractiveServer
 
 <BrandedPageTitle Title="Audit-Durchlauf" />
@@ -13,6 +13,12 @@
 {
     <PageHeader Title="Audit-Durchlauf" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (!_canEdit)
+{
+    <PageHeader Title="Audit-Durchlauf" />
+    <div class="alert alert-warning dsms-alert">@_accessDeniedMessage</div>
+    <a class="btn btn-outline-secondary" href="audit-runs">Zur Liste</a>
 }
 else
 {
@@ -86,8 +92,11 @@ else
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
     [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _canEdit;
+    private string _accessDeniedMessage = "Keine Berechtigung zum Bearbeiten von Audit-Durchläufen.";
     private LicenseLimitCheckResult? _createLimit;
     private string? _saveError;
     private AuditRun _model = new() { Status = AuditRunStatus.Draft };
@@ -99,6 +108,13 @@ else
     {
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
+
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
+        if (!_canEdit)
+        {
+            _accessDeniedMessage = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
 
         _templates = (await TemplateService.ListActiveForAuditStartAsync()).ToList();
 
@@ -122,6 +138,12 @@ else
 
     private async Task SaveAsync()
     {
+        if (!await UserAccess.CanEditComplianceContentAsync())
+        {
+            _saveError = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
+
         var isNew = _model.Id == 0;
 
         if (isNew)

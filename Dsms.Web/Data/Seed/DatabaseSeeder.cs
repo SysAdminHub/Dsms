@@ -36,9 +36,11 @@ public static class DatabaseSeeder
         await SubscriptionPlanSeeder.SeedAsync(db);
         await SeedRolesAsync(roleManager);
         await EnsureDefaultCategoriesForAllTenantsAsync(db);
+        await TrainingTemplateSeeder.SeedAsync(db);
 
         var demoLicense = await EnsureDemoLicenseAsync(db);
         await EnsureDemoEnvironmentAsync(db, userManager, demoLicense);
+        await TrainingSeeder.SeedDemoTrainingAsync(db);
     }
 
     private static async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)

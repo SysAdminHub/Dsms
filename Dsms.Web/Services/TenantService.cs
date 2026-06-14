@@ -1,5 +1,6 @@
 using Dsms.Web.Data;
 using Dsms.Web.Domain.Entities;
+using Dsms.Web.Services.Support;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dsms.Web.Services;
@@ -15,6 +16,7 @@ public class TenantService(
     ITenantContextService tenantContext,
     ICurrentUserContext currentUser,
     IUserAccessService access,
+    ISupportAccessService supportAccess,
     ILogger<TenantService> logger) : ITenantService
 {
     private IReadOnlyList<Tenant>? _cachedAccessibleTenants;
@@ -27,6 +29,11 @@ public class TenantService(
     {
         try
         {
+            if (await access.IsSuperuserAsync())
+            {
+                return await supportAccess.EnsureSuperuserSupportContextAsync();
+            }
+
             var tenantId = await tenantContext.GetCurrentTenantIdAsync();
             if (tenantId.HasValue)
             {
@@ -182,6 +189,19 @@ public class TenantService(
     {
         try
         {
+            if (await access.IsSuperuserAsync())
+            {
+                if (await supportAccess.IsSupportModeActiveAsync())
+                {
+                    return TenantSwitchResult.Fail(
+                        "Beenden Sie zuerst den Supportmodus, bevor Sie den Mandanten wechseln.");
+                }
+
+                logger.LogWarning("Superuser-Versuch, Mandant {TenantId} zu wechseln – abgelehnt", tenantId);
+                return TenantSwitchResult.Fail(
+                    "Plattform-Administratoren können nicht in Mandanten wechseln.");
+            }
+
             if (!await CanAccessTenantAsync(tenantId))
             {
                 return TenantSwitchResult.Fail("Kein Zugriff auf diesen Mandanten.");
@@ -215,7 +235,13 @@ public class TenantService(
         {
             if (await access.IsSuperuserAsync())
             {
-                return true;
+                if (!await supportAccess.HasValidSupportAccessForCurrentTenantAsync())
+                {
+                    return false;
+                }
+
+                var current = await tenantContext.GetCurrentTenantIdAsync();
+                return current == tenantId;
             }
 
             var accessible = _cachedAccessibleTenants ?? await LoadAccessibleTenantsSafeAsync();
@@ -230,33 +256,8 @@ public class TenantService(
     }
 
     /// <inheritdoc />
-    public bool IsTenantRequiredForRoute(string relativePath)
-    {
-        var path = relativePath.Trim('/').ToLowerInvariant();
-
-        if (path == ""
-            || path.StartsWith("account", StringComparison.Ordinal)
-            || path == "select-tenant"
-            || path.StartsWith("tenants", StringComparison.Ordinal)
-            || path.StartsWith("users", StringComparison.Ordinal)
-            || path.StartsWith("admin/erinnerungen", StringComparison.Ordinal)
-            || path.StartsWith("platform/email", StringComparison.Ordinal)
-            || path.StartsWith("platform/licenses", StringComparison.Ordinal)
-            || path.StartsWith("platform/plans", StringComparison.Ordinal)
-            || path.StartsWith("platform/provisioning", StringComparison.Ordinal)
-            || path.StartsWith("platform/signups", StringComparison.Ordinal)
-            || path == "passwort-vergessen"
-            || path == "passwort-zuruecksetzen"
-            || path == "signup"
-            || path.StartsWith("signup/", StringComparison.Ordinal)
-            || path == "not-found"
-            || path == "error")
-        {
-            return false;
-        }
-
-        return true;
-    }
+    public bool IsTenantRequiredForRoute(string relativePath) =>
+        RouteAccessClassifier.IsTenantRequiredForRoute(relativePath);
 
     /// <summary>Prüft Zugriff und Aktiv-Status – Basis für Session-Recovery ohne Sicherheitslücke.</summary>
     private async Task<bool> IsActiveAccessibleTenantAsync(int tenantId)

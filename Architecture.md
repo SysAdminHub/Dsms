@@ -164,6 +164,17 @@ Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnec
 | `DataSubjectRequestMeasures` | `DataSubjectRequestMeasure` |
 | `DataSubjectRequestServiceProviders` | `DataSubjectRequestServiceProvider` |
 | `DataProtectionRoles` | `DataProtectionRole` (organisatorische Datenschutzrollen je Mandant; optional `LinkedUserId`, `ReportsToRoleId`, `DeputyRoleId`) |
+| `TrainingTemplates` | `TrainingTemplate` (Schulungsvorlage; mandanteneigen oder global; Karten, Assets, Quiz) |
+| `TrainingTemplateSections` | `TrainingTemplateSection` (Markdown-Karte pro Vorlage) |
+| `TrainingTemplateAssets` | `TrainingTemplateAsset` (Bilder/Medien, getrennt vom Dokumentenmodul) |
+| `TrainingQuestions` | `TrainingQuestion` (Quizfrage) |
+| `TrainingQuestionOptions` | `TrainingQuestionOption` (Antwortoption) |
+| `Trainings` | `Training` (konkrete Schulungsdurchführung je Mandant) |
+| `TrainingParticipants` | `TrainingParticipant` (Stammdaten Schulungsteilnehmer je Mandant; keine App-Benutzer) |
+| `TrainingAssignments` | `TrainingAssignment` (Zuweisung Teilnehmer ↔ Schulung, Zugangscode-Hash, Einladungsstatus) |
+| `TrainingAssignmentSectionProgress` | `TrainingAssignmentSectionProgress` (Kartenfortschritt pro Zuweisung) |
+| `TrainingQuizAttempts` | `TrainingQuizAttempt` (Quiz-Versuch inkl. Score, Passed) |
+| `TrainingQuizAnswers` | `TrainingQuizAnswer` (gespeicherte Antworten pro Versuch) |
 | `EmailSettings` | `EmailSettings` (plattformweit, kein Mandantenfilter) |
 | `EmailTemplates` | `EmailTemplate` (plattformweit, eindeutiger `TemplateKey`) |
 | `PageHelpContents` | `PageHelpContent` (plattformweit, eindeutiger `Key`; Hilfetexte für Fachseiten) |
@@ -185,9 +196,15 @@ Archivierbare Module erben von **`ArchivableEntityBase`** (`EntityBase` + `IArch
 - `ArchivedAt` (DateTime?, optional)
 - `ArchivedByUserId` (string?, Identity-User-ID)
 
-Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `Tom`, `ServiceProvider`, `AuditTemplate`, `AuditRun`, `Measure`, `PrivacyIncident`, `DataSubjectRequest`, `EvidenceDocument`.
+Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `Tom`, `ServiceProvider`, `AuditTemplate`, `TrainingTemplate`, `Training`, `AuditRun`, `Measure`, `PrivacyIncident`, `DataSubjectRequest`, `EvidenceDocument`.
 
 **`AuditTemplate`** erbt nur von `ArchivableEntityBase` (nicht `ITenantEntity`): `TenantId` bei eigenen Vorlagen gesetzt, bei globalen Vorlagen (`Official`, `Community`) `null`. Zusätzlich `CommunityStatus` und Prüffelder für Einreichungen. Sichtbarkeit: eigene Mandantenvorlagen + globale `Official`/`Community` über Query Filter. Community-Freigabe erstellt separate globale Kopie; Ursprungsvorlage bleibt beim Mandanten (`CommunityStatus = Approved`).
+
+**`TrainingTemplate`** (Schulungen & Awareness, Vorlagen): erbt von `ArchivableEntityBase` mit nullable `TenantId`. Mandantenvorlage: `TenantId` gesetzt, `IsGlobal = false`. Globale Vorlage: `TenantId = null`, `IsGlobal = true` (Superuser). Community-Felder vorbereitet. Kind-Entities mit Markdown, Assets und Quiz. Keine Teilnehmer-Tabellen.
+
+**`Training`** (konkrete Schulung/Durchführung): erbt von `ArchivableEntityBase`, Pflicht-`TenantId`, optional `TrainingTemplateId` (V1: Referenz, kein Inhaltssnapshot – siehe TODO in Entity). Felder: Titel, Beschreibung, `TrainingType`, Zielgruppe, `TrainingStatus`, Verantwortlicher (User/Freitext), `AccessCodeValidityDays` (1–90, Standard 14), Notizen. Teilnehmerzahlen werden aus `TrainingAssignments` berechnet (Legacy-Feld `ParticipantCount` in DB, nicht mehr führend in UI). Nachweise über normale `EvidenceDocument` + `DocumentLinks`. Teilnehmerportal: `/schulung/teilnahme` (Zugang), `/schulung/teilnahme/inhalt` (Durchführung).
+
+**`TrainingParticipant`** / **`TrainingAssignment`**: Schulungsteilnehmer sind fachliche Datensätze, keine Identity-Benutzer. `NormalizedEmail` (trim, lowercase) mit eindeutigem Index pro Mandant. **Neuanlage nur zentral** unter `/trainings/participants` (einzeln/Bulk); Schulungsdetail weist nur vorhandene aktive Teilnehmer per Mehrfachauswahl zu. Zuweisung mit E-Mail-Snapshot, 6-stelliger Zugangscode (nur Hash via `PasswordHasher`), Einladungsstatus (`TrainingAssignmentStatus`), Sperrlogik (`FailedAccessAttempts`, `LockedUntilUtc`). Fortschritt in `TrainingAssignmentSectionProgress`; Quiz in `TrainingQuizAttempt`/`TrainingQuizAnswer`. E-Mail-Vorlage `TrainingInvitation`.
 
 Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen, **`TenantOnboardingTask`** (mandantenbezogene Dashboard-Checkliste „Erste Schritte“; eindeutiger Index `TenantId` + `Key`).
 
@@ -258,7 +275,9 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | Service | Registrierung | Aufgabe |
 |---------|---------------|---------|
 | `ICurrentUserContext` / `CurrentUserContext` | Scoped | User-ID, TenantId, Rollenprüfung via `AuthenticationStateProvider` + `UserManager` |
-| `IUserAccessService` / `UserAccessService` | Scoped | Zentrale Berechtigungen (Superuser vs. Admin, Mandantenzugriff, bearbeitbare Benutzer) |
+| `ISupportAccessService` / `SupportAccessService` | Scoped | Supportfreigaben (Mandanten-Admin), Supportmodus (Superuser), Validierung bei jedem Request |
+| `ISupportContextService` / `SupportContextService` | Scoped | Session-Persistenz der aktiven Support-Grant-ID |
+| `IUserAccessService` / `UserAccessService` | Scoped | Zentrale Berechtigungen: Plattform vs. Mandanten-Fachbereich (`CanAccessTenantBusinessModulesAsync`, `CanManageGlobalAuditTemplatesAsync`, `CanAccessTenantAuditsAsync`, `IsSupportModeAsync`), Mandantenzugriff, Benutzerverwaltung |
 | `IUserManagementService` / `UserManagementService` | Scoped | Benutzerliste, Anlegen, Bearbeiten, Deaktivieren inkl. serverseitiger Validierung |
 | `DashboardService` | Scoped | Kennzahlen, Statusgruppen (Kritisch/Hinweis/Gut/Neutral) und Listen für Dashboard-Donut-Kacheln (VVT, TOMs, DSFA, Dienstleister, Vorfälle, Maßnahmen, Audits) |
 | `PrivacyIncidentRelationsService` | Scoped | Many-to-Many-Sync und Vorfallsnummern-Generierung (`INC-{Jahr}-{Sequenz}` pro Mandant) |
@@ -281,6 +300,29 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ArchiveViewContextAccessor` | Scoped | Aktiv-/Archivansicht für EF Global Query Filter (`ShowArchivedOnly`) |
 | `IArchivingService` / `ArchivingService` | Scoped | Soft Delete: Archivieren, Wiederherstellen, Abhängigkeitswarnungen |
 | `IAuditTemplateService` / `AuditTemplateService` | Scoped | Mandantensichere Sichtbarkeit, Bearbeitungsrechte, Archivierung, Community-Workflow und Fragen-CRUD; Frage-Snapshots beim Auditstart |
+| `TrainingTemplateAccessService` | Scoped | Gemeinsame Berechtigungs-/Sichtbarkeitslogik für Schulungsvorlagen |
+| `TrainingTemplateService` | Scoped | CRUD Vorlagen/Karten, Validierung, `CopyTemplateAsync`, Markdown-Asset-Auflösung |
+| `TrainingService` | Scoped | CRUD konkrete Schulungen, Erstellung aus Vorlage, Mandanten-/Berechtigungsprüfung |
+| `TrainingParticipantService` | Scoped | Stammdaten Schulungsteilnehmer (CRUD, zentraler Bulk-Import, Auswahl-Liste) |
+| `TrainingAssignmentService` | Scoped | Zuweisungen Teilnehmer ↔ Schulung (Mehrfachzuweisung, keine Neuanlage), Teilnehmerdetails für Admin |
+| `TrainingAccessCodeService` | Scoped | 6-stelliger Code (RNG), Hash/Verify via `PasswordHasher`, Sperrlogik |
+| `TrainingInvitationService` | Scoped | Einladungs-E-Mails mit Zugangscode (Status `Invited` nur bei erfolgreichem Versand) |
+| `TrainingParticipantSessionService` | Scoped | Signierte HttpOnly-Cookie-Session für Teilnehmerportal (kein Identity-Login) |
+| `TrainingParticipantPortalService` | Scoped | Zugang, Kartenfortschritt, Quiz-Auswertung, Abschluss (mit `IgnoreQueryFilters` für öffentlichen Zugang) |
+| `TrainingTemplateAssetService` | Scoped | Schulungsasset-Upload, Validierung, Archivierung, Datei-Kopie |
+| `TrainingQuestionService` | Scoped | Quiz-Fragen/-Optionen, `ValidateQuizAsync` |
+| `TrainingAssetStorageService` | Scoped | Dateisystem unter `Storage:TrainingAssetPath` (Default: `Data/training-assets/`) |
+| `TrainingAssetUploadValidation` | Static | Bildtypen PNG/JPG/WEBP/GIF, max. 5 MB, AssetKey-Format |
+| `TrainingMarkdownAssetResolver` | Static | Platzhalter `{{asset:…}}` erkennen und in Bild-URLs umsetzen |
+| `TrainingAssetEndpoints` | Minimal API | `GET /training-assets/{templateId}/{assetKey}` – autorisiert, mandantensicher |
+| `TrainingParticipantAssetEndpoints` | Minimal API | `GET /training-portal-assets/{assetKey}` – nur mit gültiger Teilnehmer-Session |
+
+**Teilnehmerportal (öffentlich):** `/schulung/teilnahme` (Login mit E-Mail + Code), `/schulung/teilnahme/inhalt` (Karten, Quiz, Abschluss). Layout `TrainingParticipantLayout` ohne App-Sidebar. Konfiguration `TrainingAccess` in `appsettings.json` (`SessionLifetimeHours`, Cookie-Name).
+
+**Admin-UI (Schulungsvorlagen):** `/training-templates` (Liste), `/training-templates/edit` (Neu), `/training-templates/edit/{id}` (Bearbeiten). Button „Schulung erstellen“ → `/trainings/edit?templateId={id}`.
+
+**Admin-UI (Schulungen):** `/trainings` (Liste), `/trainings/edit` (Neu), `/trainings/edit/{id}` (Bearbeiten), `/trainings/{id}` (Detail mit Tab „Teilnehmer“), `/trainings/participants` (Teilnehmerübersicht). Nachweise: `/documents?prefillTrainingId={id}`.
+
 | `IdentityRedirectManager` | Scoped | Weiterleitungen nach Login/Logout |
 | `IdentityRevalidatingAuthenticationStateProvider` | Scoped | Auth-State-Revalidierung für Blazor |
 | `IdentityNoOpEmailSender` | Singleton | Identity-Stub (Passwort-Reset etc. noch ohne Workflow-Anbindung) |
@@ -329,14 +371,14 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 
 | Rolle | Typische Rechte (aus `[Authorize]`, NavMenu, `IUserAccessService`) |
 |-------|---------------------------------------------------------------------|
-| **Superuser** | Plattform: alle Mandanten (`/tenants`), Lizenzen (`/platform/licenses`), Tarife (`/platform/plans`), Email (`/platform/email/*`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
+| **Superuser** | Plattform-Administration **ohne** Mandantenkontext: Mandanten, Benutzer, Lizenzen, globale Audit-Vorlagen, Supportzugriffsliste (`/platform/support-access`). **Kein** Fachzugriff ohne gültigen, vom Mandanten freigegebenen Supportmodus (`SupportAccessGrant` + Session). Im Supportmodus: Fachmodule **des freigegebenen Mandanten** lesen **und bearbeiten** wie ein Mandanten-Admin bis `ValidUntil` / Widerruf |
 | **Admin** | Benutzer im eigenen Mandant; **keine** Mandantenverwaltung; Compliance wie bisher für `TenantId` |
 | **Auditor** | Compliance-Inhalte **nur lesen** (Listen, Details, Audit-Antworten im Lesemodus, Dokument-Download); **kein** Anlegen/Bearbeiten/Archivieren; **keine** Benutzerverwaltung |
 | **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen (VVT, DSFA, TOMs, Dienstleister, Audit-Durchläufe) |
 
-**Rollen-Konstanten für Autorisierung:** `DsmsRoles.ComplianceEditor` (nur Admin) für Stammdaten-Bearbeitung; `DsmsRoles.ComplianceViewer` (Admin, Auditor, User) für lesenden Zugriff. Zentrale Prüfungen über `IUserAccessService.CanEditComplianceContentAsync()` (Stammdaten) und `CanEditTenantOperationalContentAsync()` (Maßnahmen, Audit-Antworten, Dokumente). **Datenschutzrollen (Organisation):** Lesen für alle Mandantenrollen; Bearbeiten über `CanManageDataProtectionRolesAsync()` (= Admin/Superuser mit Mandantenzugriff). **Datenschutzvorfälle:** `CanCreatePrivacyIncidentsAsync()` (Admin/Superuser), `CanEditPrivacyIncidentsAsync()` (Admin/Superuser/User); Auditor nur Lesen. **Betroffenenanfragen:** `CanCreateDataSubjectRequestsAsync()` (Admin/Superuser), `CanEditDataSubjectRequestsAsync()` (Admin/Superuser/User), `CanAnonymizeDataSubjectRequestsAsync()` (Admin/Superuser).
+**Rollen-Konstanten für Autorisierung:** `DsmsRoles.ComplianceEditor` (nur Admin) für Razor-`[Authorize]` auf Plattformseiten; Fach-Bearbeitungsseiten prüfen zur Laufzeit `CanEditComplianceContentAsync()`. `DsmsRoles.ComplianceViewer` (Admin, Auditor, User) für lesenden Zugriff. Zentrale Prüfungen über `IUserAccessService` (u. a. `HasEffectiveTenantAdminPermissionsAsync()` = echter Mandanten-Admin **oder** Superuser im gültigen Supportmodus; `CanAccessTenantBusinessModulesAsync()`, `CanManageGlobalAuditTemplatesAsync()`, `CanAccessTenantAuditsAsync()`, `CanEditComplianceContentAsync()`, `CanEditTenantOperationalContentAsync()`). Schreibaktionen im Supportmodus werden im Auditlog mit `[Supportmodus]` und `SupportAccessGrantId` markiert (`LogService`). Routen-Klassifizierung: `RouteAccessClassifier` (Plattform vs. globale Audit-Vorlagen vs. Fachmodule). UI-Gates: `TenantContextGate` + `BusinessModuleAccessGate` in `MainLayout`. **Datenschutzrollen (Organisation):** Lesen für alle Mandantenrollen; Bearbeiten über `CanManageDataProtectionRolesAsync()` (= effektiver Mandanten-Admin). **Datenschutzvorfälle / Betroffenenanfragen:** Mandanten-Admin/User; Superuser nur im gültigen Supportmodus (Admin-Niveau); nicht Auditor.
 
-**Unterschied Superuser vs. Admin:** Superuser ist mandantenunabhängig (`TenantId` null) und global; Admin ist strikt an einen `TenantId` gebunden. Beide dürfen Benutzer verwalten, aber nur der Superuser sieht fremde Mandanten und darf Superuser anlegen.
+**Unterschied Superuser vs. Admin:** Superuser ist mandantenunabhängig (`TenantId` null außer im Supportmodus) und verwaltet die Plattform; Admin ist strikt an einen `TenantId` gebunden und kann unter `/admin/support-access` zeitlich begrenzten Supportzugriff freigeben. Superuser darf Supportfreigaben **nicht** selbst erstellen.
 
 **Version 1 – Mandant pro Benutzer:** `ApplicationUser.TenantId` (nullable). Keine `UserTenants`-Tabelle; Architektur über `IUserAccessService`/`UserManagementService` erweiterbar für Multi-Tenant-Zuordnung und Rollen pro Mandant.
 

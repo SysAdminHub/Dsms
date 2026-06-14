@@ -1,0 +1,70 @@
+@using Dsms.Web.Services.Training
+
+<div class="training-markdown-editor">
+    <div class="d-flex flex-wrap gap-2 mb-2">
+        @if (!ReadOnly)
+        {
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick='() => InsertSnippet("# ")'>Überschrift</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick='() => InsertSnippet("- ")'>Liste</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick='() => InsertSnippet("**", "**")'>Fett</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick='() => InsertSnippet("> ")'>Hinweis</button>
+            @if (!string.IsNullOrEmpty(AssetKeyToInsert))
+            {
+                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="InsertAssetPlaceholder">
+                    Bild einfügen (@AssetKeyToInsert)
+                </button>
+            }
+        }
+        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="TogglePreview">
+            @(ShowPreview ? "Editor" : "Vorschau")
+        </button>
+    </div>
+
+    @if (!ShowPreview)
+    {
+        <textarea class="form-control font-monospace" rows="@Rows" value="@Markdown"
+                  @onchange="OnTextareaChanged" disabled="@ReadOnly"></textarea>
+        <div class="form-text mt-2">
+            Markdown: <code># Überschrift</code>, <code>## Abschnitt</code>, <code>- Liste</code>,
+            <code>**fett**</code>, <code>&gt; Hinweis</code>, <code>{{asset:asset-key}}</code>
+        </div>
+    }
+    else
+    {
+        <TrainingMarkdownPreview TemplateId="TemplateId" TenantId="TenantId" Markdown="@Markdown" />
+    }
+</div>
+
+@code {
+    [Parameter] public string Markdown { get; set; } = "";
+    [Parameter] public EventCallback<string> MarkdownChanged { get; set; }
+    [Parameter] public int TemplateId { get; set; }
+    [Parameter] public int? TenantId { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public int Rows { get; set; } = 12;
+    [Parameter] public string? AssetKeyToInsert { get; set; }
+
+    private bool ShowPreview { get; set; }
+
+    private async Task OnTextareaChanged(ChangeEventArgs e)
+    {
+        Markdown = e.Value?.ToString() ?? "";
+        await MarkdownChanged.InvokeAsync(Markdown);
+    }
+
+    private void TogglePreview() => ShowPreview = !ShowPreview;
+
+    private async Task InsertSnippet(string prefix, string suffix = "")
+    {
+        if (ReadOnly) return;
+        Markdown = $"{Markdown}{Environment.NewLine}{prefix}Text{suffix}{Environment.NewLine}";
+        await MarkdownChanged.InvokeAsync(Markdown);
+    }
+
+    private async Task InsertAssetPlaceholder()
+    {
+        if (ReadOnly || string.IsNullOrEmpty(AssetKeyToInsert)) return;
+        Markdown = $"{Markdown}{Environment.NewLine}{{{{asset:{AssetKeyToInsert}}}}}{Environment.NewLine}";
+        await MarkdownChanged.InvokeAsync(Markdown);
+    }
+}

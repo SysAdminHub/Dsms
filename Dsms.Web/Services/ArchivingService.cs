@@ -57,6 +57,11 @@ public class ArchivingService(
             dsr.Status = DataSubjectRequestStatus.Archived;
         }
 
+        if (entity is Domain.Entities.Training trainingArchive)
+        {
+            trainingArchive.Status = TrainingStatus.Archived;
+        }
+
         await db.SaveChangesAsync(ct);
         await LogArchiveAsync(entity, ct);
         return new ArchiveOperationResult(true, warnings);
@@ -98,6 +103,11 @@ public class ArchivingService(
             dsr.Status = DataSubjectRequestStatus.Completed;
         }
 
+        if (entity is Domain.Entities.Training trainingRestore && trainingRestore.Status == TrainingStatus.Archived)
+        {
+            trainingRestore.Status = TrainingStatus.Inactive;
+        }
+
         await db.SaveChangesAsync(ct);
         await LogRestoreAsync(entity, ct);
         return new ArchiveOperationResult(true, []);
@@ -116,6 +126,7 @@ public class ArchivingService(
         PrivacyIncident incident => complianceAuditLog.LogPrivacyIncidentArchivedAsync(incident.Id, incident.Title, incident.TenantId),
         DataSubjectRequest dsr => complianceAuditLog.LogDataSubjectRequestArchivedAsync(
             dsr.Id, DataSubjectRequestLabels.GetAuditDisplayName(dsr), dsr.TenantId),
+        Domain.Entities.Training training => complianceAuditLog.LogTrainingArchivedAsync(training.Id, training.Title, training.TenantId),
         _ => Task.CompletedTask
     };
 
@@ -131,6 +142,7 @@ public class ArchivingService(
         PrivacyIncident incident => complianceAuditLog.LogPrivacyIncidentRestoredAsync(incident.Id, incident.Title, incident.TenantId),
         DataSubjectRequest dsr => complianceAuditLog.LogDataSubjectRequestRestoredAsync(
             dsr.Id, DataSubjectRequestLabels.GetAuditDisplayName(dsr), dsr.TenantId),
+        Domain.Entities.Training training => complianceAuditLog.LogTrainingRestoredAsync(training.Id, training.Title, training.TenantId),
         _ => Task.CompletedTask
     };
 

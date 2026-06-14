@@ -187,6 +187,30 @@ public sealed class MeasureExportDto
     public IReadOnlyList<int> LinkedProcessingActivityIds { get; init; } = [];
 }
 
+public sealed class TrainingExportDto
+{
+    public int Id { get; init; }
+    public int? TrainingTemplateId { get; init; }
+    public string? TemplateTitle { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string? Description { get; init; }
+    public string TrainingType { get; init; } = string.Empty;
+    public string? TargetAudience { get; init; }
+    public string Status { get; init; } = string.Empty;
+    public DateTime? ScheduledAt { get; init; }
+    public DateTime? CompletedAt { get; init; }
+    public DateTime? RepeatDueAt { get; init; }
+    public string? ResponsibleUserId { get; init; }
+    public string? ResponsibleName { get; init; }
+    public int ParticipantCount { get; init; }
+    public bool ProofMissing { get; init; }
+    public string? Notes { get; init; }
+    public bool IsArchived { get; init; }
+    public DateTime? ArchivedAt { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime? UpdatedAt { get; init; }
+}
+
 public sealed class AuditQuestionExportDto
 {
     public int Id { get; init; }

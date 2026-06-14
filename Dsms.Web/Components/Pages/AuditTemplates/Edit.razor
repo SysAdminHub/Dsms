@@ -9,15 +9,16 @@
 
 <BrandedPageTitle Title="@PageTitleText" />
 
-@if (_tenantId is null)
+@if (_loading)
 {
-    <PageHeader Title="Audit-Vorlage" />
-    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+    <div class="dsms-loading">Lade …</div>
 }
 else if (_accessDenied)
 {
     <PageHeader Title="Audit-Vorlage" />
-    <div class="alert alert-danger dsms-alert">Zugriff verweigert.</div>
+    <div class="alert alert-warning dsms-alert">
+        @( _tenantBusinessDenied ? RouteAccessClassifier.TenantBusinessAccessDeniedMessage : "Zugriff verweigert." )
+    </div>
     <a class="btn btn-outline-secondary" href="audit-templates">Zurück</a>
 }
 else if (_createDenied)
@@ -251,13 +252,16 @@ else
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private IAuditTemplateService TemplateService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
     [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _loading = true;
     private bool _accessDenied;
+    private bool _tenantBusinessDenied;
     private bool _createDenied;
     private LicenseLimitCheckResult? _createLimit;
     private string? _saveError;
@@ -313,11 +317,64 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        _tenantId = await CurrentUser.GetTenantIdAsync();
-        if (_tenantId is null) return;
+        var isGlobalAdmin = await UserAccess.CanManageGlobalAuditTemplatesAsync()
+            && !await UserAccess.HasTenantContextAsync();
 
+        _tenantId = await UserAccess.GetCurrentTenantIdAsync();
         _isOfficialCreateMode = Id is null or 0
             && string.Equals(Type, "official", StringComparison.OrdinalIgnoreCase);
+
+        if (isGlobalAdmin)
+        {
+            if (Id is > 0)
+            {
+                var template = await TemplateService.GetByIdAsync(Id.Value);
+                if (template is null)
+                {
+                    _accessDenied = true;
+                    _loading = false;
+                    return;
+                }
+
+                if (template.TemplateType == AuditTemplateType.Tenant)
+                {
+                    _accessDenied = true;
+                    _tenantBusinessDenied = true;
+                    _loading = false;
+                    return;
+                }
+
+                await LoadTemplateStateAsync(template);
+            }
+            else if (_isOfficialCreateMode)
+            {
+                if (!await TemplateService.CanCreateOfficialTemplateAsync())
+                {
+                    _accessDenied = true;
+                    _loading = false;
+                    return;
+                }
+
+                _model.TemplateType = AuditTemplateType.Official;
+                _model.TenantId = null;
+                _typeHint = AuditTemplateLabels.OfficialCreateHint;
+            }
+            else
+            {
+                _accessDenied = true;
+                _tenantBusinessDenied = true;
+            }
+
+            _loading = false;
+            return;
+        }
+
+        if (_tenantId is null)
+        {
+            _accessDenied = true;
+            _loading = false;
+            return;
+        }
 
         if (Id is > 0)
         {
@@ -325,6 +382,7 @@ else
             if (template is null)
             {
                 _accessDenied = true;
+                _loading = false;
                 return;
             }
 
@@ -335,6 +393,7 @@ else
             if (!await TemplateService.CanCreateOfficialTemplateAsync())
             {
                 _accessDenied = true;
+                _loading = false;
                 return;
             }
 
@@ -347,6 +406,7 @@ else
             if (!await TemplateService.CanCreateTenantTemplateAsync())
             {
                 _createDenied = true;
+                _loading = false;
                 return;
             }
 
@@ -355,6 +415,8 @@ else
             _typeHint = AuditTemplateLabels.GetTypeHint(AuditTemplateType.Tenant);
             _createLimit = await LicenseService.CanCreateCustomAuditTemplateAsync(_tenantId.Value);
         }
+
+        _loading = false;
     }
 
     private async Task LoadTemplateStateAsync(AuditTemplate template)

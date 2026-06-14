@@ -23,6 +23,8 @@ using Dsms.Web.Services.Onboarding;
 using Dsms.Web.Services.PageHelp;
 using Dsms.Web.Services.Legal;
 using Dsms.Web.Services.Privacy;
+using Dsms.Web.Services.Training;
+using Dsms.Web.Services.Support;
 using Microsoft.AspNetCore.Components.Authorization;
 using QuestPDF.Infrastructure;
 using Microsoft.AspNetCore.DataProtection;
@@ -59,8 +61,11 @@ builder.Services.AddSession(options =>
 });
 
 builder.Services.AddScoped<TenantContextAccessor>();
+builder.Services.AddScoped<SupportContextAccessor>();
 builder.Services.AddScoped<ArchiveViewContextAccessor>();
 builder.Services.AddScoped<ITenantContextService, TenantContextService>();
+builder.Services.AddScoped<ISupportContextService, SupportContextService>();
+builder.Services.AddScoped<ISupportAccessService, SupportAccessService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddSingleton<IApplicationInfoService, ApplicationInfoService>();
@@ -117,6 +122,19 @@ builder.Services.AddScoped<ILogService, LogService>();
 builder.Services.AddScoped<ILogQueryService, LogQueryService>();
 builder.Services.AddScoped<ILicenseCreateGuard, LicenseCreateGuard>();
 builder.Services.AddScoped<IComplianceAuditLogService, ComplianceAuditLogService>();
+builder.Services.AddScoped<TrainingTemplateAccessService>();
+builder.Services.AddScoped<TrainingAssetStorageService>();
+builder.Services.AddScoped<TrainingTemplateAssetService>();
+builder.Services.AddScoped<TrainingQuestionService>();
+builder.Services.AddScoped<TrainingTemplateService>();
+builder.Services.AddScoped<TrainingService>();
+builder.Services.Configure<TrainingAccessOptions>(builder.Configuration.GetSection(TrainingAccessOptions.SectionName));
+builder.Services.AddScoped<TrainingAccessCodeService>();
+builder.Services.AddScoped<TrainingParticipantService>();
+builder.Services.AddScoped<TrainingAssignmentService>();
+builder.Services.AddScoped<TrainingInvitationService>();
+builder.Services.AddScoped<TrainingParticipantSessionService>();
+builder.Services.AddScoped<TrainingParticipantPortalService>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -212,9 +230,18 @@ app.MapPost("/tenant/switch", async (
 })
 .RequireAuthorization();
 
+app.MapGet("/platform/support-access/enter/{grantId:int}", SupportAccessEndpoints.EnterSupportModeAsync)
+    .RequireAuthorization();
+
+app.MapGet("/platform/support-access/exit", SupportAccessEndpoints.ExitSupportModeAsync)
+    .RequireAuthorization();
+
 // Minimal-API-Endpunkte für Identity-Formulare (Logout, externe Logins, …).
 app.MapAdditionalIdentityEndpoints();
 app.MapDocumentFileEndpoints();
+app.MapTrainingAssetEndpoints();
+app.MapTrainingParticipantAssetEndpoints();
+app.MapTrainingParticipantLoginEndpoints();
 app.MapTenantDataEndpoints();
 app.MapLegalDocumentEndpoints();
 

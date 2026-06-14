@@ -43,6 +43,7 @@
     [Parameter] public int? PrivacyIncidentId { get; set; }
     [Parameter] public int? DataSubjectRequestId { get; set; }
     [Parameter] public int? TomId { get; set; }
+    [Parameter] public int? TrainingId { get; set; }
 
     private bool _loading = true;
     private List<EvidenceDocument> _documents = [];
@@ -130,6 +131,13 @@
         {
             entityType = DocumentLinkedEntityType.Tom;
             entityId = TomId.Value;
+            return true;
+        }
+
+        if (TrainingId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.Training;
+            entityId = TrainingId.Value;
             return true;
         }
 

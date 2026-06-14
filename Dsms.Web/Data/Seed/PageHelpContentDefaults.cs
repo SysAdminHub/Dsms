@@ -75,6 +75,34 @@ public static class PageHelpContentDefaults
             Prüfen Sie regelmäßig, ob Ihre Vorlagen die relevanten Themen Ihrer Organisation abdecken.
             """),
         new(
+            Domain.PageHelpContentKeys.TrainingTemplates,
+            "Schulungsvorlagen",
+            "Art. 32 DSGVO, Art. 39 DSGVO, Awareness",
+            "Erstellen und verwalten Sie wiederverwendbare Schulungsinhalte für Datenschutz und Awareness.",
+            """
+            Schulungsvorlagen enthalten wiederverwendbare Inhalte für Datenschutz- und Awareness-Schulungen. Eine Vorlage besteht aus mehreren Karten mit Markdown-Inhalten.
+
+            Bilder können direkt in der Vorlage hochgeladen und über Platzhalter wie {{asset:beispielbild}} eingefügt werden. Optional kann ein Multiple-Choice-Quiz gepflegt werden, das später zur Teilnahmebestätigung verwendet wird.
+
+            Eine Karte ist ein einzelner Lernabschnitt. Markdown ermöglicht einfache Textformatierung. Ein Asset ist ein Bild oder Medium innerhalb der Vorlage. Das Quiz ist der Fragenkatalog zur Wissensprüfung. Die Bestehensgrenze ist die Mindestpunktzahl in Prozent.
+            """),
+        new(
+            Domain.PageHelpContentKeys.Trainings,
+            "Schulungen",
+            "Art. 32 DSGVO, Art. 39 DSGVO, Awareness",
+            "Dokumentieren Sie konkrete Datenschutzschulungen und Awareness-Maßnahmen.",
+            """
+            In diesem Bereich verwalten Sie konkrete Online-Schulungen und Awareness-Maßnahmen. Schulungen können aktiv, inaktiv oder archiviert sein. Im Tab „Teilnehmer“ weisen Sie vorhandene Teilnehmer der Schulung zu und versenden Einladungen mit 6-stelligem Zugangscode. Neue Teilnehmer legen Sie zentral unter Schulungsteilnehmer an. Teilnehmer sind keine App-Benutzer und erhalten kein Passwort. Teilnehmer können Schulungen ohne App-Konto über E-Mail-Adresse und Zugangscode unter /schulung/teilnahme durchführen. Fortschritt, Quizversuche und Teilnahmebestätigung werden pro Zuweisung dokumentiert. Nachweise wie Teilnehmerlisten oder Zertifikate werden über das Dokumentenmodul verknüpft.
+            """),
+        new(
+            Domain.PageHelpContentKeys.TrainingParticipants,
+            "Schulungsteilnehmer",
+            "Art. 32 DSGVO, Art. 39 DSGVO",
+            "Alle Schulungsteilnehmer des Mandanten und deren Schulungshistorie.",
+            """
+            In der Teilnehmerübersicht sehen Sie alle Schulungsteilnehmer des Mandanten und deren Schulungshistorie. Neue Teilnehmer werden hier zentral angelegt (einzeln oder per Import) – nicht in einzelnen Schulungen. Teilnehmer sind keine normalen Benutzer der Datenschutz-Cloud. Sie erhalten bei Bedarf Zugangscodes für einzelne Schulungen. E-Mail-Adressen werden pro Mandant eindeutig geführt, damit keine doppelten Teilnehmer entstehen.
+            """),
+        new(
             Domain.PageHelpContentKeys.AuditRuns,
             "Audit-Durchläufe",
             "DSGVO Rechenschaftspflicht, Art. 5 Abs. 2 DSGVO",

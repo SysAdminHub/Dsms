@@ -3,7 +3,7 @@
     Nur Admin; alle IDs werden serverseitig gegen den Mandanten geprüft.
 *@
 @page "/processing-activities/links/{Id:int}"
-@attribute [Authorize(Roles = DsmsRoles.ComplianceEditor)]
+@attribute [Authorize]
 @rendermode InteractiveServer
 
 <BrandedPageTitle Title="Verknüpfungen bearbeiten" />
@@ -12,6 +12,12 @@
 {
     <PageHeader Title="Verknüpfungen" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (!_canEdit)
+{
+    <PageHeader Title="Verknüpfungen" />
+    <div class="alert alert-warning dsms-alert">@_accessDeniedMessage</div>
+    <a class="btn btn-outline-secondary" href="@($"processing-activities/{Id}")">Zur Detailansicht</a>
 }
 else if (_notFound)
 {
@@ -177,8 +183,11 @@ else
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private ProcessingActivityRelationsService Relations { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _canEdit;
+    private string _accessDeniedMessage = "Keine Berechtigung zum Bearbeiten von Verknüpfungen.";
     private bool _notFound;
     private bool _saving;
     private string? _saveError;
@@ -201,6 +210,13 @@ else
     {
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
+
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
+        if (!_canEdit)
+        {
+            _accessDeniedMessage = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
 
         var activity = await Db.ProcessingActivities
             .AsNoTracking()
@@ -269,6 +285,12 @@ else
     private async Task SaveAsync()
     {
         if (_tenantId is null) return;
+
+        if (!await UserAccess.CanEditComplianceContentAsync())
+        {
+            _saveError = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
 
         _saving = true;
         _saveError = null;

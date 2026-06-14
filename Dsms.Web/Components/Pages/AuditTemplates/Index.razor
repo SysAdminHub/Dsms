@@ -5,14 +5,20 @@
 
 <BrandedPageTitle Title="Audit-Vorlagen" />
 
-@if (_tenantId is null)
+@if (_loading)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_accessDenied)
 {
     <PageHeader Title="Audit-Vorlagen" HelpKey="audit-templates" />
-    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+    <div class="alert alert-warning dsms-alert">@RouteAccessClassifier.TenantBusinessAccessDeniedMessage</div>
 }
 else
 {
-    <PageHeader Title="Audit-Vorlagen" HelpKey="audit-templates" Subtitle="Wiederverwendbare Fragenkataloge für Audits">
+    <PageHeader Title="@(_isGlobalMode ? "Globale Audit-Vorlagen" : "Audit-Vorlagen")"
+                HelpKey="audit-templates"
+                Subtitle="@(_isGlobalMode ? "Offizielle und Community-Vorlagen für alle Mandanten" : "Wiederverwendbare Fragenkataloge für Audits")">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (!_showArchived)
@@ -148,11 +154,14 @@ else
 
 @code {
     [Inject] private IAuditTemplateService TemplateService { get; set; } = null!;
-    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
+    private bool _loading = true;
+    private bool _accessDenied;
+    private bool _isGlobalMode;
     private int? _tenantId;
     private bool _showArchived;
     private bool _canCreateTenant;
@@ -164,19 +173,38 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        _tenantId = await CurrentUser.GetTenantIdAsync();
-        if (_tenantId is null) return;
+        _isGlobalMode = await UserAccess.CanManageGlobalAuditTemplatesAsync()
+            && !await UserAccess.HasTenantContextAsync();
+        _tenantId = await UserAccess.GetCurrentTenantIdAsync();
+
+        if (_isGlobalMode)
+        {
+            _canCreateOfficial = await TemplateService.CanCreateOfficialTemplateAsync();
+            await LoadDataAsync();
+            _loading = false;
+            return;
+        }
+
+        if (_tenantId is null)
+        {
+            _accessDenied = true;
+            _loading = false;
+            return;
+        }
 
         _canCreateTenant = await TemplateService.CanCreateTenantTemplateAsync();
         _canCreateOfficial = await TemplateService.CanCreateOfficialTemplateAsync();
         _customTemplateLimit = await LicenseService.CanCreateCustomAuditTemplateAsync(_tenantId.Value);
         await LoadDataAsync();
+        _loading = false;
     }
 
     private async Task LoadDataAsync()
     {
         _showArchived = ArchiveView.ShowArchivedOnly;
-        var items = await TemplateService.ListVisibleAsync();
+        var items = _isGlobalMode
+            ? await TemplateService.ListGlobalTemplatesAsync()
+            : await TemplateService.ListVisibleAsync();
         var rows = new List<TemplateRow>();
         foreach (var template in items)
         {

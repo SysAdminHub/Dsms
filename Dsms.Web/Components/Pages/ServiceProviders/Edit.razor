@@ -6,7 +6,7 @@
 @page "/service-providers/edit"
 @page "/service-providers/edit/{Id:int}"
 
-@attribute [Authorize(Roles = DsmsRoles.ComplianceEditor)]
+@attribute [Authorize]
 
 @rendermode InteractiveServer
 
@@ -16,6 +16,12 @@
 {
     <PageHeader Title="Dienstleister" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (!_canEdit)
+{
+    <PageHeader Title="Dienstleister" />
+    <div class="alert alert-warning dsms-alert">@_accessDeniedMessage</div>
+    <a class="btn btn-outline-secondary" href="service-providers">Zur Liste</a>
 }
 else if (_notFound)
 {
@@ -310,8 +316,11 @@ else
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
     [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _canEdit;
+    private string _accessDeniedMessage = "Keine Berechtigung zum Bearbeiten von Dienstleistern.";
     private bool _notFound;
     private bool _saving;
     private string? _saveError;
@@ -334,6 +343,13 @@ else
     {
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
+
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
+        if (!_canEdit)
+        {
+            _accessDeniedMessage = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
 
         _availableActivities = await Db.ProcessingActivities
             .Where(p => p.TenantId == _tenantId)
@@ -418,6 +434,12 @@ else
         if (_tenantId is null || string.IsNullOrWhiteSpace(_model.Name))
         {
             _saveError = "Name ist ein Pflichtfeld.";
+            return;
+        }
+
+        if (!await UserAccess.CanEditComplianceContentAsync())
+        {
+            _saveError = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
             return;
         }
 

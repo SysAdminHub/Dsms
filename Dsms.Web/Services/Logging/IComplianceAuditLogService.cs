@@ -51,6 +51,11 @@ public interface IComplianceAuditLogService
     Task LogAuditTemplatePublishedToCommunityAsync(int id, string title, int tenantId);
     Task LogAuditTemplateImportedAsync(int id, string title, int tenantId, int sourceTemplateId);
 
+    Task LogGlobalAuditTemplateQuestionCreatedAsync(int templateId, string templateTitle, int questionId);
+    Task LogGlobalAuditTemplateQuestionUpdatedAsync(int templateId, string templateTitle, int questionId);
+    Task LogGlobalAuditTemplateQuestionDeletedAsync(int templateId, string templateTitle, int questionId);
+    Task LogTenantAuditTemplateQuestionAccessDeniedAsync(int templateId, int? questionId);
+
     Task LogEvidenceDocumentUploadedAsync(int id, string fileName, int tenantId);
     Task LogEvidenceDocumentUpdatedAsync(int id, string fileName, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes);
     Task LogEvidenceDocumentArchivedAsync(int id, string fileName, int tenantId);
@@ -78,4 +83,32 @@ public interface IComplianceAuditLogService
     Task LogDataSubjectRequestRestoredAsync(int id, string displayName, int tenantId);
     Task LogDataSubjectRequestStatusChangedAsync(int id, string displayName, int tenantId, object oldStatus, object newStatus);
     Task LogDataSubjectRequestAnonymizedAsync(int id, string displayName, int tenantId, string? note);
+
+    Task LogTrainingTemplateCreatedAsync(int id, string title, int? tenantId);
+    Task LogTrainingTemplateUpdatedAsync(int id, string title, int? tenantId, IReadOnlyList<AuditFieldChangeDto> changes);
+    Task LogTrainingTemplateArchivedAsync(int id, string title, int? tenantId);
+    Task LogTrainingTemplateCopiedAsync(int id, string title, int tenantId, int sourceTemplateId);
+    Task LogTrainingTemplateSectionChangedAsync(int templateId, string templateTitle, int? tenantId, int sectionId, string sectionTitle);
+    Task LogTrainingTemplateAssetUploadedAsync(int templateId, string templateTitle, int? tenantId, int assetId, string assetKey);
+    Task LogTrainingTemplateAssetArchivedAsync(int templateId, string templateTitle, int? tenantId, int assetId, string assetKey);
+    Task LogTrainingQuestionChangedAsync(int templateId, string templateTitle, int? tenantId, int questionId);
+
+    Task LogTrainingCreatedAsync(int id, string title, int tenantId);
+    Task LogTrainingCreatedFromTemplateAsync(int id, string title, int tenantId, int templateId, string templateTitle);
+    Task LogTrainingUpdatedAsync(int id, string title, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes);
+    Task LogTrainingArchivedAsync(int id, string title, int tenantId);
+    Task LogTrainingRestoredAsync(int id, string title, int tenantId);
+    Task LogTrainingStatusChangedAsync(int id, string title, int tenantId, object oldStatus, object newStatus);
+    Task LogTrainingProofLinkedAsync(int trainingId, string trainingTitle, int tenantId, int documentId, string fileName);
+    Task LogTrainingProofRemovedAsync(int trainingId, string trainingTitle, int tenantId, int documentId, string fileName);
+
+    Task LogTrainingParticipantCreatedAsync(int participantId, int tenantId);
+    Task LogTrainingParticipantUpdatedAsync(int participantId, int tenantId);
+    Task LogTrainingParticipantArchivedAsync(int participantId, int tenantId);
+    Task LogTrainingParticipantDeactivatedAsync(int participantId, int tenantId);
+    Task LogTrainingParticipantReactivatedAsync(int participantId, int tenantId);
+    Task LogTrainingParticipantAssignedAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId);
+    Task LogTrainingAssignmentCancelledAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId);
+    Task LogTrainingInvitationSentAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId);
+    Task LogTrainingInvitationResentAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId);
 }

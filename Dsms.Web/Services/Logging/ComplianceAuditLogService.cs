@@ -127,6 +127,27 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
         LogAsync("AuditTemplateImported", "Auditvorlage wurde importiert.", "AuditTemplate", id, title, tenantId,
             metadata: new { SourceTemplateId = sourceTemplateId });
 
+    public Task LogGlobalAuditTemplateQuestionCreatedAsync(int templateId, string templateTitle, int questionId) =>
+        LogAsync("GlobalAuditTemplateQuestionCreated", "Frage einer globalen Auditvorlage wurde erstellt.",
+            "AuditTemplate", templateId, templateTitle, null,
+            metadata: new { QuestionId = questionId, Result = "Success" });
+
+    public Task LogGlobalAuditTemplateQuestionUpdatedAsync(int templateId, string templateTitle, int questionId) =>
+        LogAsync("GlobalAuditTemplateQuestionUpdated", "Frage einer globalen Auditvorlage wurde geändert.",
+            "AuditTemplate", templateId, templateTitle, null,
+            metadata: new { QuestionId = questionId, Result = "Success" });
+
+    public Task LogGlobalAuditTemplateQuestionDeletedAsync(int templateId, string templateTitle, int questionId) =>
+        LogAsync("GlobalAuditTemplateQuestionDeleted", "Frage einer globalen Auditvorlage wurde gelöscht.",
+            "AuditTemplate", templateId, templateTitle, null,
+            metadata: new { QuestionId = questionId, Result = "Success" });
+
+    public Task LogTenantAuditTemplateQuestionAccessDeniedAsync(int templateId, int? questionId) =>
+        LogAsync("TenantAuditTemplateQuestionAccessDenied",
+            "Zugriff auf mandantenspezifische Auditvorlagen-Frage verweigert.",
+            "AuditTemplate", templateId, templateId.ToString(), null,
+            metadata: new { QuestionId = questionId, Result = "Denied" });
+
     public Task LogEvidenceDocumentUploadedAsync(int id, string fileName, int tenantId) =>
         LogAsync("EvidenceDocumentUploaded", "Nachweisdokument wurde hochgeladen.", "EvidenceDocument", id, fileName, tenantId);
 
@@ -208,6 +229,94 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
             displayName,
             tenantId,
             metadata: string.IsNullOrWhiteSpace(note) ? null : new { AnonymizationNoteProvided = true });
+
+    public Task LogTrainingTemplateCreatedAsync(int id, string title, int? tenantId) =>
+        LogAsync("TrainingTemplateCreated", "Schulungsvorlage wurde erstellt.", "TrainingTemplate", id, title, tenantId);
+
+    public Task LogTrainingTemplateUpdatedAsync(int id, string title, int? tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("TrainingTemplateUpdated", "Schulungsvorlage wurde geändert.", "TrainingTemplate", id, title, tenantId, changes);
+
+    public Task LogTrainingTemplateArchivedAsync(int id, string title, int? tenantId) =>
+        LogAsync("TrainingTemplateArchived", "Schulungsvorlage wurde archiviert.", "TrainingTemplate", id, title, tenantId);
+
+    public Task LogTrainingTemplateCopiedAsync(int id, string title, int tenantId, int sourceTemplateId) =>
+        LogAsync("TrainingTemplateCopied", "Schulungsvorlage wurde kopiert.", "TrainingTemplate", id, title, tenantId,
+            metadata: new { SourceTemplateId = sourceTemplateId });
+
+    public Task LogTrainingTemplateSectionChangedAsync(int templateId, string templateTitle, int? tenantId, int sectionId, string sectionTitle) =>
+        LogAsync("TrainingTemplateSectionChanged", "Schulungskarte wurde geändert.", "TrainingTemplate", templateId, templateTitle, tenantId,
+            metadata: new { SectionId = sectionId, SectionTitle = sectionTitle });
+
+    public Task LogTrainingTemplateAssetUploadedAsync(int templateId, string templateTitle, int? tenantId, int assetId, string assetKey) =>
+        LogAsync("TrainingTemplateAssetUploaded", "Schulungsasset wurde hochgeladen.", "TrainingTemplate", templateId, templateTitle, tenantId,
+            metadata: new { AssetId = assetId, AssetKey = assetKey });
+
+    public Task LogTrainingTemplateAssetArchivedAsync(int templateId, string templateTitle, int? tenantId, int assetId, string assetKey) =>
+        LogAsync("TrainingTemplateAssetArchived", "Schulungsasset wurde archiviert.", "TrainingTemplate", templateId, templateTitle, tenantId,
+            metadata: new { AssetId = assetId, AssetKey = assetKey });
+
+    public Task LogTrainingQuestionChangedAsync(int templateId, string templateTitle, int? tenantId, int questionId) =>
+        LogAsync("TrainingQuestionChanged", "Quizfrage wurde geändert.", "TrainingTemplate", templateId, templateTitle, tenantId,
+            metadata: new { QuestionId = questionId });
+
+    public Task LogTrainingCreatedAsync(int id, string title, int tenantId) =>
+        LogAsync("TrainingCreated", "Schulung wurde erstellt.", "Training", id, title, tenantId);
+
+    public Task LogTrainingCreatedFromTemplateAsync(int id, string title, int tenantId, int templateId, string templateTitle) =>
+        LogAsync("TrainingCreatedFromTemplate", "Schulung wurde aus Vorlage erstellt.", "Training", id, title, tenantId,
+            metadata: new { TemplateId = templateId, TemplateTitle = templateTitle });
+
+    public Task LogTrainingUpdatedAsync(int id, string title, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("TrainingUpdated", "Schulung wurde geändert.", "Training", id, title, tenantId, changes);
+
+    public Task LogTrainingArchivedAsync(int id, string title, int tenantId) =>
+        LogAsync("TrainingArchived", "Schulung wurde archiviert.", "Training", id, title, tenantId);
+
+    public Task LogTrainingRestoredAsync(int id, string title, int tenantId) =>
+        LogAsync("TrainingRestored", "Schulung wurde reaktiviert.", "Training", id, title, tenantId);
+
+    public Task LogTrainingStatusChangedAsync(int id, string title, int tenantId, object oldStatus, object newStatus) =>
+        LogAsync("TrainingStatusChanged", "Schulungsstatus wurde geändert.", "Training", id, title, tenantId,
+            metadata: new { OldStatus = oldStatus.ToString(), NewStatus = newStatus.ToString() });
+
+    public Task LogTrainingProofLinkedAsync(int trainingId, string trainingTitle, int tenantId, int documentId, string fileName) =>
+        LogAsync("TrainingProofLinked", "Nachweis wurde verknüpft.", "Training", trainingId, trainingTitle, tenantId,
+            metadata: new { DocumentId = documentId, FileName = fileName });
+
+    public Task LogTrainingProofRemovedAsync(int trainingId, string trainingTitle, int tenantId, int documentId, string fileName) =>
+        LogAsync("TrainingProofRemoved", "Nachweis-Verknüpfung wurde entfernt.", "Training", trainingId, trainingTitle, tenantId,
+            metadata: new { DocumentId = documentId, FileName = fileName });
+
+    public Task LogTrainingParticipantCreatedAsync(int participantId, int tenantId) =>
+        LogAsync("TrainingParticipantCreated", "Schulungsteilnehmer wurde erstellt.", "TrainingParticipant", participantId, participantId.ToString(), tenantId);
+
+    public Task LogTrainingParticipantUpdatedAsync(int participantId, int tenantId) =>
+        LogAsync("TrainingParticipantUpdated", "Schulungsteilnehmer wurde geändert.", "TrainingParticipant", participantId, participantId.ToString(), tenantId);
+
+    public Task LogTrainingParticipantArchivedAsync(int participantId, int tenantId) =>
+        LogAsync("TrainingParticipantArchived", "Schulungsteilnehmer wurde archiviert.", "TrainingParticipant", participantId, participantId.ToString(), tenantId);
+
+    public Task LogTrainingParticipantDeactivatedAsync(int participantId, int tenantId) =>
+        LogAsync("TrainingParticipantDeactivated", "Schulungsteilnehmer wurde deaktiviert.", "TrainingParticipant", participantId, participantId.ToString(), tenantId);
+
+    public Task LogTrainingParticipantReactivatedAsync(int participantId, int tenantId) =>
+        LogAsync("TrainingParticipantReactivated", "Schulungsteilnehmer wurde reaktiviert.", "TrainingParticipant", participantId, participantId.ToString(), tenantId);
+
+    public Task LogTrainingParticipantAssignedAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId) =>
+        LogAsync("TrainingParticipantAssigned", "Teilnehmer wurde einer Schulung zugewiesen.", "Training", trainingId, trainingTitle, tenantId,
+            metadata: new { AssignmentId = assignmentId, ParticipantId = participantId });
+
+    public Task LogTrainingAssignmentCancelledAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId) =>
+        LogAsync("TrainingAssignmentCancelled", "Schulungszuweisung wurde abgebrochen.", "Training", trainingId, trainingTitle, tenantId,
+            metadata: new { AssignmentId = assignmentId, ParticipantId = participantId });
+
+    public Task LogTrainingInvitationSentAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId) =>
+        LogAsync("TrainingInvitationSent", "Schulungseinladung wurde gesendet.", "Training", trainingId, trainingTitle, tenantId,
+            metadata: new { AssignmentId = assignmentId, ParticipantId = participantId });
+
+    public Task LogTrainingInvitationResentAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId) =>
+        LogAsync("TrainingInvitationResent", "Schulungseinladung wurde erneut gesendet.", "Training", trainingId, trainingTitle, tenantId,
+            metadata: new { AssignmentId = assignmentId, ParticipantId = participantId });
 
     private Task LogUpdateAsync(
         string action,

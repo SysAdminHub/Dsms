@@ -10,5 +10,6 @@ public enum DocumentLinkedEntityType
     Dsfa = 4,
     PrivacyIncident = 5,
     Tom = 6,
-    DataSubjectRequest = 7
+    DataSubjectRequest = 7,
+    Training = 8
 }

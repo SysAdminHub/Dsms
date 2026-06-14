@@ -1,0 +1,92 @@
+@using Dsms.Web.Services.Training
+
+<div class="dsms-card mb-4">
+    <div class="dsms-card-body">
+        <h2 class="h4">@Template.Title</h2>
+        @if (!string.IsNullOrEmpty(Template.Description))
+        {
+            <p class="text-muted">@Template.Description</p>
+        }
+        <div class="d-flex flex-wrap gap-3 small text-muted mb-3">
+            @if (!string.IsNullOrEmpty(Template.TargetAudience))
+            {
+                <span>Zielgruppe: @Template.TargetAudience</span>
+            }
+            @if (Template.EstimatedDurationMinutes.HasValue)
+            {
+                <span>Dauer: @Template.EstimatedDurationMinutes Min.</span>
+            }
+        </div>
+    </div>
+</div>
+
+@if (Sections.Count == 0)
+{
+    <div class="alert alert-warning dsms-alert">Keine aktiven Karten vorhanden.</div>
+}
+else
+{
+    <div class="dsms-card">
+        <div class="dsms-card-header">
+            Karte @_currentIndex von @Sections.Count · @_currentSection?.Title
+        </div>
+        <div class="dsms-card-body">
+            @if (_currentSection is not null)
+            {
+                <TrainingMarkdownPreview TemplateId="Template.Id" TenantId="Template.TenantId"
+                                         Markdown="@_currentSection.ContentMarkdown" />
+            }
+        </div>
+        <div class="dsms-card-footer d-flex justify-content-between">
+            <button type="button" class="btn btn-outline-secondary" disabled="@(_currentIndex <= 1)" @onclick="Prev">Zurück</button>
+            <button type="button" class="btn btn-outline-secondary" disabled="@(_currentIndex >= Sections.Count)" @onclick="Next">Weiter</button>
+        </div>
+    </div>
+}
+
+@if (Template.IsQuizRequired)
+{
+    <div class="mt-4">
+        <h3 class="h5">Quiz-Vorschau</h3>
+        <TrainingQuizTab TemplateId="Template.Id"
+                         TenantId="Template.TenantId"
+                         ReadOnly="true"
+                         Questions="Questions"
+                         ShowPreview="true"
+                         ShowCorrectAnswers="false"
+                         OnChanged="EventCallback.Empty" />
+    </div>
+}
+else if (Questions.Count > 0)
+{
+    <div class="alert alert-info dsms-alert mt-4">Quiz ist optional – Fragen werden bei Teilnahme nicht ausgewertet.</div>
+}
+
+@code {
+    [Parameter, EditorRequired] public TrainingTemplate Template { get; set; } = null!;
+    [Parameter] public List<TrainingTemplateSection> Sections { get; set; } = [];
+    [Parameter] public List<TrainingQuestion> Questions { get; set; } = [];
+
+    private int _currentIndex = 1;
+    private TrainingTemplateSection? _currentSection;
+
+    protected override void OnParametersSet()
+    {
+        var ordered = Sections.OrderBy(s => s.SortOrder).ToList();
+        Sections = ordered;
+        _currentIndex = Math.Clamp(_currentIndex, 1, Math.Max(1, ordered.Count));
+        _currentSection = ordered.ElementAtOrDefault(_currentIndex - 1);
+    }
+
+    private void Prev()
+    {
+        if (_currentIndex > 1) _currentIndex--;
+        _currentSection = Sections.OrderBy(s => s.SortOrder).ElementAtOrDefault(_currentIndex - 1);
+    }
+
+    private void Next()
+    {
+        if (_currentIndex < Sections.Count) _currentIndex++;
+        _currentSection = Sections.OrderBy(s => s.SortOrder).ElementAtOrDefault(_currentIndex - 1);
+    }
+}

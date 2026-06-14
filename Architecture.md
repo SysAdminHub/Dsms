@@ -204,7 +204,7 @@ Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `To
 
 **`Training`** (konkrete Schulung/Durchführung): erbt von `ArchivableEntityBase`, Pflicht-`TenantId`, optional `TrainingTemplateId` (V1: Referenz, kein Inhaltssnapshot – siehe TODO in Entity). Felder: Titel, Beschreibung, `TrainingType`, Zielgruppe, `TrainingStatus`, Verantwortlicher (User/Freitext), `AccessCodeValidityDays` (1–90, Standard 14), Notizen. Teilnehmerzahlen werden aus `TrainingAssignments` berechnet (Legacy-Feld `ParticipantCount` in DB, nicht mehr führend in UI). Nachweise über normale `EvidenceDocument` + `DocumentLinks`. Teilnehmerportal: `/schulung/teilnahme` (Zugang), `/schulung/teilnahme/inhalt` (Durchführung).
 
-**`TrainingParticipant`** / **`TrainingAssignment`**: Schulungsteilnehmer sind fachliche Datensätze, keine Identity-Benutzer. `NormalizedEmail` (trim, lowercase) mit eindeutigem Index pro Mandant. Zuweisung mit E-Mail-Snapshot, 6-stelliger Zugangscode (nur Hash via `PasswordHasher`), Einladungsstatus (`TrainingAssignmentStatus`), Sperrlogik (`FailedAccessAttempts`, `LockedUntilUtc`). Fortschritt in `TrainingAssignmentSectionProgress`; Quiz in `TrainingQuizAttempt`/`TrainingQuizAnswer`. E-Mail-Vorlage `TrainingInvitation`. Übersicht: `/trainings/participants`.
+**`TrainingParticipant`** / **`TrainingAssignment`**: Schulungsteilnehmer sind fachliche Datensätze, keine Identity-Benutzer. `NormalizedEmail` (trim, lowercase) mit eindeutigem Index pro Mandant. **Neuanlage nur zentral** unter `/trainings/participants` (einzeln/Bulk); Schulungsdetail weist nur vorhandene aktive Teilnehmer per Mehrfachauswahl zu. Zuweisung mit E-Mail-Snapshot, 6-stelliger Zugangscode (nur Hash via `PasswordHasher`), Einladungsstatus (`TrainingAssignmentStatus`), Sperrlogik (`FailedAccessAttempts`, `LockedUntilUtc`). Fortschritt in `TrainingAssignmentSectionProgress`; Quiz in `TrainingQuizAttempt`/`TrainingQuizAnswer`. E-Mail-Vorlage `TrainingInvitation`.
 
 Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen, **`TenantOnboardingTask`** (mandantenbezogene Dashboard-Checkliste „Erste Schritte“; eindeutiger Index `TenantId` + `Key`).
 
@@ -301,8 +301,8 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `TrainingTemplateAccessService` | Scoped | Gemeinsame Berechtigungs-/Sichtbarkeitslogik für Schulungsvorlagen |
 | `TrainingTemplateService` | Scoped | CRUD Vorlagen/Karten, Validierung, `CopyTemplateAsync`, Markdown-Asset-Auflösung |
 | `TrainingService` | Scoped | CRUD konkrete Schulungen, Erstellung aus Vorlage, Mandanten-/Berechtigungsprüfung |
-| `TrainingParticipantService` | Scoped | Stammdaten Schulungsteilnehmer (CRUD, FindOrCreateByEmail) |
-| `TrainingAssignmentService` | Scoped | Zuweisungen Teilnehmer ↔ Schulung, Bulk-Import, Teilnehmerdetails für Admin |
+| `TrainingParticipantService` | Scoped | Stammdaten Schulungsteilnehmer (CRUD, zentraler Bulk-Import, Auswahl-Liste) |
+| `TrainingAssignmentService` | Scoped | Zuweisungen Teilnehmer ↔ Schulung (Mehrfachzuweisung, keine Neuanlage), Teilnehmerdetails für Admin |
 | `TrainingAccessCodeService` | Scoped | 6-stelliger Code (RNG), Hash/Verify via `PasswordHasher`, Sperrlogik |
 | `TrainingInvitationService` | Scoped | Einladungs-E-Mails mit Zugangscode (Status `Invited` nur bei erfolgreichem Versand) |
 | `TrainingParticipantSessionService` | Scoped | Signierte HttpOnly-Cookie-Session für Teilnehmerportal (kein Identity-Login) |

@@ -14,6 +14,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Geändert
 
+- **Teilnehmerpflege zentralisiert (Schulungen):** Neue Teilnehmer werden ausschließlich unter `/trainings/participants` angelegt (einzeln und per Bulk-Import). Schulungsdetail weist nur noch vorhandene aktive Teilnehmer per Mehrfachauswahl zu; Einladungslogik bleibt in der Schulung. Dublettenprüfung über `NormalizedEmail` mit Link zum bestehenden Teilnehmer.
+
 - **Zugangscode-Gültigkeit pro Schulung:** Feld `Training.AccessCodeValidityDays` (1–90 Tage, Standard 14). Migration `AddTrainingAccessCodeValidityDays`. `appsettings.json`: `DefaultValidityDays`/`MaxValidityDays` nur noch Default/Fallback. UI in Anlegen, Bearbeiten, Detail und Teilnehmerbereich.
 
 - **Schulungen & Awareness (konkrete Schulungen):** Entity `Training` und Enum `TrainingStatus` für dokumentierte Schulungsdurchführungen je Mandant. Migration `AddTrainings`. Schulungen frei anlegen oder aus Vorlagen (`TrainingTemplateId`, V1-Referenz ohne Inhaltssnapshot – TODO für später). Listen-, Bearbeit- und Detailansicht unter `/trainings` mit Suche, Filtern, Schnellfiltern, Status-Badges, Wiederholungsfälligkeit (berechnet), Archivierung. Nachweise über `DocumentLinks` (`DocumentLinkedEntityType.Training`); Auswahl „Schulungen auswählen“ im Dokumentenmodul; Vorauswahl per `?prefillTrainingId=`. Dashboard-Kachel „Schulungen“ (geplant/aktiv, Wiederholung fällig, bald fällig, Nachweis fehlt). Navigation: Bereich „Schulungen“ mit Unterpunkten Schulungen und Schulungsvorlagen. PageHelp-Key `trainings`. Auditlog für Schulungs-CRUD, Status, Nachweis-Verknüpfungen. Tenant-Export `trainings.json`. Demo-Seed „Grundlagenschulung Datenschutz 2026“.

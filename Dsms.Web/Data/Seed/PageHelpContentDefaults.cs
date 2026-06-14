@@ -92,7 +92,7 @@ public static class PageHelpContentDefaults
             "Art. 32 DSGVO, Art. 39 DSGVO, Awareness",
             "Dokumentieren Sie konkrete Datenschutzschulungen und Awareness-Maßnahmen.",
             """
-            In diesem Bereich verwalten Sie konkrete Online-Schulungen und Awareness-Maßnahmen. Schulungen können aktiv, inaktiv oder archiviert sein. Im Tab „Teilnehmer“ weisen Sie Personen per E-Mail zu und versenden Einladungen mit 6-stelligem Zugangscode. Teilnehmer sind keine App-Benutzer und erhalten kein Passwort. Teilnehmer können Schulungen ohne App-Konto über E-Mail-Adresse und Zugangscode unter /schulung/teilnahme durchführen. Fortschritt, Quizversuche und Teilnahmebestätigung werden pro Zuweisung dokumentiert. Nachweise wie Teilnehmerlisten oder Zertifikate werden über das Dokumentenmodul verknüpft.
+            In diesem Bereich verwalten Sie konkrete Online-Schulungen und Awareness-Maßnahmen. Schulungen können aktiv, inaktiv oder archiviert sein. Im Tab „Teilnehmer“ weisen Sie vorhandene Teilnehmer der Schulung zu und versenden Einladungen mit 6-stelligem Zugangscode. Neue Teilnehmer legen Sie zentral unter Schulungsteilnehmer an. Teilnehmer sind keine App-Benutzer und erhalten kein Passwort. Teilnehmer können Schulungen ohne App-Konto über E-Mail-Adresse und Zugangscode unter /schulung/teilnahme durchführen. Fortschritt, Quizversuche und Teilnahmebestätigung werden pro Zuweisung dokumentiert. Nachweise wie Teilnehmerlisten oder Zertifikate werden über das Dokumentenmodul verknüpft.
             """),
         new(
             Domain.PageHelpContentKeys.TrainingParticipants,
@@ -100,7 +100,7 @@ public static class PageHelpContentDefaults
             "Art. 32 DSGVO, Art. 39 DSGVO",
             "Alle Schulungsteilnehmer des Mandanten und deren Schulungshistorie.",
             """
-            In der Teilnehmerübersicht sehen Sie alle Schulungsteilnehmer des Mandanten und deren Schulungshistorie. Teilnehmer sind keine normalen Benutzer der Datenschutz-Cloud. Sie erhalten bei Bedarf Zugangscodes für einzelne Schulungen. E-Mail-Adressen werden pro Mandant eindeutig geführt, damit keine doppelten Teilnehmer entstehen.
+            In der Teilnehmerübersicht sehen Sie alle Schulungsteilnehmer des Mandanten und deren Schulungshistorie. Neue Teilnehmer werden hier zentral angelegt (einzeln oder per Import) – nicht in einzelnen Schulungen. Teilnehmer sind keine normalen Benutzer der Datenschutz-Cloud. Sie erhalten bei Bedarf Zugangscodes für einzelne Schulungen. E-Mail-Adressen werden pro Mandant eindeutig geführt, damit keine doppelten Teilnehmer entstehen.
             """),
         new(
             Domain.PageHelpContentKeys.AuditRuns,

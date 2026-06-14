@@ -33,3 +33,32 @@ public sealed record TrainingParticipantAssignmentHistoryRow(
 public sealed record TrainingParticipantDetail(
     TrainingParticipant Participant,
     IReadOnlyList<TrainingParticipantAssignmentHistoryRow> Assignments);
+
+public sealed record TrainingParticipantSelectionItem(
+    int Id,
+    string Email,
+    string? Name,
+    string? Department);
+
+public sealed record TrainingParticipantBulkImportLineResult(
+    int LineNumber,
+    string RawLine,
+    bool IsValid,
+    string? ErrorMessage,
+    string? Email,
+    string? Name,
+    string? Department,
+    bool IsExistingParticipant);
+
+public sealed record TrainingParticipantBulkImportPreview(
+    IReadOnlyList<TrainingParticipantBulkImportLineResult> Lines,
+    int NewParticipantCount,
+    int ExistingParticipantCount,
+    int InvalidCount,
+    int DuplicateInInputCount);
+
+public sealed record TrainingParticipantBulkImportResult(
+    int CreatedCount,
+    int ExistingCount,
+    int FailureCount,
+    IReadOnlyList<string> Errors);

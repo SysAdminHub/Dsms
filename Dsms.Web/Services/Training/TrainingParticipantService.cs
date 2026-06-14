@@ -187,6 +187,85 @@ public class TrainingParticipantService(
             .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenantId, ct);
     }
 
+    public async Task<IReadOnlyList<TrainingParticipantSelectionItem>> GetActiveParticipantsForSelectionAsync(
+        int tenantId,
+        string? search = null,
+        CancellationToken ct = default)
+    {
+        var participants = await GetActiveParticipantsAsync(tenantId, search, ct);
+        return participants
+            .Select(p => new TrainingParticipantSelectionItem(p.Id, p.Email, p.Name, p.Department))
+            .ToList();
+    }
+
+    public async Task<TrainingParticipantBulkImportPreview> PreviewBulkParticipantImportAsync(
+        int tenantId,
+        string text,
+        CancellationToken ct = default)
+    {
+        if (!await CanManageAsync(ct))
+            return new TrainingParticipantBulkImportPreview([], 0, 0, 0, 0);
+
+        var lines = await ParseBulkParticipantLinesAsync(tenantId, text, ct);
+        var validLines = lines.Where(l => l.IsValid).ToList();
+        var duplicateInInput = lines.Count(l =>
+            !l.IsValid && l.ErrorMessage == "Doppelte E-Mail in der Eingabe.");
+
+        return new TrainingParticipantBulkImportPreview(
+            lines,
+            validLines.Count(l => !l.IsExistingParticipant),
+            validLines.Count(l => l.IsExistingParticipant),
+            lines.Count(l => !l.IsValid),
+            duplicateInInput);
+    }
+
+    public async Task<TrainingParticipantBulkImportResult> ExecuteBulkParticipantImportAsync(
+        int tenantId,
+        string text,
+        CancellationToken ct = default)
+    {
+        if (!await CanManageAsync(ct))
+            return new TrainingParticipantBulkImportResult(0, 0, 1, [TrainingLabels.TrainingAccessDenied]);
+
+        var preview = await PreviewBulkParticipantImportAsync(tenantId, text, ct);
+        if (preview.InvalidCount > 0)
+        {
+            var syntaxErrors = preview.Lines
+                .Where(l => !l.IsValid)
+                .Select(l => $"Zeile {l.LineNumber}: {l.ErrorMessage}")
+                .ToList();
+            return new TrainingParticipantBulkImportResult(0, 0, preview.InvalidCount, syntaxErrors);
+        }
+
+        var created = 0;
+        var existing = 0;
+        var errors = new List<string>();
+
+        foreach (var line in preview.Lines.Where(l => l.IsValid))
+        {
+            if (line.IsExistingParticipant)
+            {
+                existing++;
+                continue;
+            }
+
+            var result = await CreateParticipantAsync(
+                tenantId,
+                line.Email!,
+                line.Name,
+                line.Department,
+                null,
+                ct: ct);
+
+            if (!result.Success)
+                errors.Add($"Zeile {line.LineNumber}: {result.Message}");
+            else
+                created++;
+        }
+
+        return new TrainingParticipantBulkImportResult(created, existing, errors.Count, errors);
+    }
+
     public async Task<TrainingParticipant?> FindByEmailAsync(
         int tenantId,
         string email,
@@ -206,6 +285,7 @@ public class TrainingParticipantService(
         string? name,
         string? department,
         string? externalReference,
+        bool isActive = true,
         CancellationToken ct = default)
     {
         if (!await CanManageAsync(ct))
@@ -219,7 +299,9 @@ public class TrainingParticipantService(
             .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.NormalizedEmail == normalized, ct);
 
         if (existing is not null)
-            return TrainingAssignmentOperationResult.Fail("Ein Teilnehmer mit dieser E-Mail existiert bereits.");
+            return TrainingAssignmentOperationResult.Duplicate(
+                existing.Id,
+                "Ein Teilnehmer mit dieser E-Mail-Adresse existiert bereits.");
 
         var userId = await currentUser.GetUserIdAsync();
         var now = DateTime.UtcNow;
@@ -231,7 +313,7 @@ public class TrainingParticipantService(
             Name = NormalizeOptional(name),
             Department = NormalizeOptional(department),
             ExternalReference = NormalizeOptional(externalReference),
-            IsActive = true,
+            IsActive = isActive,
             CreatedAt = now,
             CreatedByUserId = userId
         };
@@ -382,7 +464,7 @@ public class TrainingParticipantService(
             return (existing, false);
         }
 
-        var result = await CreateParticipantAsync(tenantId, normalized, name, department, null, ct);
+        var result = await CreateParticipantAsync(tenantId, normalized, name, department, null, isActive: true, ct);
         if (!result.Success || result.AssignmentId is null)
             throw new InvalidOperationException(result.Message ?? "Teilnehmer konnte nicht erstellt werden.");
 
@@ -461,5 +543,71 @@ public class TrainingParticipantService(
                     open,
                     last == default ? null : last);
             });
+    }
+
+    private async Task<List<TrainingParticipantBulkImportLineResult>> ParseBulkParticipantLinesAsync(
+        int tenantId,
+        string text,
+        CancellationToken ct)
+    {
+        var seenInBatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var lines = new List<TrainingParticipantBulkImportLineResult>();
+        var lineNumber = 0;
+
+        foreach (var rawLine in text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            lineNumber++;
+            var line = rawLine.Trim();
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            var parts = line.Split(';').Select(p => p.Trim()).ToArray();
+            string? name = null;
+            string? email;
+            string? department = null;
+
+            if (parts.Length > 3)
+            {
+                lines.Add(new TrainingParticipantBulkImportLineResult(
+                    lineNumber, rawLine, false,
+                    "Zu viele Spalten. Bitte maximal Name;E-Mail;Abteilung verwenden.",
+                    null, null, null, false));
+                continue;
+            }
+
+            if (parts.Length == 1)
+            {
+                email = parts[0];
+            }
+            else
+            {
+                name = string.IsNullOrWhiteSpace(parts[0]) ? null : parts[0];
+                email = parts.Length > 1 ? parts[1] : null;
+                department = parts.Length > 2 && !string.IsNullOrWhiteSpace(parts[2]) ? parts[2] : null;
+            }
+
+            if (string.IsNullOrWhiteSpace(email) || !IsValidEmail(email))
+            {
+                lines.Add(new TrainingParticipantBulkImportLineResult(
+                    lineNumber, rawLine, false, "Ungültige E-Mail-Adresse.", email, name, department, false));
+                continue;
+            }
+
+            var normalized = NormalizeEmail(email);
+            if (!seenInBatch.Add(normalized))
+            {
+                lines.Add(new TrainingParticipantBulkImportLineResult(
+                    lineNumber, rawLine, false, "Doppelte E-Mail in der Eingabe.", email, name, department, false));
+                continue;
+            }
+
+            var existingParticipant = await db.TrainingParticipants
+                .AnyAsync(p => p.TenantId == tenantId && p.NormalizedEmail == normalized, ct);
+
+            lines.Add(new TrainingParticipantBulkImportLineResult(
+                lineNumber, rawLine, true, null, normalized, name, department, existingParticipant));
+        }
+
+        return lines;
     }
 }

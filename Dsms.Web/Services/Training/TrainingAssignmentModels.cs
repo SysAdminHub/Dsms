@@ -29,14 +29,23 @@ public sealed record TrainingAssignmentDetail(
 public sealed record TrainingAssignmentOperationResult(
     bool Success,
     string? Message = null,
-    int? AssignmentId = null)
+    int? AssignmentId = null,
+    int? ExistingParticipantId = null)
 {
     public static TrainingAssignmentOperationResult Ok(int assignmentId, string? message = null) =>
         new(true, message, assignmentId);
 
     public static TrainingAssignmentOperationResult Fail(string message) =>
         new(false, message);
+
+    public static TrainingAssignmentOperationResult Duplicate(int existingParticipantId, string message) =>
+        new(false, message, ExistingParticipantId: existingParticipantId);
 }
+
+public sealed record TrainingAssignmentBatchResult(
+    int AssignedCount,
+    int SkippedCount,
+    IReadOnlyList<string> Errors);
 
 public sealed record TrainingBulkImportLineResult(
     int LineNumber,

@@ -51,6 +51,11 @@ public interface IComplianceAuditLogService
     Task LogAuditTemplatePublishedToCommunityAsync(int id, string title, int tenantId);
     Task LogAuditTemplateImportedAsync(int id, string title, int tenantId, int sourceTemplateId);
 
+    Task LogGlobalAuditTemplateQuestionCreatedAsync(int templateId, string templateTitle, int questionId);
+    Task LogGlobalAuditTemplateQuestionUpdatedAsync(int templateId, string templateTitle, int questionId);
+    Task LogGlobalAuditTemplateQuestionDeletedAsync(int templateId, string templateTitle, int questionId);
+    Task LogTenantAuditTemplateQuestionAccessDeniedAsync(int templateId, int? questionId);
+
     Task LogEvidenceDocumentUploadedAsync(int id, string fileName, int tenantId);
     Task LogEvidenceDocumentUpdatedAsync(int id, string fileName, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes);
     Task LogEvidenceDocumentArchivedAsync(int id, string fileName, int tenantId);

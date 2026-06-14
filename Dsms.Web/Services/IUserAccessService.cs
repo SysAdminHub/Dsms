@@ -9,6 +9,25 @@ namespace Dsms.Web.Services;
 public interface IUserAccessService
 {
     Task<bool> IsSuperuserAsync();
+
+    /// <summary>True, wenn der Benutzer einem Mandanten zugeordnet ist und kein Superuser ist.</summary>
+    Task<bool> IsTenantUserAsync();
+
+    /// <summary>True, wenn ein aktiver Mandantenkontext (Session) gesetzt ist.</summary>
+    Task<bool> HasTenantContextAsync();
+
+    /// <summary>Plattform-Administration (Mandanten, Lizenzen, globale Vorlagen): nur Superuser.</summary>
+    Task<bool> CanAccessPlatformAdministrationAsync();
+
+    /// <summary>Mandantenspezifische Fachmodule: Mandanten-Benutzer mit gesetztem TenantContext, nicht Superuser.</summary>
+    Task<bool> CanAccessTenantBusinessModulesAsync();
+
+    /// <summary>Globale Audit-Vorlagen verwalten: nur Superuser.</summary>
+    Task<bool> CanManageGlobalAuditTemplatesAsync();
+
+    /// <summary>Mandantenspezifische Audits (Durchläufe, Ergebnisse): Mandanten-Benutzer, nicht Superuser.</summary>
+    Task<bool> CanAccessTenantAuditsAsync();
+
     Task<bool> IsTenantAdminAsync();
     Task<bool> CanManageUsersAsync();
     Task<bool> CanManageTenantsAsync();

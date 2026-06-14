@@ -20,12 +20,15 @@ public class TrainingParticipantService(
 
     public async Task<bool> CanViewAsync(int tenantId, CancellationToken ct = default)
     {
-        if (!await access.CanAccessTenantAsync(tenantId))
+        if (!await access.CanAccessTenantBusinessModulesAsync())
+            return false;
+
+        var currentTenantId = await access.GetCurrentTenantIdAsync();
+        if (!currentTenantId.HasValue || currentTenantId.Value != tenantId)
             return false;
 
         return await access.CanEditComplianceContentAsync()
-            || await access.IsAuditorAsync()
-            || await access.IsSuperuserAsync();
+            || await access.IsAuditorAsync();
     }
 
     public async Task<IReadOnlyList<TrainingParticipant>> GetActiveParticipantsAsync(

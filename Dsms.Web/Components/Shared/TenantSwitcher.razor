@@ -1,96 +1,109 @@
 @*
-    Mandanten-Switcher – immer sichtbar für angemeldete Benutzer (auch bei nur einem Mandanten).
-    Persistenz über Session (LoadAsync/CommitAsync). Dropdown ab 1 Mandant öffnbar.
-    Prerender deaktiviert: Session/DB erst nach Circuit-Start verfügbar (F5-stabil).
-    Bei leerem Circuit-Cache wird der Mandant aus der Session wiederhergestellt.
+    Mandanten-Switcher – für Mandanten-Benutzer sichtbar.
+    Superuser sehen stattdessen einen Plattform-Administrator-Hinweis ohne Mandantenwechsel.
 *@
 @using Microsoft.AspNetCore.Components.Web
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @inject ITenantService TenantService
+@inject IUserAccessService UserAccess
 @inject NavigationManager Navigation
 @inject ILogger<TenantSwitcher> Logger
 
 <AuthorizeView>
     <Authorized>
-        <div class="tenant-switcher @(_isOpen ? "tenant-switcher--open" : null) @(_switching ? "tenant-switcher--loading" : null) @(!_initialized ? "tenant-switcher--pending" : null)"
-             @onclick:stopPropagation="true">
-
-            @if (_isOpen && _tenants.Count > 0)
-            {
-                <div class="tenant-switcher__backdrop" @onclick="CloseMenu"></div>
-            }
-
-            @if (!_initialized)
-            {
-                <div class="tenant-switcher__trigger tenant-switcher__trigger--placeholder" aria-hidden="true">
+        @if (_isSuperuser)
+        {
+            <div class="tenant-switcher tenant-switcher--platform" title="Plattform-Administration ohne Mandantenkontext">
+                <span class="tenant-switcher__trigger tenant-switcher__trigger--static">
                     <span class="tenant-switcher__trigger-text">
-                        <span class="tenant-switcher__label">Mandant</span>
-                        <span class="tenant-switcher__value">Lade …</span>
+                        <span class="tenant-switcher__label">Rolle</span>
+                        <span class="tenant-switcher__value">Plattform-Administrator</span>
                     </span>
-                </div>
-            }
-            else if (_tenants.Count == 0)
-            {
-                <a class="tenant-switcher__trigger tenant-switcher__trigger--link" href="select-tenant">
-                    <span class="tenant-switcher__trigger-text">
-                        <span class="tenant-switcher__label">Mandant</span>
-                        <span class="tenant-switcher__value">Mandant wählen</span>
-                    </span>
-                </a>
-            }
-            else
-            {
-                <button type="button"
-                        class="tenant-switcher__trigger"
-                        aria-haspopup="listbox"
-                        aria-expanded="@_isOpen"
-                        disabled="@_switching"
-                        @onclick="ToggleMenuAsync">
-                    <span class="tenant-switcher__trigger-text">
-                        <span class="tenant-switcher__label">Mandant</span>
-                        <span class="tenant-switcher__value">@DisplayName</span>
-                    </span>
-                    @if (_switching)
-                    {
-                        <span class="tenant-switcher__spinner" aria-hidden="true"></span>
-                    }
-                    else
-                    {
-                        <svg class="tenant-switcher__chevron" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                        </svg>
-                    }
-                </button>
+                </span>
+            </div>
+        }
+        else
+        {
+            <div class="tenant-switcher @(_isOpen ? "tenant-switcher--open" : null) @(_switching ? "tenant-switcher--loading" : null) @(!_initialized ? "tenant-switcher--pending" : null)"
+                 @onclick:stopPropagation="true">
 
-                @if (_isOpen && !_switching)
+                @if (_isOpen && _tenants.Count > 0)
                 {
-                    <ul class="tenant-switcher__menu" role="listbox" aria-label="Mandant wählen">
-                        @foreach (var tenant in _tenants)
-                        {
-                            var isActive = _selectedTenantId == tenant.Id;
-                            <li role="option" aria-selected="@isActive">
-                                <button type="button"
-                                        class="tenant-switcher__item @(isActive ? "tenant-switcher__item--active" : null)"
-                                        @onclick="() => SelectTenantAsync(tenant.Id)">
-                                    <span class="tenant-switcher__item-name">@tenant.Name</span>
-                                    @if (isActive)
-                                    {
-                                        <svg class="tenant-switcher__check" viewBox="0 0 16 16" aria-hidden="true">
-                                            <path d="M3 8.5l3.5 3.5 6.5-7" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
-                                        </svg>
-                                    }
-                                </button>
-                            </li>
-                        }
-                    </ul>
+                    <div class="tenant-switcher__backdrop" @onclick="CloseMenu"></div>
                 }
-            }
 
-            @if (!string.IsNullOrEmpty(_errorMessage))
-            {
-                <span class="tenant-switcher__error" title="@_errorMessage">!</span>
-            }
-        </div>
+                @if (!_initialized)
+                {
+                    <div class="tenant-switcher__trigger tenant-switcher__trigger--placeholder" aria-hidden="true">
+                        <span class="tenant-switcher__trigger-text">
+                            <span class="tenant-switcher__label">Mandant</span>
+                            <span class="tenant-switcher__value">Lade …</span>
+                        </span>
+                    </div>
+                }
+                else if (_tenants.Count == 0)
+                {
+                    <a class="tenant-switcher__trigger tenant-switcher__trigger--link" href="select-tenant">
+                        <span class="tenant-switcher__trigger-text">
+                            <span class="tenant-switcher__label">Mandant</span>
+                            <span class="tenant-switcher__value">Mandant wählen</span>
+                        </span>
+                    </a>
+                }
+                else
+                {
+                    <button type="button"
+                            class="tenant-switcher__trigger"
+                            aria-haspopup="listbox"
+                            aria-expanded="@_isOpen"
+                            disabled="@_switching"
+                            @onclick="ToggleMenuAsync">
+                        <span class="tenant-switcher__trigger-text">
+                            <span class="tenant-switcher__label">Mandant</span>
+                            <span class="tenant-switcher__value">@DisplayName</span>
+                        </span>
+                        @if (_switching)
+                        {
+                            <span class="tenant-switcher__spinner" aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                            <svg class="tenant-switcher__chevron" viewBox="0 0 16 16" aria-hidden="true">
+                                <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                            </svg>
+                        }
+                    </button>
+
+                    @if (_isOpen && !_switching)
+                    {
+                        <ul class="tenant-switcher__menu" role="listbox" aria-label="Mandant wählen">
+                            @foreach (var tenant in _tenants)
+                            {
+                                var isActive = _selectedTenantId == tenant.Id;
+                                <li role="option" aria-selected="@isActive">
+                                    <button type="button"
+                                            class="tenant-switcher__item @(isActive ? "tenant-switcher__item--active" : null)"
+                                            @onclick="() => SelectTenantAsync(tenant.Id)">
+                                        <span class="tenant-switcher__item-name">@tenant.Name</span>
+                                        @if (isActive)
+                                        {
+                                            <svg class="tenant-switcher__check" viewBox="0 0 16 16" aria-hidden="true">
+                                                <path d="M3 8.5l3.5 3.5 6.5-7" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        }
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                }
+
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <span class="tenant-switcher__error" title="@_errorMessage">!</span>
+                }
+            </div>
+        }
     </Authorized>
 </AuthorizeView>
 
@@ -101,6 +114,7 @@
     private bool _initialized;
     private bool _isOpen;
     private bool _switching;
+    private bool _isSuperuser;
     private string? _errorMessage;
 
     private string DisplayName => _currentTenant?.Name
@@ -109,10 +123,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadTenantSafeAsync();
+        _isSuperuser = await UserAccess.IsSuperuserAsync();
+        if (!_isSuperuser)
+        {
+            await LoadTenantSafeAsync();
+        }
+        else
+        {
+            _initialized = true;
+        }
     }
 
-    /// <summary>Fehlertolerantes Laden – Circuit darf nie wegen Init abbrechen.</summary>
     private async Task LoadTenantSafeAsync()
     {
         try
@@ -133,7 +154,6 @@
         }
     }
 
-    /// <summary>Synchronisiert UI-State mit dem Server-Kontext (Recovery bei leerem Cache).</summary>
     private async Task SyncTenantContextAsync()
     {
         try
@@ -179,7 +199,6 @@
             return;
         }
 
-        // Vor dem Öffnen: Cache aus Session nachladen, falls der Circuit den Mandanten verloren hat.
         if (!_selectedTenantId.HasValue)
         {
             await SyncTenantContextAsync();

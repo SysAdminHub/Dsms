@@ -16,6 +16,72 @@ public class UserAccessService(
     public Task<bool> IsSuperuserAsync() => currentUser.IsInRoleAsync(DsmsRoles.Superuser);
 
     /// <inheritdoc />
+    public async Task<bool> IsTenantUserAsync()
+    {
+        if (await IsSuperuserAsync())
+        {
+            return false;
+        }
+
+        var userId = await currentUser.GetUserIdAsync();
+        if (userId is null)
+        {
+            return false;
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return await db.UserTenants
+            .IgnoreQueryFilters()
+            .AnyAsync(ut => ut.UserId == userId);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> HasTenantContextAsync()
+    {
+        return (await GetCurrentTenantIdAsync()).HasValue;
+    }
+
+    /// <inheritdoc />
+    public Task<bool> CanAccessPlatformAdministrationAsync() => IsSuperuserAsync();
+
+    /// <inheritdoc />
+    public async Task<bool> CanAccessTenantBusinessModulesAsync()
+    {
+        if (await IsSuperuserAsync())
+        {
+            return false;
+        }
+
+        var tenantId = await GetCurrentTenantIdAsync();
+        if (!tenantId.HasValue)
+        {
+            return false;
+        }
+
+        return await CanAccessTenantMembershipAsync(tenantId.Value);
+    }
+
+    /// <inheritdoc />
+    public Task<bool> CanManageGlobalAuditTemplatesAsync() => IsSuperuserAsync();
+
+    /// <inheritdoc />
+    public async Task<bool> CanAccessTenantAuditsAsync()
+    {
+        if (await IsSuperuserAsync())
+        {
+            return false;
+        }
+
+        var tenantId = await GetCurrentTenantIdAsync();
+        if (!tenantId.HasValue)
+        {
+            return false;
+        }
+
+        return await CanAccessTenantMembershipAsync(tenantId.Value);
+    }
+
+    /// <inheritdoc />
     public async Task<bool> IsTenantAdminAsync() =>
         await currentUser.IsInRoleAsync(DsmsRoles.Admin) && !await IsSuperuserAsync();
 
@@ -29,7 +95,7 @@ public class UserAccessService(
     /// <inheritdoc />
     public async Task<bool> CanManageTenantDataAsync()
     {
-        if (!await IsSuperuserAsync() && !await IsTenantAdminAsync())
+        if (!await IsTenantAdminAsync())
         {
             return false;
         }
@@ -40,7 +106,7 @@ public class UserAccessService(
             return false;
         }
 
-        return await CanAccessTenantAsync(tenantId.Value);
+        return await CanAccessTenantMembershipAsync(tenantId.Value);
     }
 
     /// <inheritdoc />
@@ -54,16 +120,7 @@ public class UserAccessService(
             return true;
         }
 
-        var userId = await currentUser.GetUserIdAsync();
-        if (userId is null)
-        {
-            return false;
-        }
-
-        await using var db = await dbFactory.CreateDbContextAsync();
-        return await db.UserTenants
-            .IgnoreQueryFilters()
-            .AnyAsync(ut => ut.UserId == userId && ut.TenantId == tenantId);
+        return await CanAccessTenantMembershipAsync(tenantId);
     }
 
     /// <inheritdoc />
@@ -122,36 +179,35 @@ public class UserAccessService(
     /// <inheritdoc />
     public async Task<bool> CanEditComplianceContentAsync()
     {
-        if (await IsAuditorAsync())
+        if (await IsAuditorAsync() || await IsSuperuserAsync())
         {
             return false;
         }
 
-        return await IsSuperuserAsync() || await currentUser.IsInRoleAsync(DsmsRoles.Admin);
+        return await currentUser.IsInRoleAsync(DsmsRoles.Admin);
     }
 
     /// <inheritdoc />
     public async Task<bool> CanEditTenantOperationalContentAsync()
     {
-        if (await IsAuditorAsync())
+        if (await IsAuditorAsync() || await IsSuperuserAsync())
         {
             return false;
         }
 
-        return await IsSuperuserAsync()
-            || await currentUser.IsInRoleAsync(DsmsRoles.Admin)
+        return await currentUser.IsInRoleAsync(DsmsRoles.Admin)
             || await currentUser.IsInRoleAsync(DsmsRoles.User);
     }
 
     /// <inheritdoc />
     public async Task<bool> CanCreatePrivacyIncidentsAsync()
     {
-        if (await IsAuditorAsync())
+        if (await IsAuditorAsync() || await IsSuperuserAsync())
         {
             return false;
         }
 
-        return await IsSuperuserAsync() || await currentUser.IsInRoleAsync(DsmsRoles.Admin);
+        return await currentUser.IsInRoleAsync(DsmsRoles.Admin);
     }
 
     /// <inheritdoc />
@@ -166,12 +222,12 @@ public class UserAccessService(
     /// <inheritdoc />
     public async Task<bool> CanAnonymizeDataSubjectRequestsAsync()
     {
-        if (await IsAuditorAsync())
+        if (await IsAuditorAsync() || await IsSuperuserAsync())
         {
             return false;
         }
 
-        return await IsSuperuserAsync() || await currentUser.IsInRoleAsync(DsmsRoles.Admin);
+        return await currentUser.IsInRoleAsync(DsmsRoles.Admin);
     }
 
     /// <inheritdoc />
@@ -179,5 +235,18 @@ public class UserAccessService(
 
     /// <inheritdoc />
     public Task<bool> CanManageDataProtectionRolesAsync() => CanManageTenantDataAsync();
-}
 
+    private async Task<bool> CanAccessTenantMembershipAsync(int tenantId)
+    {
+        var userId = await currentUser.GetUserIdAsync();
+        if (userId is null)
+        {
+            return false;
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return await db.UserTenants
+            .IgnoreQueryFilters()
+            .AnyAsync(ut => ut.UserId == userId && ut.TenantId == tenantId);
+    }
+}

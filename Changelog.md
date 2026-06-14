@@ -14,6 +14,10 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Geändert
 
+- **Superuser als Plattform-Administrator (ohne Fachdatenzugriff):** Superuser arbeiten ohne Mandantenkontext (`TenantId` null, kein Auto-Select, kein Mandantenwechsel). Zentrale Prüfungen in `IUserAccessService` (`CanAccessPlatformAdministrationAsync`, `CanAccessTenantBusinessModulesAsync`, `CanManageGlobalAuditTemplatesAsync`, `CanAccessTenantAuditsAsync`). Routen-Klassifizierung via `RouteAccessClassifier`; serverseitige Absicherung in `BusinessModuleAccessGate` mit Security-Auditlog bei Verweigerung. Navigation: nur Plattform-Funktionen + globale Audit-Vorlagen; Fachmodule ausgeblendet. Plattform-Dashboard auf `/` für Superuser. Globale Audit-Vorlagen weiterhin unter `/audit-templates` (nur Official/Community); mandantenspezifische Audit-Durchläufe gesperrt. Superuser-Bypass in Compliance-Services (Audit, Training) entfernt.
+
+- **Globale Audit-Vorlagen-Fragen (Superuser):** Fragen einer globalen Vorlage können ohne TenantContext verwaltet werden (`LoadTemplateByIdAsync` mit `IgnoreQueryFilters` in `GetTemplateForQuestionMutationAsync`). Audit-Log für Erstellen, Bearbeiten, Löschen globaler Fragen sowie Verweigerung mandantenspezifischer Fragen.
+
 - **Teilnehmerpflege zentralisiert (Schulungen):** Neue Teilnehmer werden ausschließlich unter `/trainings/participants` angelegt (einzeln und per Bulk-Import). Schulungsdetail weist nur noch vorhandene aktive Teilnehmer per Mehrfachauswahl zu; Einladungslogik bleibt in der Schulung. Dublettenprüfung über `NormalizedEmail` mit Link zum bestehenden Teilnehmer.
 
 - **Zugangscode-Gültigkeit pro Schulung:** Feld `Training.AccessCodeValidityDays` (1–90 Tage, Standard 14). Migration `AddTrainingAccessCodeValidityDays`. `appsettings.json`: `DefaultValidityDays`/`MaxValidityDays` nur noch Default/Fallback. UI in Anlegen, Bearbeiten, Detail und Teilnehmerbereich.

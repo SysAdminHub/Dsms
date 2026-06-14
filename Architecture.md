@@ -275,7 +275,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | Service | Registrierung | Aufgabe |
 |---------|---------------|---------|
 | `ICurrentUserContext` / `CurrentUserContext` | Scoped | User-ID, TenantId, Rollenprüfung via `AuthenticationStateProvider` + `UserManager` |
-| `IUserAccessService` / `UserAccessService` | Scoped | Zentrale Berechtigungen (Superuser vs. Admin, Mandantenzugriff, bearbeitbare Benutzer) |
+| `IUserAccessService` / `UserAccessService` | Scoped | Zentrale Berechtigungen: Plattform vs. Mandanten-Fachbereich (`CanAccessTenantBusinessModulesAsync`, `CanManageGlobalAuditTemplatesAsync`, `CanAccessTenantAuditsAsync`), Mandantenzugriff, Benutzerverwaltung |
 | `IUserManagementService` / `UserManagementService` | Scoped | Benutzerliste, Anlegen, Bearbeiten, Deaktivieren inkl. serverseitiger Validierung |
 | `DashboardService` | Scoped | Kennzahlen, Statusgruppen (Kritisch/Hinweis/Gut/Neutral) und Listen für Dashboard-Donut-Kacheln (VVT, TOMs, DSFA, Dienstleister, Vorfälle, Maßnahmen, Audits) |
 | `PrivacyIncidentRelationsService` | Scoped | Many-to-Many-Sync und Vorfallsnummern-Generierung (`INC-{Jahr}-{Sequenz}` pro Mandant) |
@@ -369,14 +369,14 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 
 | Rolle | Typische Rechte (aus `[Authorize]`, NavMenu, `IUserAccessService`) |
 |-------|---------------------------------------------------------------------|
-| **Superuser** | Plattform: alle Mandanten (`/tenants`), Lizenzen (`/platform/licenses`), Tarife (`/platform/plans`), Email (`/platform/email/*`), alle Benutzer; Compliance nur mit eigenem `TenantId` (meist null) |
+| **Superuser** | Plattform-Administration **ohne** Mandantenkontext: Mandanten (`/tenants`), Benutzer (`/users`), Lizenzen, Tarife, Email, globale Audit-Vorlagen (`/audit-templates`, `/platform/audit-templates/*`). **Kein** Zugriff auf mandantenspezifische Fachmodule (VVT, TOMs, DSFA, Audit-Durchläufe, Schulungen usw.) – Absicherung über `IUserAccessService.CanAccessTenantBusinessModulesAsync()` und `BusinessModuleAccessGate` |
 | **Admin** | Benutzer im eigenen Mandant; **keine** Mandantenverwaltung; Compliance wie bisher für `TenantId` |
 | **Auditor** | Compliance-Inhalte **nur lesen** (Listen, Details, Audit-Antworten im Lesemodus, Dokument-Download); **kein** Anlegen/Bearbeiten/Archivieren; **keine** Benutzerverwaltung |
 | **User** | Listen lesen, Detailansichten, Fragen beantworten, Maßnahmen, Dokumente; **kein** Bearbeiten von Stammdaten/Vorlagen (VVT, DSFA, TOMs, Dienstleister, Audit-Durchläufe) |
 
-**Rollen-Konstanten für Autorisierung:** `DsmsRoles.ComplianceEditor` (nur Admin) für Stammdaten-Bearbeitung; `DsmsRoles.ComplianceViewer` (Admin, Auditor, User) für lesenden Zugriff. Zentrale Prüfungen über `IUserAccessService.CanEditComplianceContentAsync()` (Stammdaten) und `CanEditTenantOperationalContentAsync()` (Maßnahmen, Audit-Antworten, Dokumente). **Datenschutzrollen (Organisation):** Lesen für alle Mandantenrollen; Bearbeiten über `CanManageDataProtectionRolesAsync()` (= Admin/Superuser mit Mandantenzugriff). **Datenschutzvorfälle:** `CanCreatePrivacyIncidentsAsync()` (Admin/Superuser), `CanEditPrivacyIncidentsAsync()` (Admin/Superuser/User); Auditor nur Lesen. **Betroffenenanfragen:** `CanCreateDataSubjectRequestsAsync()` (Admin/Superuser), `CanEditDataSubjectRequestsAsync()` (Admin/Superuser/User), `CanAnonymizeDataSubjectRequestsAsync()` (Admin/Superuser).
+**Rollen-Konstanten für Autorisierung:** `DsmsRoles.ComplianceEditor` (nur Admin) für Stammdaten-Bearbeitung; `DsmsRoles.ComplianceViewer` (Admin, Auditor, User) für lesenden Zugriff. Zentrale Prüfungen über `IUserAccessService` (u. a. `CanAccessTenantBusinessModulesAsync()`, `CanManageGlobalAuditTemplatesAsync()`, `CanAccessTenantAuditsAsync()`, `CanEditComplianceContentAsync()`, `CanEditTenantOperationalContentAsync()`). Routen-Klassifizierung: `RouteAccessClassifier` (Plattform vs. globale Audit-Vorlagen vs. Fachmodule). UI-Gates: `TenantContextGate` + `BusinessModuleAccessGate` in `MainLayout`. **Datenschutzrollen (Organisation):** Lesen für alle Mandantenrollen; Bearbeiten über `CanManageDataProtectionRolesAsync()` (= Mandanten-Admin mit Mandantenzugriff). **Datenschutzvorfälle / Betroffenenanfragen:** nur Mandanten-Admin/User (nicht Superuser, nicht Auditor).
 
-**Unterschied Superuser vs. Admin:** Superuser ist mandantenunabhängig (`TenantId` null) und global; Admin ist strikt an einen `TenantId` gebunden. Beide dürfen Benutzer verwalten, aber nur der Superuser sieht fremde Mandanten und darf Superuser anlegen.
+**Unterschied Superuser vs. Admin:** Superuser ist mandantenunabhängig (`TenantId` immer null, kein Mandantenwechsel) und verwaltet die Plattform; Admin ist strikt an einen `TenantId` gebunden und nutzt Fachmodule. Superuser darf Benutzer mandantenübergreifend verwalten und globale Audit-Vorlagen pflegen; mandantenspezifische Fachdaten sind standardmäßig gesperrt (Supportmodus folgt später).
 
 **Version 1 – Mandant pro Benutzer:** `ApplicationUser.TenantId` (nullable). Keine `UserTenants`-Tabelle; Architektur über `IUserAccessService`/`UserManagementService` erweiterbar für Multi-Tenant-Zuordnung und Rollen pro Mandant.
 

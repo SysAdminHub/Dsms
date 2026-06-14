@@ -27,6 +27,20 @@ public class TenantService(
     {
         try
         {
+            if (await access.IsSuperuserAsync())
+            {
+                var cachedSuperuserTenant = await tenantContext.GetCurrentTenantIdAsync();
+                if (cachedSuperuserTenant.HasValue)
+                {
+                    logger.LogInformation(
+                        "Superuser-Mandantenkontext {TenantId} wird entfernt (Plattform-Administration ohne Mandant)",
+                        cachedSuperuserTenant);
+                    await tenantContext.ClearCurrentTenantIdAsync();
+                }
+
+                return null;
+            }
+
             var tenantId = await tenantContext.GetCurrentTenantIdAsync();
             if (tenantId.HasValue)
             {
@@ -182,6 +196,13 @@ public class TenantService(
     {
         try
         {
+            if (await access.IsSuperuserAsync())
+            {
+                logger.LogWarning("Superuser-Versuch, Mandant {TenantId} zu wechseln – abgelehnt", tenantId);
+                return TenantSwitchResult.Fail(
+                    "Plattform-Administratoren können nicht in Mandanten wechseln.");
+            }
+
             if (!await CanAccessTenantAsync(tenantId))
             {
                 return TenantSwitchResult.Fail("Kein Zugriff auf diesen Mandanten.");
@@ -230,33 +251,8 @@ public class TenantService(
     }
 
     /// <inheritdoc />
-    public bool IsTenantRequiredForRoute(string relativePath)
-    {
-        var path = relativePath.Trim('/').ToLowerInvariant();
-
-        if (path == ""
-            || path.StartsWith("account", StringComparison.Ordinal)
-            || path == "select-tenant"
-            || path.StartsWith("tenants", StringComparison.Ordinal)
-            || path.StartsWith("users", StringComparison.Ordinal)
-            || path.StartsWith("admin/erinnerungen", StringComparison.Ordinal)
-            || path.StartsWith("platform/email", StringComparison.Ordinal)
-            || path.StartsWith("platform/licenses", StringComparison.Ordinal)
-            || path.StartsWith("platform/plans", StringComparison.Ordinal)
-            || path.StartsWith("platform/provisioning", StringComparison.Ordinal)
-            || path.StartsWith("platform/signups", StringComparison.Ordinal)
-            || path == "passwort-vergessen"
-            || path == "passwort-zuruecksetzen"
-            || path == "signup"
-            || path.StartsWith("signup/", StringComparison.Ordinal)
-            || path == "not-found"
-            || path == "error")
-        {
-            return false;
-        }
-
-        return true;
-    }
+    public bool IsTenantRequiredForRoute(string relativePath) =>
+        RouteAccessClassifier.IsTenantRequiredForRoute(relativePath);
 
     /// <summary>Prüft Zugriff und Aktiv-Status – Basis für Session-Recovery ohne Sicherheitslücke.</summary>
     private async Task<bool> IsActiveAccessibleTenantAsync(int tenantId)

@@ -1,0 +1,60 @@
+@*
+    Blockiert Superuser-Zugriff auf mandantenspezifische Fachmodule (serverseitig in der UI-Schicht).
+    Globale Audit-Vorlagen und Plattform-Routen bleiben erlaubt.
+*@
+@inject IUserAccessService UserAccess
+@inject NavigationManager Navigation
+@inject ILogService LogService
+@inject ILogger<BusinessModuleAccessGate> Logger
+
+@if (_ready)
+{
+    @ChildContent
+}
+else if (_accessDenied)
+{
+    <div class="alert alert-warning dsms-alert" role="alert">
+        @RouteAccessClassifier.TenantBusinessAccessDeniedMessage
+    </div>
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool _ready;
+    private bool _accessDenied;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+
+        if (!RouteAccessClassifier.IsBusinessModuleRoute(relativePath))
+        {
+            _ready = true;
+            return;
+        }
+
+        if (await UserAccess.CanAccessTenantBusinessModulesAsync())
+        {
+            _ready = true;
+            return;
+        }
+
+        _accessDenied = true;
+        Logger.LogInformation(
+            "Fachmodul-Zugriff verweigert für Route {Route} (Benutzer ohne Mandanten-Fachrechte)",
+            relativePath);
+
+        await LogService.LogSecurityAsync(
+            action: "TenantBusinessAccessDenied",
+            description: RouteAccessClassifier.TenantBusinessAccessDeniedMessage,
+            severity: "Warning",
+            metadata: new
+            {
+                Route = relativePath,
+                IsSuperuser = await UserAccess.IsSuperuserAsync(),
+                HasTenantContext = await UserAccess.HasTenantContextAsync(),
+                Result = "Denied"
+            });
+    }
+}

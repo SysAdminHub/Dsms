@@ -21,7 +21,9 @@
                 <TenantDeletionBanner />
                 <div class="dsms-page">
                     <TenantContextGate>
-                        @Body
+                        <BusinessModuleAccessGate>
+                            @Body
+                        </BusinessModuleAccessGate>
                     </TenantContextGate>
                 </div>
             </div>

@@ -525,6 +525,37 @@ article.content {
     font-size: var(--dsms-font-size-sm);
 }
 
+.dsms-training-participant-layout {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--dsms-bg-subtle, #f5f7fa);
+    padding: var(--dsms-space-6) var(--dsms-space-4);
+}
+
+.dsms-training-participant-header {
+    text-align: center;
+    margin-bottom: var(--dsms-space-4);
+}
+
+.dsms-training-participant-main {
+    flex: 1;
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.dsms-training-participant-page {
+    width: 100%;
+}
+
+.dsms-training-participant-footer {
+    text-align: center;
+    padding-top: var(--dsms-space-6);
+    margin-top: var(--dsms-space-4);
+    font-size: var(--dsms-font-size-sm);
+}
+
 @media (max-width: 767.98px) {
     .dsms-public-signup-layout {
         padding: var(--dsms-space-6) var(--dsms-space-3);
@@ -575,4 +606,45 @@ article.content {
 
 .dsms-table-row--archived td:first-child strong {
     opacity: 0.85;
+}
+
+@media print {
+    .sidebar,
+    .dsms-no-print,
+    .nav-tabs,
+    .dsms-page-help-btn,
+    #blazor-error-ui {
+        display: none !important;
+    }
+
+    .page {
+        display: block !important;
+    }
+
+    article.content {
+        padding: 0 !important;
+        max-width: none !important;
+    }
+
+    .dsms-org-chart-scroll {
+        overflow: visible !important;
+    }
+
+    .dsms-org-chart-container {
+        border: 1px solid #cbd5e1;
+        box-shadow: none;
+    }
+
+    .dsms-org-node {
+        break-inside: avoid;
+        box-shadow: none !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .dsms-org-tree-item::before,
+    .dsms-org-tree-item::after,
+    .dsms-org-tree-level::before {
+        border-color: #334155 !important;
+    }
 }

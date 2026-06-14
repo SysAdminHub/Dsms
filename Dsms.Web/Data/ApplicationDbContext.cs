@@ -26,12 +26,14 @@ public class ApplicationDbContext(
     public DbSet<LegalAcceptance> LegalAcceptances => Set<LegalAcceptance>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<UserTenant> UserTenants => Set<UserTenant>();
+    public DbSet<SupportAccessGrant> SupportAccessGrants => Set<SupportAccessGrant>();
     public DbSet<AuditTemplate> AuditTemplates => Set<AuditTemplate>();
     public DbSet<AuditQuestion> AuditQuestions => Set<AuditQuestion>();
     public DbSet<AuditRun> AuditRuns => Set<AuditRun>();
     public DbSet<AuditAnswer> AuditAnswers => Set<AuditAnswer>();
     public DbSet<Measure> Measures => Set<Measure>();
     public DbSet<EvidenceDocument> EvidenceDocuments => Set<EvidenceDocument>();
+    public DbSet<DocumentCategory> DocumentCategories => Set<DocumentCategory>();
     public DbSet<DocumentLink> DocumentLinks => Set<DocumentLink>();
     public DbSet<ProcessingActivity> ProcessingActivities => Set<ProcessingActivity>();
     public DbSet<Tom> Toms => Set<Tom>();
@@ -52,6 +54,22 @@ public class ApplicationDbContext(
     public DbSet<PrivacyIncidentServiceProvider> PrivacyIncidentServiceProviders => Set<PrivacyIncidentServiceProvider>();
     public DbSet<PrivacyIncidentMeasure> PrivacyIncidentMeasures => Set<PrivacyIncidentMeasure>();
     public DbSet<PrivacyIncidentTom> PrivacyIncidentToms => Set<PrivacyIncidentTom>();
+    public DbSet<DataSubjectRequest> DataSubjectRequests => Set<DataSubjectRequest>();
+    public DbSet<DataSubjectRequestProcessingActivity> DataSubjectRequestProcessingActivities => Set<DataSubjectRequestProcessingActivity>();
+    public DbSet<DataSubjectRequestMeasure> DataSubjectRequestMeasures => Set<DataSubjectRequestMeasure>();
+    public DbSet<DataSubjectRequestServiceProvider> DataSubjectRequestServiceProviders => Set<DataSubjectRequestServiceProvider>();
+    public DbSet<DataProtectionRole> DataProtectionRoles => Set<DataProtectionRole>();
+    public DbSet<TrainingTemplate> TrainingTemplates => Set<TrainingTemplate>();
+    public DbSet<TrainingTemplateSection> TrainingTemplateSections => Set<TrainingTemplateSection>();
+    public DbSet<TrainingTemplateAsset> TrainingTemplateAssets => Set<TrainingTemplateAsset>();
+    public DbSet<TrainingQuestion> TrainingQuestions => Set<TrainingQuestion>();
+    public DbSet<TrainingQuestionOption> TrainingQuestionOptions => Set<TrainingQuestionOption>();
+    public DbSet<Training> Trainings => Set<Training>();
+    public DbSet<TrainingParticipant> TrainingParticipants => Set<TrainingParticipant>();
+    public DbSet<TrainingAssignment> TrainingAssignments => Set<TrainingAssignment>();
+    public DbSet<TrainingAssignmentSectionProgress> TrainingAssignmentSectionProgress => Set<TrainingAssignmentSectionProgress>();
+    public DbSet<TrainingQuizAttempt> TrainingQuizAttempts => Set<TrainingQuizAttempt>();
+    public DbSet<TrainingQuizAnswer> TrainingQuizAnswers => Set<TrainingQuizAnswer>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -70,6 +88,23 @@ public class ApplicationDbContext(
                 .HasForeignKey(ut => ut.TenantId)
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(ut => ut.TenantId);
+        });
+
+        builder.Entity<SupportAccessGrant>(e =>
+        {
+            e.ToTable("SupportAccessGrants");
+            e.Property(g => g.Reason).HasMaxLength(500);
+            e.Property(g => g.InternalNote).HasMaxLength(1000);
+            e.Property(g => g.RevokedByUserId).HasMaxLength(450);
+            e.HasOne(g => g.Tenant)
+                .WithMany()
+                .HasForeignKey(g => g.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(g => g.GrantedByUser)
+                .WithMany()
+                .HasForeignKey(g => g.GrantedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(g => new { g.TenantId, g.RevokedAt, g.ValidUntil });
         });
 
         builder.Entity<License>(e =>
@@ -327,10 +362,242 @@ public class ApplicationDbContext(
 
         builder.Entity<EvidenceDocument>(e =>
         {
+            e.Property(d => d.DocumentType).IsRequired();
             e.Property(d => d.FileName).HasMaxLength(255).IsRequired();
             e.Property(d => d.StoragePath).HasMaxLength(500).IsRequired();
             e.Property(d => d.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(d => d.Tenant).WithMany(t => t.Documents).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(d => d.DocumentCategory).WithMany(c => c.Documents).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(d => d.DocumentCategoryId);
+        });
+
+        builder.Entity<DocumentCategory>(e =>
+        {
+            e.ToTable("DocumentCategories");
+            e.Property(c => c.Name).HasMaxLength(100).IsRequired();
+            e.Property(c => c.Description).HasMaxLength(500);
+            e.Property(c => c.Color).HasMaxLength(20);
+            e.Property(c => c.CreatedByUserId).HasMaxLength(450);
+            e.Property(c => c.UpdatedByUserId).HasMaxLength(450);
+            e.HasOne(c => c.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(c => c.TenantId);
+            e.HasIndex(c => new { c.TenantId, c.Name }).IsUnique();
+        });
+
+        builder.Entity<DataProtectionRole>(e =>
+        {
+            e.ToTable("DataProtectionRoles");
+            e.Property(r => r.RoleTitle).HasMaxLength(200).IsRequired();
+            e.Property(r => r.PersonName).HasMaxLength(200);
+            e.Property(r => r.Email).HasMaxLength(256);
+            e.Property(r => r.Phone).HasMaxLength(50);
+            e.Property(r => r.Department).HasMaxLength(200);
+            e.Property(r => r.AreaOfResponsibility).HasMaxLength(2000);
+            e.Property(r => r.ReportsTo).HasMaxLength(500);
+            e.Property(r => r.Deputy).HasMaxLength(500);
+            e.Property(r => r.Remarks).HasMaxLength(4000);
+            e.Property(r => r.LinkedUserId).HasMaxLength(450);
+            e.Property(r => r.CreatedByUserId).HasMaxLength(450);
+            e.Property(r => r.UpdatedByUserId).HasMaxLength(450);
+            e.Property(r => r.ArchivedByUserId).HasMaxLength(450);
+            e.HasOne(r => r.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(r => r.LinkedUser).WithMany().HasForeignKey(r => r.LinkedUserId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(r => r.ReportsToRole).WithMany().HasForeignKey(r => r.ReportsToRoleId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(r => r.DeputyRole).WithMany().HasForeignKey(r => r.DeputyRoleId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(r => r.TenantId);
+            e.HasIndex(r => new { r.TenantId, r.IsActive });
+            e.HasIndex(r => r.LinkedUserId);
+            e.HasIndex(r => r.RoleTitle);
+        });
+
+        builder.Entity<TrainingTemplate>(e =>
+        {
+            e.ToTable("TrainingTemplates");
+            e.Property(t => t.Title).HasMaxLength(200).IsRequired();
+            e.Property(t => t.Description).HasColumnType("text");
+            e.Property(t => t.TargetAudience).HasMaxLength(200);
+            e.Property(t => t.PassingScorePercent).HasDefaultValue(80);
+            e.Property(t => t.IsActive).HasDefaultValue(true);
+            e.Property(t => t.ArchivedByUserId).HasMaxLength(450);
+            e.Property(t => t.CreatedByUserId).HasMaxLength(450);
+            e.Property(t => t.UpdatedByUserId).HasMaxLength(450);
+            e.Property(t => t.CommunitySubmittedByUserId).HasMaxLength(450);
+            e.Property(t => t.CommunityReviewedByUserId).HasMaxLength(450);
+            e.Property(t => t.CommunityReviewNote).HasMaxLength(2000);
+            e.HasOne(t => t.Tenant).WithMany(t => t.TrainingTemplates).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(t => t.TenantId);
+            e.HasIndex(t => t.IsGlobal);
+            e.HasIndex(t => t.IsActive);
+            e.HasIndex(t => t.TrainingType);
+            e.HasIndex(t => t.CommunityStatus);
+            e.HasIndex(t => new { t.TenantId, t.IsActive });
+            e.HasIndex(t => new { t.IsGlobal, t.IsActive });
+        });
+
+        builder.Entity<TrainingTemplateSection>(e =>
+        {
+            e.ToTable("TrainingTemplateSections");
+            e.Property(s => s.Title).HasMaxLength(200).IsRequired();
+            e.Property(s => s.ContentMarkdown).HasColumnType("longtext");
+            e.Property(s => s.CreatedByUserId).HasMaxLength(450);
+            e.Property(s => s.UpdatedByUserId).HasMaxLength(450);
+            e.HasOne(s => s.TrainingTemplate).WithMany(t => t.Sections).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(s => s.TrainingTemplateId);
+            e.HasIndex(s => s.TenantId);
+            e.HasIndex(s => new { s.TrainingTemplateId, s.SortOrder });
+        });
+
+        builder.Entity<TrainingTemplateAsset>(e =>
+        {
+            e.ToTable("TrainingTemplateAssets");
+            e.Property(a => a.AssetKey).HasMaxLength(100).IsRequired();
+            e.Property(a => a.OriginalFileName).HasMaxLength(255).IsRequired();
+            e.Property(a => a.StoredFileName).HasMaxLength(255).IsRequired();
+            e.Property(a => a.ContentType).HasMaxLength(100).IsRequired();
+            e.Property(a => a.StoragePath).HasMaxLength(500).IsRequired();
+            e.Property(a => a.AltText).HasMaxLength(500);
+            e.Property(a => a.CreatedByUserId).HasMaxLength(450);
+            e.Property(a => a.UpdatedByUserId).HasMaxLength(450);
+            e.HasOne(a => a.TrainingTemplate).WithMany(t => t.Assets).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(a => a.TrainingTemplateId);
+            e.HasIndex(a => a.TenantId);
+            e.HasIndex(a => a.AssetKey);
+            e.HasIndex(a => new { a.TrainingTemplateId, a.AssetKey }).IsUnique();
+        });
+
+        builder.Entity<TrainingQuestion>(e =>
+        {
+            e.ToTable("TrainingQuestions");
+            e.Property(q => q.QuestionText).HasMaxLength(2000).IsRequired();
+            e.Property(q => q.Explanation).HasMaxLength(2000);
+            e.Property(q => q.Points).HasDefaultValue(1);
+            e.Property(q => q.CreatedByUserId).HasMaxLength(450);
+            e.Property(q => q.UpdatedByUserId).HasMaxLength(450);
+            e.HasOne(q => q.TrainingTemplate).WithMany(t => t.Questions).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(q => q.TrainingTemplateId);
+            e.HasIndex(q => q.TenantId);
+            e.HasIndex(q => new { q.TrainingTemplateId, q.SortOrder });
+        });
+
+        builder.Entity<TrainingQuestionOption>(e =>
+        {
+            e.ToTable("TrainingQuestionOptions");
+            e.Property(o => o.AnswerText).HasMaxLength(1000).IsRequired();
+            e.Property(o => o.Explanation).HasMaxLength(2000);
+            e.Property(o => o.CreatedByUserId).HasMaxLength(450);
+            e.Property(o => o.UpdatedByUserId).HasMaxLength(450);
+            e.HasOne(o => o.TrainingQuestion).WithMany(q => q.Options).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(o => o.TrainingQuestionId);
+            e.HasIndex(o => o.TenantId);
+            e.HasIndex(o => new { o.TrainingQuestionId, o.SortOrder });
+        });
+
+        builder.Entity<Training>(e =>
+        {
+            e.ToTable("Trainings");
+            e.Property(t => t.Title).HasMaxLength(200).IsRequired();
+            e.Property(t => t.Description).HasColumnType("text");
+            e.Property(t => t.TargetAudience).HasMaxLength(200);
+            e.Property(t => t.ResponsibleName).HasMaxLength(200);
+            e.Property(t => t.Notes).HasColumnType("text");
+            e.Property(t => t.AccessCodeValidityDays).HasDefaultValue(14);
+            e.Property(t => t.CreatedByUserId).HasMaxLength(450);
+            e.Property(t => t.UpdatedByUserId).HasMaxLength(450);
+            e.Property(t => t.ArchivedByUserId).HasMaxLength(450);
+            e.HasOne(t => t.Tenant).WithMany(t => t.Trainings).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(t => t.TrainingTemplate).WithMany().HasForeignKey(t => t.TrainingTemplateId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(t => t.ResponsibleUser).WithMany().HasForeignKey(t => t.ResponsibleUserId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(t => t.TenantId);
+            e.HasIndex(t => t.TrainingTemplateId);
+            e.HasIndex(t => t.Status);
+            e.HasIndex(t => t.TrainingType);
+            e.HasIndex(t => t.ScheduledAt);
+            e.HasIndex(t => t.CompletedAt);
+            e.HasIndex(t => t.RepeatDueAt);
+            e.HasIndex(t => new { t.TenantId, t.Status });
+            e.HasIndex(t => new { t.TenantId, t.RepeatDueAt });
+        });
+
+        builder.Entity<TrainingParticipant>(e =>
+        {
+            e.ToTable("TrainingParticipants");
+            e.Property(p => p.Name).HasMaxLength(200);
+            e.Property(p => p.Email).HasMaxLength(255).IsRequired();
+            e.Property(p => p.NormalizedEmail).HasMaxLength(255).IsRequired();
+            e.Property(p => p.Department).HasMaxLength(200);
+            e.Property(p => p.ExternalReference).HasMaxLength(100);
+            e.Property(p => p.CreatedByUserId).HasMaxLength(450);
+            e.Property(p => p.UpdatedByUserId).HasMaxLength(450);
+            e.Property(p => p.ArchivedByUserId).HasMaxLength(450);
+            e.HasOne(p => p.Tenant).WithMany(t => t.TrainingParticipants).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(p => p.TenantId);
+            e.HasIndex(p => p.NormalizedEmail);
+            e.HasIndex(p => new { p.TenantId, p.NormalizedEmail }).IsUnique();
+            e.HasIndex(p => new { p.TenantId, p.IsActive });
+        });
+
+        builder.Entity<TrainingAssignment>(e =>
+        {
+            e.ToTable("TrainingAssignments");
+            e.Property(a => a.ParticipantNameSnapshot).HasMaxLength(200);
+            e.Property(a => a.ParticipantEmailSnapshot).HasMaxLength(255).IsRequired();
+            e.Property(a => a.AccessCodeHash).HasMaxLength(500);
+            e.Property(a => a.InvitationSentByUserId).HasMaxLength(450);
+            e.Property(a => a.CreatedByUserId).HasMaxLength(450);
+            e.Property(a => a.UpdatedByUserId).HasMaxLength(450);
+            e.Property(a => a.ArchivedByUserId).HasMaxLength(450);
+            e.HasOne(a => a.Tenant).WithMany(t => t.TrainingAssignments).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(a => a.Training).WithMany(t => t.Assignments).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(a => a.TrainingParticipant).WithMany(p => p.Assignments)
+                .HasForeignKey(a => a.TrainingParticipantId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(a => a.InvitationSentByUser).WithMany()
+                .HasForeignKey(a => a.InvitationSentByUserId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(a => a.TenantId);
+            e.HasIndex(a => a.TrainingId);
+            e.HasIndex(a => a.TrainingParticipantId);
+            e.HasIndex(a => a.ParticipantEmailSnapshot);
+            e.HasIndex(a => a.Status);
+            e.HasIndex(a => a.AccessCodeExpiresAtUtc);
+            e.HasIndex(a => a.LockedUntilUtc);
+            e.HasIndex(a => new { a.TenantId, a.TrainingId });
+        });
+
+        builder.Entity<TrainingAssignmentSectionProgress>(e =>
+        {
+            e.ToTable("TrainingAssignmentSectionProgress");
+            e.HasOne(p => p.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(p => p.TrainingAssignment).WithMany(a => a.SectionProgress).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(p => p.TrainingTemplateSection).WithMany().OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(p => p.TenantId);
+            e.HasIndex(p => p.TrainingAssignmentId);
+            e.HasIndex(p => p.TrainingTemplateSectionId);
+            e.HasIndex(p => new { p.TrainingAssignmentId, p.TrainingTemplateSectionId }).IsUnique();
+        });
+
+        builder.Entity<TrainingQuizAttempt>(e =>
+        {
+            e.ToTable("TrainingQuizAttempts");
+            e.HasOne(a => a.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(a => a.TrainingAssignment).WithMany(x => x.QuizAttempts).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(a => a.TenantId);
+            e.HasIndex(a => a.TrainingAssignmentId);
+            e.HasIndex(a => a.AttemptNumber);
+            e.HasIndex(a => a.SubmittedAtUtc);
+            e.HasIndex(a => a.Passed);
+        });
+
+        builder.Entity<TrainingQuizAnswer>(e =>
+        {
+            e.ToTable("TrainingQuizAnswers");
+            e.Property(a => a.AnswerTextSnapshot).HasMaxLength(1000);
+            e.HasOne(a => a.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(a => a.TrainingQuizAttempt).WithMany(x => x.Answers).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(a => a.TrainingQuestion).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(a => a.TrainingQuestionOption).WithMany().OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(a => a.TenantId);
+            e.HasIndex(a => a.TrainingQuizAttemptId);
+            e.HasIndex(a => a.TrainingQuestionId);
+            e.HasIndex(a => a.TrainingQuestionOptionId);
         });
 
         builder.Entity<DocumentLink>(e =>
@@ -444,6 +711,92 @@ public class ApplicationDbContext(
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(l => l.TenantId);
             e.HasIndex(l => new { l.PrivacyIncidentId, l.TomId }).IsUnique();
+        });
+
+        builder.Entity<DataSubjectRequest>(e =>
+        {
+            e.ToTable("DataSubjectRequests");
+            e.Property(r => r.DataSubjectName).HasMaxLength(200);
+            e.Property(r => r.DataSubjectEmail).HasMaxLength(320);
+            e.Property(r => r.DataSubjectPhone).HasMaxLength(50);
+            e.Property(r => r.DataSubjectReference).HasMaxLength(200);
+            e.Property(r => r.ContactChannel).HasMaxLength(200);
+            e.Property(r => r.Description).HasColumnType("text");
+            e.Property(r => r.ResultSummary).HasColumnType("text");
+            e.Property(r => r.InternalNotes).HasColumnType("text");
+            e.Property(r => r.IdentityVerificationNote).HasColumnType("text");
+            e.Property(r => r.DeadlineExtensionReason).HasColumnType("text");
+            e.Property(r => r.AnonymizationNote).HasColumnType("text");
+            e.Property(r => r.AssignedUserId).HasMaxLength(450);
+            e.Property(r => r.CreatedByUserId).HasMaxLength(450);
+            e.Property(r => r.UpdatedByUserId).HasMaxLength(450);
+            e.Property(r => r.PersonalDataAnonymizedByUserId).HasMaxLength(450);
+            e.Property(r => r.ArchivedByUserId).HasMaxLength(450);
+            e.HasOne(r => r.Tenant).WithMany(t => t.DataSubjectRequests).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(r => r.TenantId);
+            e.HasIndex(r => r.Status);
+            e.HasIndex(r => r.RequestType);
+            e.HasIndex(r => r.DueAt);
+            e.HasIndex(r => r.PersonalDataAnonymized);
+            e.HasIndex(r => new { r.TenantId, r.Status });
+            e.HasIndex(r => new { r.TenantId, r.DueAt });
+        });
+
+        builder.Entity<DataSubjectRequestProcessingActivity>(e =>
+        {
+            e.ToTable("DataSubjectRequestProcessingActivities");
+            e.HasOne(l => l.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.DataSubjectRequest)
+                .WithMany(r => r.ProcessingActivityLinks)
+                .HasForeignKey(l => l.DataSubjectRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(l => l.ProcessingActivity)
+                .WithMany()
+                .HasForeignKey(l => l.ProcessingActivityId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.Property(l => l.CreatedByUserId).HasMaxLength(450);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => l.DataSubjectRequestId);
+            e.HasIndex(l => l.ProcessingActivityId);
+            e.HasIndex(l => new { l.DataSubjectRequestId, l.ProcessingActivityId }).IsUnique();
+        });
+
+        builder.Entity<DataSubjectRequestMeasure>(e =>
+        {
+            e.ToTable("DataSubjectRequestMeasures");
+            e.HasOne(l => l.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.DataSubjectRequest)
+                .WithMany(r => r.MeasureLinks)
+                .HasForeignKey(l => l.DataSubjectRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(l => l.Measure)
+                .WithMany()
+                .HasForeignKey(l => l.MeasureId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.Property(l => l.CreatedByUserId).HasMaxLength(450);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => l.DataSubjectRequestId);
+            e.HasIndex(l => l.MeasureId);
+            e.HasIndex(l => new { l.DataSubjectRequestId, l.MeasureId }).IsUnique();
+        });
+
+        builder.Entity<DataSubjectRequestServiceProvider>(e =>
+        {
+            e.ToTable("DataSubjectRequestServiceProviders");
+            e.HasOne(l => l.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.DataSubjectRequest)
+                .WithMany(r => r.ServiceProviderLinks)
+                .HasForeignKey(l => l.DataSubjectRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(l => l.ServiceProvider)
+                .WithMany()
+                .HasForeignKey(l => l.ServiceProviderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.Property(l => l.CreatedByUserId).HasMaxLength(450);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => l.DataSubjectRequestId);
+            e.HasIndex(l => l.ServiceProviderId);
+            e.HasIndex(l => new { l.DataSubjectRequestId, l.ServiceProviderId }).IsUnique();
         });
 
         // Verzeichnis von Verarbeitungstätigkeiten (VVT) – mandantenbezogen, kein Kaskaden-Löschen des Mandanten.
@@ -734,6 +1087,10 @@ public class ApplicationDbContext(
         ApplyArchivableTenantFilter<ServiceProviderEntity>(builder);
         ApplyArchivableTenantFilter<DataProtectionImpactAssessment>(builder);
         ApplyArchivableTenantFilter<PrivacyIncident>(builder);
+        ApplyArchivableTenantFilter<DataSubjectRequest>(builder);
+        ApplyArchivableTenantFilter<Training>(builder);
+        ApplyArchivableTenantFilter<TrainingParticipant>(builder);
+        ApplyArchivableTenantFilter<TrainingAssignment>(builder);
 
         builder.Entity<ProcessingActivityTom>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
@@ -775,9 +1132,85 @@ public class ApplicationDbContext(
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 
+        builder.Entity<DataSubjectRequestProcessingActivity>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<DataSubjectRequestMeasure>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<DataSubjectRequestServiceProvider>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
         builder.Entity<DocumentLink>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<DocumentCategory>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<DataProtectionRole>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<TrainingTemplate>()
+            .HasQueryFilter(t => tenantContextAccessor.CurrentTenantId.HasValue
+                && t.IsArchived == archiveViewContextAccessor.ShowArchivedOnly
+                && ((t.IsGlobal && t.TenantId == null)
+                    || (t.TenantId == tenantContextAccessor.CurrentTenantId && !t.IsGlobal)));
+
+        ApplyTrainingChildTenantFilter<TrainingTemplateSection>(builder);
+        ApplyTrainingChildTenantFilter<TrainingTemplateAsset>(builder);
+        ApplyTrainingChildTenantFilter<TrainingQuestion>(builder);
+        ApplyTrainingChildTenantFilter<TrainingQuestionOption>(builder);
+
+        builder.Entity<TrainingAssignmentSectionProgress>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<TrainingQuizAttempt>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<TrainingQuizAnswer>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+    }
+
+    private void ApplyTrainingChildTenantFilter<TEntity>(ModelBuilder builder)
+        where TEntity : EntityBase
+    {
+        if (typeof(TEntity) == typeof(TrainingTemplateSection))
+        {
+            builder.Entity<TrainingTemplateSection>()
+                .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                    && (e.TenantId == tenantContextAccessor.CurrentTenantId || e.TenantId == null)
+                    && e.IsActive);
+        }
+        else if (typeof(TEntity) == typeof(TrainingTemplateAsset))
+        {
+            builder.Entity<TrainingTemplateAsset>()
+                .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                    && (e.TenantId == tenantContextAccessor.CurrentTenantId || e.TenantId == null)
+                    && e.IsActive);
+        }
+        else if (typeof(TEntity) == typeof(TrainingQuestion))
+        {
+            builder.Entity<TrainingQuestion>()
+                .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                    && (e.TenantId == tenantContextAccessor.CurrentTenantId || e.TenantId == null)
+                    && e.IsActive);
+        }
+        else if (typeof(TEntity) == typeof(TrainingQuestionOption))
+        {
+            builder.Entity<TrainingQuestionOption>()
+                .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                    && (e.TenantId == tenantContextAccessor.CurrentTenantId || e.TenantId == null)
+                    && e.IsActive);
+        }
     }
 
     private void ApplyArchivableTenantFilter<TEntity>(ModelBuilder builder)

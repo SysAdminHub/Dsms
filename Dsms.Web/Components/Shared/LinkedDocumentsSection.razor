@@ -21,33 +21,7 @@
             {
                 <p class="form-text text-muted">@EmptyHint</p>
             }
-            <div class="dsms-table-wrap">
-                <table class="table dsms-table mb-0">
-                    <thead>
-                        <tr>
-                            <th>Dateiname</th>
-                            <th>Hochgeladen</th>
-                            <th>Größe</th>
-                            <th>Aktion</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var doc in _documents)
-                        {
-                            <tr>
-                                <td><strong>@doc.FileName</strong></td>
-                                <td>@doc.CreatedAt.ToLocalTime().ToString("g")</td>
-                                <td>@FormatSize(doc.FileSizeBytes)</td>
-                                <td>
-                                    <DocumentActions DocumentId="@doc.Id"
-                                                     FileName="@doc.FileName"
-                                                     ContentType="@doc.ContentType" />
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
+            <EvidenceDocumentsGroupedList Documents="_documents" />
         }
     </div>
 </div>
@@ -56,7 +30,7 @@
     [Inject] private DocumentLinksService LinksService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
 
-    [Parameter] public string Title { get; set; } = "Verknüpfte Dokumente / Nachweise";
+    [Parameter] public string Title { get; set; } = "Verknüpfte Dokumente";
     [Parameter] public string CssClass { get; set; } = "mb-4";
     [Parameter] public string EmptyMessage { get; set; } = "Keine Dokumente verknüpft.";
     [Parameter] public string? EmptyHint { get; set; } = "Dokumente können unter „Dokumente“ hochgeladen und zugeordnet werden.";
@@ -67,7 +41,9 @@
     [Parameter] public int? ProcessingActivityId { get; set; }
     [Parameter] public int? DataProtectionImpactAssessmentId { get; set; }
     [Parameter] public int? PrivacyIncidentId { get; set; }
+    [Parameter] public int? DataSubjectRequestId { get; set; }
     [Parameter] public int? TomId { get; set; }
+    [Parameter] public int? TrainingId { get; set; }
 
     private bool _loading = true;
     private List<EvidenceDocument> _documents = [];
@@ -144,6 +120,13 @@
             return true;
         }
 
+        if (DataSubjectRequestId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.DataSubjectRequest;
+            entityId = DataSubjectRequestId.Value;
+            return true;
+        }
+
         if (TomId.HasValue)
         {
             entityType = DocumentLinkedEntityType.Tom;
@@ -151,11 +134,15 @@
             return true;
         }
 
+        if (TrainingId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.Training;
+            entityId = TrainingId.Value;
+            return true;
+        }
+
         entityType = default;
         entityId = 0;
         return false;
     }
-
-    private static string FormatSize(long bytes) =>
-        bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024.0:F1} KB";
 }

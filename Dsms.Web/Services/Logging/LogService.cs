@@ -13,6 +13,8 @@ public sealed class LogService(
     IHttpContextAccessor httpContextAccessor,
     ICurrentUserContext currentUser,
     UserManager<ApplicationUser> userManager,
+    ISupportContextService supportContext,
+    ITenantContextService tenantContext,
     ILogger<LogService> logger) : ILogService
 {
     private const int MaxExceptionDetailsLength = 4000;
@@ -189,6 +191,8 @@ public sealed class LogService(
     {
         try
         {
+            request = await EnrichSupportModeAuditAsync(request);
+
             var httpContext = httpContextAccessor.HttpContext;
             var userId = request.OverrideUserId ?? await currentUser.GetUserIdAsync();
             ApplicationUser? user = null;
@@ -290,6 +294,59 @@ public sealed class LogService(
         {
             logger.LogError(ex, "Logeintrag konnte nicht geschrieben werden (Action: {Action})", request.Action);
         }
+    }
+
+    private async Task<LogWriteRequest> EnrichSupportModeAuditAsync(LogWriteRequest request)
+    {
+        if (request.LogCategory != LogCategory.Audit)
+        {
+            return request;
+        }
+
+        if (!await currentUser.IsInRoleAsync(DsmsRoles.Superuser))
+        {
+            return request;
+        }
+
+        var grantId = await supportContext.GetActiveGrantIdAsync();
+        var tenantId = await tenantContext.GetCurrentTenantIdAsync();
+        if (!grantId.HasValue || !tenantId.HasValue)
+        {
+            return request;
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var grant = await db.SupportAccessGrants
+            .AsNoTracking()
+            .Include(g => g.Tenant)
+            .FirstOrDefaultAsync(g => g.Id == grantId.Value);
+
+        if (grant is null || !grant.IsActive(DateTime.UtcNow) || grant.TenantId != tenantId.Value)
+        {
+            return request;
+        }
+
+        var tenantName = grant.Tenant?.Name ?? $"Mandant #{grant.TenantId}";
+
+        var description = request.Description.StartsWith("[Supportmodus]", StringComparison.Ordinal)
+            ? request.Description
+            : $"[Supportmodus] {request.Description}";
+
+        var supportMetadata = new
+        {
+            SupportMode = true,
+            UserRole = DsmsRoles.Superuser,
+            SupportAccessGrantId = grant.Id,
+            TenantId = grant.TenantId,
+            TenantName = tenantName,
+            Result = "Success"
+        };
+
+        request.Description = description;
+        request.Metadata = LogJsonHelper.MergeMetadata(request.Metadata, supportMetadata);
+        request.TenantId ??= grant.TenantId;
+
+        return request;
     }
 
     private async Task<LoginContextInfo> ResolveLoginContextAsync(ApplicationUser user, IList<string> roles)
@@ -403,15 +460,15 @@ public sealed class LogService(
         public LogCategory LogCategory { get; init; }
         public LogSeverity Severity { get; init; }
         public string Action { get; init; } = string.Empty;
-        public string Description { get; init; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
         public string? EntityType { get; init; }
         public string? EntityId { get; init; }
         public string? EntityName { get; init; }
-        public int? TenantId { get; init; }
+        public int? TenantId { get; set; }
         public Guid? LicenseId { get; init; }
         public object? OldValues { get; init; }
         public object? NewValues { get; init; }
-        public object? Metadata { get; init; }
+        public object? Metadata { get; set; }
         public bool IsVisibleToAdmin { get; init; }
         public Exception? Exception { get; init; }
         public string? OverrideUserId { get; init; }

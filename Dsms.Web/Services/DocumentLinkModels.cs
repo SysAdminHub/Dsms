@@ -35,6 +35,8 @@ public static class DocumentLinkLabels
         DocumentLinkedEntityType.Dsfa => "DSFA",
         DocumentLinkedEntityType.PrivacyIncident => "Datenschutzvorfälle",
         DocumentLinkedEntityType.Tom => "TOMs",
+        DocumentLinkedEntityType.DataSubjectRequest => "Betroffenenanfragen",
+        DocumentLinkedEntityType.Training => "Schulungen",
         _ => type.ToString()
     };
 
@@ -47,6 +49,8 @@ public static class DocumentLinkLabels
         DocumentLinkedEntityType.Dsfa => "DSFA",
         DocumentLinkedEntityType.PrivacyIncident => "Datenschutzvorfall",
         DocumentLinkedEntityType.Tom => "TOM",
+        DocumentLinkedEntityType.DataSubjectRequest => "Betroffenenanfrage",
+        DocumentLinkedEntityType.Training => "Schulung",
         _ => type.ToString()
     };
 
@@ -68,7 +72,9 @@ public static class DocumentLinkLabels
         DocumentLinkedEntityType.AuditRun,
         DocumentLinkedEntityType.ServiceProvider,
         DocumentLinkedEntityType.Dsfa,
-        DocumentLinkedEntityType.PrivacyIncident
+        DocumentLinkedEntityType.PrivacyIncident,
+        DocumentLinkedEntityType.DataSubjectRequest,
+        DocumentLinkedEntityType.Training
     ];
 
     public static int GetTypeSortOrder(DocumentLinkedEntityType type)

@@ -1,0 +1,295 @@
+@page "/trainings/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Schulung" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Schulung" HelpKey="trainings" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_training is null && _loaded)
+{
+    <PageHeader Title="Schulung" HelpKey="trainings" />
+    <div class="alert alert-warning dsms-alert">Schulung nicht gefunden oder kein Zugriff.</div>
+}
+else if (_training is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else
+{
+    <PageHeader Title="@_training.Title" HelpKey="trainings">
+        @if (_canEdit)
+        {
+            <a class="btn btn-primary" href="@($"trainings/edit/{_training.Id}")">Bearbeiten</a>
+            <a class="btn btn-outline-secondary" href="@($"documents?prefillTrainingId={_training.Id}")">Nachweise verwalten</a>
+        }
+        <a class="btn btn-outline-secondary" href="trainings">Zur Liste</a>
+    </PageHeader>
+
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <button type="button" class="nav-link @(_activeTab == Tab.Overview ? "active" : "")"
+                    @onclick="() => _activeTab = Tab.Overview">Übersicht</button>
+        </li>
+        @if (_canViewParticipants)
+        {
+            <li class="nav-item">
+                <button type="button" class="nav-link @(_activeTab == Tab.Participants ? "active" : "")"
+                        @onclick="() => _activeTab = Tab.Participants">Teilnehmer</button>
+            </li>
+        }
+    </ul>
+
+    @if (_activeTab == Tab.Overview)
+    {
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header">Übersicht</div>
+            <div class="dsms-card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="dsms-detail-label">Schulungstyp</div>
+                        <div>
+                            @TrainingLabels.GetTrainingTypeLabel(_training.TrainingType)
+                            @if (_training.TrainingTemplateId.HasValue)
+                            {
+                                <span class="text-muted small"> · aus Vorlage übernommen</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="dsms-detail-label">Zielgruppe</div>
+                        <div>@(_training.TargetAudience ?? "—")</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="dsms-detail-label">Status</div>
+                        <StatusBadge Text="@TrainingLabels.GetStatusLabel(_training.Status)"
+                                     Variant="@TrainingLabels.GetStatusVariant(_training.Status)" />
+                    </div>
+                    <div class="col-md-6">
+                        <div class="dsms-detail-label">Basierend auf Vorlage</div>
+                        @if (_templateUnavailable)
+                        {
+                            <div class="text-muted">Vorlage nicht mehr verfügbar</div>
+                        }
+                        else if (_training.TrainingTemplateId is int templateId && _templateDisplay is not null)
+                        {
+                            <div class="dsms-template-info-box">
+                                <div class="fw-semibold">@_templateDisplay.Title</div>
+                                <div class="text-muted small">
+                                    @TrainingLabels.GetTrainingTypeLabel(_templateDisplay.TrainingType) · @_templateDisplay.OriginLabel
+                                </div>
+                            </div>
+                            @if (_canViewTemplate)
+                            {
+                                <a class="btn btn-sm btn-outline-secondary mt-2"
+                                   href="@($"training-templates/edit/{templateId}")">
+                                    Vorlage anzeigen
+                                </a>
+                            }
+                        }
+                        else
+                        {
+                            <div>Keine Vorlage verknüpft</div>
+                        }
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(_training.Description))
+                    {
+                        <div class="col-12">
+                            <div class="dsms-detail-label">Beschreibung</div>
+                            <div class="dsms-pre-wrap">@_training.Description</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header">Verantwortung</div>
+            <div class="dsms-card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="dsms-detail-label">Verantwortlicher Benutzer</div>
+                        <div>@(_training.ResponsibleUser?.DisplayName ?? _training.ResponsibleUser?.Email ?? "—")</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="dsms-detail-label">Verantwortlicher Name</div>
+                        <div>@(_training.ResponsibleName ?? "—")</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header">Teilnehmerzugang</div>
+            <div class="dsms-card-body">
+                <div class="dsms-detail-label">Zugangscode gültig für</div>
+                <div>@_training.AccessCodeValidityDays Tage</div>
+                <p class="form-text text-muted mb-0 mt-2">
+                    Bestehende Einladungen behalten ihr gespeichertes Ablaufdatum.
+                </p>
+            </div>
+        </div>
+
+        <LinkedDocumentsSection TrainingId="@_training.Id"
+                                Title="Verknüpfte Dokumente / Nachweise"
+                                EmptyMessage="Keine Nachweise verknüpft."
+                                EmptyHint="Laden Sie Nachweise im Dokumentenbereich hoch und verknüpfen Sie sie mit dieser Schulung." />
+
+        @if (_canEdit)
+        {
+            <div class="mb-4">
+                <a class="btn btn-outline-primary" href="@($"documents?prefillTrainingId={_training.Id}")">
+                    Nachweis hochladen / verknüpfen
+                </a>
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_training.Notes))
+        {
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header">Notizen</div>
+                <div class="dsms-card-body dsms-pre-wrap">@_training.Notes</div>
+            </div>
+        }
+
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header">Systeminformationen</div>
+            <div class="dsms-card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="dsms-detail-label">Erstellt am</div>
+                        <div>@_training.CreatedAt.ToLocalTime().ToString("g")</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="dsms-detail-label">Geändert am</div>
+                        <div>@(_training.UpdatedAt?.ToLocalTime().ToString("g") ?? "—")</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (_activeTab == Tab.Participants)
+    {
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-header">Teilnehmer</div>
+            <div class="dsms-card-body">
+                <p class="form-text text-muted">
+                    Teilnehmer sind keine App-Benutzer und erhalten kein Passwort. Sie bekommen per E-Mail einen 6-stelligen Zugangscode
+                    und können später ausschließlich die zugewiesene Schulung aufrufen. Zugangscodes werden nicht im Klartext gespeichert
+                    und können bei Bedarf neu versendet werden.
+                </p>
+                <TrainingParticipantsTab TrainingId="@_training.Id"
+                                         TenantId="@_tenantId.Value"
+                                         AccessCodeValidityDays="@_training.AccessCodeValidityDays"
+                                         CanView="@_canViewParticipants"
+                                         CanManage="@_canManageParticipants" />
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? TabQuery { get; set; }
+
+    [Inject] private TrainingService TrainingService { get; set; } = null!;
+    [Inject] private TrainingTemplateAccessService TemplateAccess { get; set; } = null!;
+    [Inject] private TrainingParticipantService ParticipantService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private enum Tab { Overview, Participants }
+
+    private int? _tenantId;
+    private bool _loaded;
+    private bool _canEdit;
+    private bool _canViewTemplate;
+    private bool _canViewParticipants;
+    private bool _canManageParticipants;
+    private bool _templateUnavailable;
+    private Tab _activeTab = Tab.Overview;
+    private Domain.Entities.Training? _training;
+    private TrainingTemplateSelectionItem? _templateDisplay;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null)
+        {
+            _loaded = true;
+            return;
+        }
+
+        _canEdit = await TrainingService.CanEditAsync();
+        _canViewParticipants = await ParticipantService.CanViewAsync(_tenantId.Value);
+        _canManageParticipants = await ParticipantService.CanManageAsync();
+        _training = await TrainingService.GetByIdAsync(Id, _tenantId.Value);
+
+        if (_training is not null)
+            await LoadTemplateDisplayAsync();
+
+        ApplyTabFromQuery();
+        _loaded = true;
+    }
+
+    private void ApplyTabFromQuery()
+    {
+        if (string.Equals(TabQuery, "participants", StringComparison.OrdinalIgnoreCase) && _canViewParticipants)
+            _activeTab = Tab.Participants;
+        else
+            _activeTab = Tab.Overview;
+    }
+
+    private async Task LoadTemplateDisplayAsync()
+    {
+        if (_training?.TrainingTemplateId is not int templateId)
+        {
+            _templateDisplay = null;
+            _templateUnavailable = false;
+            return;
+        }
+
+        var result = await TrainingService.GetTemplateForTrainingCreationAsync(templateId, _tenantId!.Value);
+        if (result.Status == TrainingTemplateLoadStatus.Ok && result.Template is not null)
+        {
+            _templateDisplay = new TrainingTemplateSelectionItem(
+                result.Template.Id,
+                result.Template.Title,
+                result.Template.TrainingType,
+                result.Template.TargetAudience,
+                result.Template.Description,
+                result.Template.RecommendedRepeatAfterMonths,
+                TrainingTemplateAccessService.IsGlobalTemplate(result.Template),
+                TrainingLabels.GetOriginLabel(result.Template),
+                string.Empty);
+            _templateUnavailable = false;
+            _canViewTemplate = await TemplateAccess.CanViewAsync(result.Template);
+            return;
+        }
+
+        if (_training.TrainingTemplate is not null)
+        {
+            _templateDisplay = new TrainingTemplateSelectionItem(
+                _training.TrainingTemplate.Id,
+                _training.TrainingTemplate.Title,
+                _training.TrainingTemplate.TrainingType,
+                _training.TrainingTemplate.TargetAudience,
+                _training.TrainingTemplate.Description,
+                _training.TrainingTemplate.RecommendedRepeatAfterMonths,
+                TrainingTemplateAccessService.IsGlobalTemplate(_training.TrainingTemplate),
+                TrainingLabels.GetOriginLabel(_training.TrainingTemplate),
+                string.Empty);
+            _templateUnavailable = !_training.TrainingTemplate.IsActive || _training.TrainingTemplate.IsArchived;
+            _canViewTemplate = await TemplateAccess.CanViewAsync(_training.TrainingTemplate);
+            return;
+        }
+
+        _templateDisplay = null;
+        _templateUnavailable = true;
+        _canViewTemplate = false;
+    }
+}

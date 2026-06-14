@@ -1,0 +1,483 @@
+@page "/data-subject-requests/edit"
+@page "/data-subject-requests/edit/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Betroffenenanfrage" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Betroffenenanfrage" HelpKey="data-subject-requests" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (_accessDenied)
+{
+    <PageHeader Title="Betroffenenanfrage" HelpKey="data-subject-requests" />
+    <div class="alert alert-warning dsms-alert">Keine Berechtigung zum Bearbeiten von Betroffenenanfragen.</div>
+    <a class="btn btn-outline-secondary" href="data-subject-requests">Zurück zur Übersicht</a>
+}
+else if (_notFound)
+{
+    <PageHeader Title="Betroffenenanfrage" HelpKey="data-subject-requests" />
+    <div class="alert alert-warning dsms-alert">Anfrage nicht gefunden oder kein Zugriff.</div>
+    <a class="btn btn-outline-secondary" href="data-subject-requests">Zurück zur Übersicht</a>
+}
+else
+{
+    <PageHeader Title="@(_model.Id == 0 ? "Neue Betroffenenanfrage" : "Betroffenenanfrage bearbeiten")"
+                HelpKey="data-subject-requests"
+                Subtitle="@(_model.Id > 0 ? DataSubjectRequestLabels.GetAuditDisplayName(_model) : null)" />
+
+    @if (_showErasureHint)
+    {
+        <div class="alert alert-warning dsms-alert">
+            Diese abgeschlossene Löschanfrage enthält personenbezogene Falldaten. Bitte prüfen Sie, ob die Falldaten anonymisiert werden können.
+        </div>
+    }
+
+    @if (_model.PersonalDataAnonymized)
+    {
+        <div class="alert alert-info dsms-alert">
+            Personenbezogene Falldaten wurden anonymisiert. Nur noch nicht-personenbezogene Vorgangsdaten können bearbeitet werden.
+        </div>
+    }
+
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+                <ValidationSummary class="alert alert-danger dsms-alert" />
+
+                <h5 class="dsms-form-section">Allgemein</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Anfrageart *</label>
+                        <InputSelect class="form-select" @bind-Value="_model.RequestType">
+                            @foreach (var type in Enum.GetValues<DataSubjectRequestType>())
+                            {
+                                <option value="@type">@DataSubjectRequestLabels.GetTypeLabel(type)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Status *</label>
+                        <InputSelect class="form-select" @bind-Value="_model.Status">
+                            @foreach (var status in Enum.GetValues<DataSubjectRequestStatus>())
+                            {
+                                <option value="@status">@DataSubjectRequestLabels.GetStatusLabel(status)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Kontaktweg</label>
+                        <InputText class="form-control" @bind-Value="_model.ContactChannel" disabled="@_model.PersonalDataAnonymized" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Eingangsdatum *</label>
+                        <InputDate TValue="DateTime" class="form-control" @bind-Value="_receivedDate"
+                                   @bind-Value:after="OnReceivedDateChanged" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Fristdatum *</label>
+                        <InputDate TValue="DateTime" class="form-control" @bind-Value="_dueDate" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Antwortdatum</label>
+                        <InputDate TValue="DateTime?" class="form-control" @bind-Value="_answeredDate" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Betroffene Person</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Name / Bezeichnung</label>
+                        <InputText class="form-control" @bind-Value="_model.DataSubjectName" disabled="@_model.PersonalDataAnonymized" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Externe Referenz / Kundennummer</label>
+                        <InputText class="form-control" @bind-Value="_model.DataSubjectReference" disabled="@_model.PersonalDataAnonymized" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">E-Mail</label>
+                        <InputText class="form-control" @bind-Value="_model.DataSubjectEmail" disabled="@_model.PersonalDataAnonymized" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Telefon</label>
+                        <InputText class="form-control" @bind-Value="_model.DataSubjectPhone" disabled="@_model.PersonalDataAnonymized" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Bearbeitung</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Bearbeiter / Verantwortlicher</label>
+                        <InputSelect class="form-select" @bind-Value="_model.AssignedUserId">
+                            <option value="">—</option>
+                            @foreach (var user in _tenantUsers)
+                            {
+                                <option value="@user.Id">@(user.DisplayName ?? user.Email)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Beschreibung</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.Description" rows="3" disabled="@_model.PersonalDataAnonymized" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Ergebnis / Antwortzusammenfassung</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.ResultSummary" rows="3" disabled="@_model.PersonalDataAnonymized" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Interne Notizen</label>
+                    <InputTextArea class="form-control" @bind-Value="_model.InternalNotes" rows="3" disabled="@_model.PersonalDataAnonymized" />
+                </div>
+
+                <h5 class="dsms-form-section">Identitätsprüfung</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.IdentityVerified" id="identity-verified" />
+                            <label class="form-check-label" for="identity-verified">Identitätsprüfung erfolgt</label>
+                        </div>
+                    </div>
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Hinweis zur Identitätsprüfung</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.IdentityVerificationNote" rows="2" disabled="@_model.PersonalDataAnonymized" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Fristverlängerung</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_deadlineExtended" id="deadline-extended" />
+                            <label class="form-check-label" for="deadline-extended">Fristverlängerung</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Verlängerte Frist</label>
+                        <InputDate TValue="DateTime?" class="form-control" @bind-Value="_extendedDueDate" disabled="@(!_deadlineExtended)" />
+                    </div>
+                    <div class="col-md-12 mb-3">
+                        <label class="form-label">Begründung</label>
+                        <InputTextArea class="form-control" @bind-Value="_model.DeadlineExtensionReason" rows="2"
+                                       disabled="@(!_deadlineExtended || _model.PersonalDataAnonymized)" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Anonymisierung</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.ContainsPersonalData" id="contains-pd" />
+                            <label class="form-check-label" for="contains-pd">Enthält personenbezogene Falldaten</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Anonymisiert</label>
+                        <input class="form-control" value="@(_model.PersonalDataAnonymized ? "Ja" : "Nein")" readonly />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Anonymisiert am</label>
+                        <input class="form-control" value="@(_model.PersonalDataAnonymizedAt?.ToLocalTime().ToString("g") ?? "—")" readonly />
+                    </div>
+                </div>
+                <p class="form-text text-muted">
+                    Die Anonymisierung überschreibt personenbezogene Falldaten endgültig. Die ursprünglichen Werte werden nicht gespeichert und können nicht wiederhergestellt werden.
+                </p>
+
+                @if (_model.Id > 0)
+                {
+                    <h5 class="dsms-form-section">Verknüpfungen</h5>
+                    <p class="text-muted">Verknüpfungen können in der Detailansicht verwaltet werden.</p>
+                }
+
+                @if (!string.IsNullOrEmpty(_saveError))
+                {
+                    <div class="alert alert-danger dsms-alert">@_saveError</div>
+                }
+
+                <div class="dsms-form-actions">
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                    <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"data-subject-requests/{_model.Id}" : "data-subject-requests")">Abbrechen</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+
+    @if (_model.Id > 0)
+    {
+        <LinkedDocumentsSection DataSubjectRequestId="_model.Id" />
+    }
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _accessDenied;
+    private bool _notFound;
+    private string? _saveError;
+    private bool _showErasureHint;
+    private DataSubjectRequest _model = new() { Status = DataSubjectRequestStatus.New, ReceivedAt = DateTime.UtcNow.Date };
+    private DateTime _receivedDate;
+    private DateTime _dueDate;
+    private DateTime? _answeredDate;
+    private DateTime? _extendedDueDate;
+    private bool _deadlineExtended;
+    private List<ApplicationUser> _tenantUsers = [];
+
+    private DataSubjectRequestType? _previousType;
+    private DataSubjectRequestStatus? _previousStatus;
+    private DateTime? _previousReceivedAt;
+    private DateTime? _previousDueAt;
+    private DateTime? _previousAnsweredAt;
+    private bool? _previousIdentityVerified;
+    private bool? _previousDeadlineExtended;
+    private DateTime? _previousExtendedDueAt;
+    private bool? _previousContainsPersonalData;
+    private bool? _previousPersonalDataAnonymized;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        var isCreate = Id is null or 0;
+        if (isCreate)
+        {
+            if (!await UserAccess.CanCreateDataSubjectRequestsAsync())
+            {
+                _accessDenied = true;
+                return;
+            }
+
+            _receivedDate = DateTime.UtcNow.Date;
+            _dueDate = DataSubjectRequestDeadlineHelper.CalculateDefaultDueAt(_receivedDate);
+            _model.ReceivedAt = _receivedDate;
+            _model.DueAt = _dueDate;
+        }
+        else if (!await UserAccess.CanEditDataSubjectRequestsAsync())
+        {
+            _accessDenied = true;
+            return;
+        }
+
+        await LoadTenantUsersAsync();
+
+        if (Id is int editId and > 0)
+        {
+            var existing = await Db.DataSubjectRequests.FirstOrDefaultAsync(r => r.Id == editId);
+            if (existing is null)
+            {
+                _notFound = true;
+                return;
+            }
+
+            _model = existing;
+            _receivedDate = existing.ReceivedAt.Date;
+            _dueDate = existing.DueAt.Date;
+            _answeredDate = existing.AnsweredAt?.Date;
+            _extendedDueDate = existing.ExtendedDueAt?.Date;
+            _deadlineExtended = existing.DeadlineExtended;
+
+            _previousType = existing.RequestType;
+            _previousStatus = existing.Status;
+            _previousReceivedAt = existing.ReceivedAt;
+            _previousDueAt = existing.DueAt;
+            _previousAnsweredAt = existing.AnsweredAt;
+            _previousIdentityVerified = existing.IdentityVerified;
+            _previousDeadlineExtended = existing.DeadlineExtended;
+            _previousExtendedDueAt = existing.ExtendedDueAt;
+            _previousContainsPersonalData = existing.ContainsPersonalData;
+            _previousPersonalDataAnonymized = existing.PersonalDataAnonymized;
+
+            UpdateErasureHint();
+        }
+    }
+
+    private async Task LoadTenantUsersAsync()
+    {
+        if (_tenantId is null) return;
+
+        var userIds = await Db.UserTenants
+            .Where(ut => ut.TenantId == _tenantId)
+            .Select(ut => ut.UserId)
+            .ToListAsync();
+
+        _tenantUsers = await Db.Users
+            .Where(u => userIds.Contains(u.Id))
+            .OrderBy(u => u.Email)
+            .ToListAsync();
+    }
+
+    private void OnReceivedDateChanged()
+    {
+        if (_model.Id == 0 && !_deadlineExtended)
+        {
+            _dueDate = DataSubjectRequestDeadlineHelper.CalculateDefaultDueAt(_receivedDate);
+        }
+    }
+
+    private void UpdateErasureHint()
+    {
+        _showErasureHint = _model.RequestType == DataSubjectRequestType.Erasure
+            && _model.ContainsPersonalData
+            && !_model.PersonalDataAnonymized
+            && _model.Status is DataSubjectRequestStatus.Completed or DataSubjectRequestStatus.Answered;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_tenantId is null) return;
+
+        _saveError = null;
+        UpdateErasureHint();
+
+        if (_model.RequestType == default)
+        {
+            _saveError = "Bitte wählen Sie eine Anfrageart.";
+            return;
+        }
+
+        if (_receivedDate == default || _dueDate == default)
+        {
+            _saveError = "Eingangsdatum und Fristdatum sind Pflichtfelder.";
+            return;
+        }
+
+        if (_deadlineExtended)
+        {
+            if (string.IsNullOrWhiteSpace(_model.DeadlineExtensionReason))
+            {
+                _saveError = "Bei Fristverlängerung ist eine Begründung erforderlich.";
+                return;
+            }
+
+            if (!_extendedDueDate.HasValue)
+            {
+                _saveError = "Bei Fristverlängerung ist eine verlängerte Frist erforderlich.";
+                return;
+            }
+        }
+
+        if (_model.Status is DataSubjectRequestStatus.Answered or DataSubjectRequestStatus.Completed && !_answeredDate.HasValue)
+        {
+            _saveError = "Bitte setzen Sie ein Antwortdatum für den gewählten Status.";
+            return;
+        }
+
+        var isCreate = _model.Id == 0;
+        if (isCreate && !await UserAccess.CanCreateDataSubjectRequestsAsync())
+        {
+            _accessDenied = true;
+            return;
+        }
+
+        if (!isCreate && !await UserAccess.CanEditDataSubjectRequestsAsync())
+        {
+            _accessDenied = true;
+            return;
+        }
+
+        var userId = await CurrentUser.GetUserIdAsync();
+        var now = DateTime.UtcNow;
+
+        _model.ReceivedAt = DateTime.SpecifyKind(_receivedDate, DateTimeKind.Utc);
+        _model.DueAt = DateTime.SpecifyKind(_dueDate, DateTimeKind.Utc);
+        _model.AnsweredAt = _answeredDate.HasValue
+            ? DateTime.SpecifyKind(_answeredDate.Value, DateTimeKind.Utc)
+            : null;
+        _model.DeadlineExtended = _deadlineExtended;
+        _model.ExtendedDueAt = _deadlineExtended && _extendedDueDate.HasValue
+            ? DateTime.SpecifyKind(_extendedDueDate.Value, DateTimeKind.Utc)
+            : null;
+
+        if (!_deadlineExtended)
+        {
+            _model.DeadlineExtensionReason = null;
+            _model.ExtendedDueAt = null;
+        }
+
+        if (isCreate)
+        {
+            _model.TenantId = _tenantId.Value;
+            _model.CreatedByUserId = userId;
+            _model.CreatedAt = now;
+            Db.DataSubjectRequests.Add(_model);
+            await Db.SaveChangesAsync();
+
+            await ComplianceAuditLog.LogDataSubjectRequestCreatedAsync(
+                _model.Id,
+                DataSubjectRequestLabels.GetAuditDisplayName(_model),
+                _tenantId.Value);
+
+            Navigation.NavigateTo($"data-subject-requests/{_model.Id}");
+            return;
+        }
+
+        var tracked = await Db.DataSubjectRequests.FirstOrDefaultAsync(r => r.Id == _model.Id && r.TenantId == _tenantId);
+        if (tracked is null)
+        {
+            _notFound = true;
+            return;
+        }
+
+        tracked.RequestType = _model.RequestType;
+        tracked.Status = _model.Status;
+        tracked.ReceivedAt = _model.ReceivedAt;
+        tracked.DueAt = _model.DueAt;
+        tracked.AnsweredAt = _model.AnsweredAt;
+        tracked.ContactChannel = _model.ContactChannel;
+        tracked.AssignedUserId = _model.AssignedUserId;
+        tracked.IdentityVerified = _model.IdentityVerified;
+        tracked.DeadlineExtended = _model.DeadlineExtended;
+        tracked.ExtendedDueAt = _model.ExtendedDueAt;
+        tracked.ContainsPersonalData = _model.ContainsPersonalData;
+
+        if (!tracked.PersonalDataAnonymized)
+        {
+            tracked.DataSubjectName = _model.DataSubjectName;
+            tracked.DataSubjectEmail = _model.DataSubjectEmail;
+            tracked.DataSubjectPhone = _model.DataSubjectPhone;
+            tracked.DataSubjectReference = _model.DataSubjectReference;
+            tracked.Description = _model.Description;
+            tracked.ResultSummary = _model.ResultSummary;
+            tracked.InternalNotes = _model.InternalNotes;
+            tracked.IdentityVerificationNote = _model.IdentityVerificationNote;
+            tracked.DeadlineExtensionReason = _model.DeadlineExtensionReason;
+        }
+        else if (_deadlineExtended)
+        {
+            tracked.DeadlineExtensionReason = _model.DeadlineExtensionReason;
+        }
+
+        tracked.UpdatedAt = now;
+        tracked.UpdatedByUserId = userId;
+
+        var changes = ComplianceAuditDiffBuilder.ForDataSubjectRequest(
+            _previousType, _previousStatus, _previousReceivedAt, _previousDueAt, _previousAnsweredAt,
+            _previousIdentityVerified, _previousDeadlineExtended, _previousExtendedDueAt,
+            _previousContainsPersonalData, _previousPersonalDataAnonymized, tracked);
+
+        await Db.SaveChangesAsync();
+
+        var displayName = DataSubjectRequestLabels.GetAuditDisplayName(tracked);
+        await ComplianceAuditLog.LogDataSubjectRequestUpdatedAsync(tracked.Id, displayName, _tenantId.Value, changes);
+
+        if (_previousStatus != tracked.Status)
+        {
+            await ComplianceAuditLog.LogDataSubjectRequestStatusChangedAsync(
+                tracked.Id, displayName, _tenantId.Value, _previousStatus!, tracked.Status);
+        }
+
+        Navigation.NavigateTo($"data-subject-requests/{tracked.Id}");
+    }
+}

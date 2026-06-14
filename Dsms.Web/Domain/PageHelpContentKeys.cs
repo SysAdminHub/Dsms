@@ -11,7 +11,13 @@ public static class PageHelpContentKeys
     public const string AuditRuns = "audit-runs";
     public const string Measures = "measures";
     public const string PrivacyIncidents = "privacy-incidents";
+    public const string DataSubjectRequests = "data-subject-requests";
+    public const string Organization = "organization";
+    public const string OrganizationOrgChart = "organization-org-chart";
     public const string Documents = "documents";
+    public const string TrainingTemplates = "training-templates";
+    public const string Trainings = "trainings";
+    public const string TrainingParticipants = "training-participants";
     public const string TenantData = "tenant-data";
     public const string Users = "users";
     public const string License = "license";
@@ -26,7 +32,13 @@ public static class PageHelpContentKeys
         AuditRuns,
         Measures,
         PrivacyIncidents,
+        DataSubjectRequests,
+        Organization,
+        OrganizationOrgChart,
         Documents,
+        TrainingTemplates,
+        Trainings,
+        TrainingParticipants,
         TenantData,
         Users,
         License

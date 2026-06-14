@@ -1,3 +1,5 @@
+using Dsms.Web.Domain.Enums;
+
 namespace Dsms.Web.Domain.Entities;
 
 /// <summary>
@@ -9,6 +11,10 @@ public class EvidenceDocument : ArchivableEntityBase, ITenantEntity
 {
     public int TenantId { get; set; }
     public Tenant Tenant { get; set; } = null!;
+
+    public DocumentType DocumentType { get; set; } = DocumentType.Evidence;
+    public int? DocumentCategoryId { get; set; }
+    public DocumentCategory? DocumentCategory { get; set; }
 
     public string FileName { get; set; } = string.Empty;
     public string ContentType { get; set; } = "application/octet-stream";

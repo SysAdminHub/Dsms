@@ -75,6 +75,34 @@ public static class PageHelpContentDefaults
             Prüfen Sie regelmäßig, ob Ihre Vorlagen die relevanten Themen Ihrer Organisation abdecken.
             """),
         new(
+            Domain.PageHelpContentKeys.TrainingTemplates,
+            "Schulungsvorlagen",
+            "Art. 32 DSGVO, Art. 39 DSGVO, Awareness",
+            "Erstellen und verwalten Sie wiederverwendbare Schulungsinhalte für Datenschutz und Awareness.",
+            """
+            Schulungsvorlagen enthalten wiederverwendbare Inhalte für Datenschutz- und Awareness-Schulungen. Eine Vorlage besteht aus mehreren Karten mit Markdown-Inhalten.
+
+            Bilder können direkt in der Vorlage hochgeladen und über Platzhalter wie {{asset:beispielbild}} eingefügt werden. Optional kann ein Multiple-Choice-Quiz gepflegt werden, das später zur Teilnahmebestätigung verwendet wird.
+
+            Eine Karte ist ein einzelner Lernabschnitt. Markdown ermöglicht einfache Textformatierung. Ein Asset ist ein Bild oder Medium innerhalb der Vorlage. Das Quiz ist der Fragenkatalog zur Wissensprüfung. Die Bestehensgrenze ist die Mindestpunktzahl in Prozent.
+            """),
+        new(
+            Domain.PageHelpContentKeys.Trainings,
+            "Schulungen",
+            "Art. 32 DSGVO, Art. 39 DSGVO, Awareness",
+            "Dokumentieren Sie konkrete Datenschutzschulungen und Awareness-Maßnahmen.",
+            """
+            In diesem Bereich verwalten Sie konkrete Online-Schulungen und Awareness-Maßnahmen. Schulungen können aktiv, inaktiv oder archiviert sein. Im Tab „Teilnehmer“ weisen Sie vorhandene Teilnehmer der Schulung zu und versenden Einladungen mit 6-stelligem Zugangscode. Neue Teilnehmer legen Sie zentral unter Schulungsteilnehmer an. Teilnehmer sind keine App-Benutzer und erhalten kein Passwort. Teilnehmer können Schulungen ohne App-Konto über E-Mail-Adresse und Zugangscode unter /schulung/teilnahme durchführen. Fortschritt, Quizversuche und Teilnahmebestätigung werden pro Zuweisung dokumentiert. Nachweise wie Teilnehmerlisten oder Zertifikate werden über das Dokumentenmodul verknüpft.
+            """),
+        new(
+            Domain.PageHelpContentKeys.TrainingParticipants,
+            "Schulungsteilnehmer",
+            "Art. 32 DSGVO, Art. 39 DSGVO",
+            "Alle Schulungsteilnehmer des Mandanten und deren Schulungshistorie.",
+            """
+            In der Teilnehmerübersicht sehen Sie alle Schulungsteilnehmer des Mandanten und deren Schulungshistorie. Neue Teilnehmer werden hier zentral angelegt (einzeln oder per Import) – nicht in einzelnen Schulungen. Teilnehmer sind keine normalen Benutzer der Datenschutz-Cloud. Sie erhalten bei Bedarf Zugangscodes für einzelne Schulungen. E-Mail-Adressen werden pro Mandant eindeutig geführt, damit keine doppelten Teilnehmer entstehen.
+            """),
+        new(
             Domain.PageHelpContentKeys.AuditRuns,
             "Audit-Durchläufe",
             "DSGVO Rechenschaftspflicht, Art. 5 Abs. 2 DSGVO",
@@ -115,14 +143,52 @@ public static class PageHelpContentDefaults
             Diese Informationen dienen der allgemeinen Orientierung und ersetzen keine Rechtsberatung.
             """),
         new(
+            Domain.PageHelpContentKeys.DataSubjectRequests,
+            "Betroffenenanfragen",
+            "Art. 15–22 DSGVO",
+            "Anfragen betroffener Personen dokumentieren, bearbeiten und nachverfolgen.",
+            """
+            In diesem Modul werden Anfragen betroffener Personen nach DSGVO dokumentiert, z. B. Auskunft, Löschung, Berichtigung, Widerspruch oder Datenübertragbarkeit. Erfassen Sie Eingang, Fristen, Bearbeitung, Ergebnis und Nachweise. Nach Abschluss können personenbezogene Falldaten endgültig anonymisiert werden, um nur noch den Vorgangsnachweis zu behalten.
+
+            Die Anonymisierung überschreibt personenbezogene Falldaten endgültig. Die ursprünglichen Werte werden nicht gespeichert und können nicht wiederhergestellt werden. Verknüpfte Dokumente müssen separat geprüft werden.
+            """),
+        new(
+            Domain.PageHelpContentKeys.Organization,
+            "Datenschutzrollen & Zuständigkeiten",
+            "Art. 30 DSGVO, organisatorische Verantwortlichkeiten",
+            "Organisatorische Datenschutzrollen und Zuständigkeiten je Mandant dokumentieren.",
+            """
+            In diesem Bereich dokumentieren Sie die organisatorischen Datenschutzrollen und Zuständigkeiten Ihres Unternehmens. Dazu gehören z. B. Geschäftsführung, Datenschutzbeauftragte Person, Datenschutzkoordinator, IT-Verantwortliche, HR-Verantwortliche oder Fachbereichsverantwortliche. Diese Rollen sind organisatorische Zuständigkeiten und nicht identisch mit den technischen Benutzerrollen der Anwendung. Eine Rolle kann optional mit einem App-Benutzer verknüpft oder vollständig als Freitext gepflegt werden.
+
+            Das Datenschutz-Organigramm zeigt die organisatorischen Berichtslinien. Über die Listenansicht können Datenschutzrollen verwaltet und bearbeitet werden.
+            """),
+        new(
+            Domain.PageHelpContentKeys.OrganizationOrgChart,
+            "Datenschutz-Organigramm",
+            "Organisatorische Berichtslinien",
+            "Grafische Darstellung der Datenschutzorganisation und Berichtslinien.",
+            """
+            Das Datenschutz-Organigramm zeigt die organisatorischen Datenschutzrollen und Berichtslinien des Mandanten. Die Darstellung basiert auf den gepflegten Datenschutzrollen und dem Feld „Berichtet an“. Technische App-Rollen wie Admin, Auditor oder User werden hier nicht als Hierarchie dargestellt. Sie können Rollen in der Tabellenansicht pflegen und über Berichtslinien miteinander verbinden.
+
+            Vertretungen werden als Hinweis angezeigt, aber nicht als Berichtslinie dargestellt.
+            """),
+        new(
             Domain.PageHelpContentKeys.Documents,
             "Dokumente und Nachweise",
             "DSGVO Rechenschaftspflicht, Art. 5 Abs. 2 DSGVO",
-            "Laden Sie Nachweise, Verträge und Datenschutzdokumente hoch.",
+            "Laden Sie Nachweise, Richtlinien, Formulare, Verträge und weitere Dokumente hoch.",
             """
-            In diesem Bereich können Sie wichtige Nachweise und Dokumente zentral ablegen.
+            Im Dokumentenmodul können Nachweise, Richtlinien, Formulare, Verträge, Kommunikationsvorlagen und sonstige Dokumente zentral abgelegt werden. Dokumente können mit Verarbeitungstätigkeiten, TOMs, Maßnahmen, Dienstleistern, DSFA, Datenschutzvorfällen, Betroffenenanfragen und weiteren Objekten verknüpft werden.
 
-            Dazu gehören zum Beispiel AV-Verträge, TOM-Nachweise, Auditberichte, Richtlinien, Löschkonzepte oder Schulungsnachweise.
+            Dokumenttypen sind feste fachliche Gruppen wie Nachweis, Richtlinie, Formular, Vertrag, Kommunikationsvorlage und Sonstiges Dokument. Kategorien können pro Mandant individuell angepasst werden, z. B. Datenschutz, IT-Sicherheit, HR oder Lieferanten. So kann jeder Mandant seine Dokumente passend zur eigenen Organisation strukturieren.
+
+            Dokumenttypen im Überblick:
+            - Nachweis: Beleg für Umsetzung oder Prüfung
+            - Richtlinie: interne Vorgabe oder Regelung
+            - Formular: Vorlage zur Erfassung von Informationen
+            - Vertrag: vertragliches oder rechtliches Dokument
+            - Kommunikationsvorlage: Textvorlage für wiederkehrende Kommunikation
+            - Sonstiges Dokument: sonstige relevante Datei
 
             Ordnen Sie Dokumente möglichst den passenden Verarbeitungstätigkeiten, Dienstleistern, Audits oder Maßnahmen zu.
             """),

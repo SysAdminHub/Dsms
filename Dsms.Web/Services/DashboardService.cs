@@ -1,6 +1,8 @@
 using Dsms.Web.Data;
+using Dsms.Web.Domain;
 using Dsms.Web.Domain.Enums;
 using Dsms.Web.Models.Dashboard;
+using Dsms.Web.Services.Training;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dsms.Web.Services;
@@ -197,6 +199,25 @@ public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
             .Where(i => i.TenantId == tenantId && i.Status == PrivacyIncidentStatus.Closed)
             .CountAsync(ct);
 
+        var dataSubjectRequests = await db.DataSubjectRequests
+            .Where(r => r.TenantId == tenantId)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        var openDataSubjectRequests = dataSubjectRequests.Count(r => DataSubjectRequestLabels.IsOpenStatus(r.Status));
+        var overdueDataSubjectRequests = dataSubjectRequests.Count(r => DataSubjectRequestDeadlineHelper.IsOverdue(r));
+        var dueSoonDataSubjectRequests = dataSubjectRequests.Count(r =>
+            DataSubjectRequestDeadlineHelper.IsDueSoon(r) && !DataSubjectRequestDeadlineHelper.IsOverdue(r));
+        var totalDataSubjectRequests = dataSubjectRequests.Count;
+        var completedDataSubjectRequests = dataSubjectRequests.Count(r =>
+            r.Status is DataSubjectRequestStatus.Completed or DataSubjectRequestStatus.Answered);
+        var nonAnonymizedErasureRequests = dataSubjectRequests.Count(r =>
+            r.RequestType == DataSubjectRequestType.Erasure
+            && !r.PersonalDataAnonymized
+            && r.Status is DataSubjectRequestStatus.Completed
+                or DataSubjectRequestStatus.Answered
+                or DataSubjectRequestStatus.Rejected);
+
         var totalAudits = await db.AuditRuns
             .Where(r => r.TenantId == tenantId)
             .CountAsync(ct);
@@ -210,8 +231,24 @@ public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
         var dpiaStatusGroups = await ClassifyDpiaAssessmentsAsync(db, tenantId, today, ct);
         var serviceProviderStatusGroups = await ClassifyServiceProvidersAsync(db, tenantId, today, ct);
         var privacyIncidentStatusGroups = await ClassifyPrivacyIncidentsAsync(db, tenantId, ct);
+        var dataSubjectRequestStatusGroups = ClassifyDataSubjectRequests(dataSubjectRequests);
         var measureStatusGroups = await ClassifyMeasuresAsync(db, tenantId, today, ct);
         var auditStatusGroups = await ClassifyAuditsAsync(db, tenantId, ct);
+        var trainingStatusGroups = await ClassifyTrainingsAsync(db, tenantId, ct);
+
+        var trainings = await db.Trainings
+            .Where(t => t.TenantId == tenantId && !t.IsArchived)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        var todayUtc = DateTime.UtcNow;
+        var totalTrainings = trainings.Count;
+        var activeTrainingsCount = trainings.Count(t => TrainingStatusMapper.Normalize(t.Status) == TrainingStatus.Active);
+        var inactiveTrainingsCount = trainings.Count(t => TrainingStatusMapper.Normalize(t.Status) == TrainingStatus.Inactive);
+        var trainingTemplatesCount = await db.TrainingTemplates
+            .Where(t => t.IsActive && !t.IsArchived
+                && ((t.IsGlobal && t.TenantId == null) || (t.TenantId == tenantId && !t.IsGlobal)))
+            .CountAsync(ct);
 
         // Fälligkeit zuerst, damit dringende Maßnahmen oben erscheinen.
         var recentMeasures = await db.Measures
@@ -263,6 +300,12 @@ public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
             overdueMeasures,
             totalPrivacyIncidents,
             closedPrivacyIncidents,
+            openDataSubjectRequests,
+            overdueDataSubjectRequests,
+            dueSoonDataSubjectRequests,
+            totalDataSubjectRequests,
+            completedDataSubjectRequests,
+            nonAnonymizedErasureRequests,
             totalAudits,
             completedAudits,
             processingActivityStatusGroups,
@@ -270,8 +313,14 @@ public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
             dpiaStatusGroups,
             serviceProviderStatusGroups,
             privacyIncidentStatusGroups,
+            dataSubjectRequestStatusGroups,
             measureStatusGroups,
             auditStatusGroups,
+            trainingStatusGroups,
+            totalTrainings,
+            activeTrainingsCount,
+            inactiveTrainingsCount,
+            trainingTemplatesCount,
             recentMeasures,
             recentAudits);
     }
@@ -563,6 +612,47 @@ public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
         return new DashboardStatusGroupCounts(critical, warning, good, neutral);
     }
 
+    private static DashboardStatusGroupCounts ClassifyDataSubjectRequests(
+        IReadOnlyList<Domain.Entities.DataSubjectRequest> requests)
+    {
+        if (requests.Count == 0)
+        {
+            return new DashboardStatusGroupCounts(0, 0, 0, 0);
+        }
+
+        var critical = 0;
+        var warning = 0;
+        var good = 0;
+        var neutral = 0;
+
+        foreach (var request in requests)
+        {
+            if (DataSubjectRequestDeadlineHelper.IsOverdue(request))
+            {
+                critical++;
+                continue;
+            }
+
+            if (DataSubjectRequestDeadlineHelper.IsDueSoon(request))
+            {
+                warning++;
+                continue;
+            }
+
+            if (request.Status is DataSubjectRequestStatus.Completed
+                or DataSubjectRequestStatus.Answered
+                or DataSubjectRequestStatus.Rejected)
+            {
+                good++;
+                continue;
+            }
+
+            neutral++;
+        }
+
+        return new DashboardStatusGroupCounts(critical, warning, good, neutral);
+    }
+
     private static async Task<DashboardStatusGroupCounts> ClassifyMeasuresAsync(
         ApplicationDbContext db,
         int tenantId,
@@ -642,6 +732,46 @@ public class DashboardService(IDbContextFactory<ApplicationDbContext> dbFactory)
 
         return new DashboardStatusGroupCounts(critical, warning, good, neutral);
     }
+
+    private static async Task<DashboardStatusGroupCounts> ClassifyTrainingsAsync(
+        ApplicationDbContext db,
+        int tenantId,
+        CancellationToken ct)
+    {
+        var trainings = await db.Trainings
+            .Where(t => t.TenantId == tenantId && !t.IsArchived)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        if (trainings.Count == 0)
+            return new DashboardStatusGroupCounts(0, 0, 0, 0);
+
+        var todayUtc = DateTime.UtcNow;
+        var critical = 0;
+        var warning = 0;
+        var good = 0;
+        var neutral = 0;
+
+        foreach (var training in trainings)
+        {
+            var status = TrainingStatusMapper.Normalize(training.Status);
+            if (status == TrainingStatus.Active)
+            {
+                good++;
+                continue;
+            }
+
+            if (status == TrainingStatus.Inactive)
+            {
+                warning++;
+                continue;
+            }
+
+            neutral++;
+        }
+
+        return new DashboardStatusGroupCounts(critical, warning, good, neutral);
+    }
 }
 
 /// <summary>Read-only-Snapshot der Dashboard-Daten für eine Anzeige.</summary>
@@ -681,6 +811,12 @@ public record DashboardSummary(
     int OverdueMeasuresCount,
     int TotalPrivacyIncidentsCount,
     int ClosedPrivacyIncidentsCount,
+    int OpenDataSubjectRequestsCount,
+    int OverdueDataSubjectRequestsCount,
+    int DueSoonDataSubjectRequestsCount,
+    int TotalDataSubjectRequestsCount,
+    int CompletedDataSubjectRequestsCount,
+    int NonAnonymizedErasureRequestsCount,
     int TotalAuditsCount,
     int CompletedAuditsCount,
     DashboardStatusGroupCounts ProcessingActivityStatusGroups,
@@ -688,7 +824,13 @@ public record DashboardSummary(
     DashboardStatusGroupCounts DpiaStatusGroups,
     DashboardStatusGroupCounts ServiceProviderStatusGroups,
     DashboardStatusGroupCounts PrivacyIncidentStatusGroups,
+    DashboardStatusGroupCounts DataSubjectRequestStatusGroups,
     DashboardStatusGroupCounts MeasureStatusGroups,
     DashboardStatusGroupCounts AuditStatusGroups,
+    DashboardStatusGroupCounts TrainingStatusGroups,
+    int TotalTrainingsCount,
+    int ActiveTrainingsCount,
+    int InactiveTrainingsCount,
+    int TrainingTemplatesCount,
     IReadOnlyList<Domain.Entities.Measure> RecentMeasures,
     IReadOnlyList<Domain.Entities.AuditRun> RecentAudits);

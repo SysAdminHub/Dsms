@@ -1,6 +1,5 @@
 ﻿@*
-    Startseite nach Login: Kennzahlen und Kurzlisten aus DashboardService (mandantenbezogen).
-    Mandantenauswahl bei fehlendem Kontext direkt im Dashboard.
+    Startseite nach Login: Plattform-Dashboard für Superuser, Mandanten-Dashboard für Tenant-Benutzer.
 *@
 @page "/"
 @attribute [Authorize]
@@ -8,20 +7,49 @@
 
 <BrandedPageTitle Title="Dashboard" />
 
-<PageHeader Title="Dashboard" Subtitle="Kompakter Überblick über Verarbeitungstätigkeiten, TOMs, DSFA und weitere Bereiche" />
-
 @if (_loading)
 {
     <div class="dsms-loading">Lade Übersicht …</div>
 }
+else if (_isSuperuser)
+{
+    <PageHeader Title="Plattform-Dashboard"
+                Subtitle="Verwaltung der Mandanten, Benutzer und globalen Audit-Vorlagen" />
+
+    <div class="dsms-dashboard-grid">
+        <div class="dsms-card">
+            <div class="dsms-card-header">Mandantenverwaltung</div>
+            <div class="dsms-card-body">
+                <p class="text-muted mb-3">Mandanten anlegen, bearbeiten und deaktivieren.</p>
+                <a class="btn btn-primary" href="tenants">Mandanten verwalten</a>
+            </div>
+        </div>
+
+        <div class="dsms-card">
+            <div class="dsms-card-header">Benutzerverwaltung</div>
+            <div class="dsms-card-body">
+                <p class="text-muted mb-3">Benutzer erstellen, Mandanten zuordnen und Rollen vergeben.</p>
+                <a class="btn btn-primary" href="users">Benutzer verwalten</a>
+            </div>
+        </div>
+
+        <div class="dsms-card">
+            <div class="dsms-card-header">Globale Audit-Vorlagen</div>
+            <div class="dsms-card-body">
+                <p class="text-muted mb-3">Offizielle und Community-Vorlagen für alle Mandanten verwalten.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary" href="audit-templates">Vorlagen anzeigen</a>
+                    <a class="btn btn-outline-primary" href="audit-templates/edit?type=official">Neue globale Vorlage</a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 else if (_tenantId is null)
 {
-    if (_loading)
+    if (_tenants.Count == 0)
     {
-        <div class="dsms-loading">Lade verfügbare Mandanten …</div>
-    }
-    else if (_tenants.Count == 0)
-    {
+        <PageHeader Title="Dashboard" Subtitle="Kompakter Überblick über Verarbeitungstätigkeiten, TOMs, DSFA und weitere Bereiche" />
         <div class="alert alert-warning dsms-alert">
             Ihrem Benutzerkonto sind keine Mandanten zugeordnet. Bitte wenden Sie sich an einen Administrator.
         </div>
@@ -33,12 +61,8 @@ else if (_tenantId is null)
             <div class="alert alert-danger dsms-alert">@_errorMessage</div>
         }
 
-        <br>
-
         <PageHeader Title="Mandant wählen"
                     Subtitle="Wählen Sie den Mandanten, in dessen Kontext Sie arbeiten möchten." />
-
-        <br>
 
         <div class="dsms-card dsms-form-card">
             <div class="dsms-card-body">
@@ -69,6 +93,8 @@ else if (_tenantId is null)
 }
 else if (_summary is not null)
 {
+    <PageHeader Title="Dashboard" Subtitle="Kompakter Überblick über Verarbeitungstätigkeiten, TOMs, DSFA und weitere Bereiche" />
+
     <div class="dsms-dashboard-grid">
         <DonutDashboardCard Title="Verarbeitungstätigkeiten"
                             Total="@_summary.TotalProcessingActivitiesCount"
@@ -105,6 +131,13 @@ else if (_summary is not null)
                             DetailsUrl="incidents"
                             EmptyText="Noch keine Vorfälle erfasst." />
 
+        <DonutDashboardCard Title="Betroffenenanfragen"
+                            Total="@_summary.TotalDataSubjectRequestsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.DataSubjectRequestStatusGroups, _summary.TotalDataSubjectRequestsCount)"
+                            LegendItems="@DashboardChartBuilder.DataSubjectRequestLegend(_summary)"
+                            DetailsUrl="data-subject-requests"
+                            EmptyText="Noch keine Betroffenenanfragen erfasst." />
+
         <DonutDashboardCard Title="Maßnahmen"
                             Total="@_summary.TotalMeasuresCount"
                             Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.MeasureStatusGroups, _summary.TotalMeasuresCount)"
@@ -118,6 +151,13 @@ else if (_summary is not null)
                             LegendItems="@DashboardChartBuilder.AuditLegend(_summary)"
                             DetailsUrl="audit-runs"
                             EmptyText="Noch keine Audits erfasst." />
+
+        <DonutDashboardCard Title="Schulungen"
+                            Total="@_summary.TotalTrainingsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.TrainingStatusGroups, _summary.TotalTrainingsCount)"
+                            LegendItems="@DashboardChartBuilder.TrainingLegend(_summary)"
+                            DetailsUrl="trainings"
+                            EmptyText="Noch keine Schulungen erfasst." />
     </div>
 
     <div class="dsms-dashboard-bottom-grid">
@@ -167,6 +207,7 @@ else if (_summary is not null)
 }
 else
 {
+    <PageHeader Title="Dashboard" Subtitle="Kompakter Überblick über Verarbeitungstätigkeiten, TOMs, DSFA und weitere Bereiche" />
     <div class="alert alert-danger dsms-alert">
         @if (!string.IsNullOrEmpty(_errorMessage))
         {
@@ -181,7 +222,7 @@ else
 
 @code {
     [Inject] private DashboardService DashboardService { get; set; } = null!;
-    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ITenantService TenantService { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
@@ -200,12 +241,17 @@ else
 
         try
         {
-            _isSuperuser = await CurrentUser.IsInRoleAsync(DsmsRoles.Superuser);
+            _isSuperuser = await UserAccess.IsSuperuserAsync();
+
+            if (_isSuperuser)
+            {
+                return;
+            }
 
             await TenantService.InitializeContextAsync();
             _tenants = (await TenantService.GetAccessibleTenantsAsync()).ToList();
 
-            _tenantId = await CurrentUser.GetTenantIdAsync();
+            _tenantId = await UserAccess.GetCurrentTenantIdAsync();
 
             if (!_tenantId.HasValue)
             {

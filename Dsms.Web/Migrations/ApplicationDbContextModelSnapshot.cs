@@ -430,6 +430,352 @@ namespace Dsms.Web.Migrations
                     b.ToTable("DataProtectionImpactAssessments", (string)null);
                 });
 
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DataProtectionRole", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("AreaOfResponsibility")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("Department")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Deputy")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int?>("DeputyRoleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("LinkedUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("PersonName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(4000)
+                        .HasColumnType("varchar(4000)");
+
+                    b.Property<string>("ReportsTo")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int?>("ReportsToRoleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RoleTitle")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeputyRoleId");
+
+                    b.HasIndex("LinkedUserId");
+
+                    b.HasIndex("ReportsToRoleId");
+
+                    b.HasIndex("RoleTitle");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.ToTable("DataProtectionRoles", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DataSubjectRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AnonymizationNote")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("AnsweredAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("AssignedUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("ContactChannel")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<bool>("ContainsPersonalData")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("DataSubjectEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("varchar(320)");
+
+                    b.Property<string>("DataSubjectName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("DataSubjectPhone")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("DataSubjectReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<bool>("DeadlineExtended")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("DeadlineExtensionReason")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("DueAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ExtendedDueAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("IdentityVerificationNote")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IdentityVerified")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("InternalNotes")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("PersonalDataAnonymized")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("PersonalDataAnonymizedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PersonalDataAnonymizedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("RequestType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResultSummary")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DueAt");
+
+                    b.HasIndex("PersonalDataAnonymized");
+
+                    b.HasIndex("RequestType");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "DueAt");
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.ToTable("DataSubjectRequests", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DataSubjectRequestMeasure", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<int>("DataSubjectRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MeasureId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataSubjectRequestId");
+
+                    b.HasIndex("MeasureId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("DataSubjectRequestId", "MeasureId")
+                        .IsUnique();
+
+                    b.ToTable("DataSubjectRequestMeasures", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DataSubjectRequestProcessingActivity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<int>("DataSubjectRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProcessingActivityId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataSubjectRequestId");
+
+                    b.HasIndex("ProcessingActivityId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("DataSubjectRequestId", "ProcessingActivityId")
+                        .IsUnique();
+
+                    b.ToTable("DataSubjectRequestProcessingActivities", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DataSubjectRequestServiceProvider", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<int>("DataSubjectRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ServiceProviderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataSubjectRequestId");
+
+                    b.HasIndex("ServiceProviderId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("DataSubjectRequestId", "ServiceProviderId")
+                        .IsUnique();
+
+                    b.ToTable("DataSubjectRequestServiceProviders", (string)null);
+                });
+
             modelBuilder.Entity("Dsms.Web.Domain.Entities.DiscountCode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -516,6 +862,63 @@ namespace Dsms.Web.Migrations
                     b.HasIndex("IsActive");
 
                     b.ToTable("DiscountCodes", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DocumentCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsSystemDefault")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("DocumentCategories", (string)null);
                 });
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.DocumentLink", b =>
@@ -695,6 +1098,12 @@ namespace Dsms.Web.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("DocumentCategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DocumentType")
+                        .HasColumnType("int");
+
                     b.Property<string>("FileName")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -721,6 +1130,8 @@ namespace Dsms.Web.Migrations
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DocumentCategoryId");
 
                     b.HasIndex("TenantId");
 
@@ -2279,6 +2690,60 @@ namespace Dsms.Web.Migrations
                     b.ToTable("SubscriptionPlans", (string)null);
                 });
 
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.SupportAccessGrant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccessScope")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("GrantedByUserId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("InternalNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("RevokedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("ValidUntil")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrantedByUserId");
+
+                    b.HasIndex("TenantId", "RevokedAt", "ValidUntil");
+
+                    b.ToTable("SupportAccessGrants", (string)null);
+                });
+
             modelBuilder.Entity("Dsms.Web.Domain.Entities.Tenant", b =>
                 {
                     b.Property<int>("Id")
@@ -2528,6 +2993,836 @@ namespace Dsms.Web.Migrations
                     b.ToTable("Toms", (string)null);
                 });
 
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.Training", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccessCodeValidityDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(14);
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<int>("ParticipantCount")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("ProofMissing")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("RepeatDueAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ResponsibleName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("ResponsibleUserId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("ScheduledAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TargetAudience")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int?>("TrainingTemplateId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TrainingType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompletedAt");
+
+                    b.HasIndex("RepeatDueAt");
+
+                    b.HasIndex("ResponsibleUserId");
+
+                    b.HasIndex("ScheduledAt");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TrainingTemplateId");
+
+                    b.HasIndex("TrainingType");
+
+                    b.HasIndex("TenantId", "RepeatDueAt");
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.ToTable("Trainings", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingAssignment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AccessCodeExpiresAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("AccessCodeGeneratedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("AccessCodeHash")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("AccessCodeSentAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<int>("FailedAccessAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InvitationSendCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("InvitationSentAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("InvitationSentByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("LastAccessAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("LastAccessAttemptAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("LockedUntilUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ParticipantEmailSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("ParticipantNameSnapshot")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("ParticipationConfirmedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("StartedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TrainingId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TrainingParticipantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccessCodeExpiresAtUtc");
+
+                    b.HasIndex("InvitationSentByUserId");
+
+                    b.HasIndex("LockedUntilUtc");
+
+                    b.HasIndex("ParticipantEmailSnapshot");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TrainingId");
+
+                    b.HasIndex("TrainingParticipantId");
+
+                    b.HasIndex("TenantId", "TrainingId");
+
+                    b.ToTable("TrainingAssignments", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingAssignmentSectionProgress", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("LastViewedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TimeSpentSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TrainingAssignmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TrainingTemplateSectionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("ViewCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ViewedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TrainingAssignmentId");
+
+                    b.HasIndex("TrainingTemplateSectionId");
+
+                    b.HasIndex("TrainingAssignmentId", "TrainingTemplateSectionId")
+                        .IsUnique();
+
+                    b.ToTable("TrainingAssignmentSectionProgress", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingParticipant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("Department")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("ExternalReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("NormalizedEmail")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedEmail");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.HasIndex("TenantId", "NormalizedEmail")
+                        .IsUnique();
+
+                    b.ToTable("TrainingParticipants", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingQuestion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("Explanation")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("Points")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<string>("QuestionText")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<int>("QuestionType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TrainingTemplateId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TrainingTemplateId");
+
+                    b.HasIndex("TrainingTemplateId", "SortOrder");
+
+                    b.ToTable("TrainingQuestions", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingQuestionOption", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AnswerText")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("Explanation")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TrainingQuestionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TrainingQuestionId");
+
+                    b.HasIndex("TrainingQuestionId", "SortOrder");
+
+                    b.ToTable("TrainingQuestionOptions", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingQuizAnswer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AnswerTextSnapshot")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsSelected")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("PointsAwarded")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TrainingQuestionId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TrainingQuestionOptionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TrainingQuizAttemptId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TrainingQuestionId");
+
+                    b.HasIndex("TrainingQuestionOptionId");
+
+                    b.HasIndex("TrainingQuizAttemptId");
+
+                    b.ToTable("TrainingQuizAnswers", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingQuizAttempt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AchievedPoints")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AttemptNumber")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("Passed")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("ScorePercent")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("SubmittedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalPoints")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TrainingAssignmentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttemptNumber");
+
+                    b.HasIndex("Passed");
+
+                    b.HasIndex("SubmittedAtUtc");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TrainingAssignmentId");
+
+                    b.ToTable("TrainingQuizAttempts", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingTemplate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ArchivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("CommunityReviewNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime?>("CommunityReviewedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CommunityReviewedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<int>("CommunityStatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CommunitySubmittedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CommunitySubmittedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("EstimatedDurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsCommunityTemplate")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsGlobal")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsQuizRequired")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("PassingScorePercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(80);
+
+                    b.Property<int?>("RecommendedRepeatAfterMonths")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TargetAudience")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int>("TrainingType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CommunityStatus");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("IsGlobal");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TrainingType");
+
+                    b.HasIndex("IsGlobal", "IsActive");
+
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.ToTable("TrainingTemplates", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingTemplateAsset", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AltText")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("AssetKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TrainingTemplateId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetKey");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TrainingTemplateId");
+
+                    b.HasIndex("TrainingTemplateId", "AssetKey")
+                        .IsUnique();
+
+                    b.ToTable("TrainingTemplateAssets", (string)null);
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingTemplateSection", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentMarkdown")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int>("TrainingTemplateId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TrainingTemplateId");
+
+                    b.HasIndex("TrainingTemplateId", "SortOrder");
+
+                    b.ToTable("TrainingTemplateSections", (string)null);
+                });
+
             modelBuilder.Entity("Dsms.Web.Domain.Entities.UserTenant", b =>
                 {
                     b.Property<string>("UserId")
@@ -2764,6 +4059,130 @@ namespace Dsms.Web.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DataProtectionRole", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.DataProtectionRole", "DeputyRole")
+                        .WithMany()
+                        .HasForeignKey("DeputyRoleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Dsms.Web.Data.ApplicationUser", "LinkedUser")
+                        .WithMany()
+                        .HasForeignKey("LinkedUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Dsms.Web.Domain.Entities.DataProtectionRole", "ReportsToRole")
+                        .WithMany()
+                        .HasForeignKey("ReportsToRoleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("DeputyRole");
+
+                    b.Navigation("LinkedUser");
+
+                    b.Navigation("ReportsToRole");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DataSubjectRequest", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany("DataSubjectRequests")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DataSubjectRequestMeasure", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.DataSubjectRequest", "DataSubjectRequest")
+                        .WithMany("MeasureLinks")
+                        .HasForeignKey("DataSubjectRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.Measure", "Measure")
+                        .WithMany()
+                        .HasForeignKey("MeasureId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("DataSubjectRequest");
+
+                    b.Navigation("Measure");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DataSubjectRequestProcessingActivity", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.DataSubjectRequest", "DataSubjectRequest")
+                        .WithMany("ProcessingActivityLinks")
+                        .HasForeignKey("DataSubjectRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.ProcessingActivity", "ProcessingActivity")
+                        .WithMany()
+                        .HasForeignKey("ProcessingActivityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("DataSubjectRequest");
+
+                    b.Navigation("ProcessingActivity");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DataSubjectRequestServiceProvider", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.DataSubjectRequest", "DataSubjectRequest")
+                        .WithMany("ServiceProviderLinks")
+                        .HasForeignKey("DataSubjectRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.ServiceProvider", "ServiceProvider")
+                        .WithMany()
+                        .HasForeignKey("ServiceProviderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("DataSubjectRequest");
+
+                    b.Navigation("ServiceProvider");
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("Dsms.Web.Domain.Entities.DiscountCode", b =>
                 {
                     b.HasOne("Dsms.Web.Domain.Entities.SubscriptionPlan", "AppliesToPlan")
@@ -2772,6 +4191,17 @@ namespace Dsms.Web.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("AppliesToPlan");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DocumentCategory", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.DocumentLink", b =>
@@ -2795,11 +4225,18 @@ namespace Dsms.Web.Migrations
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.EvidenceDocument", b =>
                 {
+                    b.HasOne("Dsms.Web.Domain.Entities.DocumentCategory", "DocumentCategory")
+                        .WithMany("Documents")
+                        .HasForeignKey("DocumentCategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
                         .WithMany("Documents")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("DocumentCategory");
 
                     b.Navigation("Tenant");
                 });
@@ -3124,6 +4561,25 @@ namespace Dsms.Web.Migrations
                     b.Navigation("Tom");
                 });
 
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.SupportAccessGrant", b =>
+                {
+                    b.HasOne("Dsms.Web.Data.ApplicationUser", "GrantedByUser")
+                        .WithMany()
+                        .HasForeignKey("GrantedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("GrantedByUser");
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("Dsms.Web.Domain.Entities.Tenant", b =>
                 {
                     b.HasOne("Dsms.Web.Domain.Entities.License", "License")
@@ -3154,6 +4610,209 @@ namespace Dsms.Web.Migrations
                         .IsRequired();
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.Training", b =>
+                {
+                    b.HasOne("Dsms.Web.Data.ApplicationUser", "ResponsibleUser")
+                        .WithMany()
+                        .HasForeignKey("ResponsibleUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany("Trainings")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.TrainingTemplate", "TrainingTemplate")
+                        .WithMany()
+                        .HasForeignKey("TrainingTemplateId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ResponsibleUser");
+
+                    b.Navigation("Tenant");
+
+                    b.Navigation("TrainingTemplate");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingAssignment", b =>
+                {
+                    b.HasOne("Dsms.Web.Data.ApplicationUser", "InvitationSentByUser")
+                        .WithMany()
+                        .HasForeignKey("InvitationSentByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany("TrainingAssignments")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.Training", "Training")
+                        .WithMany("Assignments")
+                        .HasForeignKey("TrainingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.TrainingParticipant", "TrainingParticipant")
+                        .WithMany("Assignments")
+                        .HasForeignKey("TrainingParticipantId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("InvitationSentByUser");
+
+                    b.Navigation("Tenant");
+
+                    b.Navigation("Training");
+
+                    b.Navigation("TrainingParticipant");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingAssignmentSectionProgress", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.TrainingAssignment", "TrainingAssignment")
+                        .WithMany("SectionProgress")
+                        .HasForeignKey("TrainingAssignmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.TrainingTemplateSection", "TrainingTemplateSection")
+                        .WithMany()
+                        .HasForeignKey("TrainingTemplateSectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+
+                    b.Navigation("TrainingAssignment");
+
+                    b.Navigation("TrainingTemplateSection");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingParticipant", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany("TrainingParticipants")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingQuestion", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.TrainingTemplate", "TrainingTemplate")
+                        .WithMany("Questions")
+                        .HasForeignKey("TrainingTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TrainingTemplate");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingQuestionOption", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.TrainingQuestion", "TrainingQuestion")
+                        .WithMany("Options")
+                        .HasForeignKey("TrainingQuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TrainingQuestion");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingQuizAnswer", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.TrainingQuestion", "TrainingQuestion")
+                        .WithMany()
+                        .HasForeignKey("TrainingQuestionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.TrainingQuestionOption", "TrainingQuestionOption")
+                        .WithMany()
+                        .HasForeignKey("TrainingQuestionOptionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Dsms.Web.Domain.Entities.TrainingQuizAttempt", "TrainingQuizAttempt")
+                        .WithMany("Answers")
+                        .HasForeignKey("TrainingQuizAttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+
+                    b.Navigation("TrainingQuestion");
+
+                    b.Navigation("TrainingQuestionOption");
+
+                    b.Navigation("TrainingQuizAttempt");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingQuizAttempt", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Dsms.Web.Domain.Entities.TrainingAssignment", "TrainingAssignment")
+                        .WithMany("QuizAttempts")
+                        .HasForeignKey("TrainingAssignmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+
+                    b.Navigation("TrainingAssignment");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingTemplate", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.Tenant", "Tenant")
+                        .WithMany("TrainingTemplates")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingTemplateAsset", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.TrainingTemplate", "TrainingTemplate")
+                        .WithMany("Assets")
+                        .HasForeignKey("TrainingTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TrainingTemplate");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingTemplateSection", b =>
+                {
+                    b.HasOne("Dsms.Web.Domain.Entities.TrainingTemplate", "TrainingTemplate")
+                        .WithMany("Sections")
+                        .HasForeignKey("TrainingTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TrainingTemplate");
                 });
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.UserTenant", b =>
@@ -3257,6 +4916,20 @@ namespace Dsms.Web.Migrations
                     b.Navigation("Questions");
                 });
 
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DataSubjectRequest", b =>
+                {
+                    b.Navigation("MeasureLinks");
+
+                    b.Navigation("ProcessingActivityLinks");
+
+                    b.Navigation("ServiceProviderLinks");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.DocumentCategory", b =>
+                {
+                    b.Navigation("Documents");
+                });
+
             modelBuilder.Entity("Dsms.Web.Domain.Entities.EvidenceDocument", b =>
                 {
                     b.Navigation("Links");
@@ -3309,6 +4982,8 @@ namespace Dsms.Web.Migrations
 
                     b.Navigation("AuditTemplates");
 
+                    b.Navigation("DataSubjectRequests");
+
                     b.Navigation("Documents");
 
                     b.Navigation("DpiaAssessments");
@@ -3323,6 +4998,14 @@ namespace Dsms.Web.Migrations
 
                     b.Navigation("Toms");
 
+                    b.Navigation("TrainingAssignments");
+
+                    b.Navigation("TrainingParticipants");
+
+                    b.Navigation("TrainingTemplates");
+
+                    b.Navigation("Trainings");
+
                     b.Navigation("UserTenants");
                 });
 
@@ -3331,6 +5014,42 @@ namespace Dsms.Web.Migrations
                     b.Navigation("ProcessingActivityLinks");
 
                     b.Navigation("ServiceProviderLinks");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.Training", b =>
+                {
+                    b.Navigation("Assignments");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingAssignment", b =>
+                {
+                    b.Navigation("QuizAttempts");
+
+                    b.Navigation("SectionProgress");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingParticipant", b =>
+                {
+                    b.Navigation("Assignments");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingQuestion", b =>
+                {
+                    b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingQuizAttempt", b =>
+                {
+                    b.Navigation("Answers");
+                });
+
+            modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingTemplate", b =>
+                {
+                    b.Navigation("Assets");
+
+                    b.Navigation("Questions");
+
+                    b.Navigation("Sections");
                 });
 #pragma warning restore 612, 618
         }

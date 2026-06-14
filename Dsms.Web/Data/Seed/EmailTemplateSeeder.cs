@@ -101,6 +101,19 @@ public static class EmailTemplateSeeder
             <p>Sie können die Dokumente außerdem jederzeit über die Fußzeile der Anwendung erneut abrufen.</p>
             <p>Freundliche Grüße<br/>{{ProviderName}}</p>
             """);
+
+        await SeedTemplateIfMissingAsync(db, EmailTemplateKeys.TrainingInvitation, "Schulungseinladung",
+            "Einladung zur Datenschutz-Schulung",
+            """
+            <p>Hallo {{Name}},</p>
+            <p>Sie wurden zur folgenden Schulung eingeladen:</p>
+            <p><strong>{{TrainingTitle}}</strong></p>
+            <p>Bitte verwenden Sie für den Zugriff auf die Schulung Ihre E-Mail-Adresse und diesen Zugangscode:</p>
+            <p style="font-size: 1.25rem; font-weight: bold; letter-spacing: 0.2em;">{{AccessCode}}</p>
+            <p>Der Code ist gültig bis: <strong>{{AccessCodeExpiresAt}}</strong></p>
+            <p>Zugangsseite: <a href="{{TrainingAccessUrl}}">{{TrainingAccessUrl}}</a></p>
+            <p>Freundliche Grüße<br/>{{TenantName}} / {{AppName}}</p>
+            """);
     }
 
     private static async Task SeedTemplateIfMissingAsync(

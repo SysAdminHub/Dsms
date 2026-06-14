@@ -154,6 +154,41 @@ else
 
     <div class="dsms-card mb-4">
         <div class="dsms-card-body">
+            <h2 class="h5 mb-2">Datenschutzorganisation</h2>
+            <p class="text-muted mb-3">
+                Wichtigste aktive Datenschutzrollen des Mandanten. Pflege erfolgt im Modul Organisation.
+            </p>
+            @if (_highlightedRoles is null)
+            {
+                <div class="dsms-loading">Lade …</div>
+            }
+            else if (_highlightedRoles.Count == 0)
+            {
+                <div class="alert alert-info dsms-alert mb-3">
+                    Noch keine aktiven Datenschutzrollen erfasst.
+                </div>
+            }
+            else
+            {
+                <div class="row g-3 mb-3">
+                    @foreach (var role in _highlightedRoles)
+                    {
+                        <div class="col-md-6 col-lg-4">
+                            <div class="border rounded p-3 h-100">
+                                <div class="fw-semibold">@role.RoleTitle</div>
+                                <div>@(string.IsNullOrWhiteSpace(role.PersonName) ? "—" : role.PersonName)</div>
+                                <div class="text-muted small">@(string.IsNullOrWhiteSpace(role.Email) ? "—" : role.Email)</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            <a class="btn btn-outline-primary" href="organization/list">Alle Datenschutzrollen anzeigen</a>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-body">
             <h2 class="h5 mb-2">Tenant-Daten exportieren</h2>
             <p class="text-muted mb-3">
                 Laden Sie alle fachlichen Daten dieses Mandanten inklusive Dokumenten als ZIP-Datei herunter.
@@ -231,6 +266,7 @@ else
     [Inject] private ITenantComplianceInfoService ComplianceInfoService { get; set; } = null!;
     [Inject] private ITenantDeletionService DeletionService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private DataProtectionRoleService DataProtectionRoleService { get; set; } = null!;
 
     private Domain.Entities.Tenant? _tenant;
     private TenantComplianceInfoDto? _complianceInfo;
@@ -243,6 +279,7 @@ else
     private bool _busy;
     private string? _message;
     private bool _messageIsError;
+    private IReadOnlyList<Domain.Entities.DataProtectionRole>? _highlightedRoles;
 
     protected override async Task OnInitializedAsync()
     {
@@ -255,6 +292,17 @@ else
         _isSuperuser = await UserAccess.IsSuperuserAsync();
         _tenant = await TenantService.GetCurrentTenantAsync();
         await LoadComplianceModelAsync();
+        await LoadHighlightedRolesAsync();
+    }
+
+    private async Task LoadHighlightedRolesAsync()
+    {
+        if (_tenant is null)
+        {
+            return;
+        }
+
+        _highlightedRoles = await DataProtectionRoleService.GetHighlightedActiveRolesAsync(_tenant.Id);
     }
 
     private async Task LoadComplianceModelAsync()

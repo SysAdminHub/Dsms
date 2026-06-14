@@ -1,0 +1,462 @@
+@page "/schulung/teilnahme/inhalt"
+@layout TrainingParticipantLayout
+@rendermode InteractiveServer
+@using Dsms.Web.Services.Training
+@inject TrainingParticipantPortalService PortalService
+@inject NavigationManager Navigation
+@inject IOptions<TrainingAccessOptions> AccessOptions
+
+<BrandedPageTitle Title="@_pageTitle" />
+
+@if (_loading)
+{
+    <div class="dsms-training-participant-page">
+        <div class="dsms-loading">Schulung wird geladen …</div>
+    </div>
+}
+else if (_context is null)
+{
+    <div class="dsms-training-participant-page">
+        <div class="alert alert-warning dsms-alert">
+            Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.
+        </div>
+        <a class="btn btn-primary" href="@AccessOptions.Value.AccessPath">Zum Schulungszugang</a>
+    </div>
+}
+else if (_step == TrainingParticipantPortalStep.Completed || _context.IsCompleted)
+{
+    <div class="dsms-training-participant-page">
+        <div class="dsms-card">
+            <div class="dsms-card-header">
+                <h1 class="h4 mb-0">Schulung abgeschlossen</h1>
+            </div>
+            <div class="dsms-card-body">
+                <p>Vielen Dank. Ihre Teilnahme wurde erfolgreich gespeichert.</p>
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Schulung</dt>
+                    <dd class="col-sm-8">@_context.Training.Title</dd>
+                    <dt class="col-sm-4">Abgeschlossen am</dt>
+                    <dd class="col-sm-8">@(_context.Assignment.CompletedAtUtc?.ToLocalTime().ToString("g") ?? "—")</dd>
+                    @if (_context.LatestQuizAttempt is not null)
+                    {
+                        <dt class="col-sm-4">Quiz-Ergebnis</dt>
+                        <dd class="col-sm-8">
+                            @_context.LatestQuizAttempt.ScorePercent % (@(_context.LatestQuizAttempt.Passed ? "bestanden" : "nicht bestanden"))
+                        </dd>
+                    }
+                </dl>
+                <p class="text-muted small mt-3 mb-0">Es ist keine weitere Aktion erforderlich.</p>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="dsms-training-participant-page">
+        <div class="dsms-card mb-3">
+            <div class="dsms-card-body">
+                <h1 class="h4">@_context.Training.Title</h1>
+                @if (!string.IsNullOrEmpty(_context.Training.Description))
+                {
+                    <p class="text-muted">@_context.Training.Description</p>
+                }
+                @if (_context.Template is not null && !string.IsNullOrEmpty(_context.Template.TargetAudience))
+                {
+                    <p class="small text-muted mb-0">Zielgruppe: @_context.Template.TargetAudience</p>
+                }
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger dsms-alert">@_error</div>
+        }
+
+        @if (_step == TrainingParticipantPortalStep.Cards)
+        {
+            @if (_context.Sections.Count == 0)
+            {
+                <div class="alert alert-warning dsms-alert">Für diese Schulung sind keine aktiven Karten hinterlegt.</div>
+            }
+            else
+            {
+                <p class="text-muted small mb-3">@_context.ViewedSectionCount von @_context.Sections.Count Karten angesehen</p>
+                <div class="dsms-card training-participant-card">
+                    <div class="training-participant-card__header">
+                        Karte @_currentCardIndex von @_context.Sections.Count · @_currentSection?.Title
+                    </div>
+                    <div class="training-participant-card__body">
+                        @if (_currentSection is not null && _context.Training.TrainingTemplateId is int templateId)
+                        {
+                            <TrainingParticipantMarkdown TemplateId="templateId"
+                                                         Markdown="@_currentSection.ContentMarkdown" />
+                        }
+                    </div>
+                    <div class="training-participant-card__actions">
+                        <button type="button" class="btn btn-outline-secondary"
+                                disabled="@(_currentCardIndex <= 1 || _busy)"
+                                @onclick="PrevCardAsync">Zurück</button>
+                        @if (_currentCardIndex < _context.Sections.Count)
+                        {
+                            <button type="button" class="btn btn-primary"
+                                    disabled="@_busy"
+                                    @onclick="NextCardAsync">Weiter</button>
+                        }
+                        else if (_quizRequired)
+                        {
+                            <button type="button" class="btn btn-primary"
+                                    disabled="@(!_allSectionsViewed || _busy)"
+                                    @onclick="GoToQuiz">Zum Quiz</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-primary"
+                                    disabled="@(!_allSectionsViewed || _busy)"
+                                    @onclick="GoToConfirm">Teilnahme abschließen</button>
+                        }
+                    </div>
+                </div>
+            }
+        }
+        else if (_step == TrainingParticipantPortalStep.Quiz)
+        {
+            @if (_context.Template?.IsQuizRequired == true && _context.Questions.Count == 0)
+            {
+                <div class="alert alert-warning dsms-alert">
+                    Für diese Schulung ist ein Quiz erforderlich, es sind jedoch keine gültigen Fragen hinterlegt.
+                    Bitte wenden Sie sich an die verantwortliche Person.
+                </div>
+            }
+            else if (_quizResult is not null)
+            {
+                <div class="dsms-card training-participant-card">
+                    <div class="training-participant-card__header">Quiz-Ergebnis</div>
+                    <div class="training-participant-card__body">
+                        <p>
+                            Sie haben @_quizResult.ScorePercent % erreicht
+                            (@_quizResult.AchievedPoints von @_quizResult.TotalPoints Punkten).
+                        </p>
+                        @if (_quizResult.Passed)
+                        {
+                            <p class="text-success mb-0">Sie haben das Quiz bestanden.</p>
+                        }
+                        else
+                        {
+                            <p class="text-warning">Sie haben das Quiz noch nicht bestanden. Bitte versuchen Sie es erneut.</p>
+                        }
+
+                        @if (_showQuizExplanations)
+                        {
+                            @foreach (var question in _context.Questions.OrderBy(q => q.SortOrder))
+                            {
+                                <div class="border rounded p-3 mb-2">
+                                    <p class="mb-1"><strong>@question.QuestionText</strong></p>
+                                    @if (!string.IsNullOrEmpty(question.Explanation))
+                                    {
+                                        <p class="text-muted small mb-0">@question.Explanation</p>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                    <div class="training-participant-card__actions training-participant-card__actions--end">
+                        @if (!_quizResult.Passed)
+                        {
+                            <button type="button" class="btn btn-outline-primary" @onclick="RetryQuiz">Quiz erneut versuchen</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-primary" @onclick="GoToConfirm">Weiter zur Teilnahmebestätigung</button>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="dsms-card training-participant-card">
+                    <div class="training-participant-card__header">Quiz</div>
+                    <div class="training-participant-card__body">
+                        @foreach (var question in _context.Questions.OrderBy(q => q.SortOrder))
+                        {
+                            <div class="mb-4">
+                                <p class="mb-2"><strong>@question.QuestionText</strong></p>
+                                @foreach (var option in question.Options.Where(o => o.IsActive).OrderBy(o => o.SortOrder))
+                                {
+                                    var qId = question.Id;
+                                    var oId = option.Id;
+                                    @if (question.QuestionType == TrainingQuestionType.SingleChoice)
+                                    {
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio"
+                                                   name="@($"q-{qId}")" id="@($"q-{qId}-o-{oId}")"
+                                                   checked="@IsOptionSelected(qId, oId)"
+                                                   @onchange="() => SelectSingle(qId, oId)" />
+                                            <label class="form-check-label" for="@($"q-{qId}-o-{oId}")">@option.AnswerText</label>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   id="@($"q-{qId}-o-{oId}")"
+                                                   checked="@IsOptionSelected(qId, oId)"
+                                                   @onchange="e => ToggleMultiple(qId, oId, e)" />
+                                            <label class="form-check-label" for="@($"q-{qId}-o-{oId}")">@option.AnswerText</label>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        }
+                    </div>
+                    <div class="training-participant-card__actions">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="BackToCards">Zurück zu den Karten</button>
+                        <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="SubmitQuizAsync">Quiz abgeben</button>
+                    </div>
+                </div>
+            }
+        }
+        else if (_step == TrainingParticipantPortalStep.Confirm)
+        {
+            <div class="dsms-card training-participant-card">
+                <div class="training-participant-card__header">Teilnahme bestätigen</div>
+                <div class="training-participant-card__body">
+                    <p>@_context.ViewedSectionCount von @_context.Sections.Count Karten angesehen.</p>
+                    @if (_quizRequired && _context.LatestQuizAttempt is not null)
+                    {
+                        <p>Quiz-Ergebnis: @_context.LatestQuizAttempt.ScorePercent % (@(_context.LatestQuizAttempt.Passed ? "bestanden" : "nicht bestanden"))</p>
+                    }
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="confirm-participation" @bind="_confirmed" />
+                        <label class="form-check-label" for="confirm-participation">
+                            Ich bestätige, dass ich die Schulungsinhalte vollständig gelesen und verstanden habe.
+                        </label>
+                    </div>
+                </div>
+                <div class="training-participant-card__actions">
+                    @if (_quizRequired)
+                    {
+                        <button type="button" class="btn btn-outline-secondary" @onclick="GoToQuiz">Zurück zum Quiz</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-outline-secondary" @onclick="BackToCards">Zurück zu den Karten</button>
+                    }
+                    <button type="button" class="btn btn-primary" disabled="@(!_confirmed || _busy)" @onclick="CompleteAsync">
+                        Teilnahme abschließen
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private TrainingParticipantContext? _context;
+    private TrainingParticipantPortalStep _step = TrainingParticipantPortalStep.Cards;
+    private int _currentCardIndex = 1;
+    private TrainingTemplateSection? _currentSection;
+    private bool _loading = true;
+    private bool _busy;
+    private bool _allSectionsViewed;
+    private bool _quizRequired;
+    private bool _confirmed;
+    private string? _error;
+    private string _pageTitle = "Schulung";
+    private TrainingParticipantQuizSubmitResult? _quizResult;
+    private bool _showQuizExplanations;
+    private readonly Dictionary<int, HashSet<int>> _selectedOptions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _context = await PortalService.GetContextAsync();
+        _loading = false;
+
+        if (_context is null)
+        {
+            Navigation.NavigateTo(AccessOptions.Value.AccessPath);
+            return;
+        }
+
+        _pageTitle = _context.Training.Title;
+        _quizRequired = PortalService.QuizRequired(_context);
+        _allSectionsViewed = _context.Sections.Count == 0
+            || _context.ViewedSectionCount >= _context.Sections.Count;
+
+        if (_context.IsCompleted)
+        {
+            _step = TrainingParticipantPortalStep.Completed;
+            return;
+        }
+
+        if (_allSectionsViewed && _quizRequired && _context.LatestQuizAttempt?.Passed == true)
+            _step = TrainingParticipantPortalStep.Confirm;
+        else if (_allSectionsViewed && _quizRequired && _context.Questions.Count > 0)
+            _step = TrainingParticipantPortalStep.Quiz;
+        else
+            _step = TrainingParticipantPortalStep.Cards;
+
+        _currentCardIndex = Math.Clamp(_currentCardIndex, 1, Math.Max(1, _context.Sections.Count));
+        _currentSection = _context.Sections.ElementAtOrDefault(_currentCardIndex - 1);
+
+        if (_currentSection is not null)
+            await PortalService.RecordSectionViewAsync(_currentSection.Id);
+    }
+
+    private async Task PrevCardAsync()
+    {
+        if (_currentCardIndex <= 1) return;
+        _currentCardIndex--;
+        await ShowCardAsync();
+    }
+
+    private async Task NextCardAsync()
+    {
+        if (_context is null || _currentCardIndex >= _context.Sections.Count) return;
+        _currentCardIndex++;
+        await ShowCardAsync();
+    }
+
+    private async Task ShowCardAsync()
+    {
+        if (_context is null) return;
+        _currentSection = _context.Sections.ElementAtOrDefault(_currentCardIndex - 1);
+        if (_currentSection is not null)
+            await PortalService.RecordSectionViewAsync(_currentSection.Id);
+
+        var progress = await PortalService.GetProgressAsync();
+        _allSectionsViewed = progress.TotalSections == 0 || progress.ViewedSections >= progress.TotalSections;
+        _context = await PortalService.GetContextAsync();
+    }
+
+    private void GoToQuiz()
+    {
+        _error = null;
+        if (!_allSectionsViewed)
+        {
+            _error = "Bitte sehen Sie sich zuerst alle Schulungskarten an.";
+            return;
+        }
+
+        if (_context?.Template?.IsQuizRequired == true && _context.Questions.Count == 0)
+        {
+            _error = "Für diese Schulung ist ein Quiz erforderlich, es sind jedoch keine gültigen Fragen hinterlegt. Bitte wenden Sie sich an die verantwortliche Person.";
+            return;
+        }
+
+        _step = TrainingParticipantPortalStep.Quiz;
+        _quizResult = null;
+        _selectedOptions.Clear();
+    }
+
+    private void GoToConfirm()
+    {
+        _error = null;
+        if (!_allSectionsViewed)
+        {
+            _error = "Bitte sehen Sie sich zuerst alle Schulungskarten an.";
+            return;
+        }
+
+        if (_quizRequired && _context?.LatestQuizAttempt?.Passed != true)
+        {
+            _error = "Bitte bestehen Sie zuerst das Quiz.";
+            _step = TrainingParticipantPortalStep.Quiz;
+            return;
+        }
+
+        _step = TrainingParticipantPortalStep.Confirm;
+    }
+
+    private void BackToCards()
+    {
+        _step = TrainingParticipantPortalStep.Cards;
+        _quizResult = null;
+    }
+
+    private void RetryQuiz()
+    {
+        _quizResult = null;
+        _showQuizExplanations = false;
+        _selectedOptions.Clear();
+    }
+
+    private bool IsOptionSelected(int questionId, int optionId) =>
+        _selectedOptions.TryGetValue(questionId, out var set) && set.Contains(optionId);
+
+    private void SelectSingle(int questionId, int optionId)
+    {
+        _selectedOptions[questionId] = [optionId];
+    }
+
+    private void ToggleMultiple(int questionId, int optionId, ChangeEventArgs e)
+    {
+        if (!_selectedOptions.TryGetValue(questionId, out var set))
+        {
+            set = [];
+            _selectedOptions[questionId] = set;
+        }
+
+        var isChecked = e.Value is bool b && b;
+        if (isChecked)
+            set.Add(optionId);
+        else
+            set.Remove(optionId);
+    }
+
+    private async Task SubmitQuizAsync()
+    {
+        _error = null;
+        _busy = true;
+
+        try
+        {
+            var payload = _selectedOptions.ToDictionary(
+                kv => kv.Key,
+                kv => (IReadOnlyList<int>)kv.Value.ToList());
+
+            var result = await PortalService.SubmitQuizAsync(payload);
+            if (!result.Success)
+            {
+                _error = result.Message;
+                return;
+            }
+
+            _quizResult = result;
+            _showQuizExplanations = true;
+            _context = await PortalService.GetContextAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CompleteAsync()
+    {
+        _error = null;
+        _busy = true;
+
+        try
+        {
+            var result = await PortalService.CompleteAsync(_confirmed);
+            if (!result.Success)
+            {
+                _error = result.Message;
+                return;
+            }
+
+            _context = await PortalService.GetContextAsync();
+            _step = TrainingParticipantPortalStep.Completed;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

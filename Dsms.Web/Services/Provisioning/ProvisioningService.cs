@@ -1,4 +1,5 @@
 using Dsms.Web.Data;
+using Dsms.Web.Data.Seed;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
@@ -214,6 +215,8 @@ public sealed class ProvisioningService(
                         tenant.Id,
                         admin.Id);
                 }
+
+                await DocumentCategorySeeder.EnsureDefaultCategoriesAsync(db, tenant.Id, admin.Id);
 
                 await db.SaveChangesAsync();
                 await transaction.CommitAsync();

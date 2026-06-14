@@ -52,69 +52,126 @@
 
                 </div>
 
-                <div class="nav-section">Compliance</div>
+                @if (_showBusinessModules)
+                {
+                    <div class="nav-section">Compliance</div>
 
-                <div class="nav-item">
+                    <div class="nav-item">
 
-                    <NavLink class="nav-link" href="processing-activities">Verarbeitungstätigkeiten</NavLink>
+                        <NavLink class="nav-link" href="processing-activities">Verarbeitungstätigkeiten</NavLink>
 
-                </div>
+                    </div>
 
-                <div class="nav-item">
+                    <div class="nav-item">
 
-                    <NavLink class="nav-link" href="dsfa">DSFA</NavLink>
+                        <NavLink class="nav-link" href="dsfa">DSFA</NavLink>
 
-                </div>
+                    </div>
 
-                <div class="nav-item">
+                    <div class="nav-item">
 
-                    <NavLink class="nav-link" href="toms">TOM-Verzeichnis</NavLink>
+                        <NavLink class="nav-link" href="toms">TOM-Verzeichnis</NavLink>
 
-                </div>
+                    </div>
 
-                <div class="nav-item">
+                    <div class="nav-item">
 
-                    <NavLink class="nav-link" href="service-providers">Dienstleister</NavLink>
+                        <NavLink class="nav-link" href="service-providers">Dienstleister</NavLink>
 
-                </div>
+                    </div>
 
-                <div class="nav-item">
+                    <div class="nav-item">
 
-                    <NavLink class="nav-link" href="incidents">Vorfälle</NavLink>
+                        <NavLink class="nav-link" href="incidents">Vorfälle</NavLink>
 
-                </div>
+                    </div>
 
-                <div class="nav-item">
+                    <div class="nav-item">
 
-                    <NavLink class="nav-link" href="audit-templates">Audit-Vorlagen</NavLink>
+                        <NavLink class="nav-link" href="data-subject-requests">Betroffenenanfragen</NavLink>
 
-                </div>
+                    </div>
 
-                <div class="nav-item">
+                    <div class="nav-item">
 
-                    <NavLink class="nav-link" href="audit-runs">Audit-Durchläufe</NavLink>
+                        <NavLink class="nav-link" href="measures">Maßnahmen</NavLink>
 
-                </div>
+                    </div>
 
-                <div class="nav-item">
+                    <div class="nav-item">
 
-                    <NavLink class="nav-link" href="measures">Maßnahmen</NavLink>
+                        <NavLink class="nav-link" href="organization">Organisation</NavLink>
 
-                </div>
+                    </div>
 
-                <div class="nav-item">
+                    <div class="nav-item">
 
-                    <NavLink class="nav-link" href="documents">Dokumente</NavLink>
+                        <NavLink class="nav-link" href="audit-templates">Audit-Vorlagen</NavLink>
 
-                </div>
+                    </div>
 
-                <AuthorizeView Roles="@DsmsRoles.Superuser" Context="superNav">
+                    <div class="nav-item">
 
+                        <NavLink class="nav-link" href="audit-runs">Audit-Durchläufe</NavLink>
+
+                    </div>
+
+                    <div class="nav-item">
+
+                        <NavLink class="nav-link" href="documents">Dokumente</NavLink>
+
+                    </div>
+
+                    <div class="nav-section">Schulungen</div>
+
+                    <div class="nav-item">
+
+                        <NavLink class="nav-link" href="trainings">Schulungen</NavLink>
+
+                    </div>
+
+                    <div class="nav-item">
+
+                        <NavLink class="nav-link" href="training-templates">Schulungsvorlagen</NavLink>
+
+                    </div>
+
+                    <AuthorizeView Roles="@($"{DsmsRoles.Admin},{DsmsRoles.Auditor}")" Context="trainingParticipantsNav">
+
+                        <div class="nav-item">
+
+                            <NavLink class="nav-link" href="trainings/participants">Teilnehmer</NavLink>
+
+                        </div>
+
+                    </AuthorizeView>
+                }
+
+                @if (_isSuperuser)
+                {
                     <div class="nav-section">Plattform</div>
 
                     <div class="nav-item">
 
                         <NavLink class="nav-link" href="tenants">Mandanten</NavLink>
+
+                    </div>
+
+                    <div class="nav-item">
+
+                        <NavLink class="nav-link" href="users">Benutzer</NavLink>
+
+                    </div>
+
+                    <div class="nav-item">
+
+                        <NavLink class="nav-link" href="audit-templates">Audit-Vorlagen (global)</NavLink>
+
+                    </div>
+
+                    <div class="nav-item">
+
+                        <NavLink class="nav-link" href="platform/support-access">Supportzugriffe</NavLink>
 
                     </div>
 
@@ -171,11 +228,10 @@
                         <NavLink class="nav-link" href="platform/logs">Protokolle</NavLink>
 
                     </div>
+                }
 
-                </AuthorizeView>
-
-                <AuthorizeView Roles="@DsmsRoles.UserManagement" Context="userNav">
-
+                @if (_showTenantUserManagement)
+                {
                     <div class="nav-section">Verwaltung</div>
 
                     <div class="nav-item">
@@ -194,6 +250,12 @@
                     {
                         <div class="nav-item">
 
+                            <NavLink class="nav-link" href="admin/support-access">Supportzugriff</NavLink>
+
+                        </div>
+
+                        <div class="nav-item">
+
                             <NavLink class="nav-link" href="admin/license">Meine Lizenz</NavLink>
 
                         </div>
@@ -204,8 +266,7 @@
 
                         </div>
                     }
-
-                </AuthorizeView>
+                }
 
                 <div class="nav-section dsms-nav-footer">Konto</div>
 
@@ -269,6 +330,12 @@
 
     private string? currentUrl;
 
+    private bool _isSuperuser;
+
+    private bool _showBusinessModules;
+
+    private bool _showTenantUserManagement;
+
     private bool _showAdminLicense;
 
 
@@ -280,6 +347,12 @@
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
 
         NavigationManager.LocationChanged += OnLocationChanged;
+
+        _isSuperuser = await UserAccess.IsSuperuserAsync();
+
+        _showBusinessModules = !_isSuperuser || await UserAccess.IsSupportModeAsync();
+
+        _showTenantUserManagement = !_isSuperuser && await UserAccess.CanManageUsersAsync();
 
         _showAdminLicense = await UserAccess.IsTenantAdminAsync();
 
@@ -316,4 +389,3 @@
     }
 
 }
-

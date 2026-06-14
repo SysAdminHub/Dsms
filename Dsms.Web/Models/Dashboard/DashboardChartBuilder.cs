@@ -78,6 +78,14 @@ public static class DashboardChartBuilder
         Legend("abgeschlossen", s.ClosedPrivacyIncidentsCount, DashboardChartColors.Success)
     ];
 
+    public static IReadOnlyList<DashboardLegendItem> DataSubjectRequestLegend(DashboardSummary s) =>
+    [
+        Legend("offen", s.OpenDataSubjectRequestsCount, DashboardChartColors.Warning),
+        Legend("überfällig", s.OverdueDataSubjectRequestsCount, DashboardChartColors.Danger),
+        Legend("bald fällig", s.DueSoonDataSubjectRequestsCount, DashboardChartColors.Warning),
+        Legend("abgeschlossen", s.CompletedDataSubjectRequestsCount, DashboardChartColors.Success)
+    ];
+
     public static IReadOnlyList<DashboardLegendItem> MeasureLegend(DashboardSummary s) =>
     [
         Legend("offen", s.OpenMeasuresCount, DashboardChartColors.Warning),
@@ -91,6 +99,13 @@ public static class DashboardChartBuilder
         Legend("laufende Audits", s.ActiveAuditsCount, DashboardChartColors.Warning),
         Legend("Audit-Entwürfe", s.DraftAuditsCount, DashboardChartColors.Neutral),
         Legend("abgeschlossen", s.CompletedAuditsCount, DashboardChartColors.Success)
+    ];
+
+    public static IReadOnlyList<DashboardLegendItem> TrainingLegend(DashboardSummary s) =>
+    [
+        Legend("aktiv", s.ActiveTrainingsCount, DashboardChartColors.Success),
+        Legend("inaktiv", s.InactiveTrainingsCount, DashboardChartColors.Neutral),
+        Legend("Vorlagen", s.TrainingTemplatesCount, DashboardChartColors.Warning)
     ];
 
     private static DashboardLegendItem Legend(string label, int value, string color) => new()

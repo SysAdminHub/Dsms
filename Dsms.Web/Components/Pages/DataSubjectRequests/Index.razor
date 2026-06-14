@@ -1,0 +1,316 @@
+@* Listenansicht: Betroffenenanfragen des aktuellen Mandanten. *@
+@page "/data-subject-requests"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Betroffenenanfragen" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Betroffenenanfragen" HelpKey="data-subject-requests" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant ausgewählt. Bitte wählen Sie zuerst einen Mandanten.</div>
+}
+else
+{
+    <PageHeader Title="Betroffenenanfragen" HelpKey="data-subject-requests"
+                Subtitle="Anfragen betroffener Personen nach DSGVO dokumentieren und bearbeiten">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
+            @if (_canCreate && !_showArchived)
+            {
+                <a class="btn btn-primary" href="data-subject-requests/edit">Neue Anfrage</a>
+            }
+        </div>
+    </PageHeader>
+
+    @if (!_showArchived)
+    {
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-body py-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label mb-1">Status</label>
+                        <InputSelect class="form-select" @bind-Value="_filterStatus">
+                            <option value="">Alle</option>
+                            @foreach (var status in Enum.GetValues<DataSubjectRequestStatus>())
+                            {
+                                <option value="@status">@DataSubjectRequestLabels.GetStatusLabel(status)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label mb-1">Anfrageart</label>
+                        <InputSelect class="form-select" @bind-Value="_filterType">
+                            <option value="">Alle</option>
+                            @foreach (var type in Enum.GetValues<DataSubjectRequestType>())
+                            {
+                                <option value="@type">@DataSubjectRequestLabels.GetTypeLabel(type)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label mb-1">Anonymisiert</label>
+                        <InputSelect class="form-select" @bind-Value="_filterAnonymized">
+                            <option value="">Alle</option>
+                            <option value="yes">Ja</option>
+                            <option value="no">Nein</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-check mb-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="_filterOverdue" id="filter-overdue" />
+                            <label class="form-check-label" for="filter-overdue">Überfällig</label>
+                        </div>
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_filterDueSoon" id="filter-due-soon" />
+                            <label class="form-check-label" for="filter-due-soon">Bald fällig</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label mb-1">Suche</label>
+                        <InputText class="form-control" @bind-Value="_searchText" placeholder="Referenz, Beschreibung, Kontaktweg …" />
+                    </div>
+                    <div class="col-md-auto">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="LoadDataAsync">Filtern</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_requests is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else if (_requests.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">
+            @(_showArchived ? "Keine archivierten Betroffenenanfragen." : "Noch keine Betroffenenanfragen erfasst.")
+        </div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Anfrageart</th>
+                            <th>Status</th>
+                            <th>Eingang</th>
+                            <th>Frist</th>
+                            <th>Verbleibend</th>
+                            <th>Betroffene Person / Referenz</th>
+                            <th>Kontaktweg</th>
+                            <th>Bearbeiter</th>
+                            <th>Verkn.</th>
+                            <th>Anonym.</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in _requests)
+                        {
+                            var request = row.Request;
+                            var remaining = row.RemainingDays;
+                            var overdue = row.IsOverdue;
+                            var dueSoon = row.IsDueSoon;
+                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
+                                <td>@DataSubjectRequestLabels.GetTypeLabel(request.RequestType)</td>
+                                <td>
+                                    <StatusBadge Text="@DataSubjectRequestLabels.GetStatusLabel(request.Status)"
+                                                 Variant="@DataSubjectRequestLabels.GetStatusVariant(request.Status)" />
+                                </td>
+                                <td>@request.ReceivedAt.ToLocalTime().ToString("d")</td>
+                                <td class="@DataSubjectRequestLabels.GetDeadlineCssClass(remaining, overdue)">
+                                    @row.EffectiveDueAt.ToLocalTime().ToString("d")
+                                </td>
+                                <td class="@DataSubjectRequestLabels.GetDeadlineCssClass(remaining, overdue)">
+                                    @if (DataSubjectRequestDeadlineHelper.IsClosedStatus(request))
+                                    {
+                                        <span>—</span>
+                                    }
+                                    else if (overdue)
+                                    {
+                                        <span>Überfällig (@Math.Abs(remaining) T.)</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@remaining T.</span>
+                                    }
+                                </td>
+                                <td>@DataSubjectRequestLabels.GetSubjectDisplay(request)</td>
+                                <td>@(string.IsNullOrWhiteSpace(request.ContactChannel) ? "—" : request.ContactChannel)</td>
+                                <td>@GetAssigneeLabel(request.AssignedUserId)</td>
+                                <td>@row.LinkCount</td>
+                                <td>@(request.PersonalDataAnonymized ? "Ja" : "Nein")</td>
+                                <td class="dsms-table-actions">
+                                    <div class="dsms-table-action-stack">
+                                        <a class="btn btn-sm btn-outline-primary" href="@($"data-subject-requests/{request.Id}")">Ansehen</a>
+                                        @if (_canEdit && !_showArchived)
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary" href="@($"data-subject-requests/edit/{request.Id}")">Bearbeiten</a>
+                                        }
+                                        <ArchiveListActions TEntity="DataSubjectRequest"
+                                                            EntityId="@request.Id"
+                                                            ItemName="@DataSubjectRequestLabels.GetAuditDisplayName(request)"
+                                                            EntityLabel="Betroffenenanfrage"
+                                                            CanEdit="@(_canCreate && !_showArchived)"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private sealed class RequestRow
+    {
+        public required DataSubjectRequest Request { get; init; }
+        public int RemainingDays { get; init; }
+        public bool IsOverdue { get; init; }
+        public bool IsDueSoon { get; init; }
+        public DateTime EffectiveDueAt { get; init; }
+        public int LinkCount { get; init; }
+    }
+
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canCreate;
+    private bool _canEdit;
+    private bool _showArchived;
+    private string? _searchText;
+    private DataSubjectRequestStatus? _filterStatus;
+    private DataSubjectRequestType? _filterType;
+    private string? _filterAnonymized;
+    private bool _filterOverdue;
+    private bool _filterDueSoon;
+    private List<RequestRow>? _requests;
+    private Dictionary<string, string> _userLabels = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canCreate = await UserAccess.CanCreateDataSubjectRequestsAsync();
+        _canEdit = await UserAccess.CanEditDataSubjectRequestsAsync();
+        await LoadUserLabelsAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task LoadUserLabelsAsync()
+    {
+        if (_tenantId is null) return;
+
+        var userIds = await Db.UserTenants
+            .Where(ut => ut.TenantId == _tenantId)
+            .Select(ut => ut.UserId)
+            .ToListAsync();
+
+        _userLabels = await Db.Users
+            .Where(u => userIds.Contains(u.Id))
+            .Select(u => new { u.Id, Label = u.DisplayName ?? u.Email ?? u.Id })
+            .ToDictionaryAsync(x => x.Id, x => x.Label);
+    }
+
+    private string GetAssigneeLabel(string? userId) =>
+        userId is not null && _userLabels.TryGetValue(userId, out var label) ? label : "—";
+
+    private async Task LoadDataAsync()
+    {
+        _showArchived = ArchiveView.ShowArchivedOnly;
+        var query = Db.DataSubjectRequests.AsQueryable();
+
+        if (_filterStatus.HasValue)
+        {
+            query = query.Where(r => r.Status == _filterStatus.Value);
+        }
+
+        if (_filterType.HasValue)
+        {
+            query = query.Where(r => r.RequestType == _filterType.Value);
+        }
+
+        if (_filterAnonymized == "yes")
+        {
+            query = query.Where(r => r.PersonalDataAnonymized);
+        }
+        else if (_filterAnonymized == "no")
+        {
+            query = query.Where(r => !r.PersonalDataAnonymized);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_searchText))
+        {
+            var term = _searchText.Trim();
+            query = query.Where(r =>
+                (r.ContactChannel != null && r.ContactChannel.Contains(term))
+                || (!r.PersonalDataAnonymized && r.DataSubjectReference != null && r.DataSubjectReference.Contains(term))
+                || (!r.PersonalDataAnonymized && r.Description != null && r.Description.Contains(term)));
+        }
+
+        var items = _showArchived
+            ? await query.OrderByDescending(r => r.ArchivedAt).ToListAsync()
+            : await query.OrderByDescending(r => r.ReceivedAt).ToListAsync();
+
+        if (_filterOverdue)
+        {
+            items = items.Where(r => DataSubjectRequestDeadlineHelper.IsOverdue(r)).ToList();
+        }
+
+        if (_filterDueSoon)
+        {
+            items = items.Where(r => DataSubjectRequestDeadlineHelper.IsDueSoon(r)
+                && !DataSubjectRequestDeadlineHelper.IsOverdue(r)).ToList();
+        }
+
+        var ids = items.Select(r => r.Id).ToList();
+        var linkCounts = await Db.DataSubjectRequestProcessingActivities
+            .Where(l => ids.Contains(l.DataSubjectRequestId))
+            .GroupBy(l => l.DataSubjectRequestId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var measureCounts = await Db.DataSubjectRequestMeasures
+            .Where(l => ids.Contains(l.DataSubjectRequestId))
+            .GroupBy(l => l.DataSubjectRequestId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var spCounts = await Db.DataSubjectRequestServiceProviders
+            .Where(l => ids.Contains(l.DataSubjectRequestId))
+            .GroupBy(l => l.DataSubjectRequestId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var docCounts = await Db.DocumentLinks
+            .Where(l => l.LinkedEntityType == DocumentLinkedEntityType.DataSubjectRequest && ids.Contains(l.LinkedEntityId))
+            .GroupBy(l => l.LinkedEntityId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var linkMap = linkCounts.Concat(measureCounts).Concat(spCounts).Concat(docCounts)
+            .GroupBy(x => x.Key)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Count));
+
+        _requests = items.Select(r => new RequestRow
+        {
+            Request = r,
+            RemainingDays = DataSubjectRequestDeadlineHelper.GetRemainingDays(r),
+            IsOverdue = DataSubjectRequestDeadlineHelper.IsOverdue(r),
+            IsDueSoon = DataSubjectRequestDeadlineHelper.IsDueSoon(r),
+            EffectiveDueAt = DataSubjectRequestDeadlineHelper.GetEffectiveDueAt(r),
+            LinkCount = linkMap.GetValueOrDefault(r.Id)
+        }).ToList();
+    }
+}

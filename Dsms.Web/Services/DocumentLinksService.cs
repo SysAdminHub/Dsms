@@ -20,7 +20,8 @@ public enum UpdateDocumentLinksResult
 public class DocumentLinksService(
     ApplicationDbContext db,
     IUserAccessService userAccess,
-    ICurrentUserContext currentUser)
+    ICurrentUserContext currentUser,
+    Logging.IComplianceAuditLogService complianceAuditLog)
 {
     public async Task<IReadOnlyList<DocumentLink>> GetLinksForDocumentAsync(
         int documentId,
@@ -54,6 +55,7 @@ public class DocumentLinksService(
 
         return await db.EvidenceDocuments
             .AsNoTracking()
+            .Include(d => d.DocumentCategory)
             .Where(d => documentIds.Contains(d.Id))
             .OrderByDescending(d => d.CreatedAt)
             .ToListAsync(ct);
@@ -255,7 +257,62 @@ public class DocumentLinksService(
 
         document.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+
+        await LogTrainingProofChangesAsync(
+            tenantId,
+            documentId,
+            document.FileName,
+            toRemove,
+            desired.Where(t => !existingKeys.Contains(t)).ToList(),
+            ct);
+
         return (UpdateDocumentLinksResult.Success, null);
+    }
+
+    private async Task LogTrainingProofChangesAsync(
+        int tenantId,
+        int documentId,
+        string fileName,
+        IReadOnlyList<DocumentLink> removed,
+        IReadOnlyList<DocumentLinkTarget> added,
+        CancellationToken ct)
+    {
+        var removedTrainingIds = removed
+            .Where(l => l.LinkedEntityType == DocumentLinkedEntityType.Training)
+            .Select(l => l.LinkedEntityId)
+            .ToList();
+
+        var addedTrainingIds = added
+            .Where(t => t.EntityType == DocumentLinkedEntityType.Training)
+            .Select(t => t.EntityId)
+            .ToList();
+
+        if (removedTrainingIds.Count == 0 && addedTrainingIds.Count == 0)
+            return;
+
+        var allIds = removedTrainingIds.Concat(addedTrainingIds).Distinct().ToList();
+        var titles = await db.Trainings
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(t => t.TenantId == tenantId && allIds.Contains(t.Id))
+            .Select(t => new { t.Id, t.Title })
+            .ToDictionaryAsync(t => t.Id, t => t.Title, ct);
+
+        foreach (var id in addedTrainingIds)
+        {
+            if (titles.TryGetValue(id, out var title))
+            {
+                await complianceAuditLog.LogTrainingProofLinkedAsync(id, title, tenantId, documentId, fileName);
+            }
+        }
+
+        foreach (var id in removedTrainingIds)
+        {
+            if (titles.TryGetValue(id, out var title))
+            {
+                await complianceAuditLog.LogTrainingProofRemovedAsync(id, title, tenantId, documentId, fileName);
+            }
+        }
     }
 
     public async Task<(UpdateDocumentLinksResult Result, string? ErrorMessage)> AddLinkAsync(
@@ -479,6 +536,46 @@ public class DocumentLinksService(
                 })
                 .ToListAsync(ct),
 
+            DocumentLinkedEntityType.DataSubjectRequest => (await db.DataSubjectRequests
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(r => r.TenantId == tenantId && (!r.IsArchived || selectedIds.Contains(r.Id)))
+                .OrderByDescending(r => r.ReceivedAt)
+                .Select(r => new
+                {
+                    r.Id,
+                    r.RequestType,
+                    r.IsArchived,
+                    r.PersonalDataAnonymized
+                })
+                .ToListAsync(ct))
+                .Select(r => new DocumentLinkSelectionViewModel
+                {
+                    EntityType = type,
+                    EntityId = r.Id,
+                    DisplayName = $"Betroffenenanfrage #{r.Id} ({Domain.DataSubjectRequestLabels.GetTypeLabel(r.RequestType)})",
+                    IsArchived = r.IsArchived,
+                    IsSelected = selectedIds.Contains(r.Id)
+                })
+                .ToList(),
+
+            DocumentLinkedEntityType.Training => await db.Trainings
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(t => t.TenantId == tenantId && (!t.IsArchived || selectedIds.Contains(t.Id)))
+                .OrderByDescending(t => t.ScheduledAt ?? t.CreatedAt)
+                .ThenBy(t => t.Title)
+                .Select(t => new DocumentLinkSelectionViewModel
+                {
+                    EntityType = type,
+                    EntityId = t.Id,
+                    DisplayName = t.Title,
+                    Description = t.Description,
+                    IsArchived = t.IsArchived,
+                    IsSelected = selectedIds.Contains(t.Id)
+                })
+                .ToListAsync(ct),
+
             _ => []
         };
     }
@@ -509,6 +606,12 @@ public class DocumentLinksService(
                 .IgnoreQueryFilters()
                 .AnyAsync(i => i.Id == entityId && i.TenantId == tenantId, ct),
             DocumentLinkedEntityType.Tom => await db.Toms
+                .IgnoreQueryFilters()
+                .AnyAsync(t => t.Id == entityId && t.TenantId == tenantId, ct),
+            DocumentLinkedEntityType.DataSubjectRequest => await db.DataSubjectRequests
+                .IgnoreQueryFilters()
+                .AnyAsync(r => r.Id == entityId && r.TenantId == tenantId, ct),
+            DocumentLinkedEntityType.Training => await db.Trainings
                 .IgnoreQueryFilters()
                 .AnyAsync(t => t.Id == entityId && t.TenantId == tenantId, ct),
             _ => false
@@ -580,6 +683,23 @@ public class DocumentLinksService(
                         .Select(t => new { t.Id, t.Title }).ToListAsync(ct))
                     {
                         result[(DocumentLinkedEntityType.Tom, item.Id)] = item.Title;
+                    }
+                    break;
+                case DocumentLinkedEntityType.DataSubjectRequest:
+                    foreach (var item in await db.DataSubjectRequests.IgnoreQueryFilters().AsNoTracking()
+                        .Where(r => r.TenantId == tenantId && ids.Contains(r.Id))
+                        .Select(r => new { r.Id, r.RequestType }).ToListAsync(ct))
+                    {
+                        result[(DocumentLinkedEntityType.DataSubjectRequest, item.Id)] =
+                            $"Betroffenenanfrage #{item.Id} ({Domain.DataSubjectRequestLabels.GetTypeLabel(item.RequestType)})";
+                    }
+                    break;
+                case DocumentLinkedEntityType.Training:
+                    foreach (var item in await db.Trainings.IgnoreQueryFilters().AsNoTracking()
+                        .Where(t => t.TenantId == tenantId && ids.Contains(t.Id))
+                        .Select(t => new { t.Id, t.Title }).ToListAsync(ct))
+                    {
+                        result[(DocumentLinkedEntityType.Training, item.Id)] = item.Title;
                     }
                     break;
             }

@@ -99,6 +99,35 @@ public static class ComplianceAuditDiffBuilder
         return changes;
     }
 
+    public static List<AuditFieldChangeDto> ForDataSubjectRequest(
+        DataSubjectRequestType? previousType,
+        DataSubjectRequestStatus? previousStatus,
+        DateTime? previousReceivedAt,
+        DateTime? previousDueAt,
+        DateTime? previousAnsweredAt,
+        bool? previousIdentityVerified,
+        bool? previousDeadlineExtended,
+        DateTime? previousExtendedDueAt,
+        bool? previousContainsPersonalData,
+        bool? previousPersonalDataAnonymized,
+        DataSubjectRequest current)
+    {
+        var changes = new List<AuditFieldChangeDto>();
+        AuditDiffHelper.AddIfChanged(changes, "RequestType", "Anfrageart", previousType, current.RequestType,
+            v => v is DataSubjectRequestType t ? DataSubjectRequestLabels.GetTypeLabel(t) : AuditDiffHelper.FormatAuditValue(v));
+        AuditDiffHelper.AddIfChanged(changes, "Status", "Status", previousStatus, current.Status,
+            v => v is DataSubjectRequestStatus s ? DataSubjectRequestLabels.GetStatusLabel(s) : AuditDiffHelper.FormatAuditValue(v));
+        AuditDiffHelper.AddIfChanged(changes, "ReceivedAt", "Eingang", previousReceivedAt, current.ReceivedAt);
+        AuditDiffHelper.AddIfChanged(changes, "DueAt", "Frist", previousDueAt, current.DueAt);
+        AuditDiffHelper.AddIfChanged(changes, "AnsweredAt", "Antwortdatum", previousAnsweredAt, current.AnsweredAt);
+        AuditDiffHelper.AddIfChanged(changes, "IdentityVerified", "Identität geprüft", previousIdentityVerified, current.IdentityVerified);
+        AuditDiffHelper.AddIfChanged(changes, "DeadlineExtended", "Fristverlängerung", previousDeadlineExtended, current.DeadlineExtended);
+        AuditDiffHelper.AddIfChanged(changes, "ExtendedDueAt", "Verlängerte Frist", previousExtendedDueAt, current.ExtendedDueAt);
+        AuditDiffHelper.AddIfChanged(changes, "ContainsPersonalData", "Enthält personenbezogene Falldaten", previousContainsPersonalData, current.ContainsPersonalData);
+        AuditDiffHelper.AddIfChanged(changes, "PersonalDataAnonymized", "Anonymisiert", previousPersonalDataAnonymized, current.PersonalDataAnonymized);
+        return changes;
+    }
+
     public static List<AuditFieldChangeDto> ForMeasure(
         string? previousTitle,
         MeasureStatus? previousStatus,
@@ -138,6 +167,50 @@ public static class ComplianceAuditDiffBuilder
         AuditDiffHelper.AddIfChanged(changes, "IsActive", "Aktiv", previousIsActive, current.IsActive);
         AuditDiffHelper.AddIfChanged(changes, "TemplateType", "Vorlagentyp", previousType, current.TemplateType,
             v => v is AuditTemplateType t ? AuditTemplateLabels.GetTypeBadge(t) : AuditDiffHelper.FormatAuditValue(v));
+        return changes;
+    }
+
+    public static List<AuditFieldChangeDto> ForEvidenceDocument(
+        DocumentType? previousType,
+        string? previousCategoryName,
+        DocumentType currentType,
+        string? currentCategoryName)
+    {
+        var changes = new List<AuditFieldChangeDto>();
+        AuditDiffHelper.AddIfChanged(changes, "DocumentType", "Dokumenttyp", previousType, currentType,
+            v => v is DocumentType t ? EvidenceDocumentLabels.GetTypeLabel(t) : AuditDiffHelper.FormatAuditValue(v));
+        AuditDiffHelper.AddIfChanged(changes, "DocumentCategory", "Kategorie", previousCategoryName, currentCategoryName);
+        return changes;
+    }
+
+    public static List<AuditFieldChangeDto> ForDocumentCategory(
+        string? previousName,
+        string? previousDescription,
+        string? previousColor,
+        int? previousSortOrder,
+        bool? previousIsActive,
+        DocumentCategoryEditModel current)
+    {
+        var changes = new List<AuditFieldChangeDto>();
+        AuditDiffHelper.AddIfChanged(changes, "Name", "Name", previousName, current.Name);
+        AuditDiffHelper.AddIfChanged(changes, "Description", "Beschreibung", previousDescription, current.Description);
+        AuditDiffHelper.AddIfChanged(changes, "Color", "Farbe", previousColor, current.Color,
+            v => v is string s ? DocumentCategoryColors.GetLabel(s) : AuditDiffHelper.FormatAuditValue(v));
+        AuditDiffHelper.AddIfChanged(changes, "SortOrder", "Sortierung", previousSortOrder, current.SortOrder);
+        AuditDiffHelper.AddIfChanged(changes, "IsActive", "Aktiv", previousIsActive, current.IsActive);
+        return changes;
+    }
+
+    public static List<AuditFieldChangeDto> ForDataProtectionRole(
+        string? previousTitle,
+        bool? previousIsActive,
+        string? previousDepartment,
+        DataProtectionRoleEditModel current)
+    {
+        var changes = new List<AuditFieldChangeDto>();
+        AuditDiffHelper.AddIfChanged(changes, "RoleTitle", "Rollenbezeichnung", previousTitle, current.RoleTitle);
+        AuditDiffHelper.AddIfChanged(changes, "IsActive", "Aktiv", previousIsActive, current.IsActive);
+        AuditDiffHelper.AddIfChanged(changes, "Department", "Abteilung", previousDepartment, current.Department);
         return changes;
     }
 

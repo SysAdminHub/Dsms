@@ -9,5 +9,7 @@ public enum DocumentLinkedEntityType
     ProcessingActivity = 3,
     Dsfa = 4,
     PrivacyIncident = 5,
-    Tom = 6
+    Tom = 6,
+    DataSubjectRequest = 7,
+    Training = 8
 }

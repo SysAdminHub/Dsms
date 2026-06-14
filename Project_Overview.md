@@ -1,8 +1,8 @@
-# DSMS – Projektübersicht
+# Datenschutz-Cloud – Projektübersicht
 
 ## Zweck des Projekts
 
-**DSMS** (Datenschutz-Management-System) ist eine webbasierte Anwendung zur Unterstützung von Datenschutz-Compliance-Arbeit in Organisationen. Das System hilft dabei,
+**Datenschutz-Cloud** (technisch: **DSMS**, Projekt `Dsms.Web`) ist eine webbasierte Anwendung zur Unterstützung von Datenschutz-Compliance-Arbeit in Organisationen. Das System hilft dabei,
 
 - **Audit-Vorlagen** mit Prüffragen zu pflegen,
 - **Audit-Durchläufe** durchzuführen und Antworten zu dokumentieren,
@@ -10,7 +10,9 @@
 - **Nachweisdokumente** hochzuladen und zuzuordnen,
 - einen **Überblick** über offene Maßnahmen und laufende Audits zu erhalten.
 
-Im README wird das Projekt als **Version 1** und als **einfaches Grundgerüst** beschrieben – kein vollständiges Enterprise-Datenschutzmanagementsystem.
+Die Anwendung ist als **Version 1.x** ausgebaut (aktuell `Application:Version` in `appsettings.json`) und wächst über SaaS-Funktionen (Lizenzen, Pläne, öffentliche Registrierung, Schulungen, Supportzugriff). Sie ist kein vollständiges Enterprise-Compliance-Suite-Produkt, sondern ein pragmatisches DSMS für KMU, Vereine und Datenschutzbeauftragte.
+
+**Geplante öffentliche Marketingseite:** separates Blazor-Projekt auf `datenschutz-cloud.eu` – Briefing in [`website.md`](./website.md). SaaS-App: `app.datenschutz-cloud.eu`. Demo-Umgebung: `demo.datenschutz-cloud.eu` (**TODO:** Deployment-Konzept noch nicht im Repo).
 
 ## Zielgruppe
 
@@ -56,6 +58,16 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | Email | Zentrale SMTP-Einstellungen und Email-Vorlagen (**nur Superuser**); Testmail und Vorschau |
 | Benutzer | Anlegen (ohne Passwort, mit Willkommensmail) und Bearbeiten von Konten, Rollen, Mandant, Aktiv-Status (**Superuser** mandantenübergreifend, **Admin** nur im eigenen Mandant) |
 | Erinnerungen | Fällige Datenschutz-Themen prüfen und Sammelmail an Mandanten-Admins senden (**nur Superuser**) |
+| Datenschutzvorfälle | Vorfallregister mit Verknüpfungen zu VVT, Dienstleistern, Maßnahmen, TOMs, Dokumenten |
+| Betroffenenanfragen | DSGVO-Anfragen dokumentieren, Fristen, Verknüpfungen, Anonymisierung |
+| Organisation | Datenschutzrollen, Organigramm, Berichtslinien je Mandant |
+| Schulungen | Schulungsdurchführungen, Teilnehmerverwaltung, Einladungen, Teilnehmerportal (`/schulung/teilnahme`) |
+| Schulungsvorlagen | Mandanten-, globale und Community-Vorlagen mit Markdown, Assets, Quiz |
+| Supportzugriff | Mandanten-Admins erteilen zeitlich begrenzte Supportfreigaben; Superuser im Supportmodus |
+| Lizenzen & Pläne | Kaufmännische Einheiten, Tarifvorlagen, Limits, Upgrade-Anfrage (`/admin/license`) |
+| Öffentliche Registrierung | `/signup` mit Tarifauswahl, Provisioning, Rabattcodes, Legal-Zustimmung |
+| Legal (App) | Impressum, Datenschutz, AGB, AVV, TOM, Unterauftragnehmer unter `/legal/*` |
+| Protokolle | Admin-Auditlog (`/admin/auditlog`); Plattform-Protokoll Metadaten-only (`/platform/logs`) |
 | Konto | Standard-Identity-Funktionen (Profil, Passwort, optional 2FA usw.) |
 
 ## Module und Seiten
@@ -118,17 +130,24 @@ Das System richtet sich bewusst nicht an Großkonzerne oder hochkomplexe Enterpr
 | `/tenant-daten` | Tenant-Daten | DSGVO-Mandanten-Stammdaten bearbeiten, Export als ZIP und Löschanforderung; Superuser: aktuell gewählter Mandant; Admin: nur eigener Mandant |
 
 Der Mandanten-Export enthält fachliche Daten und Dokumente des aktuellen Mandanten, **keine** Passwort-Hashes, Tokens oder Secrets. Die Löschanforderung markiert den Mandanten nur als „Löschung angefordert“ – eine endgültige Löschung folgt später in einem separaten Prozess.
+
 | `/admin/erinnerungen` | Erinnerungen | Nur Superuser; alle Mandanten; manueller Versand mit Vorschau |
 
 ### Konto und Anmeldung
 
 | Route | Hinweis |
 |-------|---------|
-| `/Account/Login` | Anmeldung (eigenes Layout ohne Sidebar); Link „Passwort vergessen?“ |
+| `/Account/Login` | Anmeldung (eigenes Layout ohne Sidebar); Links „Passwort vergessen?“ und „Kostenlos registrieren“ → `/signup` |
 | `/passwort-vergessen` | Passwortreset anfordern (Self-Service, neutrale Meldung) |
 | `/passwort-zuruecksetzen` | Neues Passwort setzen (Identity-Token per Query) |
 | `/Account/Manage` und Unterseiten | Profil, Passwort, 2FA, persönliche Daten (Standard-Identity-Vorlagen, teils englische UI-Texte) |
-| `/Account/Register` | Registrierung vorhanden, aber **nicht** in der Login-Seite verlinkt |
+| `/signup` | Öffentliche Registrierung mit Tarifauswahl (ohne Login, `PublicSignupLayout`) |
+| `/signup/success` | Erfolgsseite nach Registrierung/Provisioning |
+| `/signup/paid` | Legacy-Redirect auf `/signup?preferPaid=true` |
+| `/Account/Register` | Identity-Standardregistrierung (sekundär; Login verlinkt auf `/signup`) |
+| `/legal/{DocumentRoute}` | Legal-Dokumente (impressum, datenschutzerklaerung, agb, avv, tom, unterauftragnehmerliste) |
+| `/schulung/teilnahme` | Teilnehmerportal (E-Mail + Code, kein App-Login) |
+| `/admin/support-access` | Supportfreigabe (Mandanten-Admin) |
 | `/not-found` | Seite nicht gefunden |
 
 ## Wichtige fachliche Begriffe
@@ -276,7 +295,8 @@ Der Mandanten-Export enthält fachliche Daten und Dokumente des aktuellen Mandan
 - Zuweisung von Verantwortlichen (`AssignedUserId`) in der UI – Feld existiert im Datenmodell
 - Vollständige Email-Workflows für Benutzer-Einladung und Erinnerungen – Vorlagen sind vorbereitet, Workflows folgen später
 - Email-Versandprotokoll (EmailLog) – bewusst noch nicht enthalten
-- Öffentliche Selbstregistrierung als Standard-Workflow (Register-Seite existiert, ist aber nicht eingebunden)
+- Online-Zahlung / Mollie-Checkout (manuelle Rechnung bei kostenpflichtigen Plänen)
+- Öffentliche Registrierung für alle kostenpflichtigen Pläne (nur Pläne mit `IsPublicSignupEnabled`; aktuell im Seed nur Free)
 - Mehrere Mandanten pro Benutzer (geplant; aktuell genau ein `TenantId` pro Konto, außer Superuser)
 - Rollen pro Mandant und Impersonation (geplant)
 
@@ -323,14 +343,11 @@ flowchart TD
 7. **Superuser:** Mandanten und alle Benutzer verwalten; **Admin:** nur Benutzer des eigenen Mandanten.
 8. Abmelden über die Sidebar (POST an `/Account/Logout`).
 
-### Demo-Zugänge (aus `DatabaseSeeder` / README)
+### Demo-Zugänge (lokale Entwicklung)
 
-| E-Mail | Passwort | Rolle |
-|--------|----------|-------|
-| superuser@demo.local | Demo123! | Superuser |
-| admin@demo.local | Demo123! | Admin |
-| auditor@demo.local | Demo123! | Auditor |
-| user@demo.local | Demo123! | User |
+Demo-Benutzer werden beim Erst-Seed angelegt (`DatabaseSeeder`). Details siehe **README.md** (nur für lokale Entwicklung, nicht für öffentliche Demo-Umgebung).
+
+**TODO:** Konzept für `demo.datenschutz-cloud.eu` (Zugang, Beispieldaten, keine produktiven Secrets in Dokumentation).
 
 ## Bekannte Einschränkungen und offene Punkte
 
@@ -348,4 +365,7 @@ flowchart TD
 - `Dsms.sln` – Visual-Studio-Lösung mit einem Projekt
 - `Dsms.Web/` – Blazor-Server-Webanwendung
 - `docker-compose.yml` – MySQL 8 und DSMS-App für Production (siehe `Production_Deployment.md`)
-- `README.md` – Schnellstart und Entwicklerhinweise (bestehend, unverändert durch diese Dokumentation)
+- `Project_Overview.md` – fachliche Gesamtübersicht
+- `Architecture.md` – technische Architektur
+- `website.md` – Briefing öffentliche Marketingseite
+- `Changelog.md` – Änderungshistorie

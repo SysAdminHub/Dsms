@@ -36,6 +36,7 @@ c:\code\DS\
 ├── Project_Overview.md
 ├── Architecture.md
 ├── Changelog.md
+├── website.md
 └── Dsms.Web/
     ├── Program.cs                 # Start, DI, Pipeline
     ├── appsettings.json
@@ -543,9 +544,26 @@ Die Login-Seite ist an das DSMS-Design angepasst; viele Manage-/Register-Seiten 
 - HTTPS empfohlen (`UseHttpsRedirection`, HSTS in Production) – typisch per Reverse Proxy
 - **Annahme:** Einzelinstanz-Deployment; Blazor Server und SignalR erfordern Sticky Sessions bei Skalierung – im Code nicht dokumentiert
 
+## Geplante Marketing-Architektur (separates Projekt)
+
+Briefing und Seitenstruktur: [`website.md`](./website.md).
+
+| Host | Dienst | Status |
+|------|--------|--------|
+| `datenschutz-cloud.eu` | Öffentliche Marketingseite (`Dsms.Marketing`, geplant) | Nicht im Repo |
+| `app.datenschutz-cloud.eu` | SaaS-App `Dsms.Web` | Konfiguriert in `AppBranding:AppUrl` |
+| `demo.datenschutz-cloud.eu` | Demo-Instanz `Dsms.Web` | **TODO:** Deployment-Konzept |
+
+**V1 Marketing:** kein Datenbankzugriff; statische Inhalte; Login/Register nur als Links zur App (`/Account/Login`, `/signup`).
+
+**Später optional:** eigene MySQL-Datenbank `dsms_marketing` im gleichen Container – **kein** Zugriff auf Mandantendatenbank, **kein** gemeinsamer `ApplicationDbContext`.
+
+**Domain-Hinweis:** `AppBranding:WebsiteUrl` ist `https://www.datenschutz-cloud.eu` (mit `www`); Marketing-Briefing nutzt `datenschutz-cloud.eu` ohne `www` – Canonical-Domain **TODO**.
+
 ## Verwandte Dokumentation
 
 - [Project_Overview.md](./Project_Overview.md) – fachliche Gesamtübersicht
 - [README.md](./README.md) – Schnellstart für Entwickler
 - [Production_Deployment.md](./Production_Deployment.md) – Docker-Production-Deployment
+- [website.md](./website.md) – Marketing-Webseite (Briefing)
 - [Changelog.md](./Changelog.md) – Änderungshistorie

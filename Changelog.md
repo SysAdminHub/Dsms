@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Dokumentation
+
+- **Marketing-Webseite (Briefing):** Neue Datei [`website.md`](./website.md) – Konzept, Seitenstruktur, CTAs, Domain-Plan (`datenschutz-cloud.eu`, `app.datenschutz-cloud.eu`, `demo.datenschutz-cloud.eu`), App-Routen für Login/Registrierung, Modulübersicht für Marketing, Design-Tokens, DB-Entscheidung V1 ohne DB. Kein separates Blazor-Projekt in diesem Schritt.
+- **Project_Overview.md / Architecture.md:** Abgleich mit aktuellem Stand (Schulungen, Supportzugriff, Plattform-Protokoll, öffentliche Registrierung, Marketing-Architektur); Demo-Zugangsdaten aus Projektübersicht entfernt (Verweis auf README für lokale Entwicklung).
+
 ### Hinzugefügt
 
 - **Plattform-Protokoll mandantenübergreifend:** Superuser sehen unter `/platform/logs` alle `LogEntries` aller Mandanten als Metadaten (ohne TenantContext). Fachliche Audit-Events (z. B. `MeasureCreated`, `TomUpdated`, `DocumentLinked`) erscheinen neben Plattform- und Security-Events. Filter erweitert um Mandant Name, Modul, Ergebnis und Supportmodus. Datenschutzhinweis in der UI. Details-Ansicht zeigt nur Audit-Metadaten – keine Feldänderungen (`OldValues`/`NewValues`) und keine Fachinhalte (`EntityName` bei Business-Entities redigiert). `AuditLogPresentationHelper` für Modul-Zuordnung, Metadaten-Parsing und Redaktion. Auditlog für Dokument-Verknüpfungen (`DocumentLinked`/`DocumentUnlinked`) in `DocumentLinksService`.

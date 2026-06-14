@@ -33,7 +33,7 @@ public class TrainingService(
 
     public async Task<bool> CanViewAsync(TrainingEntity training, CancellationToken ct = default)
     {
-        if (!await access.CanAccessTenantBusinessModulesAsync())
+        if (!await access.CanAccessTenantTrainingsAsync())
             return false;
 
         var tenantId = await access.GetCurrentTenantIdAsync();

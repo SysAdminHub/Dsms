@@ -424,12 +424,19 @@ public class ApplicationDbContext(
             e.Property(t => t.CommunitySubmittedByUserId).HasMaxLength(450);
             e.Property(t => t.CommunityReviewedByUserId).HasMaxLength(450);
             e.Property(t => t.CommunityReviewNote).HasMaxLength(2000);
+            e.Property(t => t.CommunitySubmissionNote).HasMaxLength(2000);
+            e.Property(t => t.CommunityRejectionReason).HasMaxLength(2000);
             e.HasOne(t => t.Tenant).WithMany(t => t.TrainingTemplates).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(t => t.CommunitySubmittedByTenant).WithMany().HasForeignKey(t => t.CommunitySubmittedByTenantId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(t => t.SourceTemplate).WithMany().HasForeignKey(t => t.SourceTemplateId)
+                .OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(t => t.TenantId);
             e.HasIndex(t => t.IsGlobal);
             e.HasIndex(t => t.IsActive);
             e.HasIndex(t => t.TrainingType);
             e.HasIndex(t => t.CommunityStatus);
+            e.HasIndex(t => t.SourceTemplateId);
             e.HasIndex(t => new { t.TenantId, t.IsActive });
             e.HasIndex(t => new { t.IsGlobal, t.IsActive });
         });

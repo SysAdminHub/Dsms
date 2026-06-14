@@ -11,6 +11,21 @@ public sealed record TrainingTemplateListRow(
     bool CanArchive,
     bool CanCopy);
 
+public sealed record TrainingCommunitySubmissionRow(
+    TrainingTemplate Template,
+    string TenantName,
+    string? SubmittedByDisplayName,
+    int SectionCount,
+    int QuestionCount);
+
+/// <summary>Daten für die Superuser-Prüfansicht einer eingereichten Community-Schulungsvorlage.</summary>
+public sealed record CommunityTrainingTemplateReviewViewModel(
+    TrainingTemplate Template,
+    string TenantName,
+    IReadOnlyList<TrainingTemplateSection> Sections,
+    IReadOnlyDictionary<int, string> SectionPreviewHtml,
+    IReadOnlyList<TrainingQuestion> Questions);
+
 public sealed class TrainingTemplateValidationReport
 {
     public bool IsValid => Errors.Count == 0;

@@ -24,7 +24,7 @@ public static class TrainingAssetEndpoints
         ApplicationDbContext db,
         TrainingAssetStorageService storage,
         TrainingTemplateService templateService,
-        IUserAccessService access,
+        TrainingTemplateAccessService templateAccess,
         ILoggerFactory loggerFactory,
         CancellationToken ct)
     {
@@ -35,9 +35,8 @@ public static class TrainingAssetEndpoints
             if (!TrainingAssetUploadValidation.IsValidAssetKey(assetKey))
                 return Results.NotFound();
 
-            var tenantId = await access.GetCurrentTenantIdAsync();
-            var asset = await db.TrainingTemplateAssets
-                .AsNoTracking()
+            var assetsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateAssets.AsNoTracking(), ct);
+            var asset = await assetsQuery
                 .FirstOrDefaultAsync(a =>
                     a.TrainingTemplateId == trainingTemplateId
                     && a.AssetKey == TrainingAssetUploadValidation.NormalizeAssetKey(assetKey)
@@ -46,8 +45,8 @@ public static class TrainingAssetEndpoints
             if (asset is null)
                 return Results.NotFound();
 
-            var template = await db.TrainingTemplates
-                .AsNoTracking()
+            var templatesQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplates.AsNoTracking(), ct);
+            var template = await templatesQuery
                 .FirstOrDefaultAsync(t => t.Id == trainingTemplateId, ct);
 
             if (template is null || !await templateService.CanViewAsync(template, ct))

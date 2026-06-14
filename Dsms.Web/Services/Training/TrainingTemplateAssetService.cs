@@ -21,7 +21,8 @@ public class TrainingTemplateAssetService(
         if (template is null)
             return [];
 
-        return await db.TrainingTemplateAssets
+        var assetsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateAssets.AsQueryable(), ct);
+        return await assetsQuery
             .Where(a => a.TrainingTemplateId == templateId && a.IsActive)
             .OrderBy(a => a.AssetKey)
             .ToListAsync(ct);
@@ -34,11 +35,11 @@ public class TrainingTemplateAssetService(
             return null;
 
         var normalizedKey = TrainingAssetUploadValidation.NormalizeAssetKey(assetKey);
-        var template = await templateAccess.GetTemplateByIdAsync(templateId, tenantId, ct: ct);
-        if (template is null)
+        if (await templateAccess.GetTemplateByIdAsync(templateId, tenantId, ct: ct) is null)
             return null;
 
-        return await db.TrainingTemplateAssets
+        var assetsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateAssets.AsQueryable(), ct);
+        return await assetsQuery
             .FirstOrDefaultAsync(a =>
                 a.TrainingTemplateId == templateId
                 && a.AssetKey == normalizedKey
@@ -75,8 +76,8 @@ public class TrainingTemplateAssetService(
         string? altText = null,
         CancellationToken ct = default)
     {
-        var template = await db.TrainingTemplates.FirstOrDefaultAsync(t => t.Id == templateId, ct);
-        if (template is null || !await templateAccess.CanEditAsync(template, ct))
+        var template = await templateAccess.GetTemplateForMutationAsync(templateId, ct);
+        if (template is null)
             return TrainingAssetOperationResult.Fail(TrainingLabels.AccessDenied);
 
         var validation = ValidateAssetUpload(fileName, contentType, fileSize);
@@ -87,7 +88,8 @@ public class TrainingTemplateAssetService(
         if (!TrainingAssetUploadValidation.IsValidAssetKey(normalizedKey))
             return TrainingAssetOperationResult.Fail(TrainingLabels.InvalidAssetKey);
 
-        var keyExists = await db.TrainingTemplateAssets.AnyAsync(
+        var assetsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateAssets.AsQueryable(), ct);
+        var keyExists = await assetsQuery.AnyAsync(
             a => a.TrainingTemplateId == templateId && a.AssetKey == normalizedKey && a.IsActive, ct);
         if (keyExists)
             return TrainingAssetOperationResult.Fail($"Asset-Schlüssel „{normalizedKey}“ ist bereits vergeben.");
@@ -123,8 +125,9 @@ public class TrainingTemplateAssetService(
 
     public async Task<TrainingAssetOperationResult> ArchiveAssetAsync(int assetId, CancellationToken ct = default)
     {
-        var asset = await db.TrainingTemplateAssets
-            .Include(a => a.TrainingTemplate)
+        var assetsQuery = await templateAccess.ApplyQueryScopeAsync(
+            db.TrainingTemplateAssets.Include(a => a.TrainingTemplate), ct);
+        var asset = await assetsQuery
             .FirstOrDefaultAsync(a => a.Id == assetId && a.IsActive, ct);
 
         if (asset is null || !await templateAccess.CanEditAsync(asset.TrainingTemplate, ct))
@@ -154,7 +157,8 @@ public class TrainingTemplateAssetService(
         if (await templateAccess.GetTemplateByIdAsync(templateId, tenantId, ct: ct) is null)
             return markdown;
 
-        var assets = await db.TrainingTemplateAssets
+        var assetsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateAssets.AsQueryable(), ct);
+        var assets = await assetsQuery
             .Where(a => a.TrainingTemplateId == templateId && a.IsActive)
             .ToListAsync(ct);
 
@@ -168,7 +172,8 @@ public class TrainingTemplateAssetService(
     public async Task<bool> IsAssetKeyUsedInSectionsAsync(
         int templateId, string assetKey, CancellationToken ct = default)
     {
-        var sections = await db.TrainingTemplateSections
+        var sectionsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateSections.AsQueryable(), ct);
+        var sections = await sectionsQuery
             .Where(s => s.TrainingTemplateId == templateId && s.IsActive)
             .Select(s => s.ContentMarkdown)
             .ToListAsync(ct);
@@ -181,8 +186,9 @@ public class TrainingTemplateAssetService(
     public async Task<TrainingAssetOperationResult> UpdateAltTextAsync(
         int assetId, string? altText, CancellationToken ct = default)
     {
-        var asset = await db.TrainingTemplateAssets
-            .Include(a => a.TrainingTemplate)
+        var assetsQuery = await templateAccess.ApplyQueryScopeAsync(
+            db.TrainingTemplateAssets.Include(a => a.TrainingTemplate), ct);
+        var asset = await assetsQuery
             .FirstOrDefaultAsync(a => a.Id == assetId && a.IsActive, ct);
 
         if (asset is null || !await templateAccess.CanEditAsync(asset.TrainingTemplate, ct))

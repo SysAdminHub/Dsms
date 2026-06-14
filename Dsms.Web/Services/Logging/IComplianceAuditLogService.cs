@@ -92,6 +92,11 @@ public interface IComplianceAuditLogService
     Task LogTrainingTemplateAssetUploadedAsync(int templateId, string templateTitle, int? tenantId, int assetId, string assetKey);
     Task LogTrainingTemplateAssetArchivedAsync(int templateId, string templateTitle, int? tenantId, int assetId, string assetKey);
     Task LogTrainingQuestionChangedAsync(int templateId, string templateTitle, int? tenantId, int questionId);
+    Task LogTrainingTemplateSubmittedToCommunityAsync(int id, string title, int tenantId);
+    Task LogTrainingTemplateCommunityApprovedAsync(int globalTemplateId, string title, int sourceTemplateId, int? sourceTenantId, int questionCountCopied);
+    Task LogTrainingTemplateCommunityRejectedAsync(int id, string title, int tenantId);
+    Task LogTrainingTemplateCommunityReviewOpenedAsync(int id, string title);
+    Task LogTrainingTemplateCommunityQuizReviewOpenedAsync(int templateId, string title, int? tenantId, int questionCount);
 
     Task LogTrainingCreatedAsync(int id, string title, int tenantId);
     Task LogTrainingCreatedFromTemplateAsync(int id, string title, int tenantId, int templateId, string templateTitle);

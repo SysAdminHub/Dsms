@@ -259,6 +259,34 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
         LogAsync("TrainingQuestionChanged", "Quizfrage wurde geändert.", "TrainingTemplate", templateId, templateTitle, tenantId,
             metadata: new { QuestionId = questionId });
 
+    public Task LogTrainingTemplateSubmittedToCommunityAsync(int id, string title, int tenantId) =>
+        LogAsync("TrainingTemplateSubmittedToCommunity", "Schulungsvorlage wurde als Community-Vorlage eingereicht.",
+            "TrainingTemplate", id, title, tenantId);
+
+    public Task LogTrainingTemplateCommunityApprovedAsync(int globalTemplateId, string title, int sourceTemplateId, int? sourceTenantId, int questionCountCopied) =>
+        LogAsync("TrainingTemplateCommunityApproved", "Community-Schulungsvorlage wurde freigegeben.",
+            "TrainingTemplate", globalTemplateId, title, null,
+            metadata: new
+            {
+                SourceTemplateId = sourceTemplateId,
+                SourceTenantId = sourceTenantId,
+                QuestionCountCopied = questionCountCopied,
+                Result = "Success"
+            });
+
+    public Task LogTrainingTemplateCommunityRejectedAsync(int id, string title, int tenantId) =>
+        LogAsync("TrainingTemplateCommunityRejected", "Community-Schulungsvorlage wurde abgelehnt.",
+            "TrainingTemplate", id, title, tenantId);
+
+    public Task LogTrainingTemplateCommunityReviewOpenedAsync(int id, string title) =>
+        LogAsync("TrainingTemplateCommunityReviewOpened", "Community-Schulungsvorlage zur Prüfung geöffnet.",
+            "TrainingTemplate", id, title, null);
+
+    public Task LogTrainingTemplateCommunityQuizReviewOpenedAsync(int templateId, string title, int? tenantId, int questionCount) =>
+        LogAsync("TrainingTemplateCommunityQuizReviewOpened", "Quiz einer Community-Schulungsvorlage zur Prüfung geöffnet.",
+            "TrainingTemplate", templateId, title, tenantId,
+            metadata: new { QuestionCount = questionCount, Result = "Success" });
+
     public Task LogTrainingCreatedAsync(int id, string title, int tenantId) =>
         LogAsync("TrainingCreated", "Schulung wurde erstellt.", "Training", id, title, tenantId);
 

@@ -25,6 +25,15 @@ public interface IUserAccessService
     /// <summary>Globale Audit-Vorlagen verwalten: nur Superuser.</summary>
     Task<bool> CanManageGlobalAuditTemplatesAsync();
 
+    /// <summary>Globale Schulungsvorlagen verwalten: nur Superuser.</summary>
+    Task<bool> CanManageGlobalTrainingTemplatesAsync();
+
+    /// <summary>Community-Schulungsvorlagen prüfen und freigeben: nur Superuser.</summary>
+    Task<bool> CanReviewCommunityTrainingTemplatesAsync();
+
+    /// <summary>Konkrete Mandanten-Schulungen (Durchführungen, Teilnehmer, Nachweise): Mandanten-Benutzer oder Superuser im Supportmodus.</summary>
+    Task<bool> CanAccessTenantTrainingsAsync();
+
     /// <summary>Mandantenspezifische Audits (Durchläufe, Ergebnisse): Mandanten-Benutzer oder Superuser im gültigen Supportmodus.</summary>
     Task<bool> CanAccessTenantAuditsAsync();
 

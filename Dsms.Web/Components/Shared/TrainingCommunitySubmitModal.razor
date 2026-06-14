@@ -1,0 +1,76 @@
+@* Bestätigungsdialog für Community-Einreichung einer Schulungsvorlage. *@
+@if (_visible)
+{
+    <div class="modal fade show d-block dsms-archive-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Schulungsvorlage als Community-Vorlage einreichen</h5>
+                    <button type="button" class="btn-close" @onclick="Cancel"></button>
+                </div>
+                <div class="modal-body">
+                    <p>@TrainingLabels.CommunitySubmitHint</p>
+                    <div class="mb-3">
+                        <label class="form-label">Nachricht an den Prüfer (optional)</label>
+                        <InputTextArea class="form-control" @bind-Value="_submissionNote" rows="3" />
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="tt-community-confirm" @bind="_confirmed" />
+                        <label class="form-check-label" for="tt-community-confirm">@TrainingLabels.CommunityPrivacyConfirmation</label>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_error))
+                    {
+                        <div class="alert alert-danger dsms-alert mt-3 mb-0">@_error</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" disabled="@(_busy || !_confirmed)" @onclick="Confirm">Einreichen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter] public EventCallback<string?> OnConfirmed { get; set; }
+
+    private bool _visible;
+    private bool _busy;
+    private bool _confirmed;
+    private string? _submissionNote;
+    private string? _error;
+
+    public void Show()
+    {
+        _submissionNote = null;
+        _confirmed = false;
+        _error = null;
+        _visible = true;
+    }
+
+    public void Hide() => _visible = false;
+
+    private async Task Confirm()
+    {
+        if (!_confirmed)
+        {
+            _error = TrainingLabels.CommunityPrivacyConfirmation;
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            _visible = false;
+            await OnConfirmed.InvokeAsync(_submissionNote?.Trim());
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void Cancel() => _visible = false;
+}

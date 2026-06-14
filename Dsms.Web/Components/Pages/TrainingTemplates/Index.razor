@@ -4,22 +4,26 @@
 
 <BrandedPageTitle Title="Schulungsvorlagen" />
 
-@if (_tenantId is null)
+@if (_loading)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_accessDenied)
 {
     <PageHeader Title="Schulungsvorlagen" HelpKey="training-templates" />
-    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+    <div class="alert alert-warning dsms-alert">@RouteAccessClassifier.TenantBusinessAccessDeniedMessage</div>
 }
 else
 {
-    <PageHeader Title="Schulungsvorlagen" HelpKey="training-templates"
-                Subtitle="Erstellen und verwalten Sie wiederverwendbare Schulungsinhalte mit Markdown-Karten, Bildern und Quizfragen.">
+    <PageHeader Title="@(_isGlobalMode ? "Globale Schulungsvorlagen" : "Schulungsvorlagen")" HelpKey="training-templates"
+                Subtitle="@(_isGlobalMode ? "Globale und freigegebene Community-Vorlagen für alle Mandanten" : "Erstellen und verwalten Sie wiederverwendbare Schulungsinhalte mit Markdown-Karten, Bildern und Quizfragen.")">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (!_showArchived)
             {
                 @if (_canCreateGlobal)
                 {
-                    <a class="btn btn-outline-primary" href="training-templates/edit?type=global">Neue globale Vorlage</a>
+                    <a class="btn btn-outline-primary" href="training-templates/edit?type=global">Globale Schulungsvorlage erstellen</a>
                 }
                 @if (_canCreateTenant)
                 {
@@ -57,6 +61,7 @@ else
                         <option value="all">Alle</option>
                         <option value="own">Eigene Vorlagen</option>
                         <option value="global">Globale Vorlagen</option>
+                        <option value="community">Community-Vorlagen</option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -151,7 +156,7 @@ else
                                                href="@($"training-templates/edit/{t.Id}")">
                                                 @(row.CanEdit ? "Bearbeiten" : "Ansehen")
                                             </a>
-                                            @if (_canCreateTraining && !t.IsArchived && t.IsActive)
+                                            @if (_canCreateTraining && !_isGlobalMode && !t.IsArchived && t.IsActive)
                                             {
                                                 <a class="btn btn-sm btn-primary"
                                                    href="@($"trainings/create?templateId={t.Id}")">
@@ -187,10 +192,13 @@ else
 @code {
     [Inject] private TrainingTemplateService TemplateService { get; set; } = null!;
     [Inject] private TrainingService TrainingService { get; set; } = null!;
-    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
+    private bool _loading = true;
+    private bool _accessDenied;
+    private bool _isGlobalMode;
     private int? _tenantId;
     private bool _showArchived;
     private bool _canCreateTenant;
@@ -208,19 +216,38 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        _tenantId = await CurrentUser.GetTenantIdAsync();
-        if (_tenantId is null) return;
+        _isGlobalMode = await UserAccess.CanManageGlobalTrainingTemplatesAsync()
+            && !await UserAccess.HasTenantContextAsync();
+        _tenantId = await UserAccess.GetCurrentTenantIdAsync();
+
+        if (_isGlobalMode)
+        {
+            _canCreateGlobal = await TemplateService.CanCreateGlobalTemplateAsync();
+            await LoadDataAsync();
+            _loading = false;
+            return;
+        }
+
+        if (_tenantId is null)
+        {
+            _accessDenied = true;
+            _loading = false;
+            return;
+        }
 
         _canCreateTenant = await TemplateService.CanCreateTenantTemplateAsync();
         _canCreateGlobal = await TemplateService.CanCreateGlobalTemplateAsync();
         _canCreateTraining = await TrainingService.CanEditAsync();
         await LoadDataAsync();
+        _loading = false;
     }
 
     private async Task LoadDataAsync()
     {
         _showArchived = ArchiveView.ShowArchivedOnly;
-        _rows = (await TemplateService.GetListRowsAsync(_tenantId!.Value)).ToList();
+        _rows = _isGlobalMode
+            ? (await TemplateService.GetGlobalListRowsAsync()).ToList()
+            : (await TemplateService.GetListRowsAsync(_tenantId!.Value)).ToList();
         ApplyFilters();
     }
 
@@ -242,8 +269,9 @@ else
 
         query = _filterOrigin switch
         {
-            "own" => query.Where(r => r.Template.TenantId == _tenantId),
-            "global" => query.Where(r => r.Template.IsGlobal && r.Template.TenantId is null),
+            "own" => query.Where(r => r.Template.TenantId == _tenantId && !r.Template.IsGlobal),
+            "global" => query.Where(r => r.Template.IsGlobal && r.Template.TenantId is null && !r.Template.IsCommunityTemplate),
+            "community" => query.Where(r => r.Template.IsGlobal && r.Template.TenantId is null && r.Template.IsCommunityTemplate),
             _ => query
         };
 

@@ -69,11 +69,29 @@ public static class RouteAccessClassifier
     }
 
     /// <summary>
+    /// Globale Schulungsvorlagen (Plattform): Superuser ohne Mandantenkontext.
+    /// Konkrete Schulungen und Teilnehmer bleiben Mandanten-Fachmodule.
+    /// </summary>
+    public static bool IsGlobalTrainingTemplateRoute(string relativePath)
+    {
+        var path = NormalizePath(relativePath);
+
+        if (path.StartsWith("platform/training-templates", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return path == "training-templates" || path.StartsWith("training-templates/", StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Mandantenspezifische Fachmodule – erfordern TenantContext und Mandanten-Berechtigung.
     /// </summary>
     public static bool IsBusinessModuleRoute(string relativePath)
     {
-        if (IsPlatformRoute(relativePath) || IsGlobalAuditTemplateRoute(relativePath))
+        if (IsPlatformRoute(relativePath)
+            || IsGlobalAuditTemplateRoute(relativePath)
+            || IsGlobalTrainingTemplateRoute(relativePath))
         {
             return false;
         }
@@ -96,7 +114,6 @@ public static class RouteAccessClassifier
             || path.StartsWith("audit-runs", StringComparison.Ordinal)
             || path.StartsWith("documents", StringComparison.Ordinal)
             || path.StartsWith("trainings", StringComparison.Ordinal)
-            || path.StartsWith("training-templates", StringComparison.Ordinal)
             || path.StartsWith("tenant-daten", StringComparison.Ordinal)
             || path.StartsWith("admin/license", StringComparison.Ordinal)
             || path.StartsWith("admin/auditlog", StringComparison.Ordinal);
@@ -104,5 +121,7 @@ public static class RouteAccessClassifier
 
     /// <summary>Prüft, ob für die Route ein Mandantenkontext erforderlich ist.</summary>
     public static bool IsTenantRequiredForRoute(string relativePath) =>
-        !IsPlatformRoute(relativePath) && !IsGlobalAuditTemplateRoute(relativePath);
+        !IsPlatformRoute(relativePath)
+        && !IsGlobalAuditTemplateRoute(relativePath)
+        && !IsGlobalTrainingTemplateRoute(relativePath);
 }

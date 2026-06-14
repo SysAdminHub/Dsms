@@ -8,6 +8,12 @@ public static class RouteAccessClassifier
     public const string TenantBusinessAccessDeniedMessage =
         "Diese Ansicht enthält mandantenspezifische Fachdaten. Als Plattform-Administrator haben Sie darauf standardmäßig keinen Zugriff.";
 
+    public const string SupportAccessInvalidMessage =
+        "Der Supportzugriff ist nicht mehr gültig oder wurde widerrufen.";
+
+    public const string NoActiveSupportGrantMessage =
+        "Für diesen Mandanten liegt kein aktiver Supportzugriff vor.";
+
     /// <summary>Normalisiert einen relativen Pfad (ohne führenden Slash, lowercase).</summary>
     public static string NormalizePath(string relativePath)
     {

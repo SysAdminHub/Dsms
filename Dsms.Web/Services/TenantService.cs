@@ -1,5 +1,6 @@
 using Dsms.Web.Data;
 using Dsms.Web.Domain.Entities;
+using Dsms.Web.Services.Support;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dsms.Web.Services;
@@ -15,6 +16,7 @@ public class TenantService(
     ITenantContextService tenantContext,
     ICurrentUserContext currentUser,
     IUserAccessService access,
+    ISupportAccessService supportAccess,
     ILogger<TenantService> logger) : ITenantService
 {
     private IReadOnlyList<Tenant>? _cachedAccessibleTenants;
@@ -29,16 +31,7 @@ public class TenantService(
         {
             if (await access.IsSuperuserAsync())
             {
-                var cachedSuperuserTenant = await tenantContext.GetCurrentTenantIdAsync();
-                if (cachedSuperuserTenant.HasValue)
-                {
-                    logger.LogInformation(
-                        "Superuser-Mandantenkontext {TenantId} wird entfernt (Plattform-Administration ohne Mandant)",
-                        cachedSuperuserTenant);
-                    await tenantContext.ClearCurrentTenantIdAsync();
-                }
-
-                return null;
+                return await supportAccess.EnsureSuperuserSupportContextAsync();
             }
 
             var tenantId = await tenantContext.GetCurrentTenantIdAsync();
@@ -198,6 +191,12 @@ public class TenantService(
         {
             if (await access.IsSuperuserAsync())
             {
+                if (await supportAccess.IsSupportModeActiveAsync())
+                {
+                    return TenantSwitchResult.Fail(
+                        "Beenden Sie zuerst den Supportmodus, bevor Sie den Mandanten wechseln.");
+                }
+
                 logger.LogWarning("Superuser-Versuch, Mandant {TenantId} zu wechseln – abgelehnt", tenantId);
                 return TenantSwitchResult.Fail(
                     "Plattform-Administratoren können nicht in Mandanten wechseln.");
@@ -236,7 +235,13 @@ public class TenantService(
         {
             if (await access.IsSuperuserAsync())
             {
-                return true;
+                if (!await supportAccess.HasValidSupportAccessForCurrentTenantAsync())
+                {
+                    return false;
+                }
+
+                var current = await tenantContext.GetCurrentTenantIdAsync();
+                return current == tenantId;
             }
 
             var accessible = _cachedAccessibleTenants ?? await LoadAccessibleTenantsSafeAsync();

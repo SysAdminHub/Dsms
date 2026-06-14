@@ -1,5 +1,6 @@
 using Dsms.Web.Data;
 using Dsms.Web.Domain;
+using Dsms.Web.Services.Support;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,7 +11,8 @@ public class UserAccessService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
     ICurrentUserContext currentUser,
     UserManager<ApplicationUser> userManager,
-    ITenantContextService tenantContext) : IUserAccessService
+    ITenantContextService tenantContext,
+    ISupportAccessService supportAccess) : IUserAccessService
 {
     /// <inheritdoc />
     public Task<bool> IsSuperuserAsync() => currentUser.IsInRoleAsync(DsmsRoles.Superuser);
@@ -49,7 +51,7 @@ public class UserAccessService(
     {
         if (await IsSuperuserAsync())
         {
-            return false;
+            return await supportAccess.HasValidSupportAccessForCurrentTenantAsync();
         }
 
         var tenantId = await GetCurrentTenantIdAsync();
@@ -69,7 +71,7 @@ public class UserAccessService(
     {
         if (await IsSuperuserAsync())
         {
-            return false;
+            return await supportAccess.HasValidSupportAccessForCurrentTenantAsync();
         }
 
         var tenantId = await GetCurrentTenantIdAsync();
@@ -82,8 +84,70 @@ public class UserAccessService(
     }
 
     /// <inheritdoc />
+    public Task<bool> IsSupportModeAsync() => supportAccess.IsSupportModeActiveAsync();
+
+    /// <inheritdoc />
+    public Task<bool> CanManageSupportAccessAsync() => supportAccess.CanManageSupportAccessForCurrentTenantAsync();
+
+    /// <inheritdoc />
     public async Task<bool> IsTenantAdminAsync() =>
         await currentUser.IsInRoleAsync(DsmsRoles.Admin) && !await IsSuperuserAsync();
+
+    /// <inheritdoc />
+    public async Task<bool> HasEffectiveTenantAdminPermissionsAsync()
+    {
+        if (await IsTenantAdminAsync())
+        {
+            var tenantId = await GetCurrentTenantIdAsync();
+            if (!tenantId.HasValue)
+            {
+                return false;
+            }
+
+            return await CanAccessTenantMembershipAsync(tenantId.Value);
+        }
+
+        if (await IsSuperuserAsync())
+        {
+            return await supportAccess.HasValidSupportAccessForCurrentTenantAsync();
+        }
+
+        return false;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> HasEffectiveTenantAdminPermissionsForTenantAsync(int tenantId)
+    {
+        if (await IsTenantAdminAsync())
+        {
+            var currentTenantId = await GetCurrentTenantIdAsync();
+            return currentTenantId == tenantId && await CanAccessTenantMembershipAsync(tenantId);
+        }
+
+        if (await IsSuperuserAsync())
+        {
+            if (!await supportAccess.HasValidSupportAccessForCurrentTenantAsync())
+            {
+                return false;
+            }
+
+            var currentTenantId = await GetCurrentTenantIdAsync();
+            return currentTenantId == tenantId;
+        }
+
+        return false;
+    }
+
+    /// <inheritdoc />
+    public async Task<string> GetTenantBusinessWriteDeniedMessageAsync()
+    {
+        if (await IsSuperuserAsync() && !await HasEffectiveTenantAdminPermissionsAsync())
+        {
+            return SupportAccessService.InvalidGrantMessage;
+        }
+
+        return "Keine Berechtigung für diese Aktion.";
+    }
 
     /// <inheritdoc />
     public async Task<bool> CanManageUsersAsync() =>
@@ -93,21 +157,8 @@ public class UserAccessService(
     public Task<bool> CanManageTenantsAsync() => IsSuperuserAsync();
 
     /// <inheritdoc />
-    public async Task<bool> CanManageTenantDataAsync()
-    {
-        if (!await IsTenantAdminAsync())
-        {
-            return false;
-        }
-
-        var tenantId = await GetCurrentTenantIdAsync();
-        if (!tenantId.HasValue)
-        {
-            return false;
-        }
-
-        return await CanAccessTenantMembershipAsync(tenantId.Value);
-    }
+    public async Task<bool> CanManageTenantDataAsync() =>
+        await HasEffectiveTenantAdminPermissionsAsync();
 
     /// <inheritdoc />
     public Task<int?> GetCurrentTenantIdAsync() => tenantContext.GetCurrentTenantIdAsync();
@@ -117,7 +168,13 @@ public class UserAccessService(
     {
         if (await IsSuperuserAsync())
         {
-            return true;
+            if (!await supportAccess.HasValidSupportAccessForCurrentTenantAsync())
+            {
+                return false;
+            }
+
+            var current = await GetCurrentTenantIdAsync();
+            return current == tenantId;
         }
 
         return await CanAccessTenantMembershipAsync(tenantId);
@@ -179,18 +236,28 @@ public class UserAccessService(
     /// <inheritdoc />
     public async Task<bool> CanEditComplianceContentAsync()
     {
-        if (await IsAuditorAsync() || await IsSuperuserAsync())
+        if (await IsAuditorAsync())
         {
             return false;
         }
 
-        return await currentUser.IsInRoleAsync(DsmsRoles.Admin);
+        return await HasEffectiveTenantAdminPermissionsAsync();
     }
 
     /// <inheritdoc />
     public async Task<bool> CanEditTenantOperationalContentAsync()
     {
-        if (await IsAuditorAsync() || await IsSuperuserAsync())
+        if (await IsAuditorAsync())
+        {
+            return false;
+        }
+
+        if (await HasEffectiveTenantAdminPermissionsAsync())
+        {
+            return true;
+        }
+
+        if (await IsSuperuserAsync())
         {
             return false;
         }
@@ -202,12 +269,12 @@ public class UserAccessService(
     /// <inheritdoc />
     public async Task<bool> CanCreatePrivacyIncidentsAsync()
     {
-        if (await IsAuditorAsync() || await IsSuperuserAsync())
+        if (await IsAuditorAsync())
         {
             return false;
         }
 
-        return await currentUser.IsInRoleAsync(DsmsRoles.Admin);
+        return await HasEffectiveTenantAdminPermissionsAsync();
     }
 
     /// <inheritdoc />
@@ -222,12 +289,12 @@ public class UserAccessService(
     /// <inheritdoc />
     public async Task<bool> CanAnonymizeDataSubjectRequestsAsync()
     {
-        if (await IsAuditorAsync() || await IsSuperuserAsync())
+        if (await IsAuditorAsync())
         {
             return false;
         }
 
-        return await currentUser.IsInRoleAsync(DsmsRoles.Admin);
+        return await HasEffectiveTenantAdminPermissionsAsync();
     }
 
     /// <inheritdoc />

@@ -25,14 +25,35 @@ public interface IUserAccessService
     /// <summary>Globale Audit-Vorlagen verwalten: nur Superuser.</summary>
     Task<bool> CanManageGlobalAuditTemplatesAsync();
 
-    /// <summary>Mandantenspezifische Audits (Durchläufe, Ergebnisse): Mandanten-Benutzer, nicht Superuser.</summary>
+    /// <summary>Mandantenspezifische Audits (Durchläufe, Ergebnisse): Mandanten-Benutzer oder Superuser im gültigen Supportmodus.</summary>
     Task<bool> CanAccessTenantAuditsAsync();
 
+    /// <summary>True, wenn Superuser einen gültigen Supportmodus für den aktuellen Mandanten nutzt.</summary>
+    Task<bool> IsSupportModeAsync();
+
     Task<bool> IsTenantAdminAsync();
+
+    /// <summary>
+    /// Mandanten-Admin-Rechte für Fachdaten: echter TenantAdmin oder Superuser im gültigen Supportmodus
+    /// für den aktuellen Mandanten (ohne dauerhafte Mandantenzuordnung).
+    /// </summary>
+    Task<bool> HasEffectiveTenantAdminPermissionsAsync();
+
+    /// <summary>
+    /// Wie <see cref="HasEffectiveTenantAdminPermissionsAsync"/>, aber für einen konkreten Mandanten
+    /// (z. B. vor Schreibaktionen mit expliziter TenantId).
+    /// </summary>
+    Task<bool> HasEffectiveTenantAdminPermissionsForTenantAsync(int tenantId);
+
+    /// <summary>
+    /// Fehlermeldung bei verweigerter Schreibaktion auf Mandanten-Fachdaten.
+    /// </summary>
+    Task<string> GetTenantBusinessWriteDeniedMessageAsync();
+
     Task<bool> CanManageUsersAsync();
     Task<bool> CanManageTenantsAsync();
 
-    /// <summary>Export, Löschanforderung und DSGVO-Stammdaten: Superuser oder Mandanten-Admin mit Zugriff auf aktuellen Mandanten.</summary>
+    /// <summary>Export, Löschanforderung und DSGVO-Stammdaten: Mandanten-Admin oder Superuser im Supportmodus.</summary>
     Task<bool> CanManageTenantDataAsync();
 
     /// <summary>Aktive Mandanten-ID aus dem Mandantenkontext (Session); null wenn keiner gewählt.</summary>
@@ -52,17 +73,17 @@ public interface IUserAccessService
 
     /// <summary>
     /// Bearbeitung von Compliance-Stammdaten (VVT, DSFA, TOMs, Dienstleister, Audit-Durchläufe, Vorlagen).
-    /// Admin und Superuser; nicht Auditor.
+    /// Mandanten-Admin oder Superuser im gültigen Supportmodus; nicht Auditor.
     /// </summary>
     Task<bool> CanEditComplianceContentAsync();
 
     /// <summary>
     /// Bearbeitung operativer Mandanteninhalte (Maßnahmen, Audit-Antworten, Dokumente).
-    /// Admin, User und Superuser; nicht Auditor.
+    /// Mandanten-Admin/User oder Superuser im gültigen Supportmodus (Admin-Niveau); nicht Auditor.
     /// </summary>
     Task<bool> CanEditTenantOperationalContentAsync();
 
-    /// <summary>Neue Datenschutzvorfälle anlegen: Superuser und Admin; nicht User/Auditor.</summary>
+    /// <summary>Neue Datenschutzvorfälle anlegen: Mandanten-Admin oder Superuser im Supportmodus.</summary>
     Task<bool> CanCreatePrivacyIncidentsAsync();
 
     /// <summary>Bestehende Datenschutzvorfälle bearbeiten: Superuser, Admin und User; nicht Auditor.</summary>
@@ -77,11 +98,14 @@ public interface IUserAccessService
     /// <summary>Falldaten anonymisieren: nur Superuser und Admin.</summary>
     Task<bool> CanAnonymizeDataSubjectRequestsAsync();
 
-    /// <summary>Dokumentkategorien verwalten: Superuser und Mandanten-Admin.</summary>
+    /// <summary>Dokumentkategorien verwalten: Mandanten-Admin oder Superuser im Supportmodus.</summary>
     Task<bool> CanManageDocumentCategoriesAsync();
 
-    /// <summary>Organisatorische Datenschutzrollen verwalten: Superuser und Mandanten-Admin.</summary>
+    /// <summary>Organisatorische Datenschutzrollen verwalten: Mandanten-Admin oder Superuser im Supportmodus.</summary>
     Task<bool> CanManageDataProtectionRolesAsync();
+
+    /// <summary>Supportzugriff für den aktuellen Mandanten verwalten (nur Mandanten-Admin).</summary>
+    Task<bool> CanManageSupportAccessAsync();
 
     /// <summary>True, wenn die Rolle Superuser ist (plattformweit, kein Mandant erforderlich).</summary>
     static bool RoleRequiresNoTenant(string role) => role == Domain.DsmsRoles.Superuser;

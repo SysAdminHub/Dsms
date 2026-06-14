@@ -6,6 +6,7 @@
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @inject ITenantService TenantService
 @inject IUserAccessService UserAccess
+@inject ISupportAccessService SupportAccess
 @inject NavigationManager Navigation
 @inject ILogger<TenantSwitcher> Logger
 
@@ -13,14 +14,28 @@
     <Authorized>
         @if (_isSuperuser)
         {
-            <div class="tenant-switcher tenant-switcher--platform" title="Plattform-Administration ohne Mandantenkontext">
-                <span class="tenant-switcher__trigger tenant-switcher__trigger--static">
-                    <span class="tenant-switcher__trigger-text">
-                        <span class="tenant-switcher__label">Rolle</span>
-                        <span class="tenant-switcher__value">Plattform-Administrator</span>
+            @if (_supportSession is not null)
+            {
+                <div class="tenant-switcher tenant-switcher--support" title="Supportmodus aktiv">
+                    <span class="tenant-switcher__trigger tenant-switcher__trigger--static">
+                        <span class="tenant-switcher__trigger-text">
+                            <span class="tenant-switcher__label">Supportmodus</span>
+                            <span class="tenant-switcher__value">@_supportSession.TenantName</span>
+                        </span>
                     </span>
-                </span>
-            </div>
+                </div>
+            }
+            else
+            {
+                <div class="tenant-switcher tenant-switcher--platform" title="Plattform-Administration ohne Mandantenkontext">
+                    <span class="tenant-switcher__trigger tenant-switcher__trigger--static">
+                        <span class="tenant-switcher__trigger-text">
+                            <span class="tenant-switcher__label">Rolle</span>
+                            <span class="tenant-switcher__value">Plattform-Administrator</span>
+                        </span>
+                    </span>
+                </div>
+            }
         }
         else
         {
@@ -115,6 +130,7 @@
     private bool _isOpen;
     private bool _switching;
     private bool _isSuperuser;
+    private SupportAccessSessionInfo? _supportSession;
     private string? _errorMessage;
 
     private string DisplayName => _currentTenant?.Name
@@ -124,13 +140,14 @@
     protected override async Task OnInitializedAsync()
     {
         _isSuperuser = await UserAccess.IsSuperuserAsync();
-        if (!_isSuperuser)
+        if (_isSuperuser)
         {
-            await LoadTenantSafeAsync();
+            _supportSession = await SupportAccess.GetCurrentSupportSessionAsync();
+            _initialized = true;
         }
         else
         {
-            _initialized = true;
+            await LoadTenantSafeAsync();
         }
     }
 

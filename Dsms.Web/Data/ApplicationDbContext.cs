@@ -26,6 +26,7 @@ public class ApplicationDbContext(
     public DbSet<LegalAcceptance> LegalAcceptances => Set<LegalAcceptance>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<UserTenant> UserTenants => Set<UserTenant>();
+    public DbSet<SupportAccessGrant> SupportAccessGrants => Set<SupportAccessGrant>();
     public DbSet<AuditTemplate> AuditTemplates => Set<AuditTemplate>();
     public DbSet<AuditQuestion> AuditQuestions => Set<AuditQuestion>();
     public DbSet<AuditRun> AuditRuns => Set<AuditRun>();
@@ -87,6 +88,23 @@ public class ApplicationDbContext(
                 .HasForeignKey(ut => ut.TenantId)
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(ut => ut.TenantId);
+        });
+
+        builder.Entity<SupportAccessGrant>(e =>
+        {
+            e.ToTable("SupportAccessGrants");
+            e.Property(g => g.Reason).HasMaxLength(500);
+            e.Property(g => g.InternalNote).HasMaxLength(1000);
+            e.Property(g => g.RevokedByUserId).HasMaxLength(450);
+            e.HasOne(g => g.Tenant)
+                .WithMany()
+                .HasForeignKey(g => g.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(g => g.GrantedByUser)
+                .WithMany()
+                .HasForeignKey(g => g.GrantedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(g => new { g.TenantId, g.RevokedAt, g.ValidUntil });
         });
 
         builder.Entity<License>(e =>

@@ -10,6 +10,8 @@ obj/
 Dsms.Web/Data/app.db*
 Dsms.Web/Data/Uploads/
 Dsms.Web/DataProtection-Keys/
+Dsms.Provisioning/DataProtection-Keys/
+/DataProtection-Keys/
 
 ## Secrets
 appsettings.*.local.json
@@ -19,3 +21,5 @@ secrets.json
 .env
 *.env
 !.env.example
+
+/Dsms.Provisioning/

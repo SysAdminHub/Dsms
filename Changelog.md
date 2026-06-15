@@ -4,6 +4,22 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Geändert
+
+- **DataProtection-Kompatibilität (Dsms.Web + Dsms.Provisioning):** Beide Apps nutzen `ApplicationName=DatenschutzCloud` und gemeinsamen Key-Ring (`../DataProtection-Keys`). Dsms.Web: konfigurierbarer DataProtection-Block, Start-Diagnose-Log. Behebt ungültige Passwort-Links aus Provisioning-Willkommensmails.
+
+### Geändert (Dsms.Provisioning)
+
+- **SMTP-Konfiguration:** Diagnose-Logging beim Start und beim ersten Versand; präzisere Fehlermeldungen mit `Source=ProvisioningEmailOptions` / `Source=DatabaseEmailSettings`. `appsettings.Development.json` überschreibt `ProvisioningEmail` nicht mehr (Ursache für „Emailversand ist deaktiviert“ trotz `Enabled=true` in appsettings.json). SMTP-Diagnose-Karte auf `/platform`.
+
+### Hinzugefügt (Dsms.Provisioning)
+
+- **Eigene SMTP-Konfiguration:** `ProvisioningEmailOptions` – Provisioning-App kann eigene SMTP-Einstellungen aus appsettings/Umgebungsvariablen nutzen (`UseDatabaseSettings=false`, Standard) oder weiterhin DB-`EmailSettings` (`UseDatabaseSettings=true`). `EmailSendingSettings` als aufgelöstes Versandprofil; konfigurierbarer SMTP-Timeout.
+
+### Hinzugefügt (Dsms.Provisioning, Phase K)
+
+- **Rechtliche Signup-Dokumentation:** `LegalAcceptance`-Entity und EF-Mapping; Speicherung innerhalb der Provisioning-Transaktion beim öffentlichen Signup. Legal-Infrastruktur (`Legal/`, `ILegalDocumentService`, `ILegalPdfService`, QuestPDF). Öffentliche Seiten `/legal/{route}` und PDF-Endpunkt `/legal/{route}/pdf`. IP-Anonymisierung (`IIpAnonymizationService`). E-Mail `SignupLegalConfirmation` mit PDF-Anhängen (AGB, Datenschutz, AVV-Paket). Success-Seite mit Status für Willkommens- und Legal-Mail. `ProviderName` aus `AppBranding:ProviderName`.
+
 ### Dokumentation
 
 - **Marketing-Webseite (Briefing):** Neue Datei [`website.md`](./website.md) – Konzept, Seitenstruktur, CTAs, Domain-Plan (`datenschutz-cloud.eu`, `app.datenschutz-cloud.eu`, `demo.datenschutz-cloud.eu`), App-Routen für Login/Registrierung, Modulübersicht für Marketing, Design-Tokens, DB-Entscheidung V1 ohne DB. Kein separates Blazor-Projekt in diesem Schritt.

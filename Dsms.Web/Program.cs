@@ -86,10 +86,24 @@ builder.Services.AddScoped<DocumentCategoryService>();
 builder.Services.AddScoped<DataProtectionRoleService>();
 builder.Services.AddScoped<ITenantExportService, TenantExportService>();
 builder.Services.AddScoped<ITenantDeletionService, TenantDeletionService>();
-var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys");
+
+builder.Services.Configure<Dsms.Web.Configuration.DataProtectionOptions>(
+    builder.Configuration.GetSection(Dsms.Web.Configuration.DataProtectionOptions.SectionName));
+
+var dataProtectionOptions = builder.Configuration
+    .GetSection(Dsms.Web.Configuration.DataProtectionOptions.SectionName)
+    .Get<Dsms.Web.Configuration.DataProtectionOptions>()
+    ?? new Dsms.Web.Configuration.DataProtectionOptions();
+
+var dataProtectionKeysPath = Path.IsPathRooted(dataProtectionOptions.KeysPath)
+    ? dataProtectionOptions.KeysPath
+    : Path.Combine(builder.Environment.ContentRootPath, dataProtectionOptions.KeysPath);
 Directory.CreateDirectory(dataProtectionKeysPath);
+
 builder.Services.AddDataProtection()
+    .SetApplicationName(dataProtectionOptions.ApplicationName)
     .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+
 builder.Services.AddScoped<IEmailSecretProtector, EmailSecretProtector>();
 builder.Services.AddScoped<IEmailTemplateRenderer, EmailTemplateRenderer>();
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -180,6 +194,8 @@ builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 var app = builder.Build();
+
+DataProtectionStartupLogger.LogEffectiveConfiguration(app);
 
 var uploadPath = app.Configuration["Storage:UploadPath"] ?? "Data/Uploads";
 Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, uploadPath));

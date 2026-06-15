@@ -364,7 +364,7 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 - Cookies: `AddIdentityCookies()`
 - Zentraler Emailversand: `EmailService` (MailKit); Passwortreset nutzt `PasswordResetService` + Vorlage `PasswordReset`
 - Identity-Stub `IdentityNoOpEmailSender` bleibt für übrige Identity-UI (Registrierung etc.)
-- Passwortreset- und Einladungs-Token: `UserManager.GeneratePasswordResetTokenAsync` / `ResetPasswordAsync`; Lebensdauer 60 Min. (`DataProtectionTokenProviderOptions`)
+- Passwortreset- und Einladungs-Token: `UserManager.GeneratePasswordResetTokenAsync` / `ResetPasswordAsync`; Lebensdauer 60 Min. (`DataProtectionTokenProviderOptions`); **Dsms.Web** und **Dsms.Provisioning** teilen `DataProtection:ApplicationName` (`DatenschutzCloud`) und denselben Key-Ring (`DataProtection:KeysPath`, lokal typisch `../DataProtection-Keys`)
 - Keine eigene `PasswordResetTokens`- oder `UserInvitationTokens`-Tabelle
 - Benutzeranlage: `CreateAsync(user)` ohne Passwort, danach `SendWelcomeInvitationAsync` mit Template `WelcomeSetPassword`
 
@@ -540,7 +540,7 @@ Die Login-Seite ist an das DSMS-Design angepasst; viele Manage-/Register-Seiten 
 - MySQL 8 erforderlich
 - Connection String über `ConnectionStrings__DefaultConnection` (Production) oder `appsettings.json` (lokal)
 - Upload-Ordner `Data/Uploads` (konfigurierbar via `Storage:UploadPath` / `Storage__UploadPath`) – Docker-Volume `/app/Data/Uploads`
-- Data Protection Keys persistent unter `DataProtection-Keys` (Docker-Volume `/app/DataProtection-Keys`)
+- Data Protection Keys persistent unter gemeinsamem Pfad `../DataProtection-Keys` (Solution-Root lokal; Docker-Volume `/app/DataProtection-Keys` für Dsms.Web und Dsms.Provisioning)
 - HTTPS empfohlen (`UseHttpsRedirection`, HSTS in Production) – typisch per Reverse Proxy
 - **Annahme:** Einzelinstanz-Deployment; Blazor Server und SignalR erfordern Sticky Sessions bei Skalierung – im Code nicht dokumentiert
 

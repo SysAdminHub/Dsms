@@ -17,8 +17,8 @@ Telefon: [Telefonnummer ergänzen, falls vorhanden]
 
 ## Umsatzsteuer-ID
 
-Umsatzsteuer-Identifikationsnummer gemäß § 27a Umsatzsteuergesetz:  
-[USt-IdNr. ergänzen, falls vorhanden]
+Es wurde keine Umsatzsteuer-Identifikationsnummer gemäß § 27a UStG erteilt.
+Als Kleinunternehmer im Sinne von § 19 UStG wird keine Umsatzsteuer ausgewiesen.
 
 ## Verantwortlich für dieses Angebot
 

@@ -43,8 +43,13 @@ public static class TrainingLabels
         return template.IsCommunityTemplate ? "Community (Mandant)" : "Eigene Vorlage";
     }
 
-    public static string GetOriginBadgeVariant(TrainingTemplate template) =>
-        template.IsGlobal && template.TenantId is null ? "primary" : "default";
+    public static string GetOriginBadgeVariant(TrainingTemplate template)
+    {
+        if (template.IsGlobal && template.TenantId is null)
+            return template.IsCommunityTemplate ? "success" : "primary";
+
+        return "default";
+    }
 
     public static string? GetCommunityStatusBadge(CommunityTemplateStatus status) => status switch
     {
@@ -54,6 +59,22 @@ public static class TrainingLabels
         CommunityTemplateStatus.Draft => "Entwurf",
         _ => null
     };
+
+    public const string CommunitySubmitHint =
+        "Diese Vorlage wird zur Prüfung an den Plattformbetreiber gesendet. Nach Freigabe kann sie allen Mandanten als Community-Vorlage zur Verfügung stehen.";
+
+    public const string CommunitySubmittedHint =
+        "Diese Vorlage wurde zur Community-Prüfung eingereicht und kann während der Prüfung nicht bearbeitet werden.";
+
+    public const string CommunityReviewPrivacyHint =
+        "Community-Schulungsvorlagen wurden von Mandanten zur Prüfung eingereicht. Nach Freigabe stehen sie allen Mandanten als Vorlage zur Verfügung.";
+
+    public const string CommunitySubmitSuccess = "Die Vorlage wurde als Community-Vorlage eingereicht.";
+    public const string CommunityApproveSuccess = "Die Vorlage wurde als Community-Vorlage freigegeben.";
+    public const string CommunityRejectSuccess = "Die Community-Einreichung wurde abgelehnt.";
+    public const string CommunityRejectHint = "Bitte geben Sie optional einen Grund für die Ablehnung an.";
+    public const string CommunityPrivacyConfirmation =
+        "Ich bestätige, dass die Vorlage keine vertraulichen, personenbezogenen oder mandantenspezifischen Informationen enthält.";
 
     public static readonly TrainingType[] AllTrainingTypes =
     [

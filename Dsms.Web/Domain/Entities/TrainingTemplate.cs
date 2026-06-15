@@ -26,9 +26,17 @@ public class TrainingTemplate : ArchivableEntityBase
 
     public DateTime? CommunitySubmittedAt { get; set; }
     public string? CommunitySubmittedByUserId { get; set; }
+    public int? CommunitySubmittedByTenantId { get; set; }
+    public Tenant? CommunitySubmittedByTenant { get; set; }
+    public string? CommunitySubmissionNote { get; set; }
     public DateTime? CommunityReviewedAt { get; set; }
     public string? CommunityReviewedByUserId { get; set; }
     public string? CommunityReviewNote { get; set; }
+    public string? CommunityRejectionReason { get; set; }
+
+    /// <summary>Verweis auf die ursprüngliche Mandantenvorlage bei freigegebenen Community-Kopien.</summary>
+    public int? SourceTemplateId { get; set; }
+    public TrainingTemplate? SourceTemplate { get; set; }
 
     public bool IsActive { get; set; } = true;
 

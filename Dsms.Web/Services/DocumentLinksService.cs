@@ -1,6 +1,7 @@
 using Dsms.Web.Data;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
+using Dsms.Web.Services.Logging;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dsms.Web.Services;
@@ -258,7 +259,7 @@ public class DocumentLinksService(
         document.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
-        await LogTrainingProofChangesAsync(
+        await LogDocumentLinkChangesAsync(
             tenantId,
             documentId,
             document.FileName,
@@ -267,6 +268,43 @@ public class DocumentLinksService(
             ct);
 
         return (UpdateDocumentLinksResult.Success, null);
+    }
+
+    private async Task LogDocumentLinkChangesAsync(
+        int tenantId,
+        int documentId,
+        string fileName,
+        IReadOnlyList<DocumentLink> removed,
+        IReadOnlyList<DocumentLinkTarget> added,
+        CancellationToken ct)
+    {
+        foreach (var link in removed)
+        {
+            if (link.LinkedEntityType == DocumentLinkedEntityType.Training)
+                continue;
+
+            await complianceAuditLog.LogDocumentUnlinkedAsync(
+                documentId,
+                fileName,
+                tenantId,
+                AuditLogPresentationHelper.ResolveDocumentLinkEntityLabel(link.LinkedEntityType),
+                link.LinkedEntityId);
+        }
+
+        foreach (var target in added)
+        {
+            if (target.EntityType == DocumentLinkedEntityType.Training)
+                continue;
+
+            await complianceAuditLog.LogDocumentLinkedAsync(
+                documentId,
+                fileName,
+                tenantId,
+                AuditLogPresentationHelper.ResolveDocumentLinkEntityLabel(target.EntityType),
+                target.EntityId);
+        }
+
+        await LogTrainingProofChangesAsync(tenantId, documentId, fileName, removed, added, ct);
     }
 
     private async Task LogTrainingProofChangesAsync(
@@ -361,6 +399,35 @@ public class DocumentLinksService(
         }
 
         await db.SaveChangesAsync(ct);
+
+        if (document is not null)
+        {
+            if (target.EntityType == DocumentLinkedEntityType.Training)
+            {
+                var title = await db.Trainings
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .Where(t => t.TenantId == tenantId && t.Id == target.EntityId)
+                    .Select(t => t.Title)
+                    .FirstOrDefaultAsync(ct);
+
+                if (title is not null)
+                {
+                    await complianceAuditLog.LogTrainingProofRemovedAsync(
+                        target.EntityId, title, tenantId, documentId, document.FileName);
+                }
+            }
+            else
+            {
+                await complianceAuditLog.LogDocumentUnlinkedAsync(
+                    documentId,
+                    document.FileName,
+                    tenantId,
+                    AuditLogPresentationHelper.ResolveDocumentLinkEntityLabel(target.EntityType),
+                    target.EntityId);
+            }
+        }
+
         return (UpdateDocumentLinksResult.Success, null);
     }
 
@@ -390,6 +457,7 @@ public class DocumentLinksService(
 
         var existingDocIds = currentlyLinked.Select(l => l.DocumentId).ToHashSet();
         var userId = await currentUser.GetUserIdAsync();
+        var addedDocIds = new List<int>();
         foreach (var docId in validDocumentIds.Where(id => !existingDocIds.Contains(id)))
         {
             db.DocumentLinks.Add(new DocumentLink
@@ -401,9 +469,40 @@ public class DocumentLinksService(
                 CreatedByUserId = userId,
                 CreatedAt = DateTime.UtcNow
             });
+            addedDocIds.Add(docId);
         }
 
         await db.SaveChangesAsync(ct);
+
+        if (toRemove.Count > 0 || addedDocIds.Count > 0)
+        {
+            var fileNames = await db.EvidenceDocuments
+                .AsNoTracking()
+                .Where(d => d.TenantId == tenantId
+                    && (toRemove.Select(r => r.DocumentId).Concat(addedDocIds).Contains(d.Id)))
+                .Select(d => new { d.Id, d.FileName })
+                .ToDictionaryAsync(d => d.Id, d => d.FileName, ct);
+
+            var entityLabel = AuditLogPresentationHelper.ResolveDocumentLinkEntityLabel(entityType);
+
+            foreach (var removed in toRemove)
+            {
+                if (fileNames.TryGetValue(removed.DocumentId, out var fileName))
+                {
+                    await complianceAuditLog.LogDocumentUnlinkedAsync(
+                        removed.DocumentId, fileName, tenantId, entityLabel, entityId);
+                }
+            }
+
+            foreach (var docId in addedDocIds)
+            {
+                if (fileNames.TryGetValue(docId, out var fileName))
+                {
+                    await complianceAuditLog.LogDocumentLinkedAsync(
+                        docId, fileName, tenantId, entityLabel, entityId);
+                }
+            }
+        }
     }
 
     public Task<int> CountDocumentsForEntityAsync(

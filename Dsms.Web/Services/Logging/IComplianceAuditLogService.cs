@@ -92,6 +92,11 @@ public interface IComplianceAuditLogService
     Task LogTrainingTemplateAssetUploadedAsync(int templateId, string templateTitle, int? tenantId, int assetId, string assetKey);
     Task LogTrainingTemplateAssetArchivedAsync(int templateId, string templateTitle, int? tenantId, int assetId, string assetKey);
     Task LogTrainingQuestionChangedAsync(int templateId, string templateTitle, int? tenantId, int questionId);
+    Task LogTrainingTemplateSubmittedToCommunityAsync(int id, string title, int tenantId);
+    Task LogTrainingTemplateCommunityApprovedAsync(int globalTemplateId, string title, int sourceTemplateId, int? sourceTenantId, int questionCountCopied);
+    Task LogTrainingTemplateCommunityRejectedAsync(int id, string title, int tenantId);
+    Task LogTrainingTemplateCommunityReviewOpenedAsync(int id, string title);
+    Task LogTrainingTemplateCommunityQuizReviewOpenedAsync(int templateId, string title, int? tenantId, int questionCount);
 
     Task LogTrainingCreatedAsync(int id, string title, int tenantId);
     Task LogTrainingCreatedFromTemplateAsync(int id, string title, int tenantId, int templateId, string templateTitle);
@@ -111,4 +116,7 @@ public interface IComplianceAuditLogService
     Task LogTrainingAssignmentCancelledAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId);
     Task LogTrainingInvitationSentAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId);
     Task LogTrainingInvitationResentAsync(int trainingId, string trainingTitle, int tenantId, int assignmentId, int? participantId);
+
+    Task LogDocumentLinkedAsync(int documentId, string fileName, int tenantId, string linkedEntityType, int linkedEntityId);
+    Task LogDocumentUnlinkedAsync(int documentId, string fileName, int tenantId, string linkedEntityType, int linkedEntityId);
 }

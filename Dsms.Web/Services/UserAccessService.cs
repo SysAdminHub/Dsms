@@ -67,6 +67,15 @@ public class UserAccessService(
     public Task<bool> CanManageGlobalAuditTemplatesAsync() => IsSuperuserAsync();
 
     /// <inheritdoc />
+    public Task<bool> CanManageGlobalTrainingTemplatesAsync() => IsSuperuserAsync();
+
+    /// <inheritdoc />
+    public Task<bool> CanReviewCommunityTrainingTemplatesAsync() => IsSuperuserAsync();
+
+    /// <inheritdoc />
+    public Task<bool> CanAccessTenantTrainingsAsync() => CanAccessTenantBusinessModulesAsync();
+
+    /// <inheritdoc />
     public async Task<bool> CanAccessTenantAuditsAsync()
     {
         if (await IsSuperuserAsync())

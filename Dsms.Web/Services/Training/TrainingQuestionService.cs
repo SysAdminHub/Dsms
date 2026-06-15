@@ -17,11 +17,11 @@ public class TrainingQuestionService(
     public async Task<IReadOnlyList<TrainingQuestion>> GetQuestionsAsync(
         int templateId, int? tenantId, CancellationToken ct = default)
     {
-        var template = await templateAccess.GetTemplateByIdAsync(templateId, tenantId, ct: ct);
-        if (template is null)
+        if (await templateAccess.GetTemplateByIdAsync(templateId, tenantId, ct: ct) is null)
             return [];
 
-        return await db.TrainingQuestions
+        var query = await templateAccess.ApplyQueryScopeAsync(db.TrainingQuestions.AsQueryable(), ct);
+        return await query
             .Include(q => q.Options.Where(o => o.IsActive))
             .Where(q => q.TrainingTemplateId == templateId && q.IsActive)
             .OrderBy(q => q.SortOrder)
@@ -31,9 +31,8 @@ public class TrainingQuestionService(
     public async Task<TrainingQuestionOperationResult> SaveQuestionAsync(
         TrainingQuestion question, CancellationToken ct = default)
     {
-        var template = await db.TrainingTemplates
-            .FirstOrDefaultAsync(t => t.Id == question.TrainingTemplateId, ct);
-        if (template is null || !await templateAccess.CanEditAsync(template, ct))
+        var template = await templateAccess.GetTemplateForMutationAsync(question.TrainingTemplateId, ct);
+        if (template is null)
             return TrainingQuestionOperationResult.Fail(TrainingLabels.AccessDenied);
 
         if (string.IsNullOrWhiteSpace(question.QuestionText))
@@ -49,7 +48,8 @@ public class TrainingQuestionService(
         }
         else
         {
-            var existing = await db.TrainingQuestions
+            var query = await templateAccess.ApplyQueryScopeAsync(db.TrainingQuestions.AsQueryable(), ct);
+            var existing = await query
                 .FirstOrDefaultAsync(q => q.Id == question.Id && q.TrainingTemplateId == question.TrainingTemplateId, ct);
             if (existing is null)
                 return TrainingQuestionOperationResult.Fail("Frage wurde nicht gefunden.");
@@ -77,8 +77,9 @@ public class TrainingQuestionService(
     public async Task<TrainingQuestionOperationResult> SaveOptionAsync(
         TrainingQuestionOption option, CancellationToken ct = default)
     {
-        var question = await db.TrainingQuestions
-            .Include(q => q.TrainingTemplate)
+        var questionsQuery = await templateAccess.ApplyQueryScopeAsync(
+            db.TrainingQuestions.Include(q => q.TrainingTemplate), ct);
+        var question = await questionsQuery
             .FirstOrDefaultAsync(q => q.Id == option.TrainingQuestionId, ct);
         if (question is null || !await templateAccess.CanEditAsync(question.TrainingTemplate, ct))
             return TrainingQuestionOperationResult.Fail(TrainingLabels.AccessDenied);
@@ -96,7 +97,8 @@ public class TrainingQuestionService(
         }
         else
         {
-            var existing = await db.TrainingQuestionOptions
+            var optionsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingQuestionOptions.AsQueryable(), ct);
+            var existing = await optionsQuery
                 .FirstOrDefaultAsync(o => o.Id == option.Id && o.TrainingQuestionId == option.TrainingQuestionId, ct);
             if (existing is null)
                 return TrainingQuestionOperationResult.Fail("Antwortoption wurde nicht gefunden.");
@@ -119,11 +121,12 @@ public class TrainingQuestionService(
     public async Task<TrainingQuestionOperationResult> ReorderQuestionsAsync(
         int templateId, IReadOnlyList<int> questionIdsInOrder, CancellationToken ct = default)
     {
-        var template = await db.TrainingTemplates.FirstOrDefaultAsync(t => t.Id == templateId, ct);
-        if (template is null || !await templateAccess.CanEditAsync(template, ct))
+        var template = await templateAccess.GetTemplateForMutationAsync(templateId, ct);
+        if (template is null)
             return TrainingQuestionOperationResult.Fail(TrainingLabels.AccessDenied);
 
-        var questions = await db.TrainingQuestions
+        var query = await templateAccess.ApplyQueryScopeAsync(db.TrainingQuestions.AsQueryable(), ct);
+        var questions = await query
             .Where(q => q.TrainingTemplateId == templateId && q.IsActive)
             .ToListAsync(ct);
 
@@ -143,9 +146,11 @@ public class TrainingQuestionService(
     public async Task<TrainingQuestionOperationResult> DeactivateQuestionAsync(
         int templateId, int questionId, CancellationToken ct = default)
     {
-        var question = await db.TrainingQuestions
-            .Include(q => q.TrainingTemplate)
-            .Include(q => q.Options)
+        var query = await templateAccess.ApplyQueryScopeAsync(
+            db.TrainingQuestions
+                .Include(q => q.TrainingTemplate)
+                .Include(q => q.Options), ct);
+        var question = await query
             .FirstOrDefaultAsync(q => q.Id == questionId && q.TrainingTemplateId == templateId && q.IsActive, ct);
 
         if (question is null || !await templateAccess.CanEditAsync(question.TrainingTemplate, ct))
@@ -175,8 +180,7 @@ public class TrainingQuestionService(
     public async Task<TrainingTemplateValidationResult> ValidateQuizAsync(
         int templateId, int? tenantId, CancellationToken ct = default)
     {
-        var template = await templateAccess.GetTemplateByIdAsync(templateId, tenantId, ct: ct);
-        if (template is null)
+        if (await templateAccess.GetTemplateByIdAsync(templateId, tenantId, ct: ct) is null)
             return TrainingTemplateValidationResult.Fail(["Schulungsvorlage wurde nicht gefunden."]);
 
         var errors = new List<string>();

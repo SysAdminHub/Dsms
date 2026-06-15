@@ -3,6 +3,7 @@ using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
 using Dsms.Web.Services.Logging;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dsms.Web.Services.Training;
@@ -12,6 +13,7 @@ public class TrainingTemplateService(
     ApplicationDbContext db,
     IUserAccessService access,
     ICurrentUserContext currentUser,
+    UserManager<ApplicationUser> userManager,
     ArchiveViewContextAccessor archiveView,
     TrainingTemplateAccessService templateAccess,
     TrainingTemplateAssetService assetService,
@@ -28,7 +30,13 @@ public class TrainingTemplateService(
         templateAccess.CanCreateTenantTemplateAsync(ct);
 
     public Task<bool> CanCreateGlobalTemplateAsync(CancellationToken ct = default) =>
-        access.IsSuperuserAsync();
+        templateAccess.CanCreateGlobalTemplateAsync(ct);
+
+    public Task<bool> CanReviewCommunityAsync(CancellationToken ct = default) =>
+        templateAccess.CanReviewCommunityAsync(ct);
+
+    public Task<bool> CanSubmitToCommunityAsync(TrainingTemplate template, CancellationToken ct = default) =>
+        templateAccess.CanSubmitToCommunityAsync(template, ct);
 
     public async Task<bool> CanCopyToTenantAsync(TrainingTemplate template, CancellationToken ct = default)
     {
@@ -41,8 +49,40 @@ public class TrainingTemplateService(
         return await templateAccess.CanCreateTenantTemplateAsync(ct);
     }
 
-    public async Task<bool> CanArchiveAsync(TrainingTemplate template, CancellationToken ct = default) =>
-        await templateAccess.CanEditAsync(template, ct);
+    public Task<bool> CanArchiveAsync(TrainingTemplate template, CancellationToken ct = default) =>
+        templateAccess.CanArchiveAsync(template, ct);
+
+    public async Task<IReadOnlyList<TrainingTemplateListRow>> GetGlobalListRowsAsync(CancellationToken ct = default)
+    {
+        if (!await access.CanManageGlobalTrainingTemplatesAsync())
+            return [];
+
+        var templates = await db.TrainingTemplates
+            .IgnoreQueryFilters()
+            .Include(t => t.Sections)
+            .Include(t => t.Questions)
+            .Include(t => t.Assets)
+            .Where(t => t.IsGlobal && t.TenantId == null)
+            .Where(t => t.IsArchived == archiveView.ShowArchivedOnly)
+            .OrderByDescending(t => archiveView.ShowArchivedOnly ? t.ArchivedAt : t.CreatedAt)
+            .ThenBy(t => t.Title)
+            .ToListAsync(ct);
+
+        var rows = new List<TrainingTemplateListRow>();
+        foreach (var template in templates)
+        {
+            rows.Add(new TrainingTemplateListRow(
+                template,
+                template.Sections.Count(s => s.IsActive),
+                template.Questions.Count(q => q.IsActive),
+                template.Assets.Count(a => a.IsActive),
+                await templateAccess.CanEditAsync(template, ct),
+                await templateAccess.CanArchiveAsync(template, ct),
+                false));
+        }
+
+        return rows;
+    }
 
     public async Task<IReadOnlyList<TrainingTemplateListRow>> GetListRowsAsync(
         int tenantId, CancellationToken ct = default)
@@ -112,8 +152,9 @@ public class TrainingTemplateService(
     public async Task<TrainingTemplateOperationResult> DeactivateSectionAsync(
         int templateId, int sectionId, CancellationToken ct = default)
     {
-        var section = await db.TrainingTemplateSections
-            .Include(s => s.TrainingTemplate)
+        var sectionsQuery = await templateAccess.ApplyQueryScopeAsync(
+            db.TrainingTemplateSections.Include(s => s.TrainingTemplate), ct);
+        var section = await sectionsQuery
             .FirstOrDefaultAsync(s => s.Id == sectionId && s.TrainingTemplateId == templateId && s.IsActive, ct);
 
         if (section is null || !await templateAccess.CanEditAsync(section.TrainingTemplate, ct))
@@ -160,7 +201,8 @@ public class TrainingTemplateService(
         else
             report.Successes.Add($"{sections.Count} aktive Karte(n)");
 
-        var assets = await db.TrainingTemplateAssets
+        var assetsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateAssets.AsQueryable(), ct);
+        var assets = await assetsQuery
             .Where(a => a.TrainingTemplateId == templateId && a.IsActive)
             .ToListAsync(ct);
 
@@ -215,7 +257,11 @@ public class TrainingTemplateService(
     public async Task<TrainingTemplate?> GetTemplateByIdAsync(
         int templateId, int? tenantId, bool includeGlobal = true, CancellationToken ct = default)
     {
-        var template = await db.TrainingTemplates
+        var query = db.TrainingTemplates.AsQueryable();
+        if (await templateAccess.RequiresUnfilteredQueriesAsync(ct))
+            query = query.IgnoreQueryFilters();
+
+        var template = await query
             .Include(t => t.Sections.Where(s => s.IsActive))
             .Include(t => t.Assets.Where(a => a.IsActive))
             .Include(t => t.Questions.Where(q => q.IsActive))
@@ -234,12 +280,245 @@ public class TrainingTemplateService(
         return template;
     }
 
+    public async Task<TrainingTemplate?> GetSubmittedForReviewAsync(int templateId, CancellationToken ct = default)
+    {
+        if (!await templateAccess.CanReviewCommunityAsync(ct))
+            return null;
+
+        var template = await db.TrainingTemplates
+            .IgnoreQueryFilters()
+            .Include(t => t.Tenant)
+            .Include(t => t.Sections.Where(s => s.IsActive))
+            .Include(t => t.Assets.Where(a => a.IsActive))
+            .Include(t => t.Questions.Where(q => q.IsActive))
+                .ThenInclude(q => q.Options.Where(o => o.IsActive))
+            .FirstOrDefaultAsync(t => t.Id == templateId
+                && !t.IsGlobal
+                && t.TenantId != null
+                && t.CommunityStatus == CommunityTemplateStatus.Submitted
+                && !t.IsArchived, ct);
+
+        return template;
+    }
+
+    public async Task<CommunityTrainingTemplateReviewViewModel?> GetCommunityReviewViewModelAsync(
+        int templateId, CancellationToken ct = default)
+    {
+        var template = await GetSubmittedForReviewAsync(templateId, ct);
+        if (template is null)
+            return null;
+
+        var sections = template.Sections.OrderBy(s => s.SortOrder).ToList();
+        var sectionPreviewHtml = await PrepareSectionPreviewHtmlAsync(
+            template.Id, template.TenantId, sections, ct);
+        var questions = template.Questions
+            .Where(q => q.IsActive)
+            .OrderBy(q => q.SortOrder)
+            .ToList();
+
+        await complianceAuditLog.LogTrainingTemplateCommunityReviewOpenedAsync(template.Id, template.Title);
+        if (questions.Count > 0)
+        {
+            await complianceAuditLog.LogTrainingTemplateCommunityQuizReviewOpenedAsync(
+                template.Id, template.Title, template.TenantId, questions.Count);
+        }
+
+        return new CommunityTrainingTemplateReviewViewModel(
+            template,
+            template.Tenant?.Name ?? "—",
+            sections,
+            sectionPreviewHtml,
+            questions);
+    }
+
+    public async Task<IReadOnlyList<TrainingCommunitySubmissionRow>> ListSubmittedForReviewAsync(
+        CancellationToken ct = default)
+    {
+        if (!await templateAccess.CanReviewCommunityAsync(ct))
+            return [];
+
+        var submissions = await db.TrainingTemplates
+            .IgnoreQueryFilters()
+            .Include(t => t.Tenant)
+            .Include(t => t.Sections)
+            .Include(t => t.Questions)
+            .Where(t => !t.IsGlobal
+                && t.TenantId != null
+                && t.CommunityStatus == CommunityTemplateStatus.Submitted
+                && !t.IsArchived)
+            .OrderByDescending(t => t.CommunitySubmittedAt)
+            .ThenBy(t => t.Title)
+            .ToListAsync(ct);
+
+        var rows = new List<TrainingCommunitySubmissionRow>();
+        foreach (var template in submissions)
+        {
+            string? submittedByName = null;
+            if (!string.IsNullOrEmpty(template.CommunitySubmittedByUserId))
+            {
+                var user = await userManager.FindByIdAsync(template.CommunitySubmittedByUserId);
+                submittedByName = user?.DisplayName;
+            }
+
+            rows.Add(new TrainingCommunitySubmissionRow(
+                template,
+                template.Tenant?.Name ?? "—",
+                submittedByName,
+                template.Sections.Count(s => s.IsActive),
+                template.Questions.Count(q => q.IsActive)));
+        }
+
+        return rows;
+    }
+
+    public async Task<TrainingTemplateOperationResult> SubmitToCommunityAsync(
+        int templateId, string? submissionNote, CancellationToken ct = default)
+    {
+        var template = await db.TrainingTemplates
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == templateId, ct);
+
+        if (template is null || !await templateAccess.CanSubmitToCommunityAsync(template, ct))
+            return TrainingTemplateOperationResult.Fail(TrainingLabels.AccessDenied);
+
+        var activeSections = await db.TrainingTemplateSections
+            .IgnoreQueryFilters()
+            .CountAsync(s => s.TrainingTemplateId == templateId && s.IsActive, ct);
+        if (activeSections == 0)
+            return TrainingTemplateOperationResult.Fail("Mindestens eine aktive Schulungskarte ist erforderlich.");
+
+        var userId = await currentUser.GetUserIdAsync();
+        var now = DateTime.UtcNow;
+        var tenantId = template.TenantId!.Value;
+
+        template.IsCommunityTemplate = true;
+        template.CommunityStatus = CommunityTemplateStatus.Submitted;
+        template.CommunitySubmittedAt = now;
+        template.CommunitySubmittedByUserId = userId;
+        template.CommunitySubmittedByTenantId = tenantId;
+        template.CommunitySubmissionNote = submissionNote?.Trim();
+        template.CommunityReviewedAt = null;
+        template.CommunityReviewedByUserId = null;
+        template.CommunityReviewNote = null;
+        template.CommunityRejectionReason = null;
+        template.UpdatedAt = now;
+        template.UpdatedByUserId = userId;
+
+        await db.SaveChangesAsync(ct);
+        await complianceAuditLog.LogTrainingTemplateSubmittedToCommunityAsync(template.Id, template.Title, tenantId);
+        return TrainingTemplateOperationResult.Ok(template.Id, TrainingLabels.CommunitySubmitSuccess);
+    }
+
+    public async Task<TrainingTemplateOperationResult> ApproveCommunityAsync(
+        int templateId, string? reviewComment, CancellationToken ct = default)
+    {
+        if (!await templateAccess.CanReviewCommunityAsync(ct))
+            return TrainingTemplateOperationResult.Fail(TrainingLabels.AccessDenied);
+
+        var source = await db.TrainingTemplates
+            .IgnoreQueryFilters()
+            .Include(t => t.Sections.Where(s => s.IsActive))
+            .Include(t => t.Assets.Where(a => a.IsActive))
+            .Include(t => t.Questions.Where(q => q.IsActive))
+                .ThenInclude(q => q.Options.Where(o => o.IsActive))
+            .FirstOrDefaultAsync(t => t.Id == templateId
+                && !t.IsGlobal
+                && t.TenantId != null
+                && t.CommunityStatus == CommunityTemplateStatus.Submitted, ct);
+
+        if (source is null)
+            return TrainingTemplateOperationResult.Fail("Einreichung wurde nicht gefunden.");
+
+        var userId = await currentUser.GetUserIdAsync();
+        var now = DateTime.UtcNow;
+        var sourceTenantId = source.TenantId;
+        var questionCountCopied = source.Questions.Count;
+
+        var globalCopy = new TrainingTemplate
+        {
+            TenantId = null,
+            Title = source.Title,
+            Description = source.Description,
+            TrainingType = source.TrainingType,
+            TargetAudience = source.TargetAudience,
+            EstimatedDurationMinutes = source.EstimatedDurationMinutes,
+            RecommendedRepeatAfterMonths = source.RecommendedRepeatAfterMonths,
+            PassingScorePercent = source.PassingScorePercent,
+            IsQuizRequired = source.IsQuizRequired,
+            IsGlobal = true,
+            IsCommunityTemplate = true,
+            CommunityStatus = CommunityTemplateStatus.Approved,
+            SourceTemplateId = source.Id,
+            CommunitySubmittedAt = source.CommunitySubmittedAt,
+            CommunitySubmittedByUserId = source.CommunitySubmittedByUserId,
+            CommunitySubmittedByTenantId = source.CommunitySubmittedByTenantId,
+            CommunitySubmissionNote = source.CommunitySubmissionNote,
+            CommunityReviewedAt = now,
+            CommunityReviewedByUserId = userId,
+            CommunityReviewNote = reviewComment?.Trim(),
+            IsActive = true,
+            CreatedByUserId = userId,
+            UpdatedByUserId = userId,
+            CreatedAt = now
+        };
+
+        db.TrainingTemplates.Add(globalCopy);
+        await db.SaveChangesAsync(ct);
+
+        await CopyTemplateChildrenAsync(source, globalCopy, null, userId, ct);
+        await assetService.CopyAssetsFromTemplateAsync(source.Id, globalCopy.Id, null, userId, ct);
+
+        source.CommunityStatus = CommunityTemplateStatus.Approved;
+        source.CommunityReviewedAt = now;
+        source.CommunityReviewedByUserId = userId;
+        source.CommunityReviewNote = reviewComment?.Trim();
+        source.UpdatedAt = now;
+        source.UpdatedByUserId = userId;
+
+        await db.SaveChangesAsync(ct);
+        await complianceAuditLog.LogTrainingTemplateCommunityApprovedAsync(
+            globalCopy.Id, globalCopy.Title, source.Id, sourceTenantId, questionCountCopied);
+        return TrainingTemplateOperationResult.Ok(globalCopy.Id, TrainingLabels.CommunityApproveSuccess);
+    }
+
+    public async Task<TrainingTemplateOperationResult> RejectCommunityAsync(
+        int templateId, string? rejectionReason, CancellationToken ct = default)
+    {
+        if (!await templateAccess.CanReviewCommunityAsync(ct))
+            return TrainingTemplateOperationResult.Fail(TrainingLabels.AccessDenied);
+
+        var source = await db.TrainingTemplates
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == templateId
+                && !t.IsGlobal
+                && t.TenantId != null
+                && t.CommunityStatus == CommunityTemplateStatus.Submitted, ct);
+
+        if (source is null)
+            return TrainingTemplateOperationResult.Fail("Einreichung wurde nicht gefunden.");
+
+        var userId = await currentUser.GetUserIdAsync();
+        var now = DateTime.UtcNow;
+        var tenantId = source.TenantId!.Value;
+
+        source.CommunityStatus = CommunityTemplateStatus.Rejected;
+        source.CommunityReviewedAt = now;
+        source.CommunityReviewedByUserId = userId;
+        source.CommunityRejectionReason = rejectionReason?.Trim();
+        source.UpdatedAt = now;
+        source.UpdatedByUserId = userId;
+
+        await db.SaveChangesAsync(ct);
+        await complianceAuditLog.LogTrainingTemplateCommunityRejectedAsync(source.Id, source.Title, tenantId);
+        return TrainingTemplateOperationResult.Ok(source.Id, TrainingLabels.CommunityRejectSuccess);
+    }
+
     public async Task<TrainingTemplateOperationResult> CreateTemplateAsync(
         TrainingTemplate template, CancellationToken ct = default)
     {
         if (template.IsGlobal)
         {
-            if (!await access.IsSuperuserAsync())
+            if (!await templateAccess.CanCreateGlobalTemplateAsync(ct))
                 return TrainingTemplateOperationResult.Fail(TrainingLabels.AccessDenied);
 
             template.TenantId = null;
@@ -272,8 +551,8 @@ public class TrainingTemplateService(
     public async Task<TrainingTemplateOperationResult> UpdateTemplateAsync(
         TrainingTemplate model, CancellationToken ct = default)
     {
-        var template = await db.TrainingTemplates.FirstOrDefaultAsync(t => t.Id == model.Id, ct);
-        if (template is null || !await templateAccess.CanEditAsync(template, ct))
+        var template = await templateAccess.GetTemplateForMutationAsync(model.Id, ct);
+        if (template is null)
             return TrainingTemplateOperationResult.Fail(TrainingLabels.AccessDenied);
 
         template.Title = model.Title.Trim();
@@ -299,7 +578,7 @@ public class TrainingTemplateService(
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(t => t.Id == templateId && !t.IsArchived, ct);
 
-        if (template is null || !await templateAccess.CanEditAsync(template, ct))
+        if (template is null || !await templateAccess.CanArchiveAsync(template, ct))
             return TrainingTemplateOperationResult.Fail(TrainingLabels.AccessDenied);
 
         var userId = await currentUser.GetUserIdAsync();
@@ -323,7 +602,8 @@ public class TrainingTemplateService(
         if (await templateAccess.GetTemplateByIdAsync(templateId, tenantId, ct: ct) is null)
             return [];
 
-        return await db.TrainingTemplateSections
+        var sectionsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateSections.AsQueryable(), ct);
+        return await sectionsQuery
             .Where(s => s.TrainingTemplateId == templateId && s.IsActive)
             .OrderBy(s => s.SortOrder)
             .ToListAsync(ct);
@@ -332,8 +612,8 @@ public class TrainingTemplateService(
     public async Task<TrainingTemplateOperationResult> SaveSectionAsync(
         TrainingTemplateSection section, CancellationToken ct = default)
     {
-        var template = await db.TrainingTemplates.FirstOrDefaultAsync(t => t.Id == section.TrainingTemplateId, ct);
-        if (template is null || !await templateAccess.CanEditAsync(template, ct))
+        var template = await templateAccess.GetTemplateForMutationAsync(section.TrainingTemplateId, ct);
+        if (template is null)
             return TrainingTemplateOperationResult.Fail(TrainingLabels.AccessDenied);
 
         var userId = await currentUser.GetUserIdAsync();
@@ -346,7 +626,8 @@ public class TrainingTemplateService(
         }
         else
         {
-            var existing = await db.TrainingTemplateSections
+            var sectionsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateSections.AsQueryable(), ct);
+            var existing = await sectionsQuery
                 .FirstOrDefaultAsync(s => s.Id == section.Id && s.TrainingTemplateId == section.TrainingTemplateId, ct);
             if (existing is null)
                 return TrainingTemplateOperationResult.Fail("Schulungskarte wurde nicht gefunden.");
@@ -371,11 +652,12 @@ public class TrainingTemplateService(
     public async Task<TrainingTemplateOperationResult> ReorderSectionsAsync(
         int templateId, IReadOnlyList<int> sectionIdsInOrder, CancellationToken ct = default)
     {
-        var template = await db.TrainingTemplates.FirstOrDefaultAsync(t => t.Id == templateId, ct);
-        if (template is null || !await templateAccess.CanEditAsync(template, ct))
+        var template = await templateAccess.GetTemplateForMutationAsync(templateId, ct);
+        if (template is null)
             return TrainingTemplateOperationResult.Fail(TrainingLabels.AccessDenied);
 
-        var sections = await db.TrainingTemplateSections
+        var sectionsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateSections.AsQueryable(), ct);
+        var sections = await sectionsQuery
             .Where(s => s.TrainingTemplateId == templateId && s.IsActive)
             .ToListAsync(ct);
 
@@ -409,8 +691,8 @@ public class TrainingTemplateService(
             var keys = TrainingMarkdownAssetResolver.ExtractAssetKeys(section.ContentMarkdown);
             foreach (var key in keys)
             {
-                var assetExists = await db.TrainingTemplateAssets.AnyAsync(
-                    a => a.TrainingTemplateId == templateId && a.AssetKey == key && a.IsActive, ct);
+                var assetExists = await (await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateAssets.AsQueryable(), ct))
+                    .AnyAsync(a => a.TrainingTemplateId == templateId && a.AssetKey == key && a.IsActive, ct);
                 if (!assetExists)
                     errors.Add($"Fehlendes Asset in Karte „{section.Title}“: {key}");
             }
@@ -474,9 +756,80 @@ public class TrainingTemplateService(
         db.TrainingTemplates.Add(copy);
         await db.SaveChangesAsync(ct);
 
+        await CopyTemplateChildrenAsync(source, copy, targetTenantId, userId, ct);
+        await assetService.CopyAssetsFromTemplateAsync(sourceTemplateId, copy.Id, targetTenantId, userId, ct);
+
+        await complianceAuditLog.LogTrainingTemplateCopiedAsync(copy.Id, copy.Title, targetTenantId, sourceTemplateId);
+        return TrainingTemplateOperationResult.Ok(copy.Id);
+    }
+
+    public async Task<string> PrepareMarkdownForRenderingAsync(
+        string markdown,
+        int templateId,
+        int? tenantId,
+        CancellationToken ct = default)
+    {
+        if (await templateAccess.GetTemplateByIdAsync(templateId, tenantId, ct: ct) is null)
+            return markdown;
+
+        var assets = await LoadActiveAssetsAsync(templateId, ct);
+        return ResolveMarkdownWithAssets(markdown, templateId, assets);
+    }
+
+    /// <summary>
+    /// Bereitet Markdown-Vorschauen für mehrere Karten sequenziell vor (ein DbContext-Zugriff).
+    /// </summary>
+    public async Task<IReadOnlyDictionary<int, string>> PrepareSectionPreviewHtmlAsync(
+        int templateId,
+        int? tenantId,
+        IReadOnlyList<TrainingTemplateSection> sections,
+        CancellationToken ct = default)
+    {
+        if (await templateAccess.GetTemplateByIdAsync(templateId, tenantId, ct: ct) is null)
+            return new Dictionary<int, string>();
+
+        var assets = await LoadActiveAssetsAsync(templateId, ct);
+        var result = new Dictionary<int, string>();
+
+        foreach (var section in sections)
+        {
+            var resolved = ResolveMarkdownWithAssets(section.ContentMarkdown, templateId, assets);
+            result[section.Id] = TrainingMarkdownRenderer.ToHtml(resolved);
+        }
+
+        return result;
+    }
+
+    private async Task<List<TrainingTemplateAsset>> LoadActiveAssetsAsync(int templateId, CancellationToken ct)
+    {
+        var assetQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateAssets.AsQueryable(), ct);
+        return await assetQuery
+            .Where(a => a.TrainingTemplateId == templateId && a.IsActive)
+            .ToListAsync(ct);
+    }
+
+    private static string ResolveMarkdownWithAssets(
+        string markdown,
+        int templateId,
+        IReadOnlyList<TrainingTemplateAsset> assets)
+    {
+        var availableKeys = assets.Select(a => a.AssetKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var altTexts = assets.ToDictionary(a => a.AssetKey, a => a.AltText ?? a.AssetKey, StringComparer.OrdinalIgnoreCase);
+
+        return TrainingMarkdownAssetResolver.ResolveAssetPlaceholdersWithAvailability(
+            markdown, templateId, availableKeys, altTexts);
+    }
+
+    private async Task CopyTemplateChildrenAsync(
+        TrainingTemplate source,
+        TrainingTemplate target,
+        int? targetTenantId,
+        string? userId,
+        CancellationToken ct)
+    {
         foreach (var section in source.Sections.Where(s => s.IsActive).OrderBy(s => s.SortOrder))
         {
-            copy.Sections.Add(new TrainingTemplateSection
+            target.Sections.Add(new TrainingTemplateSection
             {
                 TenantId = targetTenantId,
                 SortOrder = section.SortOrder,
@@ -516,39 +869,16 @@ public class TrainingTemplateService(
                 });
             }
 
-            copy.Questions.Add(questionCopy);
+            target.Questions.Add(questionCopy);
         }
 
         await db.SaveChangesAsync(ct);
-        await assetService.CopyAssetsFromTemplateAsync(sourceTemplateId, copy.Id, targetTenantId, userId, ct);
-
-        await complianceAuditLog.LogTrainingTemplateCopiedAsync(copy.Id, copy.Title, targetTenantId, sourceTemplateId);
-        return TrainingTemplateOperationResult.Ok(copy.Id);
-    }
-
-    public async Task<string> PrepareMarkdownForRenderingAsync(
-        string markdown,
-        int templateId,
-        int? tenantId,
-        CancellationToken ct = default)
-    {
-        if (await templateAccess.GetTemplateByIdAsync(templateId, tenantId, ct: ct) is null)
-            return markdown;
-
-        var assets = await db.TrainingTemplateAssets
-            .Where(a => a.TrainingTemplateId == templateId && a.IsActive)
-            .ToListAsync(ct);
-
-        var availableKeys = assets.Select(a => a.AssetKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var altTexts = assets.ToDictionary(a => a.AssetKey, a => a.AltText ?? a.AssetKey, StringComparer.OrdinalIgnoreCase);
-
-        return TrainingMarkdownAssetResolver.ResolveAssetPlaceholdersWithAvailability(
-            markdown, templateId, availableKeys, altTexts);
     }
 
     private async Task DeactivateTemplateChildrenAsync(int templateId, string? userId, CancellationToken ct)
     {
-        var sections = await db.TrainingTemplateSections
+        var sectionsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateSections.AsQueryable(), ct);
+        var sections = await sectionsQuery
             .Where(s => s.TrainingTemplateId == templateId && s.IsActive)
             .ToListAsync(ct);
         foreach (var section in sections)
@@ -558,7 +888,8 @@ public class TrainingTemplateService(
             section.UpdatedByUserId = userId;
         }
 
-        var assets = await db.TrainingTemplateAssets
+        var assetsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingTemplateAssets.AsQueryable(), ct);
+        var assets = await assetsQuery
             .Where(a => a.TrainingTemplateId == templateId && a.IsActive)
             .ToListAsync(ct);
         foreach (var asset in assets)
@@ -568,7 +899,8 @@ public class TrainingTemplateService(
             asset.UpdatedByUserId = userId;
         }
 
-        var questions = await db.TrainingQuestions
+        var questionsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingQuestions.AsQueryable(), ct);
+        var questions = await questionsQuery
             .Where(q => q.TrainingTemplateId == templateId && q.IsActive)
             .ToListAsync(ct);
         foreach (var question in questions)
@@ -577,7 +909,8 @@ public class TrainingTemplateService(
             question.UpdatedAt = DateTime.UtcNow;
             question.UpdatedByUserId = userId;
 
-            var options = await db.TrainingQuestionOptions
+            var optionsQuery = await templateAccess.ApplyQueryScopeAsync(db.TrainingQuestionOptions.AsQueryable(), ct);
+            var options = await optionsQuery
                 .Where(o => o.TrainingQuestionId == question.Id && o.IsActive)
                 .ToListAsync(ct);
             foreach (var option in options)

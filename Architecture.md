@@ -36,6 +36,7 @@ c:\code\DS\
 ├── Project_Overview.md
 ├── Architecture.md
 ├── Changelog.md
+├── website.md
 └── Dsms.Web/
     ├── Program.cs                 # Start, DI, Pipeline
     ├── appsettings.json
@@ -200,7 +201,7 @@ Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `To
 
 **`AuditTemplate`** erbt nur von `ArchivableEntityBase` (nicht `ITenantEntity`): `TenantId` bei eigenen Vorlagen gesetzt, bei globalen Vorlagen (`Official`, `Community`) `null`. Zusätzlich `CommunityStatus` und Prüffelder für Einreichungen. Sichtbarkeit: eigene Mandantenvorlagen + globale `Official`/`Community` über Query Filter. Community-Freigabe erstellt separate globale Kopie; Ursprungsvorlage bleibt beim Mandanten (`CommunityStatus = Approved`).
 
-**`TrainingTemplate`** (Schulungen & Awareness, Vorlagen): erbt von `ArchivableEntityBase` mit nullable `TenantId`. Mandantenvorlage: `TenantId` gesetzt, `IsGlobal = false`. Globale Vorlage: `TenantId = null`, `IsGlobal = true` (Superuser). Community-Felder vorbereitet. Kind-Entities mit Markdown, Assets und Quiz. Keine Teilnehmer-Tabellen.
+**`TrainingTemplate`** (Schulungen & Awareness, Vorlagen): erbt von `ArchivableEntityBase` mit nullable `TenantId`. Mandantenvorlage: `TenantId` gesetzt, `IsGlobal = false`. Globale Vorlage: `TenantId = null`, `IsGlobal = true` (Superuser). Community-Workflow: Mandanten-Admins reichen eigene Vorlagen ein (`CommunityStatus = Submitted`); Superuser geben frei (neue globale Kopie mit `IsCommunityTemplate = true`, `SourceTemplateId`) oder lehnen ab. Kind-Entities mit Markdown, Assets und Quiz. Keine Teilnehmer-Tabellen.
 
 **`Training`** (konkrete Schulung/Durchführung): erbt von `ArchivableEntityBase`, Pflicht-`TenantId`, optional `TrainingTemplateId` (V1: Referenz, kein Inhaltssnapshot – siehe TODO in Entity). Felder: Titel, Beschreibung, `TrainingType`, Zielgruppe, `TrainingStatus`, Verantwortlicher (User/Freitext), `AccessCodeValidityDays` (1–90, Standard 14), Notizen. Teilnehmerzahlen werden aus `TrainingAssignments` berechnet (Legacy-Feld `ParticipantCount` in DB, nicht mehr führend in UI). Nachweise über normale `EvidenceDocument` + `DocumentLinks`. Teilnehmerportal: `/schulung/teilnahme` (Zugang), `/schulung/teilnahme/inhalt` (Durchführung).
 
@@ -300,8 +301,8 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ArchiveViewContextAccessor` | Scoped | Aktiv-/Archivansicht für EF Global Query Filter (`ShowArchivedOnly`) |
 | `IArchivingService` / `ArchivingService` | Scoped | Soft Delete: Archivieren, Wiederherstellen, Abhängigkeitswarnungen |
 | `IAuditTemplateService` / `AuditTemplateService` | Scoped | Mandantensichere Sichtbarkeit, Bearbeitungsrechte, Archivierung, Community-Workflow und Fragen-CRUD; Frage-Snapshots beim Auditstart |
-| `TrainingTemplateAccessService` | Scoped | Gemeinsame Berechtigungs-/Sichtbarkeitslogik für Schulungsvorlagen |
-| `TrainingTemplateService` | Scoped | CRUD Vorlagen/Karten, Validierung, `CopyTemplateAsync`, Markdown-Asset-Auflösung |
+| `TrainingTemplateAccessService` | Scoped | Berechtigungs-/Sichtbarkeitslogik für Schulungsvorlagen inkl. Community-Einreichung |
+| `TrainingTemplateService` | Scoped | CRUD Vorlagen/Karten, Community-Workflow (Einreichen/Freigeben/Ablehnen), Validierung, `CopyTemplateAsync`, Markdown-Asset-Auflösung |
 | `TrainingService` | Scoped | CRUD konkrete Schulungen, Erstellung aus Vorlage, Mandanten-/Berechtigungsprüfung |
 | `TrainingParticipantService` | Scoped | Stammdaten Schulungsteilnehmer (CRUD, zentraler Bulk-Import, Auswahl-Liste) |
 | `TrainingAssignmentService` | Scoped | Zuweisungen Teilnehmer ↔ Schulung (Mehrfachzuweisung, keine Neuanlage), Teilnehmerdetails für Admin |
@@ -319,7 +320,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 
 **Teilnehmerportal (öffentlich):** `/schulung/teilnahme` (Login mit E-Mail + Code), `/schulung/teilnahme/inhalt` (Karten, Quiz, Abschluss). Layout `TrainingParticipantLayout` ohne App-Sidebar. Konfiguration `TrainingAccess` in `appsettings.json` (`SessionLifetimeHours`, Cookie-Name).
 
-**Admin-UI (Schulungsvorlagen):** `/training-templates` (Liste), `/training-templates/edit` (Neu), `/training-templates/edit/{id}` (Bearbeiten). Button „Schulung erstellen“ → `/trainings/edit?templateId={id}`.
+**Admin-UI (Schulungsvorlagen):** `/training-templates` (Liste; Mandant oder Superuser ohne TenantContext für globale Vorlagen), `/training-templates/edit` (Neu), `/training-templates/edit/{id}` (Bearbeiten). Community-Einreichung im Mandantenkontext. Superuser-Prüfung: `/platform/training-templates/community` und `/platform/training-templates/community/{id}`. Button „Schulung erstellen“ → `/trainings/edit?templateId={id}` (nur Mandantenkontext).
 
 **Admin-UI (Schulungen):** `/trainings` (Liste), `/trainings/edit` (Neu), `/trainings/edit/{id}` (Bearbeiten), `/trainings/{id}` (Detail mit Tab „Teilnehmer“), `/trainings/participants` (Teilnehmerübersicht). Nachweise: `/documents?prefillTrainingId={id}`.
 
@@ -348,7 +349,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ISignupLegalEmailService` / `SignupLegalEmailService` | Scoped | Bestätigungsmail nach Public Signup mit Legal-PDF-Anhängen |
 | `IIpAnonymizationService` / `IpAnonymizationService` | Scoped | Anonymisiert IP-Adressen vor Speicherung in Nachweisdatensätzen (IPv4 /24, IPv6 /64) |
 | `ILogService` / `LogService` | Scoped | Zentrales Audit- und Systemprotokoll (`LogEntry`-Tabelle); siehe `Logging.md` |
-| `ILogQueryService` / `LogQueryService` | Scoped | Abfrage für Superuser-Protokolle und Admin-Auditlog mit Mandanten-/Lizenzfilter |
+| `ILogQueryService` / `LogQueryService` | Scoped | Superuser-Protokoll (`GetPlatformLogsAsync`: alle Mandanten, Metadaten-only Details); Admin-Auditlog (`GetAdminAuditLogsAsync`: Lizenz/Mandantenfilter, inkl. Feldänderungen) |
 | `ILicenseCreateGuard` / `LicenseCreateGuard` | Scoped | Lizenzlimit-Prüfung mit automatischer Audit-Protokollierung bei Blockierung |
 
 Details und Code-Beispiele: **`Logging.md`** im Projektroot.
@@ -543,9 +544,26 @@ Die Login-Seite ist an das DSMS-Design angepasst; viele Manage-/Register-Seiten 
 - HTTPS empfohlen (`UseHttpsRedirection`, HSTS in Production) – typisch per Reverse Proxy
 - **Annahme:** Einzelinstanz-Deployment; Blazor Server und SignalR erfordern Sticky Sessions bei Skalierung – im Code nicht dokumentiert
 
+## Geplante Marketing-Architektur (separates Projekt)
+
+Briefing und Seitenstruktur: [`website.md`](./website.md).
+
+| Host | Dienst | Status |
+|------|--------|--------|
+| `datenschutz-cloud.eu` | Öffentliche Marketingseite (`Dsms.Marketing`, geplant) | Nicht im Repo |
+| `app.datenschutz-cloud.eu` | SaaS-App `Dsms.Web` | Konfiguriert in `AppBranding:AppUrl` |
+| `demo.datenschutz-cloud.eu` | Demo-Instanz `Dsms.Web` | **TODO:** Deployment-Konzept |
+
+**V1 Marketing:** kein Datenbankzugriff; statische Inhalte; Login/Register nur als Links zur App (`/Account/Login`, `/signup`).
+
+**Später optional:** eigene MySQL-Datenbank `dsms_marketing` im gleichen Container – **kein** Zugriff auf Mandantendatenbank, **kein** gemeinsamer `ApplicationDbContext`.
+
+**Domain-Hinweis:** `AppBranding:WebsiteUrl` ist `https://www.datenschutz-cloud.eu` (mit `www`); Marketing-Briefing nutzt `datenschutz-cloud.eu` ohne `www` – Canonical-Domain **TODO**.
+
 ## Verwandte Dokumentation
 
 - [Project_Overview.md](./Project_Overview.md) – fachliche Gesamtübersicht
 - [README.md](./README.md) – Schnellstart für Entwickler
 - [Production_Deployment.md](./Production_Deployment.md) – Docker-Production-Deployment
+- [website.md](./website.md) – Marketing-Webseite (Briefing)
 - [Changelog.md](./Changelog.md) – Änderungshistorie

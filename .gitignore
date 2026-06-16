@@ -23,3 +23,13 @@ secrets.json
 !.env.example
 
 /Dsms.Provisioning/
+
+Architecture.md
+Changelog.md
+Logging.md
+Production_Deployment.md
+Project_Overview.md
+Provisioning_App_Architecture.md
+Provisioning_Extraction.md
+website.md
+Website_Erweiterungen_2026-06.md

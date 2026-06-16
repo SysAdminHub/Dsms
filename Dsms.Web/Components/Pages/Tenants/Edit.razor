@@ -147,72 +147,119 @@
     </div>
 </div>
 
-@if (!_isNew && _model.IsActive)
+@if (!_isNew)
 {
     <div class="dsms-card dsms-form-card mt-4">
         <div class="dsms-card-body">
-            <h2 class="h5 mb-3">Löschanforderung</h2>
+            <h2 class="h5 mb-3">Mandantenstatus</h2>
             @if (_deletionStatus is null)
             {
                 <div class="dsms-loading">Lade …</div>
             }
-            else if (_deletionStatus.IsDeletionRequested)
+            else
             {
                 <dl class="row mb-0">
-                    <dt class="col-sm-4">Löschung angefordert</dt>
-                    <dd class="col-sm-8">Ja</dd>
-                    <dt class="col-sm-4">Angefordert am</dt>
-                    <dd class="col-sm-8">@(_deletionStatus.DeletionRequestedAt?.ToLocalTime().ToString("dd.MM.yyyy, HH:mm 'Uhr'") ?? "—")</dd>
-                    <dt class="col-sm-4">Angefordert von</dt>
+                    <dt class="col-sm-4">Status</dt>
                     <dd class="col-sm-8">
-                        @if (!string.IsNullOrWhiteSpace(_deletionStatus.DeletionRequestedByDisplayName)
-                            || !string.IsNullOrWhiteSpace(_deletionStatus.DeletionRequestedByEmail))
-                        {
-                            @(_deletionStatus.DeletionRequestedByDisplayName ?? "—")
-                            @if (!string.IsNullOrWhiteSpace(_deletionStatus.DeletionRequestedByEmail))
-                            {
-                                <span class="text-muted"> (@_deletionStatus.DeletionRequestedByEmail)</span>
-                            }
-                        }
-                        else
-                        {
-                            <span>—</span>
-                        }
+                        <StatusBadge Text="@_deletionStatus.LifecycleStatusDisplayName"
+                                     Variant="@TenantLifecycleStatusHelper.GetBadgeVariant(_deletionStatus.LifecycleStatus)" />
                     </dd>
+                    @if (_deletionStatus.IsDeletionRequested)
+                    {
+                        <dt class="col-sm-4">Vorgemerkt am</dt>
+                        <dd class="col-sm-8">@(_deletionStatus.DeletionRequestedAt?.ToLocalTime().ToString("dd.MM.yyyy, HH:mm 'Uhr'") ?? "—")</dd>
+                        <dt class="col-sm-4">Geplante Löschung</dt>
+                        <dd class="col-sm-8">@(_deletionStatus.DeletionScheduledAt?.ToLocalTime().ToString("dd.MM.yyyy, HH:mm 'Uhr'") ?? "—")</dd>
+                        <dt class="col-sm-4">Angefordert von</dt>
+                        <dd class="col-sm-8">
+                            @if (!string.IsNullOrWhiteSpace(_deletionStatus.DeletionRequestedByDisplayName)
+                                || !string.IsNullOrWhiteSpace(_deletionStatus.DeletionRequestedByEmail))
+                            {
+                                @(_deletionStatus.DeletionRequestedByDisplayName ?? "—")
+                                @if (!string.IsNullOrWhiteSpace(_deletionStatus.DeletionRequestedByEmail))
+                                {
+                                    <span class="text-muted"> (@_deletionStatus.DeletionRequestedByEmail)</span>
+                                }
+                            }
+                            else
+                            {
+                                <span>—</span>
+                            }
+                        </dd>
+                    }
                 </dl>
+            }
+        </div>
+    </div>
+
+    <div class="dsms-card dsms-form-card mt-4">
+        <div class="dsms-card-body">
+            <h2 class="h5 mb-2">Mandant deaktivieren</h2>
+            <p class="text-muted mb-3">
+                Deaktiviert den Zugriff, behält aber alle Daten. Geeignet für Zahlungsausfall, Testpause oder Supportfälle.
+            </p>
+            @if (!string.IsNullOrEmpty(_lifecycleMessage) && _lifecycleAction == LifecycleAction.Deactivate)
+            {
+                <div class="alert @(_lifecycleMessageIsError ? "alert-danger" : "alert-success") dsms-alert">@_lifecycleMessage</div>
+            }
+            <button type="button" class="btn btn-outline-secondary" @onclick="DeactivateAsync"
+                    disabled="@(_lifecycleBusy || _deletionStatus is { IsActive: false })">
+                Deaktivieren
+            </button>
+        </div>
+    </div>
+
+    <div class="dsms-card dsms-form-card mt-4">
+        <div class="dsms-card-body">
+            <h2 class="h5 mb-2">Zur Löschung vormerken</h2>
+            <p class="text-muted mb-3">
+                Sperrt den Zugriff und markiert den Mandanten zur endgültigen Löschung. Die Daten bleiben bis zur Bestätigung erhalten.
+            </p>
+            @if (!string.IsNullOrEmpty(_lifecycleMessage) && _lifecycleAction == LifecycleAction.MarkForDeletion)
+            {
+                <div class="alert @(_lifecycleMessageIsError ? "alert-danger" : "alert-success") dsms-alert">@_lifecycleMessage</div>
+            }
+            @if (_deletionStatus?.IsDeletionRequested == true)
+            {
+                <p class="text-muted mb-3">Dieser Mandant ist bereits zur Löschung vorgemerkt.</p>
+                <button type="button" class="btn btn-outline-secondary" @onclick="CancelDeletionAsync" disabled="@_lifecycleBusy">
+                    Löschvormerkung aufheben
+                </button>
             }
             else
             {
-                <p class="text-muted mb-0">Für diesen Mandanten liegt keine Löschanforderung vor.</p>
+                <button type="button" class="btn btn-outline-warning" @onclick="MarkForDeletionAsync" disabled="@_lifecycleBusy">
+                    Zur Löschung vormerken
+                </button>
             }
         </div>
     </div>
 
     <div class="dsms-card dsms-form-card mt-4 border-danger">
         <div class="dsms-card-body">
-            <h2 class="h5 mb-2 text-danger">Mandant löschen</h2>
+            <h2 class="h5 mb-2 text-danger">Mandant endgültig löschen</h2>
             <p class="text-muted">
-                Diese Aktion deaktiviert den Mandanten und kann Auswirkungen auf alle zugehörigen Daten haben.
-                Benutzer können danach nicht mehr regulär auf diesen Mandanten zugreifen.
+                Diese Aktion löscht den Mandanten und alle zugehörigen mandantenbezogenen Daten endgültig.
+                Dieser Vorgang kann nicht rückgängig gemacht werden.
             </p>
 
-            @if (!string.IsNullOrEmpty(_deleteError))
+            @if (!string.IsNullOrEmpty(_lifecycleMessage) && _lifecycleAction == LifecycleAction.PermanentDelete)
             {
-                <div class="alert alert-danger dsms-alert">@_deleteError</div>
-            }
-            @if (!string.IsNullOrEmpty(_deleteMessage))
-            {
-                <div class="alert alert-success dsms-alert">@_deleteMessage</div>
+                <div class="alert @(_lifecycleMessageIsError ? "alert-danger" : "alert-success") dsms-alert">@_lifecycleMessage</div>
             }
 
             @if (!_showDeleteConfirm)
             {
-                <button type="button" class="btn btn-outline-danger" @onclick="ShowDeleteConfirm" disabled="@_deleteBusy">
-                    Mandant löschen
+                <button type="button" class="btn btn-outline-danger" @onclick="ShowDeleteConfirm" disabled="@_lifecycleBusy">
+                    Endgültige Löschung starten
                 </button>
             }
             else
             {
+                <div class="alert alert-danger dsms-alert" role="alert">
+                    Diese Aktion löscht den Mandanten und alle zugehörigen Daten endgültig.
+                    Dieser Vorgang kann nicht rückgängig gemacht werden.
+                </div>
                 <p class="mb-2">
                     Bitte geben Sie den Mandantennamen zur Bestätigung ein:
                     <strong>@_model.Name</strong>
@@ -220,18 +267,18 @@
                 <div class="mb-3" style="max-width: 24rem;">
                     <label class="form-label" for="deleteConfirmName">Mandantenname</label>
                     <input id="deleteConfirmName" class="form-control @(_deleteNameMismatch ? "is-invalid" : null)"
-                           @bind="_deleteConfirmName" @bind:event="oninput" disabled="@_deleteBusy" />
+                           @bind="_deleteConfirmName" @bind:event="oninput" disabled="@_lifecycleBusy" />
                     @if (_deleteNameMismatch)
                     {
                         <div class="invalid-feedback d-block">Der eingegebene Mandantenname stimmt nicht überein.</div>
                     }
                 </div>
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-danger" @onclick="ExecuteDeleteAsync"
-                            disabled="@(_deleteBusy || !NamesMatchForDelete())">
+                    <button type="button" class="btn btn-danger" @onclick="ExecutePermanentDeleteAsync"
+                            disabled="@(_lifecycleBusy || !NamesMatchForDelete())">
                         Mandant endgültig löschen
                     </button>
-                    <button type="button" class="btn btn-outline-secondary" @onclick="HideDeleteConfirm" disabled="@_deleteBusy">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="HideDeleteConfirm" disabled="@_lifecycleBusy">
                         Abbrechen
                     </button>
                 </div>
@@ -258,9 +305,17 @@
     private bool _showDeleteConfirm;
     private string _deleteConfirmName = string.Empty;
     private bool _deleteNameMismatch;
-    private bool _deleteBusy;
-    private string? _deleteError;
-    private string? _deleteMessage;
+    private bool _lifecycleBusy;
+    private string? _lifecycleMessage;
+    private bool _lifecycleMessageIsError;
+    private LifecycleAction? _lifecycleAction;
+
+    private enum LifecycleAction
+    {
+        Deactivate,
+        MarkForDeletion,
+        PermanentDelete
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -352,8 +407,8 @@
         _showDeleteConfirm = true;
         _deleteConfirmName = string.Empty;
         _deleteNameMismatch = false;
-        _deleteError = null;
-        _deleteMessage = null;
+        _lifecycleMessage = null;
+        _lifecycleAction = null;
     }
 
     private void HideDeleteConfirm()
@@ -366,40 +421,90 @@
     private bool NamesMatchForDelete() =>
         TenantDeletionService.TenantNamesMatch(_model.Name, _deleteConfirmName);
 
-    private async Task ExecuteDeleteAsync()
+    private async Task ReloadLifecycleAsync()
+    {
+        if (_model.Id > 0)
+        {
+            _deletionStatus = await DeletionService.GetDeletionStatusAsync(_model.Id);
+            if (_deletionStatus is not null)
+            {
+                _model.IsActive = _deletionStatus.IsActive;
+            }
+        }
+    }
+
+    private async Task DeactivateAsync() => await RunLifecycleActionAsync(
+        LifecycleAction.Deactivate,
+        async userId => await DeletionService.DeactivateTenantAsync(_model.Id, userId));
+
+    private async Task MarkForDeletionAsync() => await RunLifecycleActionAsync(
+        LifecycleAction.MarkForDeletion,
+        async userId => await DeletionService.MarkForDeletionAsync(_model.Id, userId, scheduledDeletionAt: null));
+
+    private async Task CancelDeletionAsync() => await RunLifecycleActionAsync(
+        LifecycleAction.MarkForDeletion,
+        async _ => await DeletionService.CancelDeletionRequestAsync(_model.Id));
+
+    private async Task ExecutePermanentDeleteAsync()
     {
         if (_model.Id <= 0)
         {
             return;
         }
 
-        _deleteBusy = true;
-        _deleteError = null;
-        _deleteMessage = null;
+        await RunLifecycleActionAsync(
+            LifecycleAction.PermanentDelete,
+            async userId => await DeletionService.ExecutePermanentDeletionAsync(_model.Id, _deleteConfirmName, userId),
+            navigateOnSuccess: true);
+    }
+
+    private async Task RunLifecycleActionAsync(
+        LifecycleAction action,
+        Func<string, Task<TenantDeletionResult>> operation,
+        bool navigateOnSuccess = false)
+    {
+        _lifecycleBusy = true;
+        _lifecycleMessage = null;
+        _lifecycleMessageIsError = false;
         _deleteNameMismatch = false;
+        _lifecycleAction = action;
 
         try
         {
             var userId = await CurrentUser.GetUserIdAsync();
             if (userId is null)
             {
-                _deleteError = "Benutzer nicht angemeldet.";
+                _lifecycleMessage = "Benutzer nicht angemeldet.";
+                _lifecycleMessageIsError = true;
                 return;
             }
 
-            var result = await DeletionService.ExecuteDeletionAsync(_model.Id, _deleteConfirmName, userId);
+            var result = await operation(userId);
             if (!result.Success)
             {
                 _deleteNameMismatch = result.Message.Contains("stimmt nicht überein", StringComparison.OrdinalIgnoreCase);
-                _deleteError = result.Message;
+                _lifecycleMessage = result.Message;
+                _lifecycleMessageIsError = true;
                 return;
             }
 
-            Navigation.NavigateTo("tenants");
+            _lifecycleMessage = result.Message;
+            if (result.EmailNotificationFailed)
+            {
+                _lifecycleMessage += " Die Systembenachrichtigung konnte nicht versendet werden.";
+            }
+
+            if (navigateOnSuccess)
+            {
+                Navigation.NavigateTo("tenants");
+                return;
+            }
+
+            await ReloadLifecycleAsync();
         }
         finally
         {
-            _deleteBusy = false;
+            _lifecycleBusy = false;
         }
     }
 }

@@ -291,8 +291,9 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ITenantExportService` / `TenantExportService` | Scoped | Vollständiger Mandanten-Export als ZIP (JSON-DTOs + Dokumentdateien) |
 | `ITenantComplianceInfoService` / `TenantComplianceInfoService` | Scoped | DSGVO-Mandanten-Stammdaten lesen/speichern für aktuellen Mandanten (Admin/Superuser via `/tenant-daten`); TenantId serverseitig |
 | `ITenantManagementService` / `TenantManagementService` | Scoped | Plattformweite Mandantenverwaltung (nur Superuser, `/tenants/edit`) |
-| `ITenantDeletionService` / `TenantDeletionService` | Scoped | Löschanforderung markieren (`IsDeletionRequested`); Systemmail; Auditlog; Superuser-Deaktivierung (`ExecuteDeletionAsync`, Soft Delete via `IsActive=false`); Abbrechen nur Superuser |
-| `ITenantDeletionNotificationService` / `TenantDeletionNotificationService` | Scoped | Systembenachrichtigung bei Löschanforderung (`EmailSettings.SystemNotificationRecipientEmail`) |
+| `ITenantDeletionService` / `TenantDeletionService` | Scoped | Mandanten-Lifecycle: Löschanforderung (`RequestDeletionAsync`), Deaktivieren (`DeactivateTenantAsync`), Vormerkung (`MarkForDeletionAsync`), endgültige Löschung (`ExecutePermanentDeletionAsync`, Namensbestätigung, nur Superuser); Plattform-Systemprotokoll |
+| `ITenantDataErasureService` / `TenantDataErasureService` | Scoped | Entfernt mandantenbezogene DB-Daten und Dateien in FK-sicherer Reihenfolge; anonymisiert aufbewahrungspflichtige `PendingSignups`/`LogEntries` |
+| `ITenantDeletionNotificationService` / `TenantDeletionNotificationService` | Scoped | Systembenachrichtigungen bei Löschanforderung, Vormerkung, endgültiger Löschung und Fehlerfällen (`EmailSettings.SystemNotificationRecipientEmail`) |
 | `ICommunityTemplateNotificationService` / `CommunityTemplateNotificationService` | Scoped | Systembenachrichtigung bei Community-Einreichung (`EmailSettings.SystemNotificationRecipientEmail`); E-Mail an Einreicher nach Freigabe/Ablehnung (SMTP über `IEmailService`) |
 | `TenantDataEndpoints` | Minimal API | `POST /tenant-daten/export` – ZIP-Download mit serverseitiger Berechtigungsprüfung |
 | `DocumentUploadValidation` | Static | Dateityp-, MIME- und Größenprüfung für Uploads (PDF, DOCX, XLSX, JPG, PNG; max. 10 MB) |

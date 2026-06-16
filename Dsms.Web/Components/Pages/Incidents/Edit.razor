@@ -418,6 +418,7 @@ else
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private PrivacyIncidentRelationsService Relations { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
+    [Inject] private ILogger<Edit> Logger { get; set; } = null!;
 
     private int? _tenantId;
     private bool _accessDenied;
@@ -642,7 +643,35 @@ else
         var changes = ComplianceAuditDiffBuilder.ForPrivacyIncident(
             _previousTitle, _previousStatus, _previousSeverity, _previousRiskLevel, tracked);
 
-        await Db.SaveChangesAsync();
+        await using var transaction = await Db.Database.BeginTransactionAsync();
+        try
+        {
+            await Db.SaveChangesAsync();
+
+            var (linkOk, linkError) = await Relations.SaveLinksAsync(
+                tracked.Id,
+                _tenantId.Value,
+                _selectedProcessingActivityIds,
+                _selectedServiceProviderIds,
+                _selectedMeasureIds,
+                _selectedTomIds);
+
+            if (!linkOk)
+            {
+                await transaction.RollbackAsync();
+                _linkSaveError = linkError ?? "Die Verknüpfungen konnten nicht gespeichert werden.";
+                return;
+            }
+
+            await transaction.CommitAsync();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            Logger.LogError(ex, "Fehler beim Speichern des Datenschutzvorfalls {IncidentId}", tracked.Id);
+            _linkSaveError = "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.";
+            return;
+        }
 
         if (changes.Count > 0)
         {
@@ -653,20 +682,6 @@ else
         {
             await ComplianceAuditLog.LogPrivacyIncidentStatusChangedAsync(
                 tracked.Id, tracked.Title, _tenantId.Value, _previousStatus.Value, tracked.Status);
-        }
-
-        var (linkOk, linkError) = await Relations.SaveLinksAsync(
-            tracked.Id,
-            _tenantId.Value,
-            _selectedProcessingActivityIds,
-            _selectedServiceProviderIds,
-            _selectedMeasureIds,
-            _selectedTomIds);
-
-        if (!linkOk)
-        {
-            _linkSaveError = linkError;
-            return;
         }
 
         Navigation.NavigateTo($"incidents/{tracked.Id}");

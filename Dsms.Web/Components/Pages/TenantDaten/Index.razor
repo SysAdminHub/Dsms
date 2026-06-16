@@ -211,13 +211,9 @@ else
             @if (_tenant.IsDeletionRequested)
             {
                 <div class="alert alert-warning dsms-alert mb-3" role="alert">
-                    Für diesen Mandanten wurde bereits am
-                    @(_tenant.DeletionRequestedAt?.ToLocalTime().ToString("dd.MM.yyyy, HH:mm 'Uhr'") ?? "—")
-                    eine Löschung angefordert.
+                    Deine Löschanfrage wurde erfasst. Der Mandant wird nach Prüfung gelöscht.
+                    Der Zugriff auf diesen Mandanten ist bis dahin gesperrt.
                 </div>
-                <p class="text-muted mb-0">
-                    Die tatsächliche Löschung erfolgt nicht automatisch, sondern wird nach Prüfung manuell durchgeführt.
-                </p>
                 @if (_isSuperuser)
                 {
                     <button type="button" class="btn btn-outline-secondary mt-3" @onclick="CancelDeletionAsync" disabled="@_busy">
@@ -228,8 +224,8 @@ else
             else
             {
                 <div class="alert alert-danger" role="alert">
-                    Diese Aktion markiert den Mandanten zur Löschung. Die tatsächliche Löschung erfolgt nicht automatisch,
-                    sondern wird nach Prüfung manuell durchgeführt.
+                    Diese Aktion erfasst eine Löschanfrage. Es erfolgt keine sofortige endgültige Löschung.
+                    Der Zugriff wird gesperrt, bis ein Plattform-Administrator den Mandanten endgültig löscht.
                 </div>
                 <div class="form-check mb-3">
                     <input class="form-check-input" type="checkbox" id="confirm-deletion-request"

@@ -34,6 +34,15 @@ public sealed class TenantManagementService(
                 IsActive = t.IsActive,
                 IsDeletionRequested = t.IsDeletionRequested,
                 DeletionRequestedAt = t.DeletionRequestedAt,
+                DeletionScheduledAt = t.DeletionScheduledAt,
+                LifecycleStatus = t.IsDeletionRequested
+                    ? Domain.Enums.TenantLifecycleStatus.ZurLoeschungVorgemerkt
+                    : (t.IsActive
+                        ? Domain.Enums.TenantLifecycleStatus.Aktiv
+                        : Domain.Enums.TenantLifecycleStatus.Deaktiviert),
+                LifecycleStatusDisplayName = t.IsDeletionRequested
+                    ? "Zur Löschung vorgemerkt"
+                    : (t.IsActive ? "Aktiv" : "Deaktiviert"),
                 LicenseId = t.LicenseId,
                 LicenseNumber = l != null ? l.LicenseNumber : null,
                 LicenseCustomerName = l != null ? l.CustomerName : null,

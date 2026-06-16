@@ -210,11 +210,11 @@ public class TenantService(
             await using var db = await dbFactory.CreateDbContextAsync();
             var exists = await db.Tenants
                 .IgnoreQueryFilters()
-                .AnyAsync(t => t.Id == tenantId && t.IsActive);
+                .AnyAsync(t => t.Id == tenantId && t.IsActive && !t.IsDeletionRequested);
 
             if (!exists)
             {
-                return TenantSwitchResult.Fail("Mandant existiert nicht oder ist inaktiv.");
+                return TenantSwitchResult.Fail("Mandant existiert nicht, ist inaktiv oder zur Löschung vorgemerkt.");
             }
 
             await tenantContext.SetCurrentTenantIdAsync(tenantId);
@@ -272,7 +272,7 @@ public class TenantService(
             await using var db = await dbFactory.CreateDbContextAsync();
             return await db.Tenants
                 .IgnoreQueryFilters()
-                .AnyAsync(t => t.Id == tenantId && t.IsActive);
+                .AnyAsync(t => t.Id == tenantId && t.IsActive && !t.IsDeletionRequested);
         }
         catch (Exception ex)
         {
@@ -306,7 +306,7 @@ public class TenantService(
                 .IgnoreQueryFilters()
                 .Where(ut => ut.UserId == userId)
                 .Select(ut => ut.Tenant)
-                .Where(t => t.IsActive)
+                .Where(t => t.IsActive && !t.IsDeletionRequested)
                 .OrderBy(t => t.Name)
                 .ToListAsync();
         }

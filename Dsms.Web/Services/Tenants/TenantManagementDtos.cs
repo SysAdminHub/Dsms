@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Dsms.Web.Domain.Enums;
 using Dsms.Web.Services.Licenses;
 
 namespace Dsms.Web.Services.Tenants;
@@ -11,6 +12,9 @@ public sealed class TenantListItemDto
     public bool IsActive { get; init; }
     public bool IsDeletionRequested { get; init; }
     public DateTime? DeletionRequestedAt { get; init; }
+    public DateTime? DeletionScheduledAt { get; init; }
+    public TenantLifecycleStatus LifecycleStatus { get; init; }
+    public string LifecycleStatusDisplayName { get; init; } = string.Empty;
     public Guid? LicenseId { get; init; }
     public string? LicenseNumber { get; init; }
     public string? LicenseCustomerName { get; init; }

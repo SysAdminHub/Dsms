@@ -14,15 +14,23 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Hinzugefügt
 
+- **Supportzugriff – Systembenachrichtigung bei Freigabe:** Wenn ein Mandanten-Admin unter `/admin/support-access` einen Supportzugriff freigibt, versendet `ISupportAccessNotificationService` eine Systemmail an `EmailSettings.SystemNotificationRecipientEmail` (nur wenn Systembenachrichtigungen aktiviert). Auslösung nach erfolgreichem Speichern in `SupportAccessService.GrantAccessAsync`; Fehler beim Versand blockieren die Freigabe nicht.
+
 - **Community-Vorlagen – Systembenachrichtigung bei Einreichung:** Wenn ein Mandant eine Audit- oder Schulungsvorlage zur Community-Prüfung einreicht, versendet `ICommunityTemplateNotificationService` eine Systemmail an `EmailSettings.SystemNotificationRecipientEmail` (nur wenn Systembenachrichtigungen aktiviert). Auslösung nach erfolgreichem Speichern in `AuditTemplateService.SubmitToCommunityAsync` bzw. `TrainingTemplateService.SubmitToCommunityAsync`; nur bei Statuswechsel von `None`/`Rejected` auf `Submitted`. Fehler beim Versand blockieren die Einreichung nicht.
 
 - **Community-Vorlagen – E-Mail an Einreicher nach Prüfung:** Nach Freigabe oder Ablehnung durch Superuser erhält der einreichende Benutzer eine E-Mail mit Ergebnis und optionalem Prüfkommentar (`ReviewComment` / `CommunityReviewNote` / `CommunityRejectionReason`). Auslösung in `ApproveCommunityAsync` und `RejectCommunityAsync` (Audit und Schulung); Fehler blockieren die Prüfung nicht.
 
 - **Mandantenlöschung – Anforderung und Superuser-Löschung:** UI-Texte vereinheitlicht („Mandant“ statt „Tenant“). Löschanforderung per Checkbox mit Systembenachrichtigung an `EmailSettings.SystemNotificationRecipientEmail`. Auditlog (`TenantDeletionRequested`, `TenantDeletedBySuperuser`). Superuser sieht Löschstatus in Mandantenübersicht und -details; manuelle Deaktivierung mit Namensbestätigung über `ExecuteDeletionAsync` (Soft Delete via `IsActive = false`).
 
+- **Mandantenlöschung – DSGVO-konforme Lifecycle-Trennung und Hard-Delete:** Drei getrennte Aktionen: **Deaktivieren** (`DeactivateTenantAsync`), **Zur Löschung vormerken** (`MarkForDeletionAsync` / Mandanten-Admin `RequestDeletionAsync`), **Endgültig löschen** (`ExecutePermanentDeletionAsync` + Namensbestätigung, nur Superuser). Zentraler `TenantDataErasureService` entfernt mandantenbezogene Fachdaten, Dateien (`Data/Uploads/{tenantId}/`, `Data/training-assets/{tenantId}/`) und exklusive Benutzer; `PendingSignups` und `LogEntries` werden anonymisiert (Aufbewahrungspflichten). Plattform-Systemprotokoll vor/nach Löschung; Systembenachrichtigungen bei Vormerkung, endgültiger Löschung und Fehlerfällen. UI in `/tenants/edit` und `/tenant-daten` mit deutschen Statusbezeichnungen (Aktiv, Deaktiviert, Zur Löschung vorgemerkt).
+
 - **Schulungsabschluss – PDF-Teilnahmebescheinigung:** Nach erfolgreichem Abschluss einer Schulung wird automatisch eine PDF-Teilnahmebescheinigung (QuestPDF) erzeugt, im Dokumentenmodul abgelegt und mit der Schulung verknüpft. `TrainingAssignment.CertificateDocumentId` verhindert Duplikate. Teilnehmer laden die Bescheinigung auf der Abschlussseite herunter (`/schulung/teilnahme/bescheinigung/download`, Cookie-Session). Admins sehen den Nachweis in der Teilnehmerdetail-Ansicht und im Dokumentenmodul. Migration `AddTrainingAssignmentCertificateDocumentId`.
 
 ### Behoben
+
+- **Betroffenenanfragen – Anfrageart „Auskunft“ speichern:** Beim Anlegen wurde `DataSubjectRequestType.Access` (Enum-Wert 0, Anzeige „Auskunft“) fälschlich durch `_model.RequestType == default` abgelehnt. Die fehlerhafte Prüfung entfernt; Speichern mit try/catch und serverseitigem Logging abgesichert.
+
+- **Datenschutzvorfälle – TOM-Verknüpfungen speichern:** `PrivacyIncidentRelationsService.SaveLinksAsync` hat Verknüpfungen (TOMs, Verarbeitungstätigkeiten, Dienstleister, Maßnahmen) nur im Change Tracker gehalten, aber nicht persistiert (`SaveChangesAsync` fehlte). Speichern in `Incidents/Edit.razor` läuft jetzt in einer Transaktion (Vorfall + Verknüpfungen); Fehler werden geloggt und im UI angezeigt.
 
 - **Datenschutzrollen – erste Rolle bei neuem Mandant:** Selbstbezugsprüfung für „Berichtet an“ und „Vertretung“ verglich `null == null` beim Anlegen einer neuen Rolle ohne Auswahl und blockierte fälschlich mit „Eine Rolle kann nicht an sich selbst berichten.“ Prüfung greift nur noch, wenn sowohl die aktuelle Rolle als auch eine referenzierte Rolle gesetzt sind. Dezenter Hinweis unter dem Berichtet-an-Dropdown, wenn noch keine anderen Rollen existieren.
 

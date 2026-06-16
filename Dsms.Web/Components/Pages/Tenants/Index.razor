@@ -37,7 +37,6 @@ else
                         <th>Verantwortlicher</th>
                         <th>Lizenz</th>
                         <th>Status</th>
-                        <th>Löschung</th>
                         <th class="dsms-table-actions"></th>
                     </tr>
                 </thead>
@@ -58,16 +57,13 @@ else
                                 }
                             </td>
                             <td>
-                                <StatusBadge Text="@(tenant.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(tenant.IsActive ? "success" : "default")" />
-                            </td>
-                            <td>
-                                @if (tenant.IsDeletionRequested)
+                                <StatusBadge Text="@tenant.LifecycleStatusDisplayName"
+                                             Variant="@TenantLifecycleStatusHelper.GetBadgeVariant(tenant.LifecycleStatus)" />
+                                @if (tenant.IsDeletionRequested && tenant.DeletionScheduledAt.HasValue)
                                 {
-                                    <StatusBadge Text="Löschung angefordert" Variant="warning" />
-                                }
-                                else
-                                {
-                                    <span class="text-muted">—</span>
+                                    <div class="small text-muted">
+                                        Geplant: @tenant.DeletionScheduledAt.Value.ToLocalTime().ToString("dd.MM.yyyy")
+                                    </div>
                                 }
                             </td>
                             <td class="dsms-table-actions">

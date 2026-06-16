@@ -68,6 +68,7 @@ builder.Services.AddScoped<SupportContextAccessor>();
 builder.Services.AddScoped<ArchiveViewContextAccessor>();
 builder.Services.AddScoped<ITenantContextService, TenantContextService>();
 builder.Services.AddScoped<ISupportContextService, SupportContextService>();
+builder.Services.AddScoped<ISupportAccessNotificationService, SupportAccessNotificationService>();
 builder.Services.AddScoped<ISupportAccessService, SupportAccessService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
@@ -90,6 +91,7 @@ builder.Services.AddScoped<DataProtectionRoleService>();
 builder.Services.AddScoped<ITenantExportService, TenantExportService>();
 builder.Services.AddScoped<ITenantDeletionService, TenantDeletionService>();
 builder.Services.AddScoped<ITenantDeletionNotificationService, TenantDeletionNotificationService>();
+builder.Services.AddScoped<ITenantDataErasureService, TenantDataErasureService>();
 
 builder.Services.Configure<Dsms.Web.Configuration.DataProtectionOptions>(
     builder.Configuration.GetSection(Dsms.Web.Configuration.DataProtectionOptions.SectionName));
@@ -112,6 +114,7 @@ builder.Services.AddScoped<IEmailSecretProtector, EmailSecretProtector>();
 builder.Services.AddScoped<IEmailTemplateRenderer, EmailTemplateRenderer>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IEmailSettingsService, EmailSettingsService>();
+builder.Services.AddScoped<IEmailSendingSettingsProvider, EmailSendingSettingsProvider>();
 builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IReminderService, ReminderService>();

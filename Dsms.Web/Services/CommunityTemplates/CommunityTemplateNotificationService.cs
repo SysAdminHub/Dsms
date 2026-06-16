@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Identity;
 namespace Dsms.Web.Services.CommunityTemplates;
 
 public sealed class CommunityTemplateNotificationService(
-    IEmailSettingsService emailSettingsService,
+    IEmailSendingSettingsProvider emailSettingsProvider,
     IEmailService emailService,
     IApplicationInfoService appInfo,
     UserManager<ApplicationUser> userManager,
@@ -21,7 +21,7 @@ public sealed class CommunityTemplateNotificationService(
     {
         try
         {
-            var emailSettings = await emailSettingsService.GetSettingsForSendingAsync();
+            var emailSettings = await emailSettingsProvider.GetSettingsForSendingAsync(cancellationToken);
             if (emailSettings is null || !emailSettings.SystemNotificationsEnabled)
             {
                 logger.LogInformation(

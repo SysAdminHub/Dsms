@@ -14,7 +14,7 @@ namespace Dsms.Web.Services.UpgradeRequests;
 
 public sealed class UpgradeRequestService(
     ISubscriptionPlanService planService,
-    IEmailSettingsService emailSettingsService,
+    IEmailSendingSettingsProvider emailSettingsProvider,
     IEmailService emailService,
     ICurrentUserContext currentUser,
     ILogService logService,
@@ -110,7 +110,7 @@ public sealed class UpgradeRequestService(
                 license.LicenseNumber);
         }
 
-        var emailSettings = await emailSettingsService.GetSettingsForSendingAsync();
+        var emailSettings = await emailSettingsProvider.GetSettingsForSendingAsync();
         if (emailSettings is null || !emailSettings.SystemNotificationsEnabled)
         {
             logger.LogWarning(

@@ -1,4 +1,6 @@
 using Dsms.Web.Data;
+using Dsms.Web.Domain.Entities;
+using Dsms.Web.Domain.Enums;
 using Dsms.Web.Services.Logging;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +11,7 @@ public class TenantDeletionService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
     IUserAccessService access,
     ITenantDeletionNotificationService notificationService,
+    ITenantDataErasureService dataErasureService,
     UserManager<ApplicationUser> userManager,
     ICurrentUserContext currentUser,
     ILogService logService,
@@ -44,10 +47,7 @@ public class TenantDeletionService(
         }
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var tenant = await db.Tenants
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(t => t.Id == tenantId, ct);
-
+        var tenant = await LoadTenantAsync(db, tenantId, ct);
         if (tenant is null)
         {
             return TenantDeletionResult.Fail("Mandant nicht gefunden.");
@@ -65,6 +65,7 @@ public class TenantDeletionService(
 
         var now = DateTime.UtcNow;
         tenant.IsDeletionRequested = true;
+        tenant.IsActive = false;
         tenant.DeletionRequestedAt = now;
         tenant.DeletionRequestedByUserId = userId;
         tenant.DeletionScheduledAt = now.Add(DeletionGracePeriod);
@@ -72,11 +73,13 @@ public class TenantDeletionService(
 
         await db.SaveChangesAsync(ct);
 
-        await TryLogAuditAsync(
-            "TenantDeletionRequested",
-            "Mandantenlöschung wurde angefordert.",
+        await TryLogPlatformLifecycleAsync(
+            "MandantLoeschungAngefordert",
+            "Mandantenlöschung wurde durch Mandanten-Admin angefordert.",
             tenant,
-            userId);
+            userId,
+            TenantLifecycleAction.LoeschungAngefordert,
+            success: true);
 
         logger.LogWarning(
             "Löschung angefordert: TenantId={TenantId}, UserId={UserId}, ScheduledAt={ScheduledAt}",
@@ -86,7 +89,9 @@ public class TenantDeletionService(
 
         var emailSent = await notificationService.TrySendDeletionRequestedNotificationAsync(tenant, userId, ct);
 
-        var message = "Ihre Mandantenlöschung wurde angefordert. Die tatsächliche Löschung erfolgt nach manueller Prüfung. Sie erhalten bei Bedarf weitere Informationen.";
+        const string message =
+            "Deine Löschanfrage wurde erfasst. Der Mandant wird nach Prüfung gelöscht. " +
+            "Der Zugriff auf diesen Mandanten ist bis dahin gesperrt.";
         return TenantDeletionResult.Ok(message, emailNotificationFailed: !emailSent);
     }
 
@@ -94,14 +99,11 @@ public class TenantDeletionService(
     {
         if (!await access.CanManageTenantsAsync())
         {
-            return TenantDeletionResult.Fail("Nur Superuser können eine Löschanforderung abbrechen.");
+            return TenantDeletionResult.Fail("Nur Plattform-Administratoren können eine Löschanforderung abbrechen.");
         }
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var tenant = await db.Tenants
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(t => t.Id == tenantId, ct);
-
+        var tenant = await LoadTenantAsync(db, tenantId, ct);
         if (tenant is null)
         {
             return TenantDeletionResult.Fail("Mandant nicht gefunden.");
@@ -113,6 +115,7 @@ public class TenantDeletionService(
         }
 
         tenant.IsDeletionRequested = false;
+        tenant.IsActive = true;
         tenant.DeletionRequestedAt = null;
         tenant.DeletionRequestedByUserId = null;
         tenant.DeletionScheduledAt = null;
@@ -123,19 +126,122 @@ public class TenantDeletionService(
         var userId = await currentUser.GetUserIdAsync();
         if (userId is not null)
         {
-            await TryLogAuditAsync(
-                "TenantDeletionRequestCancelled",
+            await TryLogPlatformLifecycleAsync(
+                "MandantLoeschungAbgebrochen",
                 "Löschanforderung für Mandant wurde abgebrochen.",
                 tenant,
-                userId);
+                userId,
+                TenantLifecycleAction.LoeschvormerkungAbgebrochen,
+                success: true);
         }
 
         logger.LogInformation("Löschanforderung abgebrochen: TenantId={TenantId}", tenantId);
 
-        return TenantDeletionResult.Ok("Die Löschanforderung wurde abgebrochen.");
+        return TenantDeletionResult.Ok("Die Löschanforderung wurde abgebrochen. Der Mandant ist wieder aktiv.");
     }
 
-    public async Task<TenantDeletionResult> ExecuteDeletionAsync(
+    public async Task<TenantDeletionResult> DeactivateTenantAsync(
+        int tenantId,
+        string userId,
+        CancellationToken ct = default)
+    {
+        if (!await access.CanManageTenantsAsync())
+        {
+            return TenantDeletionResult.Fail("Nur Plattform-Administratoren können einen Mandanten deaktivieren.");
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var tenant = await LoadTenantAsync(db, tenantId, ct);
+        if (tenant is null)
+        {
+            return TenantDeletionResult.Fail("Mandant nicht gefunden.");
+        }
+
+        if (!tenant.IsActive && !tenant.IsDeletionRequested)
+        {
+            return TenantDeletionResult.Fail("Dieser Mandant ist bereits deaktiviert.");
+        }
+
+        tenant.IsActive = false;
+        tenant.IsDeletionRequested = false;
+        tenant.DeletionRequestedAt = null;
+        tenant.DeletionRequestedByUserId = null;
+        tenant.DeletionScheduledAt = null;
+        tenant.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync(ct);
+
+        await TryLogPlatformLifecycleAsync(
+            "MandantDeaktiviert",
+            "Mandant wurde deaktiviert.",
+            tenant,
+            userId,
+            TenantLifecycleAction.Deaktiviert,
+            success: true);
+
+        logger.LogWarning("Mandant deaktiviert: TenantId={TenantId}, UserId={UserId}", tenantId, userId);
+
+        return TenantDeletionResult.Ok(
+            "Der Mandant wurde deaktiviert. Benutzer können nicht mehr auf diesen Mandanten zugreifen. " +
+            "Alle Daten bleiben erhalten.");
+    }
+
+    public async Task<TenantDeletionResult> MarkForDeletionAsync(
+        int tenantId,
+        string userId,
+        DateTime? scheduledDeletionAt,
+        CancellationToken ct = default)
+    {
+        if (!await access.CanManageTenantsAsync())
+        {
+            return TenantDeletionResult.Fail("Nur Plattform-Administratoren können einen Mandanten zur Löschung vormerken.");
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var tenant = await LoadTenantAsync(db, tenantId, ct);
+        if (tenant is null)
+        {
+            return TenantDeletionResult.Fail("Mandant nicht gefunden.");
+        }
+
+        if (tenant.IsDeletionRequested)
+        {
+            return TenantDeletionResult.Fail("Dieser Mandant ist bereits zur Löschung vorgemerkt.");
+        }
+
+        var now = DateTime.UtcNow;
+        tenant.IsDeletionRequested = true;
+        tenant.IsActive = false;
+        tenant.DeletionRequestedAt = now;
+        tenant.DeletionRequestedByUserId = userId;
+        tenant.DeletionScheduledAt = scheduledDeletionAt ?? now.Add(DeletionGracePeriod);
+        tenant.UpdatedAt = now;
+
+        await db.SaveChangesAsync(ct);
+
+        await TryLogPlatformLifecycleAsync(
+            "MandantZurLoeschungVorgemerkt",
+            "Mandant wurde zur Löschung vorgemerkt.",
+            tenant,
+            userId,
+            TenantLifecycleAction.ZurLoeschungVorgemerkt,
+            success: true);
+
+        var emailSent = await notificationService.TrySendMarkedForDeletionNotificationAsync(tenant, userId, ct);
+
+        logger.LogWarning(
+            "Mandant zur Löschung vorgemerkt: TenantId={TenantId}, UserId={UserId}, ScheduledAt={ScheduledAt}",
+            tenantId,
+            userId,
+            tenant.DeletionScheduledAt);
+
+        var message =
+            "Der Mandant wurde zur Löschung vorgemerkt. Der Zugriff ist gesperrt. " +
+            "Die endgültige Löschung muss separat durch einen Plattform-Administrator bestätigt werden.";
+        return TenantDeletionResult.Ok(message, emailNotificationFailed: !emailSent);
+    }
+
+    public async Task<TenantDeletionResult> ExecutePermanentDeletionAsync(
         int tenantId,
         string confirmedTenantName,
         string userId,
@@ -143,22 +249,14 @@ public class TenantDeletionService(
     {
         if (!await access.CanManageTenantsAsync())
         {
-            return TenantDeletionResult.Fail("Nur Superuser können einen Mandanten löschen.");
+            return TenantDeletionResult.Fail("Nur Plattform-Administratoren können einen Mandanten endgültig löschen.");
         }
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var tenant = await db.Tenants
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(t => t.Id == tenantId, ct);
-
+        var tenant = await LoadTenantAsync(db, tenantId, ct);
         if (tenant is null)
         {
             return TenantDeletionResult.Fail("Mandant nicht gefunden.");
-        }
-
-        if (!tenant.IsActive)
-        {
-            return TenantDeletionResult.Fail("Dieser Mandant ist bereits deaktiviert.");
         }
 
         if (!TenantNamesMatch(tenant.Name, confirmedTenantName))
@@ -166,32 +264,100 @@ public class TenantDeletionService(
             return TenantDeletionResult.Fail("Der eingegebene Mandantenname stimmt nicht überein.");
         }
 
-        var now = DateTime.UtcNow;
+        var tenantName = tenant.Name;
+        var licenseId = tenant.LicenseId;
         var wasDeletionRequested = tenant.IsDeletionRequested;
+        var scheduledAt = tenant.DeletionScheduledAt;
 
-        tenant.IsActive = false;
-        tenant.IsDeletionRequested = false;
-        tenant.DeletionRequestedAt = null;
-        tenant.DeletionRequestedByUserId = null;
-        tenant.DeletionScheduledAt = null;
-        tenant.UpdatedAt = now;
-
-        await db.SaveChangesAsync(ct);
-
-        await TryLogAuditAsync(
-            "TenantDeletedBySuperuser",
-            "Mandant wurde durch Superuser gelöscht.",
+        await TryLogPlatformLifecycleAsync(
+            "MandantEndgueltigGeloeschtGestartet",
+            "Endgültige Mandantenlöschung wurde gestartet.",
             tenant,
             userId,
-            new { WasDeletionRequested = wasDeletionRequested, DeactivatedAtUtc = now });
+            TenantLifecycleAction.EndgueltigGeloescht,
+            success: true,
+            metadata: new
+            {
+                WasDeletionRequested = wasDeletionRequested,
+                ScheduledDeletionAt = scheduledAt
+            });
+
+        var erasureResult = await dataErasureService.EraseTenantDataAsync(db, tenantId, ct);
+        if (!erasureResult.Success)
+        {
+            await TryLogPlatformLifecycleAsync(
+                "MandantEndgueltigGeloeschtFehlgeschlagen",
+                "Endgültige Mandantenlöschung ist fehlgeschlagen.",
+                tenantName,
+                tenantId,
+                licenseId,
+                userId,
+                TenantLifecycleAction.EndgueltigGeloescht,
+                success: false,
+                metadata: new { Error = erasureResult.ErrorMessage });
+
+            var notifyFailed = await notificationService.TrySendPermanentDeletionFailedNotificationAsync(
+                tenantName,
+                tenantId,
+                licenseId,
+                userId,
+                ct);
+
+            return TenantDeletionResult.Fail(
+                "Die endgültige Löschung ist fehlgeschlagen. Bitte prüfen Sie die Systemprotokolle.",
+                emailNotificationFailed: !notifyFailed);
+        }
+
+        await TryLogPlatformLifecycleAsync(
+            "MandantEndgueltigGeloescht",
+            "Mandant und mandantenbezogene Daten wurden endgültig gelöscht.",
+            tenantName,
+            tenantId,
+            licenseId,
+            userId,
+            TenantLifecycleAction.EndgueltigGeloescht,
+            success: true,
+            metadata: new
+            {
+                WasDeletionRequested = wasDeletionRequested,
+                DeletedCounts = erasureResult.DeletedCounts,
+                FileDeletionErrorCount = erasureResult.FileDeletionErrors.Count
+            });
+
+        if (erasureResult.FileDeletionErrors.Count > 0)
+        {
+            logger.LogWarning(
+                "Mandant gelöscht, aber {Count} Datei(en) konnten nicht entfernt werden. TenantId={TenantId}",
+                erasureResult.FileDeletionErrors.Count,
+                tenantId);
+        }
 
         logger.LogWarning(
-            "Mandant deaktiviert durch Superuser: TenantId={TenantId}, UserId={UserId}",
+            "Mandant endgültig gelöscht: TenantId={TenantId}, Name={TenantName}, UserId={UserId}",
             tenantId,
+            tenantName,
             userId);
 
-        return TenantDeletionResult.Ok(
-            "Der Mandant wurde deaktiviert. Benutzer können nicht mehr regulär auf diesen Mandanten zugreifen.");
+        var emailSent = await notificationService.TrySendPermanentDeletionNotificationAsync(
+            tenantName,
+            tenantId,
+            licenseId,
+            userId,
+            ct);
+
+        var resultMessage =
+            "Der Mandant und alle zugehörigen mandantenbezogenen Daten wurden endgültig gelöscht. " +
+            "Dieser Vorgang kann nicht rückgängig gemacht werden.";
+        if (erasureResult.FileDeletionErrors.Count > 0)
+        {
+            resultMessage += " Einige Dateien konnten nicht entfernt werden; Details stehen im Systemprotokoll.";
+        }
+        if (!emailSent)
+        {
+            resultMessage += " Die Systembenachrichtigung konnte nicht versendet werden.";
+        }
+
+        return TenantDeletionResult.Ok(resultMessage, emailNotificationFailed: !emailSent);
     }
 
     public async Task<TenantDeletionStatusDto?> GetDeletionStatusAsync(int tenantId, CancellationToken ct = default)
@@ -202,11 +368,7 @@ public class TenantDeletionService(
         }
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var tenant = await db.Tenants
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == tenantId, ct);
-
+        var tenant = await LoadTenantAsync(db, tenantId, ct);
         if (tenant is null)
         {
             return null;
@@ -221,13 +383,19 @@ public class TenantDeletionService(
             displayName = user?.DisplayName ?? user?.UserName;
         }
 
+        var lifecycleStatus = TenantLifecycleStatusHelper.GetStatus(tenant);
+
         return new TenantDeletionStatusDto
         {
+            IsActive = tenant.IsActive,
             IsDeletionRequested = tenant.IsDeletionRequested,
             DeletionRequestedAt = tenant.DeletionRequestedAt,
+            DeletionScheduledAt = tenant.DeletionScheduledAt,
             DeletionRequestedByUserId = tenant.DeletionRequestedByUserId,
             DeletionRequestedByEmail = email,
-            DeletionRequestedByDisplayName = displayName
+            DeletionRequestedByDisplayName = displayName,
+            LifecycleStatus = lifecycleStatus,
+            LifecycleStatusDisplayName = TenantLifecycleStatusHelper.GetDisplayName(lifecycleStatus)
         };
     }
 
@@ -236,33 +404,75 @@ public class TenantDeletionService(
 
     private static string NormalizeTenantName(string name) => name.Trim();
 
-    private async Task TryLogAuditAsync(
+    private static Task<Tenant?> LoadTenantAsync(
+        ApplicationDbContext db,
+        int tenantId,
+        CancellationToken ct) =>
+        db.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == tenantId, ct);
+
+    private async Task TryLogPlatformLifecycleAsync(
         string action,
         string description,
-        Domain.Entities.Tenant tenant,
+        Tenant tenant,
         string userId,
+        TenantLifecycleAction lifecycleAction,
+        bool success,
+        object? metadata = null) =>
+        await TryLogPlatformLifecycleAsync(
+            action,
+            description,
+            tenant.Name,
+            tenant.Id,
+            tenant.LicenseId,
+            userId,
+            lifecycleAction,
+            success,
+            metadata);
+
+    private async Task TryLogPlatformLifecycleAsync(
+        string action,
+        string description,
+        string tenantName,
+        int tenantId,
+        Guid? licenseId,
+        string userId,
+        TenantLifecycleAction lifecycleAction,
+        bool success,
         object? metadata = null)
     {
         try
         {
-            await logService.LogAuditAsync(
+            await logService.LogSystemAsync(
                 action: action,
                 description: description,
-                entityType: "Tenant",
-                entityId: tenant.Id.ToString(),
-                entityName: tenant.Name,
-                tenantId: tenant.Id,
-                licenseId: tenant.LicenseId,
+                severity: success ? "Info" : "Error",
+                entityType: "Mandant",
+                entityId: tenantId.ToString(),
+                tenantId: tenantId,
+                licenseId: licenseId,
                 metadata: metadata ?? new
                 {
-                    RequestedByUserId = userId,
-                    tenant.IsDeletionRequested,
-                    tenant.DeletionRequestedAt
+                    MandantenId = tenantId,
+                    Mandantenname = tenantName,
+                    AusloesenderBenutzer = userId,
+                    Aktion = lifecycleAction.ToString(),
+                    Ergebnis = success ? "erfolgreich" : "fehlgeschlagen"
                 });
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Auditlog für Mandantenlöschung fehlgeschlagen (TenantId={TenantId})", tenant.Id);
+            logger.LogError(ex, "Plattform-Löschprotokoll fehlgeschlagen (TenantId={TenantId})", tenantId);
         }
+    }
+
+    private enum TenantLifecycleAction
+    {
+        Deaktiviert,
+        LoeschungAngefordert,
+        ZurLoeschungVorgemerkt,
+        LoeschvormerkungAbgebrochen,
+        EndgueltigGeloescht
     }
 }

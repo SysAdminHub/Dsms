@@ -220,6 +220,7 @@ else
     [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
+    [Inject] private ILogger<Edit> Logger { get; set; } = null!;
 
     private int? _tenantId;
     private bool _accessDenied;
@@ -341,12 +342,6 @@ else
         _saveError = null;
         UpdateErasureHint();
 
-        if (_model.RequestType == default)
-        {
-            _saveError = "Bitte wählen Sie eine Anfrageart.";
-            return;
-        }
-
         if (_receivedDate == default || _dueDate == default)
         {
             _saveError = "Eingangsdatum und Fristdatum sind Pflichtfelder.";
@@ -406,78 +401,91 @@ else
             _model.ExtendedDueAt = null;
         }
 
-        if (isCreate)
+        try
         {
-            _model.TenantId = _tenantId.Value;
-            _model.CreatedByUserId = userId;
-            _model.CreatedAt = now;
-            Db.DataSubjectRequests.Add(_model);
+            if (isCreate)
+            {
+                _model.TenantId = _tenantId.Value;
+                _model.CreatedByUserId = userId;
+                _model.CreatedAt = now;
+                Db.DataSubjectRequests.Add(_model);
+                await Db.SaveChangesAsync();
+
+                await ComplianceAuditLog.LogDataSubjectRequestCreatedAsync(
+                    _model.Id,
+                    DataSubjectRequestLabels.GetAuditDisplayName(_model),
+                    _tenantId.Value);
+
+                Navigation.NavigateTo($"data-subject-requests/{_model.Id}");
+                return;
+            }
+
+            var tracked = await Db.DataSubjectRequests.FirstOrDefaultAsync(r => r.Id == _model.Id && r.TenantId == _tenantId);
+            if (tracked is null)
+            {
+                _notFound = true;
+                return;
+            }
+
+            tracked.RequestType = _model.RequestType;
+            tracked.Status = _model.Status;
+            tracked.ReceivedAt = _model.ReceivedAt;
+            tracked.DueAt = _model.DueAt;
+            tracked.AnsweredAt = _model.AnsweredAt;
+            tracked.ContactChannel = _model.ContactChannel;
+            tracked.AssignedUserId = _model.AssignedUserId;
+            tracked.IdentityVerified = _model.IdentityVerified;
+            tracked.DeadlineExtended = _model.DeadlineExtended;
+            tracked.ExtendedDueAt = _model.ExtendedDueAt;
+            tracked.ContainsPersonalData = _model.ContainsPersonalData;
+
+            if (!tracked.PersonalDataAnonymized)
+            {
+                tracked.DataSubjectName = _model.DataSubjectName;
+                tracked.DataSubjectEmail = _model.DataSubjectEmail;
+                tracked.DataSubjectPhone = _model.DataSubjectPhone;
+                tracked.DataSubjectReference = _model.DataSubjectReference;
+                tracked.Description = _model.Description;
+                tracked.ResultSummary = _model.ResultSummary;
+                tracked.InternalNotes = _model.InternalNotes;
+                tracked.IdentityVerificationNote = _model.IdentityVerificationNote;
+                tracked.DeadlineExtensionReason = _model.DeadlineExtensionReason;
+            }
+            else if (_deadlineExtended)
+            {
+                tracked.DeadlineExtensionReason = _model.DeadlineExtensionReason;
+            }
+
+            tracked.UpdatedAt = now;
+            tracked.UpdatedByUserId = userId;
+
+            var changes = ComplianceAuditDiffBuilder.ForDataSubjectRequest(
+                _previousType, _previousStatus, _previousReceivedAt, _previousDueAt, _previousAnsweredAt,
+                _previousIdentityVerified, _previousDeadlineExtended, _previousExtendedDueAt,
+                _previousContainsPersonalData, _previousPersonalDataAnonymized, tracked);
+
             await Db.SaveChangesAsync();
 
-            await ComplianceAuditLog.LogDataSubjectRequestCreatedAsync(
+            var displayName = DataSubjectRequestLabels.GetAuditDisplayName(tracked);
+            await ComplianceAuditLog.LogDataSubjectRequestUpdatedAsync(tracked.Id, displayName, _tenantId.Value, changes);
+
+            if (_previousStatus != tracked.Status)
+            {
+                await ComplianceAuditLog.LogDataSubjectRequestStatusChangedAsync(
+                    tracked.Id, displayName, _tenantId.Value, _previousStatus!, tracked.Status);
+            }
+
+            Navigation.NavigateTo($"data-subject-requests/{tracked.Id}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(
+                ex,
+                "Betroffenenanfrage speichern fehlgeschlagen. TenantId={TenantId}, RequestId={RequestId}, RequestType={RequestType}",
+                _tenantId,
                 _model.Id,
-                DataSubjectRequestLabels.GetAuditDisplayName(_model),
-                _tenantId.Value);
-
-            Navigation.NavigateTo($"data-subject-requests/{_model.Id}");
-            return;
+                _model.RequestType);
+            _saveError = "Die Betroffenenanfrage konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.";
         }
-
-        var tracked = await Db.DataSubjectRequests.FirstOrDefaultAsync(r => r.Id == _model.Id && r.TenantId == _tenantId);
-        if (tracked is null)
-        {
-            _notFound = true;
-            return;
-        }
-
-        tracked.RequestType = _model.RequestType;
-        tracked.Status = _model.Status;
-        tracked.ReceivedAt = _model.ReceivedAt;
-        tracked.DueAt = _model.DueAt;
-        tracked.AnsweredAt = _model.AnsweredAt;
-        tracked.ContactChannel = _model.ContactChannel;
-        tracked.AssignedUserId = _model.AssignedUserId;
-        tracked.IdentityVerified = _model.IdentityVerified;
-        tracked.DeadlineExtended = _model.DeadlineExtended;
-        tracked.ExtendedDueAt = _model.ExtendedDueAt;
-        tracked.ContainsPersonalData = _model.ContainsPersonalData;
-
-        if (!tracked.PersonalDataAnonymized)
-        {
-            tracked.DataSubjectName = _model.DataSubjectName;
-            tracked.DataSubjectEmail = _model.DataSubjectEmail;
-            tracked.DataSubjectPhone = _model.DataSubjectPhone;
-            tracked.DataSubjectReference = _model.DataSubjectReference;
-            tracked.Description = _model.Description;
-            tracked.ResultSummary = _model.ResultSummary;
-            tracked.InternalNotes = _model.InternalNotes;
-            tracked.IdentityVerificationNote = _model.IdentityVerificationNote;
-            tracked.DeadlineExtensionReason = _model.DeadlineExtensionReason;
-        }
-        else if (_deadlineExtended)
-        {
-            tracked.DeadlineExtensionReason = _model.DeadlineExtensionReason;
-        }
-
-        tracked.UpdatedAt = now;
-        tracked.UpdatedByUserId = userId;
-
-        var changes = ComplianceAuditDiffBuilder.ForDataSubjectRequest(
-            _previousType, _previousStatus, _previousReceivedAt, _previousDueAt, _previousAnsweredAt,
-            _previousIdentityVerified, _previousDeadlineExtended, _previousExtendedDueAt,
-            _previousContainsPersonalData, _previousPersonalDataAnonymized, tracked);
-
-        await Db.SaveChangesAsync();
-
-        var displayName = DataSubjectRequestLabels.GetAuditDisplayName(tracked);
-        await ComplianceAuditLog.LogDataSubjectRequestUpdatedAsync(tracked.Id, displayName, _tenantId.Value, changes);
-
-        if (_previousStatus != tracked.Status)
-        {
-            await ComplianceAuditLog.LogDataSubjectRequestStatusChangedAsync(
-                tracked.Id, displayName, _tenantId.Value, _previousStatus!, tracked.Status);
-        }
-
-        Navigation.NavigateTo($"data-subject-requests/{tracked.Id}");
     }
 }

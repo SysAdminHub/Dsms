@@ -86,11 +86,6 @@ public sealed class EmailSettingsService(
         return await emailService.SendTestEmailAsync(recipientEmail.Trim(), bypassEnabledCheck: false);
     }
 
-    public async Task<EmailSettings?> GetSettingsForSendingAsync()
-    {
-        return await db.EmailSettings.AsNoTracking().OrderBy(s => s.Id).FirstOrDefaultAsync();
-    }
-
     private async Task<EmailSettings> GetOrCreateSettingsAsync()
     {
         var settings = await db.EmailSettings.OrderBy(s => s.Id).FirstOrDefaultAsync();

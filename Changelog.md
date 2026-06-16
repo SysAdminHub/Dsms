@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Behoben
+
+- **Dienstleister bearbeiten – Verarbeitungstätigkeiten zuordnen:** `ObjectDisposedException` beim An-/Abhaken von Verarbeitungstätigkeiten behoben. Ursache: dynamisches `InputSelect` mit `ValueExpression` auf Dictionary-Einträge und fehlende `@key` in der Checkbox-Liste destabilisierten den Blazor-Render-Tree. Auswahlzustand läuft jetzt über stabile Zeilenobjekte; TOM-Liste mit `@key` abgesichert; Speichern mit try/catch, Logging und deutscher Fehlermeldung.
+
+- **Legal-Dokumente im Docker-Deployment (Dsms.Web + Dsms.Provisioning):** Markdown-Dateien unter `Legal/current/` werden per `.csproj` als Content in Build- und Publish-Output kopiert (`CopyToOutputDirectory` / `CopyToPublishDirectory`). Ursache: Lokal las die App aus dem Projektverzeichnis (`ContentRootPath`), im Container fehlten die `.md`-Dateien trotz vorhandener `legal-documents.json`. Technisches Logging in `LegalDocumentService` bei fehlenden Metadaten, ungültigen Pfaden oder fehlenden Dateien (App, DocumentKey, FileName, Path, Exists). Provisioning-`Dockerfile` baut wieder `Dsms.Provisioning` statt fälschlich `Dsms.Web`.
+
 ### Hinzugefügt
 
 - **Schulungsmodul als Lizenz-Feature:** Neues boolesches Feld `HasTrainingModule` auf `SubscriptionPlan` und `License`. Pläne definieren Standardwerte; Lizenzen sind die wirksame Wahrheit. Provisioning: Planverwaltung, Signup-Anzeige, Lizenzerstellung und manuelle Lizenzbearbeitung inkl. Audit-Log (`LicenseTrainingModuleEnabled`/`LicenseTrainingModuleDisabled`). Fachanwendung: `ILicenseFeatureService`, `TrainingModuleAccessGate`, Upgrade-Hinweis; mandantenspezifische Schulungsfunktionen serverseitig geschützt; globale Superuser-/Community-Vorlagen unverändert zugänglich. Migration `AddHasTrainingModuleToPlansAndLicenses` (Default `true`; bestehende Pläne `free`/`basic` → `false`). Anzeige in `/admin/license` (Enthalten/Nicht enthalten) ergänzt.

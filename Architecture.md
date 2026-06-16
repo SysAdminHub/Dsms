@@ -344,7 +344,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IFeedbackService` / `FeedbackService` | Scoped | Benutzer-Feedback per E-Mail an `AppBranding.SupportEmail`; Vorlage `FeedbackMessageToSupport`; keine DB-Persistenz |
 | `IPaidSignupService` / `PaidSignupService` | Scoped | Legacy Paid-Signup-Service (nicht mehr über eigene Seite) |
 | `IPendingSignupService` / `PendingSignupService` | Scoped | Zwischenspeicher für ausstehende Registrierungen; Public Signup; Rechnungsverwaltung (NextInvoiceDate, BillingStatus-Aktionen) |
-| `ILegalDocumentService` / `LegalDocumentService` | Scoped | Liest `Legal/legal-documents.json` und Markdown-Dateien für öffentliche Legal-Seiten |
+| `ILegalDocumentService` / `LegalDocumentService` | Scoped | Liest `Legal/legal-documents.json` und Markdown-Dateien für öffentliche Legal-Seiten (Pfadauflösung über `ContentRootPath/Legal`; Markdown-Dateien werden per `.csproj` ins Publish-Output kopiert) |
 | `ILegalAcceptanceService` / `LegalAcceptanceService` | Scoped | Speichert und liest Nachweisdatensätze `LegalAcceptance` (Signup-Zustimmung) |
 | `ILegalPdfService` / `LegalPdfService` | Scoped | PDF-Generierung aus Legal-Markdown (QuestPDF); AVV-Paket kombiniert AVV+TOM+Unterauftragnehmer |
 | `ISignupLegalEmailService` / `SignupLegalEmailService` | Scoped | Bestätigungsmail nach Public Signup mit Legal-PDF-Anhängen |

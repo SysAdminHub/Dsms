@@ -219,43 +219,29 @@ else
                 <div class="mb-4">
                     <label class="form-label">Verarbeitungstätigkeiten zuordnen</label>
                     <p class="form-text text-muted">Nur Verarbeitungstätigkeiten des eigenen Mandanten.</p>
-                    @if (_availableActivities.Count == 0)
+                    @if (_activityRows.Count == 0)
                     {
                         <div class="alert alert-info dsms-alert mb-0">Keine Verarbeitungstätigkeiten vorhanden.</div>
                     }
                     else
                     {
-                        <div class="mb-2">
-                            <label class="form-label">Rolle bei neuen Zuordnungen</label>
-                            <InputSelect class="form-select" @bind-Value="_defaultRole" style="max-width: 320px;">
-                                @foreach (var role in Enum.GetValues<ProcessingRole>())
-                                {
-                                    <option value="@role">@ServiceProviderLabels.GetProcessingRoleLabel(role)</option>
-                                }
-                            </InputSelect>
-                        </div>
                         <div class="dsms-checkbox-list">
-                            @foreach (var activity in _availableActivities)
+                            @foreach (var row in _activityRows)
                             {
-                                var selected = _activityRoles.ContainsKey(activity.Id);
-                                <div class="border rounded p-2 mb-2">
+                                <div class="border rounded p-2 mb-2" @key="row.ActivityId">
                                     <div class="form-check">
                                         <input type="checkbox"
                                                class="form-check-input"
-                                               id="@($"pa-{activity.Id}")"
-                                               checked="@selected"
-                                               @onchange="e => ToggleActivity(activity.Id, (bool)e.Value!)" />
-                                        <label class="form-check-label" for="@($"pa-{activity.Id}")">@activity.Name</label>
+                                               id="@($"pa-{row.ActivityId}")"
+                                               checked="@row.Selected"
+                                               @onchange="e => ToggleActivity(row.ActivityId, (bool)e.Value!)" />
+                                        <label class="form-check-label" for="@($"pa-{row.ActivityId}")">@row.Name</label>
                                     </div>
-                                    @if (selected)
+                                    @if (row.Selected)
                                     {
                                         <div class="ms-4 mt-1">
                                             <label class="form-label small">Rolle in der Verarbeitung</label>
-                                            <InputSelect class="form-select form-select-sm"
-                                                         TValue="ProcessingRole"
-                                                         Value="_activityRoles[activity.Id]"
-                                                         ValueChanged="role => SetActivityRole(activity.Id, role)"
-                                                         ValueExpression="() => _activityRoles[activity.Id]">
+                                            <InputSelect class="form-select form-select-sm" @bind-Value="row.Role">
                                                 @foreach (var role in Enum.GetValues<ProcessingRole>())
                                                 {
                                                     <option value="@role">@ServiceProviderLabels.GetProcessingRoleLabel(role)</option>
@@ -281,7 +267,7 @@ else
                         <div class="dsms-checkbox-list">
                             @foreach (var tom in _availableToms)
                             {
-                                <div class="form-check">
+                                <div class="form-check" @key="tom.Id">
                                     <input type="checkbox"
                                            class="form-check-input"
                                            id="@($"tom-{tom.Id}")"
@@ -317,6 +303,7 @@ else
     [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
     [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ILogger<Edit> Logger { get; set; } = null!;
 
     private int? _tenantId;
     private bool _canEdit;
@@ -330,11 +317,9 @@ else
     private DateTime? _avvDate;
     private DateTime? _avvReviewDate;
     private DateTime? _tomsReviewDate;
-    private List<ProcessingActivity> _availableActivities = [];
+    private List<ActivityAssignmentRow> _activityRows = [];
     private List<Tom> _availableToms = [];
-    private Dictionary<int, ProcessingRole> _activityRoles = [];
     private HashSet<int> _selectedTomIds = [];
-    private ProcessingRole _defaultRole = ProcessingRole.DataProcessor;
     private ServiceProviderStatus? _previousStatus;
     private string? _previousName;
     private string? _previousResponsible;
@@ -351,7 +336,7 @@ else
             return;
         }
 
-        _availableActivities = await Db.ProcessingActivities
+        var availableActivities = await Db.ProcessingActivities
             .Where(p => p.TenantId == _tenantId)
             .OrderBy(p => p.Name)
             .ToListAsync();
@@ -360,6 +345,8 @@ else
             .Where(t => t.TenantId == _tenantId)
             .OrderBy(t => t.Title)
             .ToListAsync();
+
+        Dictionary<int, ProcessingRole>? existingActivityRoles = null;
 
         if (Id is > 0)
         {
@@ -381,7 +368,7 @@ else
             _avvDate = existing.DataProcessingAgreementDate?.ToDateTime(TimeOnly.MinValue);
             _avvReviewDate = existing.DataProcessingAgreementReviewedAt?.ToDateTime(TimeOnly.MinValue);
             _tomsReviewDate = existing.TomsReviewedAt?.ToDateTime(TimeOnly.MinValue);
-            _activityRoles = existing.ProcessingActivityLinks.ToDictionary(
+            existingActivityRoles = existing.ProcessingActivityLinks.ToDictionary(
                 l => l.ProcessingActivityId,
                 l => l.RoleInProcessing);
             _selectedTomIds = existing.TomLinks.Select(l => l.TomId).ToHashSet();
@@ -392,23 +379,34 @@ else
             _createLimit = await LicenseService.CanCreateProcessorAsync(_tenantId.Value);
         }
 
+        _activityRows = availableActivities.Select(a => new ActivityAssignmentRow
+        {
+            ActivityId = a.Id,
+            Name = a.Name,
+            Selected = existingActivityRoles?.ContainsKey(a.Id) ?? false,
+            Role = existingActivityRoles?.GetValueOrDefault(a.Id, ProcessingRole.DataProcessor) ?? ProcessingRole.DataProcessor
+        }).ToList();
+
         UpdateValidationWarning();
     }
 
     private void ToggleActivity(int activityId, bool selected)
     {
+        var row = _activityRows.First(r => r.ActivityId == activityId);
         if (selected)
         {
-            _activityRoles.TryAdd(activityId, _defaultRole);
+            if (!row.Selected)
+            {
+                row.Role = ProcessingRole.DataProcessor;
+            }
+
+            row.Selected = true;
         }
         else
         {
-            _activityRoles.Remove(activityId);
+            row.Selected = false;
         }
     }
-
-    private void SetActivityRole(int activityId, ProcessingRole role) =>
-        _activityRoles[activityId] = role;
 
     private void ToggleTom(int tomId, bool selected)
     {
@@ -446,77 +444,95 @@ else
         _saving = true;
         _saveError = null;
 
-        _model.TenantId = _tenantId.Value;
-        _model.DataProcessingAgreementDate = _avvDate.HasValue ? DateOnly.FromDateTime(_avvDate.Value) : null;
-        _model.DataProcessingAgreementReviewedAt = _avvReviewDate.HasValue ? DateOnly.FromDateTime(_avvReviewDate.Value) : null;
-        _model.TomsReviewedAt = _tomsReviewDate.HasValue ? DateOnly.FromDateTime(_tomsReviewDate.Value) : null;
-
-        if (!_model.ThirdCountryInvolvement)
+        try
         {
-            _model.ThirdCountryLegalBasis = ThirdCountryTransferLegalBasis.NoThirdCountryTransfer;
-        }
+            _model.TenantId = _tenantId.Value;
+            _model.DataProcessingAgreementDate = _avvDate.HasValue ? DateOnly.FromDateTime(_avvDate.Value) : null;
+            _model.DataProcessingAgreementReviewedAt = _avvReviewDate.HasValue ? DateOnly.FromDateTime(_avvReviewDate.Value) : null;
+            _model.TomsReviewedAt = _tomsReviewDate.HasValue ? DateOnly.FromDateTime(_tomsReviewDate.Value) : null;
 
-        var selectedActivityIds = _activityRoles.Keys.ToHashSet();
-        var validActivityIds = await Db.ProcessingActivities
-            .Where(p => p.TenantId == _tenantId && selectedActivityIds.Contains(p.Id))
-            .Select(p => p.Id)
-            .ToListAsync();
-
-        if (validActivityIds.Count != selectedActivityIds.Count)
-        {
-            _saveError = "Eine oder mehrere Verarbeitungstätigkeiten gehören nicht zu Ihrem Mandanten.";
-            _saving = false;
-            return;
-        }
-
-        var validTomIds = await Db.Toms
-            .Where(t => t.TenantId == _tenantId && _selectedTomIds.Contains(t.Id))
-            .Select(t => t.Id)
-            .ToListAsync();
-
-        if (validTomIds.Count != _selectedTomIds.Count)
-        {
-            _saveError = "Eine oder mehrere TOMs gehören nicht zu Ihrem Mandanten.";
-            _saving = false;
-            return;
-        }
-
-        if (_model.Id == 0)
-        {
-            var limitCheck = await LicenseService.CanCreateProcessorAsync(_tenantId.Value);
-            if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "ServiceProvider"))
+            if (!_model.ThirdCountryInvolvement)
             {
-                _saveError = limitCheck.Message;
-                _saving = false;
+                _model.ThirdCountryLegalBasis = ThirdCountryTransferLegalBasis.NoThirdCountryTransfer;
+            }
+
+            var selectedRows = _activityRows.Where(r => r.Selected).ToList();
+            var selectedActivityIds = selectedRows.Select(r => r.ActivityId).ToHashSet();
+            var validActivityIds = await Db.ProcessingActivities
+                .Where(p => p.TenantId == _tenantId && selectedActivityIds.Contains(p.Id))
+                .Select(p => p.Id)
+                .ToListAsync();
+
+            if (validActivityIds.Count != selectedActivityIds.Count)
+            {
+                _saveError = "Eine oder mehrere Verarbeitungstätigkeiten gehören nicht zu Ihrem Mandanten.";
                 return;
             }
 
-            _model.CreatedAt = DateTime.UtcNow;
-            Db.ServiceProviders.Add(_model);
+            var validTomIds = await Db.Toms
+                .Where(t => t.TenantId == _tenantId && _selectedTomIds.Contains(t.Id))
+                .Select(t => t.Id)
+                .ToListAsync();
+
+            if (validTomIds.Count != _selectedTomIds.Count)
+            {
+                _saveError = "Eine oder mehrere TOMs gehören nicht zu Ihrem Mandanten.";
+                return;
+            }
+
+            if (_model.Id == 0)
+            {
+                var limitCheck = await LicenseService.CanCreateProcessorAsync(_tenantId.Value);
+                if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "ServiceProvider"))
+                {
+                    _saveError = limitCheck.Message;
+                    return;
+                }
+
+                _model.CreatedAt = DateTime.UtcNow;
+                Db.ServiceProviders.Add(_model);
+                await Db.SaveChangesAsync();
+                await SaveLinksAsync(selectedRows, validActivityIds, validTomIds);
+                await Db.SaveChangesAsync();
+                await ComplianceAuditLog.LogProcessorCreatedAsync(_model.Id, _model.Name, _tenantId.Value);
+                Navigation.NavigateTo($"service-providers/{_model.Id}");
+                return;
+            }
+
+            _model.UpdatedAt = DateTime.UtcNow;
+            await SaveLinksAsync(selectedRows, validActivityIds, validTomIds);
             await Db.SaveChangesAsync();
-            await SaveLinksAsync(validActivityIds, validTomIds);
-            await Db.SaveChangesAsync();
-            await ComplianceAuditLog.LogProcessorCreatedAsync(_model.Id, _model.Name, _tenantId.Value);
+
+            var changes = ComplianceAuditDiffBuilder.ForProcessor(
+                _previousName, _previousStatus, _previousResponsible, _model);
+            await ComplianceAuditLog.LogProcessorUpdatedAsync(
+                _model.Id, _model.Name, _tenantId.Value, changes);
+
             Navigation.NavigateTo($"service-providers/{_model.Id}");
-            return;
         }
-
-        _model.UpdatedAt = DateTime.UtcNow;
-        await SaveLinksAsync(validActivityIds, validTomIds);
-        await Db.SaveChangesAsync();
-
-        var changes = ComplianceAuditDiffBuilder.ForProcessor(
-            _previousName, _previousStatus, _previousResponsible, _model);
-        await ComplianceAuditLog.LogProcessorUpdatedAsync(
-            _model.Id, _model.Name, _tenantId.Value, changes);
-
-        Navigation.NavigateTo($"service-providers/{_model.Id}");
+        catch (Exception ex)
+        {
+            Logger.LogError(
+                ex,
+                "Dienstleister speichern fehlgeschlagen. TenantId={TenantId}, ServiceProviderId={ServiceProviderId}, SelectedActivities={SelectedCount}",
+                _tenantId,
+                _model.Id,
+                _activityRows.Count(r => r.Selected));
+            _saveError = "Die Zuordnung konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.";
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     /// <summary>
     /// Aktualisiert Verknüpfungen zu Verarbeitungstätigkeiten und TOMs mandantensicher.
     /// </summary>
-    private async Task SaveLinksAsync(List<int> validActivityIds, List<int> validTomIds)
+    private async Task SaveLinksAsync(
+        List<ActivityAssignmentRow> selectedRows,
+        List<int> validActivityIds,
+        List<int> validTomIds)
     {
         var existingPaLinks = await Db.ProcessingActivityServiceProviders
             .Where(l => l.ServiceProviderId == _model.Id && l.TenantId == _tenantId)
@@ -528,17 +544,17 @@ else
             Db.ProcessingActivityServiceProviders.RemoveRange(toRemovePa);
         }
 
-        foreach (var activityId in validActivityIds)
+        foreach (var row in selectedRows.Where(r => validActivityIds.Contains(r.ActivityId)))
         {
-            var role = _activityRoles[activityId];
-            var existing = existingPaLinks.FirstOrDefault(l => l.ProcessingActivityId == activityId);
+            var role = row.Role;
+            var existing = existingPaLinks.FirstOrDefault(l => l.ProcessingActivityId == row.ActivityId);
             if (existing is null)
             {
                 Db.ProcessingActivityServiceProviders.Add(new ProcessingActivityServiceProvider
                 {
                     TenantId = _tenantId!.Value,
                     ServiceProviderId = _model.Id,
-                    ProcessingActivityId = activityId,
+                    ProcessingActivityId = row.ActivityId,
                     RoleInProcessing = role,
                     CreatedAt = DateTime.UtcNow
                 });
@@ -570,5 +586,13 @@ else
                 CreatedAt = DateTime.UtcNow
             });
         }
+    }
+
+    private sealed class ActivityAssignmentRow
+    {
+        public int ActivityId { get; init; }
+        public string Name { get; init; } = "";
+        public bool Selected { get; set; }
+        public ProcessingRole Role { get; set; } = ProcessingRole.DataProcessor;
     }
 }

@@ -410,8 +410,9 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 | `appsettings.json` | Lokaler Connection-String-Fallback (`dsms_dev`/`changeme`), `Application:Version`, `AppBranding` (sichtbarer Produktname, `LogoUrl`, `ShortName`-Fallback, URLs, Tagline), `Storage:UploadPath`, Logging |
 | `appsettings.Development.json` | `dsms_dev`, detaillierter EF-Logging |
 | `.env.example` / `.env` | Docker-Production-Secrets (nur `.env.example` im Repo) |
-| `docker-compose.yml` | App + MySQL 8, Volumes, Environment Variables |
-| `Dsms.Web/Dockerfile` | Multi-Stage Production-Image (Port 8080) |
+| `docker-compose.yml` | MySQL 8 + `dsms-web` + `dsms-provisioning`, Volumes, Environment Variables |
+| `Dsms.Web/Dockerfile` | Multi-Stage Production-Image für die Fachanwendung (Port 8080) |
+| `Dsms.Provisioning/Dockerfile` | Multi-Stage Production-Image für die Provisioning-App (Port 8080) |
 | `Properties/launchSettings.json` | `https://localhost:7245`, `http://localhost:5295` |
 | `Dsms.Web.csproj` | `UserSecretsId` für lokale Secrets |
 

@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Geändert
 
+- **Docker-Deployment (zwei Apps):** `docker-compose.yml` startet `db`, `dsms-web` (ehemals `dsms`) und `dsms-provisioning` mit gemeinsamer MySQL-Datenbank und geteiltem Data-Protection-Volume. `.env.example` und `Production_Deployment.md` für Zwei-Container-Betrieb aktualisiert. Neues `Dsms.Provisioning/Dockerfile` (Multi-Stage, Port 8080).
+
 - **DataProtection-Kompatibilität (Dsms.Web + Dsms.Provisioning):** Beide Apps nutzen `ApplicationName=DatenschutzCloud` und gemeinsamen Key-Ring (`../DataProtection-Keys`). Dsms.Web: konfigurierbarer DataProtection-Block, Start-Diagnose-Log. Behebt ungültige Passwort-Links aus Provisioning-Willkommensmails.
 
 ### Geändert (Dsms.Provisioning)

@@ -475,13 +475,15 @@ Verwendet in zahlreichen Fachseiten (VVT, DSFA, TOMs, Audits, Users, Tenants, �
 
 | Thema | Status |
 |-------|--------|
-| App + MySQL via Compose | ✅ |
-| Volumes: DB, Uploads, DataProtection-Keys | ✅ |
-| Migration beim Start | ✅ (`DatabaseSeeder` → `MigrateAsync`) |
+| App + MySQL via Compose | ✅ (`dsms-web`, `dsms-provisioning`, `db`) |
+| Volumes: DB, Uploads, DataProtection-Keys | ✅ (Uploads nur `dsms-web`; Keys geteilt) |
+| Migration beim Start | ✅ nur `dsms-web` (`DatabaseSeeder` → `MigrateAsync`) |
+| Provisioning ohne Migrationen | ✅ `Database__RunMigrationsOnStartup=false` |
 | Healthcheck DB | ✅ |
 | Healthcheck App | ❌ |
 | AppBranding per Env | ❌ |
-| Signup deaktivierbar | ❌ |
+| Signup deaktivierbar (Dsms.Web) | ❌ (nur dokumentiert; Signup über Provisioning-App) |
+| Provisioning-SMTP per Env | ✅ (`ProvisioningEmail__*`) |
 | Demo-Seeding steuerbar | ❌ |
 | Reverse-Proxy-Beispiel | ❌ (nur erwähnt) |
 

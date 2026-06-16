@@ -1,14 +1,28 @@
 # Production Deployment mit Docker
 
-Diese Anleitung beschreibt, wie DSMS als Open-Source-taugliches Docker-Deployment betrieben wird. Produktive Secrets gehören **nicht** ins Repository oder ins Image, sondern werden über `.env` und Environment Variables gesetzt.
+Diese Anleitung beschreibt, wie **Dsms.Web** (Fachanwendung) und **Dsms.Provisioning** (private Registrierungs-/Provisioning-App) gemeinsam als Open-Source-taugliches Docker-Deployment betrieben werden. Produktive Secrets gehören **nicht** ins Repository oder ins Image, sondern werden über `.env` und Environment Variables gesetzt.
 
 ## 1. Ziel
 
-DSMS soll als Docker Image gebaut und z. B. über Docker Hub veröffentlicht werden können. Im Production-Betrieb laufen:
+Im Production-Betrieb laufen drei Container:
 
-- die **DSMS-Blazor-Server-Anwendung** als Container
-- **MySQL 8** als separater Datenbank-Container
-- **persistente Volumes** für Datenbank, Dateiuploads und ASP.NET Data Protection Keys
+| Service | Container | Aufgabe |
+|---------|-----------|---------|
+| `db` | MySQL 8 | Gemeinsame Datenbank für beide Apps |
+| `dsms-web` | Dsms.Web | Fachanwendung, **Migrationen**, Uploads |
+| `dsms-provisioning` | Dsms.Provisioning | Öffentlicher Signup, Pläne, Provisioning, Welcome-/Legal-Mails |
+
+**Wichtig:**
+
+- Beide Apps nutzen **dieselbe MySQL-Datenbank**.
+- Beide Apps teilen **denselben Data-Protection-Key-Ring** (Volume `dsms_dataprotection`, Pfad `/app/DataProtection-Keys`, gleicher `ApplicationName`).
+- **Nur Dsms.Web** führt Schema-Migrationen aus (`DatabaseSeeder` → `MigrateAsync()` beim Start).
+- **Dsms.Provisioning** führt in Production **keine** Migrationen aus (`Database:RunMigrationsOnStartup=false`).
+- Passwortlinks aus Provisioning-Mails zeigen auf die Fachanwendung (`AppUrls:MainAppBaseUrl` / `APP_BASE_URL`).
+
+### Service-Umbenennung
+
+In früheren Versionen hieß der Web-Container-Service `dsms`. Er heißt jetzt **`dsms-web`**, damit er sich von `dsms-provisioning` unterscheidet. Entsprechend wurden die Umgebungsvariablen `DSMS_PORT` → `DSMS_WEB_HTTP_PORT` und `DSMS_IMAGE` → `DSMS_WEB_IMAGE` umbenannt.
 
 ## 2. Voraussetzungen
 
@@ -18,17 +32,19 @@ DSMS soll als Docker Image gebaut und z. B. über Docker Hub veröffentlicht wer
 
 Optional für den Image-Build:
 
-- [.NET 9 SDK](https://dotnet.microsoft.com/download) (nur wenn das Image lokal gebaut wird)
+- [.NET 9 SDK](https://dotnet.microsoft.com/download) (nur wenn die Images lokal gebaut werden)
 
 ## 3. Relevante Dateien
 
 | Datei | Zweck |
 |-------|--------|
-| `docker-compose.yml` | Startet App + MySQL mit Volumes und Environment Variables |
+| `docker-compose.yml` | Startet MySQL, Dsms.Web und Dsms.Provisioning mit Volumes und Environment Variables |
 | `.env` | Lokale/produktive Secrets und Einstellungen (**nicht committen**) |
 | `.env.example` | Vorlage mit Platzhalterwerten (**im Repository**) |
-| `Dsms.Web/Dockerfile` | Multi-Stage Build für das Production-Image |
+| `Dsms.Web/Dockerfile` | Multi-Stage Build für die Fachanwendung (Port 8080) |
+| `Dsms.Provisioning/Dockerfile` | Multi-Stage Build für die Provisioning-App (Port 8080) |
 | `Dsms.Web/appsettings.json` | Basis-Konfiguration mit **lokalem** Development-Fallback |
+| `Dsms.Provisioning/appsettings.json` | Basis-Konfiguration mit Platzhaltern (Production-Werte über Env Vars) |
 
 ## 4. Warum keine produktiven Secrets in appsettings.json?
 
@@ -39,19 +55,11 @@ Stattdessen:
 - `appsettings.json` enthält nur unkritische Defaults und Platzhalter
 - Production-Werte kommen aus Environment Variables (über `.env` + `docker-compose.yml`)
 
-Die in der Sidebar angezeigte Version wird aus `Application:Version` in `appsettings.json` gelesen (kein Secret; darf im Repository stehen). Für Production kann der Wert bei Bedarf über `Application__Version` als Environment Variable überschrieben werden.
+## 5. Lokale Entwicklung (ohne vollständiges Compose)
 
-## 5. Lokaler Default-ConnectionString (Entwicklung)
+In `Dsms.Web/appsettings.json` und `Dsms.Provisioning/appsettings.json` bleiben lokale Fallbacks für `dotnet run` erhalten.
 
-In `Dsms.Web/appsettings.json` bleibt dieser Fallback für lokales `dotnet run` erhalten:
-
-```
-Server=localhost;Port=3306;Database=dsms_dev;User=root;Password=changeme;CharSet=utf8mb4;
-```
-
-`changeme` ist ein bewusster **lokaler Platzhalter**, kein produktives Secret.
-
-Für lokale Entwicklung kann zusätzlich nur die Datenbank per Compose gestartet werden:
+Nur die Datenbank per Compose starten:
 
 ```bash
 docker compose up -d db
@@ -59,19 +67,13 @@ docker compose up -d db
 
 ## 6. Production: Connection String per Environment Variable
 
-Im Docker-Production-Betrieb überschreibt diese Variable den lokalen Default:
+Im Docker-Production-Betrieb überschreibt diese Variable den lokalen Default in **beiden** Apps:
 
 ```
 ConnectionStrings__DefaultConnection
 ```
 
-Die Anwendung lädt den Wert über den Standard-.NET-Weg:
-
-```csharp
-builder.Configuration.GetConnectionString("DefaultConnection")
-```
-
-In `docker-compose.yml` wird der Wert gesetzt (ohne echte Passwörter in der Datei):
+In `docker-compose.yml` wird der Wert für beide App-Services gesetzt:
 
 ```yaml
 ConnectionStrings__DefaultConnection: Server=db;Port=3306;Database=${MYSQL_DATABASE};User=${MYSQL_USER};Password=${MYSQL_PASSWORD};CharSet=utf8mb4;
@@ -84,20 +86,13 @@ cp .env.example .env        # Linux/macOS
 copy .env.example .env      # Windows
 ```
 
-Dann in `.env` starke Passwörter setzen:
-
-```env
-MYSQL_DATABASE=dsms
-MYSQL_USER=dsms_user
-MYSQL_PASSWORD=<starkes-passwort>
-MYSQL_ROOT_PASSWORD=<starkes-root-passwort>
-ASPNETCORE_ENVIRONMENT=Production
-ASPNETCORE_URLS=http://+:8080
-```
+Dann in `.env` starke Passwörter, öffentliche URLs und SMTP-Platzhalter ersetzen.
 
 **`.env` niemals committen.**
 
 ## 8. Environment Variables
+
+### Datenbank
 
 | Variable | Beschreibung |
 |----------|----------------|
@@ -106,22 +101,72 @@ ASPNETCORE_URLS=http://+:8080
 | `MYSQL_PASSWORD` | Passwort des Anwendungsbenutzers |
 | `MYSQL_ROOT_PASSWORD` | MySQL-Root-Passwort |
 | `MYSQL_PORT` | Host-Port für MySQL (Default: `3306`) |
-| `ASPNETCORE_ENVIRONMENT` | z. B. `Production` |
-| `ASPNETCORE_URLS` | z. B. `http://+:8080` |
-| `DSMS_PORT` | Host-Port für die App (Default: `8080`) |
-| `DSMS_IMAGE` | Image-Name/Tag (Default: `dsms:latest`) |
-| `STORAGE_UPLOAD_PATH` | Relativer Upload-Pfad (Default: `Data/Uploads`) |
-| `ConnectionStrings__DefaultConnection` | Wird in `docker-compose.yml` aus MySQL-Variablen zusammengesetzt |
 
-SMTP- und E-Mail-Einstellungen werden **nicht** über `appsettings.json` konfiguriert, sondern über die DSMS-Oberfläche unter `/platform/email/settings` (in der Datenbank, verschlüsselt via Data Protection).
+### Ports
+
+| Variable | Beschreibung |
+|----------|----------------|
+| `DSMS_WEB_HTTP_PORT` | Host-Port für Dsms.Web (Default: `8081` → Container `8080`) |
+| `DSMS_PROVISIONING_HTTP_PORT` | Host-Port für Dsms.Provisioning (Default: `8082` → Container `8080`) |
+
+### Öffentliche URLs
+
+| Variable | Beschreibung |
+|----------|----------------|
+| `APP_BASE_URL` | Öffentliche URL der Fachanwendung (Passwortlinks, z. B. `https://app.example.com`) |
+| `PROVISIONING_BASE_URL` | Öffentliche URL der Provisioning-App (Signup, z. B. `https://signup.example.com`) |
+
+### Data Protection (beide Apps)
+
+| Variable | Compose-Mapping | Beschreibung |
+|----------|-----------------|--------------|
+| `DATA_PROTECTION_APPLICATION_NAME` | `DataProtection__ApplicationName` | Muss in beiden Apps identisch sein (Default: `DatenschutzCloud`) |
+
+Der Keys-Pfad ist in Compose fest auf `/app/DataProtection-Keys` gesetzt und wird über das Volume `dsms_dataprotection` geteilt.
+
+### Dsms.Web
+
+| Variable | Compose-Mapping | Beschreibung |
+|----------|-----------------|--------------|
+| `ASPNETCORE_ENVIRONMENT` | `ASPNETCORE_ENVIRONMENT` | z. B. `Production` |
+| `ASPNETCORE_URLS` | `ASPNETCORE_URLS` | z. B. `http://+:8080` |
+| `DSMS_WEB_IMAGE` | Image-Tag für `dsms-web` | Default: `dsms-web:latest` |
+| `STORAGE_UPLOAD_PATH` | `Storage__UploadPath` | Upload-Pfad im Container (Default: `/app/Data/Uploads`) |
+
+**Noch nicht in Dsms.Web implementiert (nur dokumentiert):**
+
+- `AppUrls__SignupAppBaseUrl` – geplanter Verweis auf die externe Signup-App in Login/Navigation
+- `Features__PublicSignupEnabled=false` – geplanter Feature-Flag zum Deaktivieren des eingebauten `/signup` in Dsms.Web
+
+Bis diese Konfigurationen existieren, Signup ausschließlich über Dsms.Provisioning betreiben und ggf. `/signup` in Dsms.Web per Reverse Proxy blockieren.
+
+### Dsms.Provisioning
+
+| Variable | Compose-Mapping | Beschreibung |
+|----------|-----------------|--------------|
+| `DSMS_PROVISIONING_IMAGE` | Image-Tag für `dsms-provisioning` | Default: `dsms-provisioning:latest` |
+| `PROVISIONING_PUBLIC_SIGNUP_ENABLED` | `Features__PublicSignupEnabled` | Öffentlichen Signup aktivieren (`true`/`false`) |
+| `PROVISIONING_RUN_MIGRATIONS_ON_STARTUP` | `Database__RunMigrationsOnStartup` | In Production **`false`** lassen |
+| `PROVISIONING_EMAIL_USE_DATABASE_SETTINGS` | `ProvisioningEmail__UseDatabaseSettings` | `false` = SMTP aus Env Vars |
+| `PROVISIONING_EMAIL_ENABLED` | `ProvisioningEmail__Enabled` | E-Mail-Versand aktiv |
+| `PROVISIONING_EMAIL_SMTP_HOST` | `ProvisioningEmail__SmtpHost` | SMTP-Server |
+| `PROVISIONING_EMAIL_SMTP_PORT` | `ProvisioningEmail__SmtpPort` | SMTP-Port (Default: `587`) |
+| `PROVISIONING_EMAIL_ENCRYPTION` | `ProvisioningEmail__Encryption` | z. B. `StartTls` |
+| `PROVISIONING_EMAIL_SMTP_USERNAME` | `ProvisioningEmail__SmtpUsername` | SMTP-Benutzer |
+| `PROVISIONING_EMAIL_SMTP_PASSWORD` | `ProvisioningEmail__SmtpPassword` | SMTP-Passwort (**nur in `.env`**) |
+| `PROVISIONING_EMAIL_SENDER_EMAIL` | `ProvisioningEmail__SenderEmail` | Absender-Adresse |
+| `PROVISIONING_EMAIL_SENDER_NAME` | `ProvisioningEmail__SenderName` | Absender-Anzeigename |
+| `PROVISIONING_EMAIL_TIMEOUT_SECONDS` | `ProvisioningEmail__TimeoutSeconds` | SMTP-Timeout |
+
+SMTP für die **Fachanwendung** (Passwort-Reset, Mandanten-Mails) wird weiterhin über die DSMS-Oberfläche unter `/platform/email/settings` in der Datenbank gepflegt (verschlüsselt via Data Protection).
 
 ## 9. Docker Volumes
 
 | Volume | Mount im Container | Inhalt |
 |--------|-------------------|--------|
-| `dsms_mysql_data` | `/var/lib/mysql` | MySQL-Datenbankdateien |
-| `dsms_uploads` | `/app/Data/Uploads` | Hochgeladene Nachweisdokumente |
-| `dsms_dataprotection` | `/app/DataProtection-Keys` | ASP.NET Data Protection Keys (Login, SMTP-Verschlüsselung, Tokens) |
+| `dsms_mysql_data` | `/var/lib/mysql` (db) | MySQL-Datenbankdateien |
+| `dsms_uploads` | `/app/Data/Uploads` (dsms-web) | Hochgeladene Nachweisdokumente |
+| `dsms_dataprotection` | `/app/DataProtection-Keys` (beide Apps) | ASP.NET Data Protection Keys (Login, Tokens, SMTP-Verschlüsselung) |
 
 Ohne persistente Volumes gehen Daten bei Container-Neustarts oder Image-Updates verloren.
 
@@ -137,19 +182,20 @@ Nur die Datenbank (z. B. für lokales `dotnet run`):
 docker compose up -d db
 ```
 
-Erster Start: Migrationen und Seeding laufen automatisch beim App-Start.
+**Erster Start:** Dsms.Web führt Migrationen und Seeding automatisch beim Start aus. Dsms.Provisioning startet danach und nutzt das bereits migrierte Schema.
 
-Die App ist erreichbar unter `http://localhost:8080` (oder dem in `DSMS_PORT` gesetzten Port).
+Erreichbarkeit (Default-Ports aus `.env.example`):
+
+- Fachanwendung: `http://localhost:8081`
+- Provisioning / Signup: `http://localhost:8082`
+
+In Production HTTPS über einen **Reverse Proxy** (nginx, Traefik, Caddy) vor den Containern terminieren und `APP_BASE_URL` / `PROVISIONING_BASE_URL` auf die HTTPS-URLs setzen.
 
 ## 11. Logs ansehen
 
 ```bash
-docker compose logs -f dsms
-```
-
-MySQL-Logs:
-
-```bash
+docker compose logs -f dsms-web
+docker compose logs -f dsms-provisioning
 docker compose logs -f db
 ```
 
@@ -158,22 +204,23 @@ docker compose logs -f db
 **Bei lokalem Build:**
 
 ```bash
-docker compose build dsms
+docker compose build dsms-web dsms-provisioning
 docker compose up -d
 ```
 
-**Bei Image aus Registry (z. B. Docker Hub):**
+**Bei Images aus Registry (z. B. Docker Hub):**
 
-In `.env` den Image-Namen setzen:
+In `.env` die Image-Namen setzen:
 
 ```env
-DSMS_IMAGE=ihr-benutzername/dsms:latest
+DSMS_WEB_IMAGE=ihr-benutzername/dsms-web:latest
+DSMS_PROVISIONING_IMAGE=ihr-benutzername/dsms-provisioning:latest
 ```
 
 Dann:
 
 ```bash
-docker compose pull dsms
+docker compose pull dsms-web dsms-provisioning
 docker compose up -d
 ```
 
@@ -181,11 +228,11 @@ docker compose up -d
 
 Regelmäßig sichern:
 
-1. **MySQL-Volume** (`dsms_mysql_data`) – enthält alle Anwendungsdaten
-2. **Upload-Volume** (`dsms_uploads`) – enthält hochgeladene Dateien
-3. **Data-Protection-Volume** (`dsms_dataprotection`) – ohne diese Keys sind verschlüsselte SMTP-Passwörter und Auth-Cookies nach Neustart ggf. ungültig
+1. **MySQL-Volume** (`dsms_mysql_data`) – alle Anwendungsdaten beider Apps
+2. **Upload-Volume** (`dsms_uploads`) – hochgeladene Dateien der Fachanwendung
+3. **Data-Protection-Volume** (`dsms_dataprotection`) – ohne diese Keys sind verschlüsselte SMTP-Passwörter, Auth-Cookies und Passwort-Reset-Token nach Neustart ggf. ungültig
 
-Beispiel (Volume-Pfad ermitteln und archivieren):
+Beispiel (Volume-Pfad ermitteln):
 
 ```bash
 docker volume inspect dsms_mysql_data
@@ -198,21 +245,47 @@ Für produktive Umgebungen empfiehlt sich zusätzlich ein dediziertes MySQL-Back
 - Starke, eindeutige Passwörter in `.env` verwenden
 - `.env` **nicht** ins Repository committen (steht in `.gitignore`)
 - `appsettings.Production.json` mit echten Secrets **nicht** committen
-- HTTPS über einen **Reverse Proxy** (nginx, Traefik, Caddy) vor dem Container terminieren
+- HTTPS über Reverse Proxy vor beiden App-Containern
 - MySQL-Port (`3306`) in Production ggf. nicht nach außen veröffentlichen
-- SMTP-Zugangsdaten nur über die DSMS-Admin-Oberfläche pflegen
+- Provisioning-SMTP-Zugangsdaten nur in `.env` / Secret-Store, nicht im Repository
 - Falls früher echte Secrets committed wurden: aus Git-Historie entfernen und betroffene Passwörter rotieren
 
-## 15. Image bauen und veröffentlichen
+## 15. Images bauen und veröffentlichen
 
 ```bash
-docker build -f Dsms.Web/Dockerfile -t ihr-benutzername/dsms:latest .
-docker push ihr-benutzername/dsms:latest
+docker build -f Dsms.Web/Dockerfile -t ihr-benutzername/dsms-web:latest .
+docker build -f Dsms.Provisioning/Dockerfile -t ihr-benutzername/dsms-provisioning:latest .
+
+docker push ihr-benutzername/dsms-web:latest
+docker push ihr-benutzername/dsms-provisioning:latest
 ```
 
-Das Image enthält:
+Die Images enthalten:
 
-- `appsettings.json` mit lokalem Development-Fallback (`localhost` / `changeme`)
+- `appsettings.json` mit lokalen Development-Fallbacks
 - **keine** `.env`
-- **keine** `appsettings.Production.json` mit Secrets
+- **keine** produktiven Secrets
 - **keine** Upload-Dateien
+
+## 16. Architektur (Überblick)
+
+```mermaid
+flowchart LR
+  subgraph compose [docker-compose]
+    DB[(MySQL db)]
+    WEB[dsms-web]
+    PROV[dsms-provisioning]
+    DP[(dsms_dataprotection)]
+    UP[(dsms_uploads)]
+  end
+
+  DB --> WEB
+  DB --> PROV
+  DP --> WEB
+  DP --> PROV
+  UP --> WEB
+
+  UserApp[Fachanwendung-Nutzer] --> WEB
+  UserSignup[Registrierung] --> PROV
+  PROV -->|Passwortlink| WEB
+```

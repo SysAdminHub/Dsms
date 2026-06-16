@@ -358,7 +358,7 @@ Legal-Dateien: `Legal/legal-documents.json`, `Legal/current/*.md` (private Anbie
 ## Bekannte TODOs
 
 - **LogService / Audit-Logging:** Provisioning-, E-Mail-, Plan- und PendingSignup-Änderungen werden noch nicht protokolliert.
-- **Docker** / Deployment-Image für Provisioning-App (gemeinsames DataProtection-Volume).
+- ~~**Docker** / Deployment-Image für Provisioning-App~~ – erledigt: `Dsms.Provisioning/Dockerfile`, gemeinsames Compose-Setup mit `dsms-web` (siehe `Production_Deployment.md`).
 - **E-Mail-Einstellungs-UI** in Provisioning (optional; aktuell Verwaltung in Dsms.Web).
 - **Zahlungsanbieter** (Mollie/Stripe).
 

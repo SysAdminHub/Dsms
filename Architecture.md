@@ -293,6 +293,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ITenantManagementService` / `TenantManagementService` | Scoped | Plattformweite Mandantenverwaltung (nur Superuser, `/tenants/edit`) |
 | `ITenantDeletionService` / `TenantDeletionService` | Scoped | Löschanforderung markieren (`IsDeletionRequested`); Systemmail; Auditlog; Superuser-Deaktivierung (`ExecuteDeletionAsync`, Soft Delete via `IsActive=false`); Abbrechen nur Superuser |
 | `ITenantDeletionNotificationService` / `TenantDeletionNotificationService` | Scoped | Systembenachrichtigung bei Löschanforderung (`EmailSettings.SystemNotificationRecipientEmail`) |
+| `ICommunityTemplateNotificationService` / `CommunityTemplateNotificationService` | Scoped | Systembenachrichtigung bei Community-Einreichung (`EmailSettings.SystemNotificationRecipientEmail`); E-Mail an Einreicher nach Freigabe/Ablehnung (SMTP über `IEmailService`) |
 | `TenantDataEndpoints` | Minimal API | `POST /tenant-daten/export` – ZIP-Download mit serverseitiger Berechtigungsprüfung |
 | `DocumentUploadValidation` | Static | Dateityp-, MIME- und Größenprüfung für Uploads (PDF, DOCX, XLSX, JPG, PNG; max. 10 MB) |
 | `DocumentLinksService` | Scoped | Many-to-Many-Verknüpfungen (`DocumentLink`); Laden, Setzen, Validierung mandantensicher |
@@ -447,7 +448,7 @@ Reihenfolge in `Program.cs`:
 
 1. **`await db.Database.MigrateAsync()`** – wendet ausstehende Migrationen an (Startzeit)
 2. Rollen anlegen, falls fehlend (`Superuser`, `Admin`, `Auditor`, `User`)
-3. Wenn **kein** Mandant existiert: Demo-Mandant, Fachdaten, vier Demo-Benutzer inkl. `superuser@demo.local` (ohne `TenantId`)
+3. Wenn **kein** Mandant existiert: Demo-Mandant, Fachdaten, sechs Demo-Benutzer inkl. `superuser@datenschutz-cloud.eu` (ohne `TenantId`)
 
 **Hinweis:** Es gibt **keine** separate Prüfung einzelner Tabellen/Spalten außerhalb von EF-Migrationen. Schema-Änderungen erfolgen über neue EF-Migrationen.
 

@@ -285,7 +285,7 @@ Quellen: `@page`-Direktiven, `Login.razor`, `NavMenu.razor`, `IdentityComponents
 |-------|--------|
 | Domain `demo.datenschutz-cloud.eu` | **TODO:** Nicht im Code/Deployment dokumentiert |
 | Demo-Login-Route | Gleiche App-Routen wie Produktion (`/Account/Login`), sofern separate Instanz |
-| Demo-Zugangsdaten | **Nicht dokumentieren** – lokaler Seed (`DatabaseSeeder`) nutzt `@demo.local`-Konten nur für Entwicklung |
+| Demo-Zugangsdaten | **Nicht dokumentieren** – lokaler Seed (`DatabaseSeeder`) nutzt `@datenschutz-cloud.eu`-Konten nur für Entwicklung |
 
 ### Mögliche CTAs
 

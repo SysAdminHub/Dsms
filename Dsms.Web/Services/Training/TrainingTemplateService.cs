@@ -2,6 +2,7 @@ using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
+using Dsms.Web.Services.CommunityTemplates;
 using Dsms.Web.Services.Logging;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +19,8 @@ public class TrainingTemplateService(
     TrainingTemplateAccessService templateAccess,
     TrainingTemplateAssetService assetService,
     TrainingQuestionService questionService,
-    IComplianceAuditLogService complianceAuditLog)
+    IComplianceAuditLogService complianceAuditLog,
+    ICommunityTemplateNotificationService communityTemplateNotification)
 {
     public Task<bool> CanViewAsync(TrainingTemplate template, CancellationToken ct = default) =>
         templateAccess.CanViewAsync(template, ct);
@@ -376,6 +378,7 @@ public class TrainingTemplateService(
     {
         var template = await db.TrainingTemplates
             .IgnoreQueryFilters()
+            .Include(t => t.Tenant)
             .FirstOrDefaultAsync(t => t.Id == templateId, ct);
 
         if (template is null || !await templateAccess.CanSubmitToCommunityAsync(template, ct))
@@ -387,6 +390,7 @@ public class TrainingTemplateService(
         if (activeSections == 0)
             return TrainingTemplateOperationResult.Fail("Mindestens eine aktive Schulungskarte ist erforderlich.");
 
+        var previousStatus = template.CommunityStatus;
         var userId = await currentUser.GetUserIdAsync();
         var now = DateTime.UtcNow;
         var tenantId = template.TenantId!.Value;
@@ -406,6 +410,28 @@ public class TrainingTemplateService(
 
         await db.SaveChangesAsync(ct);
         await complianceAuditLog.LogTrainingTemplateSubmittedToCommunityAsync(template.Id, template.Title, tenantId);
+
+        if (previousStatus is CommunityTemplateStatus.None or CommunityTemplateStatus.Rejected)
+        {
+            ApplicationUser? user = userId is not null
+                ? await userManager.FindByIdAsync(userId)
+                : null;
+            await communityTemplateNotification.TryNotifyCommunityTemplateSubmittedAsync(
+                new CommunityTemplateNotificationModel
+                {
+                    TemplateType = CommunityTemplateNotificationType.Training,
+                    TemplateId = template.Id,
+                    TemplateTitle = template.Title,
+                    TenantId = tenantId,
+                    TenantName = template.Tenant?.Name ?? "—",
+                    SubmittedByUserId = userId ?? "—",
+                    SubmittedByName = user?.DisplayName ?? user?.UserName,
+                    SubmittedByEmail = user?.Email,
+                    SubmittedAt = now
+                },
+                ct);
+        }
+
         return TrainingTemplateOperationResult.Ok(template.Id, TrainingLabels.CommunitySubmitSuccess);
     }
 
@@ -478,6 +504,27 @@ public class TrainingTemplateService(
         await db.SaveChangesAsync(ct);
         await complianceAuditLog.LogTrainingTemplateCommunityApprovedAsync(
             globalCopy.Id, globalCopy.Title, source.Id, sourceTenantId, questionCountCopied);
+
+        if (!string.IsNullOrEmpty(source.CommunitySubmittedByUserId))
+        {
+            ApplicationUser? submitter = await userManager.FindByIdAsync(source.CommunitySubmittedByUserId);
+            await communityTemplateNotification.TryNotifyCommunityTemplateReviewedAsync(
+                new CommunityTemplateReviewNotificationModel
+                {
+                    TemplateType = CommunityTemplateNotificationType.Training,
+                    TemplateId = source.Id,
+                    TemplateTitle = source.Title,
+                    TenantId = sourceTenantId,
+                    SubmittedByUserId = source.CommunitySubmittedByUserId,
+                    SubmittedByName = submitter?.DisplayName ?? submitter?.UserName,
+                    SubmittedByEmail = submitter?.Email,
+                    IsApproved = true,
+                    ReviewComment = reviewComment?.Trim(),
+                    ReviewedAt = now
+                },
+                ct);
+        }
+
         return TrainingTemplateOperationResult.Ok(globalCopy.Id, TrainingLabels.CommunityApproveSuccess);
     }
 
@@ -510,6 +557,27 @@ public class TrainingTemplateService(
 
         await db.SaveChangesAsync(ct);
         await complianceAuditLog.LogTrainingTemplateCommunityRejectedAsync(source.Id, source.Title, tenantId);
+
+        if (!string.IsNullOrEmpty(source.CommunitySubmittedByUserId))
+        {
+            ApplicationUser? submitter = await userManager.FindByIdAsync(source.CommunitySubmittedByUserId);
+            await communityTemplateNotification.TryNotifyCommunityTemplateReviewedAsync(
+                new CommunityTemplateReviewNotificationModel
+                {
+                    TemplateType = CommunityTemplateNotificationType.Training,
+                    TemplateId = source.Id,
+                    TemplateTitle = source.Title,
+                    TenantId = tenantId,
+                    SubmittedByUserId = source.CommunitySubmittedByUserId,
+                    SubmittedByName = submitter?.DisplayName ?? submitter?.UserName,
+                    SubmittedByEmail = submitter?.Email,
+                    IsApproved = false,
+                    ReviewComment = rejectionReason?.Trim(),
+                    ReviewedAt = now
+                },
+                ct);
+        }
+
         return TrainingTemplateOperationResult.Ok(source.Id, TrainingLabels.CommunityRejectSuccess);
     }
 

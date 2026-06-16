@@ -2,6 +2,7 @@ using Dsms.Web.Data;
 using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
+using Dsms.Web.Services.CommunityTemplates;
 using Dsms.Web.Services.Licenses;
 using Dsms.Web.Services.Logging;
 using Microsoft.AspNetCore.Identity;
@@ -18,7 +19,8 @@ public sealed class AuditTemplateService(
     ArchiveViewContextAccessor archiveView,
     ILicenseService licenseService,
     ILicenseCreateGuard licenseCreateGuard,
-    IComplianceAuditLogService complianceAuditLog) : IAuditTemplateService
+    IComplianceAuditLogService complianceAuditLog,
+    ICommunityTemplateNotificationService communityTemplateNotification) : IAuditTemplateService
 {
     public async Task<bool> CanViewAsync(AuditTemplate template, CancellationToken ct = default)
     {
@@ -243,6 +245,7 @@ public sealed class AuditTemplateService(
     {
         var template = await db.AuditTemplates
             .IgnoreQueryFilters()
+            .Include(t => t.Tenant)
             .FirstOrDefaultAsync(t => t.Id == id, ct);
 
         if (template is null || !await CanSubmitToCommunityAsync(template, ct))
@@ -250,20 +253,43 @@ public sealed class AuditTemplateService(
             return new AuditTemplateOperationResult(false, AuditTemplateLabels.AccessDenied);
         }
 
+        var previousStatus = template.CommunityStatus;
         var userId = await currentUser.GetUserIdAsync();
+        var submittedAt = DateTime.UtcNow;
         template.CommunityStatus = CommunityStatus.Submitted;
-        template.SubmittedAt = DateTime.UtcNow;
+        template.SubmittedAt = submittedAt;
         template.SubmittedByUserId = userId;
         template.ReviewedAt = null;
         template.ReviewedByUserId = null;
         template.ReviewComment = null;
-        template.UpdatedAt = DateTime.UtcNow;
+        template.UpdatedAt = submittedAt;
 
         await db.SaveChangesAsync(ct);
 
         if (template.TenantId is int tenantId)
         {
             await complianceAuditLog.LogAuditTemplatePublishedToCommunityAsync(template.Id, template.Title, tenantId);
+
+            if (previousStatus is CommunityStatus.None or CommunityStatus.Rejected)
+            {
+                ApplicationUser? user = userId is not null
+                    ? await userManager.FindByIdAsync(userId)
+                    : null;
+                await communityTemplateNotification.TryNotifyCommunityTemplateSubmittedAsync(
+                    new CommunityTemplateNotificationModel
+                    {
+                        TemplateType = CommunityTemplateNotificationType.Audit,
+                        TemplateId = template.Id,
+                        TemplateTitle = template.Title,
+                        TenantId = tenantId,
+                        TenantName = template.Tenant?.Name ?? "—",
+                        SubmittedByUserId = userId ?? "—",
+                        SubmittedByName = user?.DisplayName ?? user?.UserName,
+                        SubmittedByEmail = user?.Email,
+                        SubmittedAt = submittedAt
+                    },
+                    ct);
+            }
         }
 
         return new AuditTemplateOperationResult(true, AuditTemplateLabels.SubmitSuccess);
@@ -329,6 +355,27 @@ public sealed class AuditTemplateService(
         source.UpdatedAt = now;
 
         await db.SaveChangesAsync(ct);
+
+        if (!string.IsNullOrEmpty(source.SubmittedByUserId))
+        {
+            ApplicationUser? submitter = await userManager.FindByIdAsync(source.SubmittedByUserId);
+            await communityTemplateNotification.TryNotifyCommunityTemplateReviewedAsync(
+                new CommunityTemplateReviewNotificationModel
+                {
+                    TemplateType = CommunityTemplateNotificationType.Audit,
+                    TemplateId = source.Id,
+                    TemplateTitle = source.Title,
+                    TenantId = source.TenantId,
+                    SubmittedByUserId = source.SubmittedByUserId,
+                    SubmittedByName = submitter?.DisplayName ?? submitter?.UserName,
+                    SubmittedByEmail = submitter?.Email,
+                    IsApproved = true,
+                    ReviewComment = reviewComment?.Trim(),
+                    ReviewedAt = now
+                },
+                ct);
+        }
+
         return new AuditTemplateOperationResult(true, AuditTemplateLabels.ApproveSuccess);
     }
 
@@ -360,6 +407,27 @@ public sealed class AuditTemplateService(
         source.UpdatedAt = now;
 
         await db.SaveChangesAsync(ct);
+
+        if (!string.IsNullOrEmpty(source.SubmittedByUserId))
+        {
+            ApplicationUser? submitter = await userManager.FindByIdAsync(source.SubmittedByUserId);
+            await communityTemplateNotification.TryNotifyCommunityTemplateReviewedAsync(
+                new CommunityTemplateReviewNotificationModel
+                {
+                    TemplateType = CommunityTemplateNotificationType.Audit,
+                    TemplateId = source.Id,
+                    TemplateTitle = source.Title,
+                    TenantId = source.TenantId,
+                    SubmittedByUserId = source.SubmittedByUserId,
+                    SubmittedByName = submitter?.DisplayName ?? submitter?.UserName,
+                    SubmittedByEmail = submitter?.Email,
+                    IsApproved = false,
+                    ReviewComment = reviewComment?.Trim(),
+                    ReviewedAt = now
+                },
+                ct);
+        }
+
         return new AuditTemplateOperationResult(true, AuditTemplateLabels.RejectSuccess);
     }
 

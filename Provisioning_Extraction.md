@@ -956,7 +956,7 @@ Features__PublicSignupEnabled=true
 | # | Test | Erwartung |
 |---|------|-----------|
 | T1 | Provisioning-App startet gegen bestehende Test-DB | Kein Migration-Fehler (Migrations von Fach-App bereits applied) |
-| T2 | Superuser-Login in Provisioning-App | Erfolg mit `superuser@demo.local` |
+| T2 | Superuser-Login in Provisioning-App | Erfolg mit `superuser@datenschutz-cloud.eu` |
 | T3 | Admin-Login in Provisioning-App auf `/platform/signups` | **Zugriff verweigert** |
 | T4 | Production-Modus: `RunMigrationsOnStartup=false` | Kein `MigrateAsync` im Log |
 

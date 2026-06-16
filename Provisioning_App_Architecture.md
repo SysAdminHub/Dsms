@@ -485,7 +485,7 @@ dotnet run
 
 Standard-URL: `http://localhost:5296`
 
-Voraussetzung: MySQL mit bereits durch `Dsms.Web` migrierter Datenbank und vorhandenem Superuser (z. B. `superuser@demo.local` aus Demo-Seeding).
+Voraussetzung: MySQL mit bereits durch `Dsms.Web` migrierter Datenbank und vorhandenem Superuser (z. B. `superuser@datenschutz-cloud.eu` aus Demo-Seeding).
 
 ### Connection String (Entwicklung)
 

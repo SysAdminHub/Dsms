@@ -1,17 +1,16 @@
 ﻿@inherits LayoutComponentBase
 @layout Dsms.Web.Components.Layout.MainLayout
 
-<h1>Manage your account</h1>
+<BrandedPageTitle Title="Kontoeinstellungen" />
 
-<div>
-    <h2>Change your account settings</h2>
-    <hr />
-    <div class="row">
-        <div class="col-lg-3">
-            <ManageNavMenu />
-        </div>
-        <div class="col-lg-9">
-            @Body
-        </div>
+<PageHeader Title="Kontoeinstellungen"
+            Subtitle="Verwalten Sie Ihr Benutzerkonto, Ihre Anmeldedaten und Ihre persönlichen Daten." />
+
+<div class="dsms-account-manage">
+    <aside class="dsms-account-manage-nav" aria-label="Kontoeinstellungen">
+        <ManageNavMenu />
+    </aside>
+    <div class="dsms-account-manage-content">
+        @Body
     </div>
 </div>

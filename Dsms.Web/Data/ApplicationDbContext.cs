@@ -119,6 +119,7 @@ public class ApplicationDbContext(
             e.Property(l => l.InternalNote).HasColumnType("text");
             e.Property(l => l.PlanName).HasDefaultValue("Manual");
             e.Property(l => l.Status).HasDefaultValue("Active");
+            e.Property(l => l.HasTrainingModule).HasDefaultValue(true);
             e.HasIndex(l => l.LicenseNumber).IsUnique();
             e.HasIndex(l => l.CustomerName);
             e.HasIndex(l => l.Status);
@@ -143,6 +144,7 @@ public class ApplicationDbContext(
             e.Property(p => p.PriceMonthly).HasPrecision(18, 2);
             e.Property(p => p.PriceYearly).HasPrecision(18, 2);
             e.Property(p => p.IsPromotionalPriceEnabled).HasDefaultValue(false);
+            e.Property(p => p.HasTrainingModule).HasDefaultValue(true);
             e.Property(p => p.PromotionalMonthlyPrice).HasPrecision(18, 2);
             e.Property(p => p.PromotionalYearlyPrice).HasPrecision(18, 2);
             e.Property(p => p.PromotionalBadgeText).HasMaxLength(100);

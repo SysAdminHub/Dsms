@@ -1485,3 +1485,101 @@
         width: 100%;
     }
 }
+
+/* ---- Kontoeinstellungen ---- */
+.dsms-account-manage {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--dsms-space-6);
+    align-items: start;
+}
+
+@media (min-width: 992px) {
+    .dsms-account-manage {
+        grid-template-columns: minmax(12rem, 14rem) minmax(0, 1fr);
+    }
+}
+
+.dsms-account-manage-nav {
+    min-width: 0;
+}
+
+.dsms-account-nav {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: var(--dsms-space-1);
+    overflow-x: auto;
+    padding-bottom: var(--dsms-space-2);
+    border-bottom: 1px solid var(--dsms-border);
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 992px) {
+    .dsms-account-nav {
+        flex-direction: column;
+        overflow-x: visible;
+        border-bottom: none;
+        padding-bottom: 0;
+        background: var(--dsms-surface);
+        border: 1px solid var(--dsms-border);
+        border-radius: var(--dsms-radius-lg);
+        padding: var(--dsms-space-2);
+        box-shadow: var(--dsms-shadow-sm);
+    }
+}
+
+.dsms-account-nav-link {
+    display: block;
+    padding: var(--dsms-space-2) var(--dsms-space-4);
+    border-radius: var(--dsms-radius-sm);
+    color: var(--dsms-text-secondary);
+    font-size: var(--dsms-font-size-sm);
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.dsms-account-nav-link:hover {
+    color: var(--dsms-text);
+    background: #f8fafc;
+}
+
+.dsms-account-nav-link.active {
+    color: var(--dsms-primary);
+    background: var(--dsms-primary-soft);
+    font-weight: 600;
+}
+
+.dsms-account-manage-content {
+    min-width: 0;
+}
+
+.dsms-account-section-intro {
+    margin: 0 0 var(--dsms-space-5);
+    color: var(--dsms-text-muted);
+    font-size: var(--dsms-font-size-sm);
+}
+
+.dsms-account-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--dsms-space-3);
+    margin-top: var(--dsms-space-4);
+}
+
+.dsms-recovery-codes {
+    display: grid;
+    gap: var(--dsms-space-2);
+}
+
+.dsms-recovery-code {
+    display: block;
+    padding: var(--dsms-space-2) var(--dsms-space-3);
+    background: #f8fafc;
+    border: 1px solid var(--dsms-border);
+    border-radius: var(--dsms-radius-sm);
+    font-size: var(--dsms-font-size-base);
+    letter-spacing: 0.08em;
+}

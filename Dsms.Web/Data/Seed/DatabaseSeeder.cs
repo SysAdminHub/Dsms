@@ -102,6 +102,7 @@ public static class DatabaseSeeder
         license.MaxActiveMeasuresPerTenant = 20;
         license.MaxStorageMb = 500;
         license.MaxEmailRemindersPerMonth = 100;
+        license.HasTrainingModule = true;
         license.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();

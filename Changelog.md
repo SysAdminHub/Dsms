@@ -4,7 +4,13 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- **Schulungsmodul als Lizenz-Feature:** Neues boolesches Feld `HasTrainingModule` auf `SubscriptionPlan` und `License`. Pläne definieren Standardwerte; Lizenzen sind die wirksame Wahrheit. Provisioning: Planverwaltung, Signup-Anzeige, Lizenzerstellung und manuelle Lizenzbearbeitung inkl. Audit-Log (`LicenseTrainingModuleEnabled`/`LicenseTrainingModuleDisabled`). Fachanwendung: `ILicenseFeatureService`, `TrainingModuleAccessGate`, Upgrade-Hinweis; mandantenspezifische Schulungsfunktionen serverseitig geschützt; globale Superuser-/Community-Vorlagen unverändert zugänglich. Migration `AddHasTrainingModuleToPlansAndLicenses` (Default `true`; bestehende Pläne `free`/`basic` → `false`). Anzeige in `/admin/license` (Enthalten/Nicht enthalten) ergänzt.
+
 ### Geändert
+
+- **Kontoeinstellungen (Dsms.Web):** Account-Manage-Bereich (`/Account/Manage/*`) optisch an die Datenschutz-Cloud-UI angepasst (PageHeader, Kartenlayout, Seitennavigation, DSMS-Formularstile). Sichtbare Texte, Statusmeldungen und Validierungshinweise auf Deutsch übersetzt. Betroffen: Profil, E-Mail, Passwort, Zwei-Faktor, Persönliche Daten sowie zugehörige Unterseiten (Authenticator, Wiederherstellungscodes, externe Anmeldungen).
 
 - **Docker-Deployment (zwei Apps):** `docker-compose.yml` startet `db`, `dsms-web` (ehemals `dsms`) und `dsms-provisioning` mit gemeinsamer MySQL-Datenbank und geteiltem Data-Protection-Volume. `.env.example` und `Production_Deployment.md` für Zwei-Container-Betrieb aktualisiert. Neues `Dsms.Provisioning/Dockerfile` (Multi-Stage, Port 8080).
 

@@ -1,6 +1,7 @@
 using Dsms.Web.Data;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
+using Dsms.Web.Services.Licenses;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dsms.Web.Services.Training;
@@ -8,7 +9,8 @@ namespace Dsms.Web.Services.Training;
 /// <summary>Gemeinsame Mandanten- und Berechtigungslogik für Schulungsvorlagen.</summary>
 public class TrainingTemplateAccessService(
     ApplicationDbContext db,
-    IUserAccessService access)
+    IUserAccessService access,
+    ILicenseFeatureService licenseFeatures)
 {
     public static bool IsGlobalTemplate(TrainingTemplate template) =>
         template.IsGlobal && template.TenantId is null;
@@ -33,8 +35,13 @@ public class TrainingTemplateAccessService(
     {
         if (IsGlobalTemplate(template))
         {
-            return await access.CanManageGlobalTrainingTemplatesAsync()
-                || await access.CanAccessTenantBusinessModulesAsync();
+            if (await access.CanManageGlobalTrainingTemplatesAsync())
+                return true;
+
+            if (!await access.CanAccessTenantBusinessModulesAsync())
+                return false;
+
+            return await licenseFeatures.HasTrainingModuleAsync(ct);
         }
 
         if (await access.CanReviewCommunityTrainingTemplatesAsync()
@@ -45,6 +52,9 @@ public class TrainingTemplateAccessService(
         }
 
         if (!await access.CanAccessTenantBusinessModulesAsync())
+            return false;
+
+        if (!await licenseFeatures.HasTrainingModuleAsync(ct))
             return false;
 
         var tenantId = await access.GetCurrentTenantIdAsync();
@@ -85,6 +95,9 @@ public class TrainingTemplateAccessService(
     public async Task<bool> CanCreateTenantTemplateAsync(CancellationToken ct = default)
     {
         if (!await access.CanAccessTenantBusinessModulesAsync())
+            return false;
+
+        if (!await licenseFeatures.HasTrainingModuleAsync(ct))
             return false;
 
         return await access.CanEditComplianceContentAsync();

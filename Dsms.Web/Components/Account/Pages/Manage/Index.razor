@@ -8,26 +8,30 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 
-<BrandedPageTitle Title="Profile" />
+<BrandedPageTitle Title="Profil" />
 
-<h3>Profile</h3>
-<StatusMessage />
+<div class="dsms-card dsms-form-card">
+    <div class="dsms-card-header">Profil</div>
+    <div class="dsms-card-body">
+        <p class="dsms-account-section-intro">Aktualisieren Sie Ihre persönlichen Kontoinformationen.</p>
 
-<div class="row">
-    <div class="col-xl-6">
-        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
+        <StatusMessage />
+
+        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post" class="dsms-form">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <input type="text" value="@username" id="username" class="form-control" placeholder="Choose your username." disabled />
-                <label for="username" class="form-label">Username</label>
+            <ValidationSummary class="alert alert-danger dsms-alert" role="alert" />
+            <div class="mb-3">
+                <label for="username" class="form-label">Benutzername</label>
+                <input type="text" value="@username" id="username" class="form-control" disabled />
             </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-control" placeholder="Enter your phone number" />
-                <label for="Input.PhoneNumber" class="form-label">Phone number</label>
+            @* <div class="mb-3">
+                <label for="Input.PhoneNumber" class="form-label">Telefonnummer</label>
+                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-control" autocomplete="tel" />
                 <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
+            </div> *@
+            <div class="dsms-form-actions">
+                <button type="submit" class="btn btn-primary">Speichern</button>
             </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Save</button>
         </EditForm>
     </div>
 </div>
@@ -73,19 +77,19 @@
             var setPhoneResult = await UserManager.SetPhoneNumberAsync(user, Input.PhoneNumber);
             if (!setPhoneResult.Succeeded)
             {
-                RedirectManager.RedirectToCurrentPageWithStatus("Error: Failed to set phone number.", HttpContext);
+                RedirectManager.RedirectToCurrentPageWithStatus("Fehler: Die Telefonnummer konnte nicht gespeichert werden.", HttpContext);
                 return;
             }
         }
 
         await SignInManager.RefreshSignInAsync(user);
-        RedirectManager.RedirectToCurrentPageWithStatus("Your profile has been updated", HttpContext);
+        RedirectManager.RedirectToCurrentPageWithStatus("Ihr Profil wurde aktualisiert.", HttpContext);
     }
 
     private sealed class InputModel
     {
-        [Phone]
-        [Display(Name = "Phone number")]
+        [Phone(ErrorMessage = "Bitte geben Sie eine gültige Telefonnummer ein.")]
+        [Display(Name = "Telefonnummer")]
         public string? PhoneNumber { get; set; }
     }
 }

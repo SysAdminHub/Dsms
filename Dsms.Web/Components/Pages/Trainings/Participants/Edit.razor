@@ -10,7 +10,10 @@
     <PageHeader Title="Teilnehmer bearbeiten" HelpKey="training-participants" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
-else if (!_canManage)
+else
+{
+    <TrainingModuleAccessGate>
+    @if (!_canManage)
 {
     <PageHeader Title="Teilnehmer bearbeiten" HelpKey="training-participants" />
     <div class="alert alert-warning dsms-alert">Keine Berechtigung zum Bearbeiten von Teilnehmern.</div>
@@ -65,6 +68,8 @@ else
             </EditForm>
         </div>
     </div>
+}
+    </TrainingModuleAccessGate>
 }
 
 @code {

@@ -25,6 +25,7 @@ else if (_createDenied)
 }
 else
 {
+    <TrainingModuleAccessGate RequireLicense="@(!_isGlobalMode)">
     <PageHeader Title="@_pageTitle" HelpKey="training-templates">
         <div class="d-flex flex-wrap gap-2">
             @if (_canSubmitToCommunity)
@@ -223,6 +224,7 @@ else
                 break;
         }
     }
+    </TrainingModuleAccessGate>
 }
 
 <TrainingCommunitySubmitModal @ref="_submitModal" OnConfirmed="SubmitToCommunityAsync" />

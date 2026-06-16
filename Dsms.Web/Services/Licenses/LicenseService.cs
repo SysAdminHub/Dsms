@@ -134,7 +134,8 @@ public sealed partial class LicenseService(
             MaxProcessorsPerTenant = dto.MaxProcessorsPerTenant,
             MaxActiveMeasuresPerTenant = dto.MaxActiveMeasuresPerTenant,
             MaxStorageMb = dto.MaxStorageMb,
-            MaxEmailRemindersPerMonth = dto.MaxEmailRemindersPerMonth
+            MaxEmailRemindersPerMonth = dto.MaxEmailRemindersPerMonth,
+            HasTrainingModule = dto.HasTrainingModule
         };
 
         db.Licenses.Add(license);
@@ -163,6 +164,7 @@ public sealed partial class LicenseService(
             return false;
         }
 
+        var oldHasTrainingModule = license.HasTrainingModule;
         var oldSnapshot = MapLicenseSnapshot(license);
         var oldLimits = ExtractLimits(license);
         var oldStatus = license.Status;
@@ -188,6 +190,7 @@ public sealed partial class LicenseService(
         license.MaxActiveMeasuresPerTenant = dto.MaxActiveMeasuresPerTenant;
         license.MaxStorageMb = dto.MaxStorageMb;
         license.MaxEmailRemindersPerMonth = dto.MaxEmailRemindersPerMonth;
+        license.HasTrainingModule = dto.HasTrainingModule;
 
         await db.SaveChangesAsync();
 
@@ -229,6 +232,20 @@ public sealed partial class LicenseService(
                 newValues: newLimits);
         }
 
+        if (oldHasTrainingModule != license.HasTrainingModule)
+        {
+            var actionText = license.HasTrainingModule ? "aktiviert" : "deaktiviert";
+            await logService.LogAuditAsync(
+                action: license.HasTrainingModule ? "LicenseTrainingModuleEnabled" : "LicenseTrainingModuleDisabled",
+                description: $"Schulungsmodul für Mandant „{license.CustomerName}“ {actionText}.",
+                entityType: "License",
+                entityId: license.Id.ToString(),
+                entityName: license.LicenseNumber,
+                licenseId: license.Id,
+                oldValues: new { HasTrainingModule = oldHasTrainingModule },
+                newValues: new { HasTrainingModule = license.HasTrainingModule });
+        }
+
         return true;
     }
 
@@ -252,7 +269,8 @@ public sealed partial class LicenseService(
         license.MaxProcessorsPerTenant,
         license.MaxActiveMeasuresPerTenant,
         license.MaxStorageMb,
-        license.MaxEmailRemindersPerMonth
+        license.MaxEmailRemindersPerMonth,
+        license.HasTrainingModule
     };
 
     private static object ExtractLimits(License license) => new
@@ -481,6 +499,7 @@ public sealed partial class LicenseService(
         MaxActiveMeasuresPerTenant = license.MaxActiveMeasuresPerTenant,
         MaxStorageMb = license.MaxStorageMb,
         MaxEmailRemindersPerMonth = license.MaxEmailRemindersPerMonth,
+        HasTrainingModule = license.HasTrainingModule,
         Usage = usage,
         Usability = LicenseLimitHelper.EvaluateUsability(license.Status, license.ValidUntil)
     };

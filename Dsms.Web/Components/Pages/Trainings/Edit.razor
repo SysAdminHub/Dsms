@@ -11,7 +11,10 @@
     <PageHeader Title="Schulung" HelpKey="trainings" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
-else if (!_canEdit)
+else
+{
+    <TrainingModuleAccessGate>
+    @if (!_canEdit)
 {
     <PageHeader Title="Schulung" HelpKey="trainings" />
     <div class="alert alert-warning dsms-alert">Keine Berechtigung zum Bearbeiten von Schulungen.</div>
@@ -204,6 +207,8 @@ else
             </EditForm>
         </div>
     </div>
+}
+    </TrainingModuleAccessGate>
 }
 
 <TrainingTemplateApplyModal @ref="_templateApplyModal"

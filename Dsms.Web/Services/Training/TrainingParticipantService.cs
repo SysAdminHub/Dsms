@@ -4,6 +4,7 @@ using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
 using Dsms.Web.Services.Logging;
+using Dsms.Web.Services.Licenses;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dsms.Web.Services.Training;
@@ -12,14 +13,19 @@ namespace Dsms.Web.Services.Training;
 public class TrainingParticipantService(
     ApplicationDbContext db,
     IUserAccessService access,
+    ILicenseFeatureService licenseFeatures,
     ICurrentUserContext currentUser,
     IComplianceAuditLogService complianceAuditLog)
 {
     public async Task<bool> CanManageAsync(CancellationToken ct = default) =>
-        await access.CanEditComplianceContentAsync();
+        await licenseFeatures.HasTrainingModuleAsync(ct)
+        && await access.CanEditComplianceContentAsync();
 
     public async Task<bool> CanViewAsync(int tenantId, CancellationToken ct = default)
     {
+        if (!await licenseFeatures.HasTrainingModuleAsync(tenantId, ct))
+            return false;
+
         if (!await access.CanAccessTenantBusinessModulesAsync())
             return false;
 

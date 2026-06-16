@@ -9,32 +9,35 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<DeletePersonalData> Logger
 
-<BrandedPageTitle Title="Delete Personal Data" />
+<BrandedPageTitle Title="Persönliche Daten löschen" />
 
-<StatusMessage Message="@message" />
+<div class="dsms-card dsms-form-card">
+    <div class="dsms-card-header">Persönliche Daten löschen</div>
+    <div class="dsms-card-body">
+        <StatusMessage Message="@message" />
 
-<h3>Delete Personal Data</h3>
+        <div class="alert alert-warning dsms-alert" role="alert">
+            <p class="mb-0">
+                <strong>Das Löschen dieser Daten entfernt Ihr Konto dauerhaft. Dies kann nicht rückgängig gemacht werden.</strong>
+            </p>
+        </div>
 
-<div class="alert alert-warning" role="alert">
-    <p>
-        <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
-    </p>
-</div>
-
-<div>
-    <EditForm Model="Input" FormName="delete-user" OnValidSubmit="OnValidSubmitAsync" method="post">
-        <DataAnnotationsValidator />
-        <ValidationSummary class="text-danger" role="alert" />
-        @if (requirePassword)
-        {
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="Please enter your password." />
-                <label for="Input.Password" class="form-label">Password</label>
-                <ValidationMessage For="() => Input.Password" class="text-danger" />
+        <EditForm Model="Input" FormName="delete-user" OnValidSubmit="OnValidSubmitAsync" method="post" class="dsms-form">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="alert alert-danger dsms-alert" role="alert" />
+            @if (requirePassword)
+            {
+                <div class="mb-3">
+                    <label for="Input.Password" class="form-label">Passwort</label>
+                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" />
+                    <ValidationMessage For="() => Input.Password" class="text-danger" />
+                </div>
+            }
+            <div class="dsms-form-actions">
+                <button class="btn btn-danger" type="submit">Daten löschen und Konto schließen</button>
             </div>
-        }
-        <button class="w-100 btn btn-lg btn-danger" type="submit">Delete data and close my account</button>
-    </EditForm>
+        </EditForm>
+    </div>
 </div>
 
 @code {
@@ -71,7 +74,7 @@
 
         if (requirePassword && !await UserManager.CheckPasswordAsync(user, Input.Password))
         {
-            message = "Error: Incorrect password.";
+            message = "Fehler: Das Passwort ist nicht korrekt.";
             return;
         }
 
@@ -92,6 +95,7 @@
     private sealed class InputModel
     {
         [DataType(DataType.Password)]
+        [Display(Name = "Passwort")]
         public string Password { get; set; } = "";
     }
 }

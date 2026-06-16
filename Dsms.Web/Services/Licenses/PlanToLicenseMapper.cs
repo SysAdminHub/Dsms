@@ -29,7 +29,8 @@ internal static class PlanToLicenseMapper
         MaxProcessorsPerTenant = plan.MaxProcessorsPerTenant,
         MaxActiveMeasuresPerTenant = plan.MaxActiveMeasuresPerTenant,
         MaxStorageMb = plan.MaxStorageMb,
-        MaxEmailRemindersPerMonth = plan.MaxEmailRemindersPerMonth
+        MaxEmailRemindersPerMonth = plan.MaxEmailRemindersPerMonth,
+        HasTrainingModule = plan.HasTrainingModule
     };
 
     public static string ResolvePlanNameForLicense(SubscriptionPlan plan, string? overridePlanName) =>

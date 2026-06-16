@@ -37,6 +37,8 @@ QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.Configure<AppBrandingOptions>(
     builder.Configuration.GetSection(AppBrandingOptions.SectionName));
+builder.Services.Configure<AppUrlOptions>(
+    builder.Configuration.GetSection(AppUrlOptions.SectionName));
 
 // --- Blazor Server (interaktive Komponenten) ---
 builder.Services.AddRazorComponents()
@@ -216,6 +218,7 @@ else
 
 app.UseStatusCodePagesWithReExecute("/not-found");
 app.UseHttpsRedirection();
+app.UseProvisioningRedirects();
 app.UseStaticFiles();
 app.UseSession();
 app.UseAuthentication();

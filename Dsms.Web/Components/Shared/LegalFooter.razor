@@ -1,7 +1,13 @@
 @* Dezenter Footer mit Links zu den öffentlichen Legal-Seiten. *@
+@inject IApplicationInfoService ApplicationInfo
 
 <footer class="dsms-legal-footer @VariantClass" aria-label="Rechtliche Hinweise">
     <nav class="dsms-legal-footer__nav">
+        @if (_showRegistrationLink)
+        {
+            <a href="@ApplicationInfo.ProvisioningSignupUrl">Zur Registrierung</a>
+            <span class="dsms-legal-footer__sep" aria-hidden="true">·</span>
+        }
         <a href="/legal/impressum">Impressum</a>
         <span class="dsms-legal-footer__sep" aria-hidden="true">·</span>
         <a href="/legal/datenschutz">Datenschutz</a>
@@ -25,4 +31,7 @@
         string.Equals(Variant, "app", StringComparison.OrdinalIgnoreCase)
             ? "dsms-legal-footer--app"
             : "dsms-legal-footer--auth";
+
+    private bool _showRegistrationLink =>
+        !string.Equals(Variant, "app", StringComparison.OrdinalIgnoreCase);
 }

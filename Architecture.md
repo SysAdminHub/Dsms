@@ -411,7 +411,7 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 
 | Datei | Inhalt |
 |-------|--------|
-| `appsettings.json` | Lokaler Connection-String-Fallback (`dsms_dev`/`changeme`), `Application:Version`, `AppBranding` (sichtbarer Produktname, `LogoUrl`, `ShortName`-Fallback, URLs, Tagline), `Storage:UploadPath`, Logging |
+| `appsettings.json` | Lokaler Connection-String-Fallback (`dsms_dev`/`changeme`), `Application:Version`, `AppUrls` (`MainAppBaseUrl`, `ProvisioningAppBaseUrl`, `ProvisioningSignupUrl`), `AppBranding` (sichtbarer Produktname, `LogoUrl`, `ShortName`-Fallback, URLs, Tagline), `Storage:UploadPath`, Logging |
 | `appsettings.Development.json` | `dsms_dev`, detaillierter EF-Logging |
 | `.env.example` / `.env` | Docker-Production-Secrets (nur `.env.example` im Repo) |
 | `docker-compose.yml` | MySQL 8 + `dsms-web` + `dsms-provisioning`, Volumes, Environment Variables |
@@ -426,7 +426,7 @@ Reihenfolge in `Program.cs`:
 
 1. Services registrieren (Blazor, Identity, DbContext, Anwendungsservices)
 2. `WebApplication` bauen
-3. Pipeline: Exception Handler, Statuscode `/not-found`, HTTPS, Static Files, Antiforgery
+3. Pipeline: Exception Handler, Statuscode `/not-found`, HTTPS, **`UseProvisioningRedirects()`** (alte Signup-/Plattform-Provisioning-Routen → Provisioning-App), Static Files, Antiforgery
 4. `MapRazorComponents<App>()` mit Interactive Server
 5. `MapAdditionalIdentityEndpoints()`
 6. **`await DatabaseSeeder.SeedAsync(app.Services)`** vor `app.Run()`
@@ -556,10 +556,13 @@ Briefing und Seitenstruktur: [`website.md`](./website.md).
 | Host | Dienst | Status |
 |------|--------|--------|
 | `datenschutz-cloud.eu` | Öffentliche Marketingseite (`Dsms.Marketing`, geplant) | Nicht im Repo |
-| `app.datenschutz-cloud.eu` | SaaS-App `Dsms.Web` | Konfiguriert in `AppBranding:AppUrl` |
+| `app.datenschutz-cloud.eu` | SaaS-Fachanwendung `Dsms.Web` | Konfiguriert in `AppBranding:AppUrl` / `AppUrls:MainAppBaseUrl` |
+| `signup.datenschutz-cloud.eu` | Provisioning-App `Dsms.Provisioning` (Registrierung, Pläne, Lizenzen) | `AppUrls:ProvisioningAppBaseUrl` / `ProvisioningSignupUrl` |
 | `demo.datenschutz-cloud.eu` | Demo-Instanz `Dsms.Web` | **TODO:** Deployment-Konzept |
 
-**V1 Marketing:** kein Datenbankzugriff; statische Inhalte; Login/Register nur als Links zur App (`/Account/Login`, `/signup`).
+**V1 Marketing:** kein Datenbankzugriff; statische Inhalte; Login/Register als Links zur Fach-App bzw. Provisioning-App (`AppUrls:ProvisioningSignupUrl`).
+
+**UI-Trennung:** Öffentliche Registrierung und kaufmännische Plattformfunktionen liegen in `Dsms.Provisioning`. `Dsms.Web` leitet GET-Anfragen auf `/signup`, `/signup/*` sowie `/platform/licenses`, `/platform/plans`, `/platform/discount-codes`, `/platform/provisioning` und `/platform/signups` per `ProvisioningRedirectMiddleware` zur Provisioning-App um. E-Mail-Einstellungen (`/platform/email/*`) bleiben in der Fachanwendung. Superuser-Navigation enthält keine Provisioning-Menüpunkte mehr (außer Email).
 
 **Später optional:** eigene MySQL-Datenbank `dsms_marketing` im gleichen Container – **kein** Zugriff auf Mandantendatenbank, **kein** gemeinsamer `ApplicationDbContext`.
 

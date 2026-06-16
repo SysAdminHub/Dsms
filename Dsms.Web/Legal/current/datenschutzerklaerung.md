@@ -329,7 +329,7 @@ Sie haben im Rahmen der gesetzlichen Voraussetzungen folgende Rechte:
 
 Zur Ausübung Ihrer Rechte können Sie sich jederzeit an uns wenden:
 
-E-Mail: contact@TheSysAdminHub.com
+E-Mail: support@datenschutz-cloud.eu
 
 ## 23. Widerruf von Einwilligungen
 

@@ -4,6 +4,10 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Geändert
+
+- **UI-Trennung Fachanwendung / Provisioning:** In `Dsms.Web` wurden Provisioning-Menüpunkte (Registrierungen, Pläne, Rabattcodes, Lizenzen, Provisionierung) aus der Superuser-Navigation entfernt; **Email** (SMTP/Vorlagen) bleibt in der Fachanwendung. Öffentliche Signup-Routen (`/signup`, `/signup/*`) und alte Plattform-Provisioning-Routen (`/platform/licenses`, `/platform/plans`, …) leiten per `ProvisioningRedirectMiddleware` zur Provisioning-App um. Login-Link „Zur Registrierung“ zeigt auf `AppUrls:ProvisioningSignupUrl` (Fallback: `ProvisioningAppBaseUrl` + `/signup`). Mandanten-Seite „Meine Lizenz“ bleibt unverändert.
+
 ### Hinzugefügt
 
 - **Mandantenlöschung – Anforderung und Superuser-Löschung:** UI-Texte vereinheitlicht („Mandant“ statt „Tenant“). Löschanforderung per Checkbox mit Systembenachrichtigung an `EmailSettings.SystemNotificationRecipientEmail`. Auditlog (`TenantDeletionRequested`, `TenantDeletedBySuperuser`). Superuser sieht Löschstatus in Mandantenübersicht und -details; manuelle Deaktivierung mit Namensbestätigung über `ExecuteDeletionAsync` (Soft Delete via `IsActive = false`).

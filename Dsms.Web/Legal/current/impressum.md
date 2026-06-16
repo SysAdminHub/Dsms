@@ -12,8 +12,7 @@ Deutschland
 
 ## Kontakt
 
-E-Mail: contact@TheSysAdminHub.com  
-Telefon: [Telefonnummer ergänzen, falls vorhanden]
+E-Mail: support@datenschutz-cloud.eu 
 
 ## Umsatzsteuer-ID
 

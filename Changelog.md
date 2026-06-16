@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Geändert
 
+- **README.md – Open-Source-Dokumentation:** README für das öffentliche GitHub-Repository überarbeitet. Klarstellung: **nur `Dsms.Web` ist Open Source (AGPL-3.0)**; `Dsms.Provisioning` ist privat und nicht Bestandteil des Repositories. Entsprechend angepasst: Funktionsumfang, Architektur, lokale Entwicklung, Docker-Setup (nur `Dsms.Web` + MySQL), Konfiguration, Lizenz und Mitwirken. Demo-Passwörter und Zugangsdaten nicht veröffentlicht.
+
 - **Demo-Seeding – E-Mail-Domain:** Demo-Benutzer im `DatabaseSeeder` verwenden künftig `@datenschutz-cloud.eu` statt `@demo.local` (lokaler Teil und Passwörter unverändert). Betrifft frisch geseedete Datenbanken; bestehende Demo-DBs mit alten Adressen müssen neu aufgebaut oder manuell angepasst werden.
 
 - **UI-Trennung Fachanwendung / Provisioning:** In `Dsms.Web` wurden Provisioning-Menüpunkte (Registrierungen, Pläne, Rabattcodes, Lizenzen, Provisionierung) aus der Superuser-Navigation entfernt; **Email** (SMTP/Vorlagen) bleibt in der Fachanwendung. Öffentliche Signup-Routen (`/signup`, `/signup/*`) und alte Plattform-Provisioning-Routen (`/platform/licenses`, `/platform/plans`, …) leiten per `ProvisioningRedirectMiddleware` zur Provisioning-App um. Login-Link „Zur Registrierung“ zeigt auf `AppUrls:ProvisioningSignupUrl` (Fallback: `ProvisioningAppBaseUrl` + `/signup`). Mandanten-Seite „Meine Lizenz“ bleibt unverändert.

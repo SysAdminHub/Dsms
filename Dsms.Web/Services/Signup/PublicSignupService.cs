@@ -160,6 +160,8 @@ public sealed class PublicSignupService(
 
         {
 
+            ApplyCompanyBillingAddress(form);
+
             var billingError = ValidateBillingForm(form);
 
             if (billingError is not null)
@@ -229,7 +231,7 @@ public sealed class PublicSignupService(
             ClearAppliedDiscount(form);
         }
 
-        var billingMetadata = BuildBillingMetadata(selectedPlan, billingCycle, discountResult);
+        var billingMetadata = BuildBillingMetadata(selectedPlan, billingCycle, discountResult, form.HasDifferentBillingAddress);
         var (initialBillingStatus, initialNextInvoiceDate) = ResolveInitialBilling(selectedPlan.IsFree, billingCycle);
 
 
@@ -663,7 +665,8 @@ public sealed class PublicSignupService(
     private static string BuildBillingMetadata(
         SubscriptionPlanDetailsDto plan,
         string? billingCycle,
-        DiscountCodeValidationResult discountResult) =>
+        DiscountCodeValidationResult discountResult,
+        bool hasDifferentBillingAddress) =>
 
         JsonSerializer.Serialize(new
 
@@ -672,6 +675,8 @@ public sealed class PublicSignupService(
             BillingStatus = plan.IsFree ? BillingStatuses.NotRequired : BillingStatuses.InvoicePending,
 
             BillingCycle = billingCycle,
+
+            HasDifferentBillingAddress = hasDifferentBillingAddress,
 
             PromotionalPrice = plan.IsPromotionalPriceEnabled && !plan.IsFree
 
@@ -916,19 +921,23 @@ public sealed class PublicSignupService(
 
 
 
+    private static void ApplyCompanyBillingAddress(PublicSignupFormDto form)
+    {
+        if (form.HasDifferentBillingAddress)
+        {
+            return;
+        }
+
+        form.BillingCompanyName = form.CustomerName.Trim();
+        form.BillingStreet = form.TenantStreet.Trim();
+        form.BillingPostalCode = form.TenantPostalCode.Trim();
+        form.BillingCity = form.TenantCity.Trim();
+        form.BillingCountry = form.TenantCountry.Trim();
+    }
+
     private static string? ValidateBillingForm(PublicSignupFormDto form)
 
     {
-
-        if (string.IsNullOrWhiteSpace(form.BillingCompanyName))
-
-        {
-
-            return "Bitte geben Sie den Rechnungsempfänger bzw. Firmennamen ein.";
-
-        }
-
-
 
         if (string.IsNullOrWhiteSpace(form.BillingEmail))
 
@@ -948,7 +957,18 @@ public sealed class PublicSignupService(
 
         }
 
+        if (!form.HasDifferentBillingAddress)
+        {
+            return null;
+        }
 
+        if (string.IsNullOrWhiteSpace(form.BillingCompanyName))
+
+        {
+
+            return "Bitte geben Sie den Rechnungsempfänger bzw. Firmennamen ein.";
+
+        }
 
         if (string.IsNullOrWhiteSpace(form.BillingStreet))
 

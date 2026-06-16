@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Dsms.Web.Domain;
+using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
 
 namespace Dsms.Web.Services.PendingSignups;
@@ -288,6 +289,91 @@ public static class PendingSignupDisplayHelper
         && !string.IsNullOrWhiteSpace(billingPostalCode)
         && !string.IsNullOrWhiteSpace(billingCity)
         && !string.IsNullOrWhiteSpace(billingCountry);
+
+    /// <summary>
+    /// Liest aus MetadataJson, ob eine abweichende Rechnungsadresse verwendet wurde.
+    /// Fehlt der Wert (ältere Registrierungen), wird null zurückgegeben.
+    /// </summary>
+    public static bool? GetHasDifferentBillingAddress(string? metadataJson)
+    {
+        if (string.IsNullOrWhiteSpace(metadataJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(metadataJson);
+            if (doc.RootElement.TryGetProperty("HasDifferentBillingAddress", out var flag))
+            {
+                return flag.ValueKind switch
+                {
+                    JsonValueKind.True => true,
+                    JsonValueKind.False => false,
+                    _ => null
+                };
+            }
+        }
+        catch (JsonException)
+        {
+            // Ungültiges JSON ignorieren.
+        }
+
+        return null;
+    }
+
+    public static bool UsesCompanyBillingAddress(string? metadataJson) =>
+        GetHasDifferentBillingAddress(metadataJson) == false;
+
+    public static IReadOnlyList<(string Label, string Value)> BuildBillingNotificationRows(PendingSignup signup)
+    {
+        var rows = new List<(string Label, string Value)>
+        {
+            ("Rechnungs-E-Mail", signup.BillingEmail ?? "—")
+        };
+
+        if (UsesCompanyBillingAddress(signup.MetadataJson))
+        {
+            rows.Add(("Rechnungsadresse", "Entspricht der Unternehmensadresse"));
+        }
+        else
+        {
+            rows.Add(("Rechnungsempfänger / Firma", signup.BillingCompanyName ?? "—"));
+            rows.Add(("Straße und Hausnummer", signup.BillingStreet ?? "—"));
+            rows.Add(("PLZ", signup.BillingPostalCode ?? "—"));
+            rows.Add(("Ort", signup.BillingCity ?? "—"));
+            rows.Add(("Land", signup.BillingCountry ?? "—"));
+        }
+
+        rows.Add(("Umsatzsteuer-ID", signup.BillingVatId ?? "—"));
+        rows.Add(("Bestellnummer / Referenz", signup.BillingReference ?? "—"));
+        return rows;
+    }
+
+    public static IReadOnlyList<(string Label, string Value)> BuildBillingNotificationTextRows(PendingSignup signup)
+    {
+        var rows = new List<(string Label, string Value)>
+        {
+            ("Rechnungs-E-Mail", signup.BillingEmail ?? "—")
+        };
+
+        if (UsesCompanyBillingAddress(signup.MetadataJson))
+        {
+            rows.Add(("Rechnungsadresse", "Entspricht der Unternehmensadresse"));
+        }
+        else
+        {
+            rows.Add(("Rechnungsempfänger / Firma", signup.BillingCompanyName ?? "—"));
+            rows.Add(("Straße", signup.BillingStreet ?? "—"));
+            rows.Add(("PLZ", signup.BillingPostalCode ?? "—"));
+            rows.Add(("Ort", signup.BillingCity ?? "—"));
+            rows.Add(("Land", signup.BillingCountry ?? "—"));
+        }
+
+        rows.Add(("USt-IdNr.", signup.BillingVatId ?? "—"));
+        rows.Add(("Referenz", signup.BillingReference ?? "—"));
+        return rows;
+    }
 
     public static string GetBillingStatus(string? metadataJson)
     {

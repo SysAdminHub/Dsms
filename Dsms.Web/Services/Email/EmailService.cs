@@ -1,4 +1,5 @@
 using System.Net.Mail;
+using System.Net.Sockets;
 using Dsms.Web.Configuration;
 using Dsms.Web.Data;
 using Dsms.Web.Domain;
@@ -78,7 +79,7 @@ public sealed class EmailService(
                 "Email konnte nicht gesendet werden. Bitte SMTP-Einstellungen prüfen.",
                 "Fehlerdetails: Authentifizierung fehlgeschlagen.");
         }
-        catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException)
+        catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException or SocketException)
         {
             logger.LogWarning(ex, "SMTP-Server nicht erreichbar");
             await LogEmailSendFailedAsync(ex, toEmail, subject);

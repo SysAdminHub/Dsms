@@ -104,6 +104,7 @@ public sealed class LicenseDetailsDto
     public int? MaxActiveMeasuresPerTenant { get; init; }
     public int? MaxStorageMb { get; init; }
     public int? MaxEmailRemindersPerMonth { get; init; }
+    public bool HasTrainingModule { get; init; }
 
     public LicenseUsageDto Usage { get; init; } = new();
     public LicenseUsabilityInfo Usability { get; init; } = new();
@@ -239,4 +240,5 @@ public sealed class LicenseEditDto
     public int? MaxActiveMeasuresPerTenant { get; set; }
     public int? MaxStorageMb { get; set; }
     public int? MaxEmailRemindersPerMonth { get; set; }
+    public bool HasTrainingModule { get; set; } = true;
 }

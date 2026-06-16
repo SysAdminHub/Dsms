@@ -46,6 +46,23 @@ else if (_step == TrainingParticipantPortalStep.Completed || _context.IsComplete
                     }
                 </dl>
                 <p class="text-muted small mt-3 mb-0">Es ist keine weitere Aktion erforderlich.</p>
+                @if (_certificate?.DocumentId is not null && !string.IsNullOrEmpty(_certificate.DownloadPath))
+                {
+                    <div class="mt-4">
+                        <p class="small text-muted mb-2">
+                            Ihre Teilnahmebescheinigung wurde erstellt und im Dokumentenbereich abgelegt.
+                        </p>
+                        <a class="btn btn-primary" href="@_certificate.DownloadPath">
+                            Teilnahmebescheinigung herunterladen
+                        </a>
+                    </div>
+                }
+                else if (_certificate?.GenerationFailed == true)
+                {
+                    <div class="alert alert-warning dsms-alert mt-4 mb-0">
+                        Die Teilnahme wurde gespeichert. Die Teilnahmebescheinigung konnte nicht automatisch erstellt werden.
+                    </div>
+                }
             </div>
         </div>
     </div>
@@ -265,6 +282,7 @@ else
     private TrainingParticipantQuizSubmitResult? _quizResult;
     private bool _showQuizExplanations;
     private readonly Dictionary<int, HashSet<int>> _selectedOptions = new();
+    private TrainingParticipantCertificateInfo? _certificate;
 
     protected override async Task OnInitializedAsync()
     {
@@ -291,6 +309,7 @@ else
         if (_context.IsCompleted)
         {
             _step = TrainingParticipantPortalStep.Completed;
+            _certificate = await PortalService.GetCertificateInfoAsync();
             return;
         }
 
@@ -453,6 +472,7 @@ else
 
             _context = await PortalService.GetContextAsync();
             _step = TrainingParticipantPortalStep.Completed;
+            _certificate = result.Certificate ?? await PortalService.GetCertificateInfoAsync();
         }
         finally
         {

@@ -1,5 +1,6 @@
 @using Dsms.Web.Services.Legal
-@page "/platform/signups/{Id:guid}"
+@* Route deaktiviert – nur noch in Dsms.Provisioning. *@
+@* @page "/platform/signups/{Id:guid}" *@
 @attribute [Authorize(Roles = DsmsRoles.Superuser)]
 @rendermode InteractiveServer
 
@@ -210,19 +211,29 @@ else
                         {
                             <p class="text-muted mb-3">Für diese Registrierung wurden keine vollständigen Rechnungsdaten gespeichert.</p>
                         }
+                        @if (_usesCompanyBillingAddress)
+                        {
+                            <p class="text-muted mb-3">Rechnungsadresse entspricht Unternehmensadresse.</p>
+                        }
                         <dl class="row mb-0">
-                            <dt class="col-sm-4">Rechnungsempfänger / Firma</dt>
-                            <dd class="col-sm-8">@(_signup.BillingCompanyName ?? "—")</dd>
+                            @if (!_usesCompanyBillingAddress)
+                            {
+                                <dt class="col-sm-4">Rechnungsempfänger / Firma</dt>
+                                <dd class="col-sm-8">@(_signup.BillingCompanyName ?? "—")</dd>
+                            }
                             <dt class="col-sm-4">Rechnungs-E-Mail</dt>
                             <dd class="col-sm-8">@(_signup.BillingEmail ?? "—")</dd>
-                            <dt class="col-sm-4">Straße und Hausnummer</dt>
-                            <dd class="col-sm-8">@(_signup.BillingStreet ?? "—")</dd>
-                            <dt class="col-sm-4">Postleitzahl</dt>
-                            <dd class="col-sm-8">@(_signup.BillingPostalCode ?? "—")</dd>
-                            <dt class="col-sm-4">Ort</dt>
-                            <dd class="col-sm-8">@(_signup.BillingCity ?? "—")</dd>
-                            <dt class="col-sm-4">Land</dt>
-                            <dd class="col-sm-8">@(_signup.BillingCountry ?? "—")</dd>
+                            @if (!_usesCompanyBillingAddress)
+                            {
+                                <dt class="col-sm-4">Straße und Hausnummer</dt>
+                                <dd class="col-sm-8">@(_signup.BillingStreet ?? "—")</dd>
+                                <dt class="col-sm-4">Postleitzahl</dt>
+                                <dd class="col-sm-8">@(_signup.BillingPostalCode ?? "—")</dd>
+                                <dt class="col-sm-4">Ort</dt>
+                                <dd class="col-sm-8">@(_signup.BillingCity ?? "—")</dd>
+                                <dt class="col-sm-4">Land</dt>
+                                <dd class="col-sm-8">@(_signup.BillingCountry ?? "—")</dd>
+                            }
                             <dt class="col-sm-4">Umsatzsteuer-ID</dt>
                             <dd class="col-sm-8">@(_signup.BillingVatId ?? "—")</dd>
                             <dt class="col-sm-4">Bestellnummer / Referenz</dt>
@@ -453,6 +464,7 @@ else
     private string? _currentBillingCurrency;
     private string? _currentBillingCycle;
     private bool _hasCompleteBillingData;
+    private bool _usesCompanyBillingAddress;
     private bool _loading = true;
     private bool _saving;
     private string? _message;
@@ -491,6 +503,7 @@ else
                 _signup.BillingPostalCode,
                 _signup.BillingCity,
                 _signup.BillingCountry);
+            _usesCompanyBillingAddress = PendingSignupDisplayHelper.UsesCompanyBillingAddress(_signup.MetadataJson);
             _currentBillingDisplay = PendingSignupDisplayHelper.FormatCurrentBillingDisplay(
                 _signup.CurrentBillingAmount,
                 _signup.CurrentBillingCurrency,

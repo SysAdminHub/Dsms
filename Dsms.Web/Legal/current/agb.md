@@ -235,7 +235,7 @@ Das Recht zur außerordentlichen Kündigung aus wichtigem Grund bleibt unberühr
 
 Kündigungen können in Textform erfolgen, insbesondere per E-Mail an:
 
-contact@TheSysAdminHub.com
+support@datenschutz-cloud.eu
 
 ## 10. Leistungsbereitstellung, Wartung und Verfügbarkeit
 
@@ -281,7 +281,7 @@ Support erfolgt per E-Mail.
 
 Supportanfragen können gerichtet werden an:
 
-contact@TheSysAdminHub.com
+support@datenschutz-cloud.eu
 
 ### 11.3
 

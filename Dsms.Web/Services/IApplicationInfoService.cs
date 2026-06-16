@@ -27,4 +27,10 @@ public interface IApplicationInfoService
     string AppUrl { get; }
 
     string SupportEmail { get; }
+
+    /// <summary>Basis-URL der Provisioning-App (z. B. Signup-Subdomain).</summary>
+    string ProvisioningAppBaseUrl { get; }
+
+    /// <summary>URL für öffentliche Registrierung (externe Provisioning-App).</summary>
+    string ProvisioningSignupUrl { get; }
 }

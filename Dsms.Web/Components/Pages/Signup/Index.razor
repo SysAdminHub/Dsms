@@ -1,4 +1,5 @@
-@page "/signup"
+@* Route deaktiviert – Weiterleitung zur Provisioning-App über ProvisioningRedirectMiddleware. *@
+@* @page "/signup" *@
 @layout PublicSignupLayout
 @rendermode InteractiveServer
 @inject IApplicationInfoService ApplicationInfo
@@ -332,32 +333,43 @@
                         <p class="text-muted small mb-3">
                             Die Rechnung wird separat per E-Mail gestellt. Online-Zahlung ist derzeit nicht erforderlich.
                         </p>
-                        <div class="mb-3">
-                            <label class="form-label">Rechnungsempfänger / Firmenname *</label>
-                            <InputText class="form-control" @bind-Value="_model.BillingCompanyName" />
+                        <div class="form-check mb-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="_model.HasDifferentBillingAddress" id="hasDifferentBillingAddress" />
+                            <label class="form-check-label" for="hasDifferentBillingAddress">Abweichende Rechnungsadresse</label>
                         </div>
+                        <p class="text-muted small mb-3">
+                            Wenn keine abweichende Rechnungsadresse angegeben wird, verwenden wir die Unternehmensadresse als Rechnungsadresse.
+                        </p>
                         <div class="mb-3">
                             <label class="form-label">Rechnungs-E-Mail *</label>
                             <InputText class="form-control" @bind-Value="_model.BillingEmail" autocomplete="email" />
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Straße und Hausnummer *</label>
-                            <InputText class="form-control" @bind-Value="_model.BillingStreet" />
-                        </div>
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-4">
-                                <label class="form-label">Postleitzahl *</label>
-                                <InputText class="form-control" @bind-Value="_model.BillingPostalCode" />
+                        @if (_model.HasDifferentBillingAddress)
+                        {
+                            <h6 class="mb-3">Abweichende Rechnungsadresse</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Rechnungsempfänger / Firmenname *</label>
+                                <InputText class="form-control" @bind-Value="_model.BillingCompanyName" />
                             </div>
-                            <div class="col-md-8">
-                                <label class="form-label">Ort *</label>
-                                <InputText class="form-control" @bind-Value="_model.BillingCity" />
+                            <div class="mb-3">
+                                <label class="form-label">Straße und Hausnummer *</label>
+                                <InputText class="form-control" @bind-Value="_model.BillingStreet" />
                             </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Land *</label>
-                            <InputText class="form-control" @bind-Value="_model.BillingCountry" />
-                        </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Postleitzahl *</label>
+                                    <InputText class="form-control" @bind-Value="_model.BillingPostalCode" />
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Ort *</label>
+                                    <InputText class="form-control" @bind-Value="_model.BillingCity" />
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Land *</label>
+                                <InputText class="form-control" @bind-Value="_model.BillingCountry" />
+                            </div>
+                        }
                         <div class="mb-3">
                             <label class="form-label">Umsatzsteuer-ID</label>
                             <InputText class="form-control" @bind-Value="_model.BillingVatId" />
@@ -640,40 +652,11 @@
 
         ApplyBillingCycleSelection(plan);
 
-        if (string.IsNullOrWhiteSpace(_model.BillingCompanyName)
+        if (_model.HasDifferentBillingAddress
+            && string.IsNullOrWhiteSpace(_model.BillingCompanyName)
             && !string.IsNullOrWhiteSpace(_model.CustomerName))
         {
             _model.BillingCompanyName = _model.CustomerName.Trim();
-        }
-
-        if (string.IsNullOrWhiteSpace(_model.TenantStreet)
-            && !string.IsNullOrWhiteSpace(_model.BillingStreet))
-        {
-            _model.TenantStreet = _model.BillingStreet.Trim();
-        }
-
-        if (string.IsNullOrWhiteSpace(_model.TenantPostalCode)
-            && !string.IsNullOrWhiteSpace(_model.BillingPostalCode))
-        {
-            _model.TenantPostalCode = _model.BillingPostalCode.Trim();
-        }
-
-        if (string.IsNullOrWhiteSpace(_model.TenantCity)
-            && !string.IsNullOrWhiteSpace(_model.BillingCity))
-        {
-            _model.TenantCity = _model.BillingCity.Trim();
-        }
-
-        if (string.IsNullOrWhiteSpace(_model.TenantCountry)
-            && !string.IsNullOrWhiteSpace(_model.BillingCountry))
-        {
-            _model.TenantCountry = _model.BillingCountry.Trim();
-        }
-
-        if (string.IsNullOrWhiteSpace(_model.TenantVatId)
-            && !string.IsNullOrWhiteSpace(_model.BillingVatId))
-        {
-            _model.TenantVatId = _model.BillingVatId.Trim();
         }
 
         if (string.IsNullOrWhiteSpace(_model.BillingEmail))

@@ -54,7 +54,8 @@ public static class SubscriptionPlanSeeder
         MaxProcessorsPerTenant = 5,
         MaxActiveMeasuresPerTenant = 5,
         MaxStorageMb = 100,
-        MaxEmailRemindersPerMonth = 10
+        MaxEmailRemindersPerMonth = 10,
+        HasTrainingModule = false
     };
 
     private static SubscriptionPlan CreateBasicPlan() => new()
@@ -82,7 +83,8 @@ public static class SubscriptionPlanSeeder
         MaxProcessorsPerTenant = 10,
         MaxActiveMeasuresPerTenant = 10,
         MaxStorageMb = 250,
-        MaxEmailRemindersPerMonth = 50
+        MaxEmailRemindersPerMonth = 50,
+        HasTrainingModule = false
     };
 
     private static SubscriptionPlan CreateProPlan() => new()
@@ -108,7 +110,8 @@ public static class SubscriptionPlanSeeder
         MaxProcessorsPerTenant = 50,
         MaxActiveMeasuresPerTenant = 50,
         MaxStorageMb = 1000,
-        MaxEmailRemindersPerMonth = 250
+        MaxEmailRemindersPerMonth = 250,
+        HasTrainingModule = true
     };
 
     private static SubscriptionPlan CreateBusinessPlan() => new()
@@ -134,6 +137,7 @@ public static class SubscriptionPlanSeeder
         MaxProcessorsPerTenant = null,
         MaxActiveMeasuresPerTenant = null,
         MaxStorageMb = 5000,
-        MaxEmailRemindersPerMonth = 1000
+        MaxEmailRemindersPerMonth = 1000,
+        HasTrainingModule = true
     };
 }

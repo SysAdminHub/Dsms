@@ -50,6 +50,11 @@ public sealed class PublicSignupFormDto
     public bool AcceptPrivacyPolicy { get; set; }
     public bool AcceptDataProcessingAgreement { get; set; }
 
+    /// <summary>
+    /// Wenn false, wird die Rechnungsadresse aus den Unternehmensdaten übernommen.
+    /// </summary>
+    public bool HasDifferentBillingAddress { get; set; }
+
     public string BillingCompanyName { get; set; } = string.Empty;
     public string BillingEmail { get; set; } = string.Empty;
     public string BillingStreet { get; set; } = string.Empty;

@@ -642,12 +642,16 @@ public class DataProtectionRoleService(
             }
         }
 
-        if (model.ReportsToRoleId == currentRoleId)
+        if (currentRoleId.HasValue
+            && model.ReportsToRoleId.HasValue
+            && model.ReportsToRoleId.Value == currentRoleId.Value)
         {
             return "Eine Rolle kann nicht an sich selbst berichten.";
         }
 
-        if (model.DeputyRoleId == currentRoleId)
+        if (currentRoleId.HasValue
+            && model.DeputyRoleId.HasValue
+            && model.DeputyRoleId.Value == currentRoleId.Value)
         {
             return "Eine Rolle kann nicht ihre eigene Vertretung sein.";
         }

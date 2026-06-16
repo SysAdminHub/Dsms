@@ -4,6 +4,7 @@ using Dsms.Web.Configuration;
 using Dsms.Web.Data;
 using Dsms.Web.Data.Seed;
 using Dsms.Web.Services;
+using Dsms.Web.Services.CommunityTemplates;
 using Dsms.Web.Services.TenantDeletion;
 using Dsms.Web.Services.TenantExport;
 using Dsms.Web.Services.Email;
@@ -37,6 +38,8 @@ QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.Configure<AppBrandingOptions>(
     builder.Configuration.GetSection(AppBrandingOptions.SectionName));
+builder.Services.Configure<AppUrlOptions>(
+    builder.Configuration.GetSection(AppUrlOptions.SectionName));
 
 // --- Blazor Server (interaktive Komponenten) ---
 builder.Services.AddRazorComponents()
@@ -65,6 +68,7 @@ builder.Services.AddScoped<SupportContextAccessor>();
 builder.Services.AddScoped<ArchiveViewContextAccessor>();
 builder.Services.AddScoped<ITenantContextService, TenantContextService>();
 builder.Services.AddScoped<ISupportContextService, SupportContextService>();
+builder.Services.AddScoped<ISupportAccessNotificationService, SupportAccessNotificationService>();
 builder.Services.AddScoped<ISupportAccessService, SupportAccessService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
@@ -86,22 +90,41 @@ builder.Services.AddScoped<DocumentCategoryService>();
 builder.Services.AddScoped<DataProtectionRoleService>();
 builder.Services.AddScoped<ITenantExportService, TenantExportService>();
 builder.Services.AddScoped<ITenantDeletionService, TenantDeletionService>();
-var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys");
+builder.Services.AddScoped<ITenantDeletionNotificationService, TenantDeletionNotificationService>();
+builder.Services.AddScoped<ITenantDataErasureService, TenantDataErasureService>();
+
+builder.Services.Configure<Dsms.Web.Configuration.DataProtectionOptions>(
+    builder.Configuration.GetSection(Dsms.Web.Configuration.DataProtectionOptions.SectionName));
+
+var dataProtectionOptions = builder.Configuration
+    .GetSection(Dsms.Web.Configuration.DataProtectionOptions.SectionName)
+    .Get<Dsms.Web.Configuration.DataProtectionOptions>()
+    ?? new Dsms.Web.Configuration.DataProtectionOptions();
+
+var dataProtectionKeysPath = Path.IsPathRooted(dataProtectionOptions.KeysPath)
+    ? dataProtectionOptions.KeysPath
+    : Path.Combine(builder.Environment.ContentRootPath, dataProtectionOptions.KeysPath);
 Directory.CreateDirectory(dataProtectionKeysPath);
+
 builder.Services.AddDataProtection()
+    .SetApplicationName(dataProtectionOptions.ApplicationName)
     .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+
 builder.Services.AddScoped<IEmailSecretProtector, EmailSecretProtector>();
 builder.Services.AddScoped<IEmailTemplateRenderer, EmailTemplateRenderer>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IEmailSettingsService, EmailSettingsService>();
+builder.Services.AddScoped<IEmailSendingSettingsProvider, EmailSendingSettingsProvider>();
 builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IReminderService, ReminderService>();
 builder.Services.AddScoped<ILicenseService, LicenseService>();
+builder.Services.AddScoped<ILicenseFeatureService, LicenseFeatureService>();
 builder.Services.AddScoped<IPlanToLicenseService, PlanToLicenseService>();
 builder.Services.AddScoped<IProvisioningService, ProvisioningService>();
 builder.Services.AddScoped<IPublicSignupService, PublicSignupService>();
 builder.Services.AddScoped<ISignupNotificationService, SignupNotificationService>();
+builder.Services.AddScoped<ICommunityTemplateNotificationService, CommunityTemplateNotificationService>();
 builder.Services.AddScoped<ISignupLegalEmailService, SignupLegalEmailService>();
 builder.Services.AddScoped<IUpgradeRequestService, UpgradeRequestService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
@@ -135,6 +158,8 @@ builder.Services.AddScoped<TrainingAssignmentService>();
 builder.Services.AddScoped<TrainingInvitationService>();
 builder.Services.AddScoped<TrainingParticipantSessionService>();
 builder.Services.AddScoped<TrainingParticipantPortalService>();
+builder.Services.AddScoped<ITrainingCertificatePdfService, TrainingCertificatePdfService>();
+builder.Services.AddScoped<TrainingCertificateService>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -181,6 +206,8 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 
 var app = builder.Build();
 
+DataProtectionStartupLogger.LogEffectiveConfiguration(app);
+
 var uploadPath = app.Configuration["Storage:UploadPath"] ?? "Data/Uploads";
 Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, uploadPath));
 
@@ -196,6 +223,7 @@ else
 
 app.UseStatusCodePagesWithReExecute("/not-found");
 app.UseHttpsRedirection();
+app.UseProvisioningRedirects();
 app.UseStaticFiles();
 app.UseSession();
 app.UseAuthentication();
@@ -242,6 +270,7 @@ app.MapDocumentFileEndpoints();
 app.MapTrainingAssetEndpoints();
 app.MapTrainingParticipantAssetEndpoints();
 app.MapTrainingParticipantLoginEndpoints();
+app.MapTrainingParticipantCertificateEndpoints();
 app.MapTenantDataEndpoints();
 app.MapLegalDocumentEndpoints();
 

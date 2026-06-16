@@ -10,7 +10,10 @@
     <PageHeader Title="Schulungsteilnehmer" HelpKey="training-participants" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
-else if (!_canView)
+else
+{
+    <TrainingModuleAccessGate>
+    @if (!_canView)
 {
     <PageHeader Title="Schulungsteilnehmer" HelpKey="training-participants" />
     <div class="alert alert-warning dsms-alert">Keine Berechtigung für Teilnehmerdaten.</div>
@@ -271,6 +274,8 @@ else
             </div>
         </div>
     }
+}
+    </TrainingModuleAccessGate>
 }
 
 @code {

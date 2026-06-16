@@ -54,7 +54,8 @@ public sealed record TrainingParticipantQuizSubmitResult(
 
 public sealed record TrainingParticipantCompletionResult(
     bool Success,
-    string? Message);
+    string? Message,
+    TrainingParticipantCertificateInfo? Certificate = null);
 
 public enum TrainingParticipantPortalStep
 {

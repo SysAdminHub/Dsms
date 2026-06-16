@@ -3,6 +3,7 @@ using Dsms.Web.Domain;
 using Dsms.Web.Domain.Entities;
 using Dsms.Web.Domain.Enums;
 using Dsms.Web.Services.Logging;
+using Dsms.Web.Services.Licenses;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using TrainingEntity = Dsms.Web.Domain.Entities.Training;
@@ -13,6 +14,7 @@ namespace Dsms.Web.Services.Training;
 public class TrainingService(
     ApplicationDbContext db,
     IUserAccessService access,
+    ILicenseFeatureService licenseFeatures,
     ICurrentUserContext currentUser,
     ArchiveViewContextAccessor archiveView,
     TrainingTemplateAccessService templateAccess,
@@ -36,12 +38,16 @@ public class TrainingService(
         if (!await access.CanAccessTenantTrainingsAsync())
             return false;
 
+        if (!await licenseFeatures.HasTrainingModuleAsync(ct))
+            return false;
+
         var tenantId = await access.GetCurrentTenantIdAsync();
         return tenantId.HasValue && training.TenantId == tenantId;
     }
 
     public async Task<bool> CanEditAsync(CancellationToken ct = default) =>
-        await access.CanEditComplianceContentAsync();
+        await licenseFeatures.HasTrainingModuleAsync(ct)
+        && await access.CanEditComplianceContentAsync();
 
     public async Task<TrainingEntity?> GetByIdAsync(int id, int tenantId, CancellationToken ct = default)
     {

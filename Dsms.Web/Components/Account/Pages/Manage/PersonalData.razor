@@ -6,23 +6,30 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
-<BrandedPageTitle Title="Personal Data" />
+<BrandedPageTitle Title="Persönliche Daten" />
 
-<StatusMessage />
-<h3>Personal Data</h3>
+<div class="dsms-card dsms-form-card">
+    <div class="dsms-card-header">Persönliche Daten</div>
+    <div class="dsms-card-body">
+        <p class="dsms-account-section-intro">Hier können Sie Ihre gespeicherten personenbezogenen Daten herunterladen oder Ihr Konto löschen, sofern diese Funktion verfügbar ist.</p>
 
-<div class="row">
-    <div class="col-md-6">
-        <p>Your account contains personal data that you have given us. This page allows you to download or delete that data.</p>
+        <StatusMessage />
+
+        <p>Ihr Konto enthält personenbezogene Daten, die Sie uns bereitgestellt haben.</p>
         <p>
-            <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
+            <strong>Das Löschen dieser Daten entfernt Ihr Konto dauerhaft. Dies kann nicht rückgängig gemacht werden.</strong>
         </p>
-        <form action="Account/Manage/DownloadPersonalData" method="post">
-            <AntiforgeryToken />
-            <button class="btn btn-primary" type="submit">Download</button>
-        </form>
-        <p>
-            <a href="Account/Manage/DeletePersonalData" class="btn btn-danger">Delete</a>
+
+        <div class="dsms-account-actions">
+            <form action="Account/Manage/DownloadPersonalData" method="post">
+                <AntiforgeryToken />
+                <button class="btn btn-outline-secondary" type="submit">Persönliche Daten herunterladen</button>
+            </form>
+            <a href="Account/Manage/DeletePersonalData" class="btn btn-danger">Konto löschen</a>
+        </div>
+
+        <p class="text-muted mt-4 mb-0" style="font-size: var(--dsms-font-size-sm);">
+            Diese Aktionen können Auswirkungen auf Ihr Benutzerkonto haben. Bitte prüfen Sie die Hinweise sorgfältig.
         </p>
     </div>
 </div>

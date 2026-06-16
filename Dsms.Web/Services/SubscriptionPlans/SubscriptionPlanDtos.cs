@@ -13,6 +13,7 @@ public sealed class SubscriptionPlanListDto
     public decimal? PriceYearly { get; init; }
     public string Currency { get; init; } = "EUR";
     public bool IsPromotionalPriceEnabled { get; init; }
+    public bool HasTrainingModule { get; init; }
     public int? MaxTenants { get; init; }
     public int? MaxAdmins { get; init; }
     public int? MaxUsersPerTenant { get; init; }
@@ -36,6 +37,7 @@ public sealed class SubscriptionPlanDetailsDto
     public string Currency { get; init; } = "EUR";
 
     public bool IsPromotionalPriceEnabled { get; init; }
+    public bool HasTrainingModule { get; init; }
     public decimal? PromotionalMonthlyPrice { get; init; }
     public decimal? PromotionalYearlyPrice { get; init; }
     public string? PromotionalBadgeText { get; init; }
@@ -76,6 +78,7 @@ public sealed class SubscriptionPlanEditDto
     public string Currency { get; set; } = "EUR";
 
     public bool IsPromotionalPriceEnabled { get; set; }
+    public bool HasTrainingModule { get; set; } = true;
     public decimal? PromotionalMonthlyPrice { get; set; }
     public decimal? PromotionalYearlyPrice { get; set; }
     public string? PromotionalBadgeText { get; set; }

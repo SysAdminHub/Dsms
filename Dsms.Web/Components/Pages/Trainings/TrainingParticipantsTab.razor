@@ -321,6 +321,21 @@ else
                                 }
                             </ul>
                         }
+                        @if (_detailCertificate?.DocumentId is int certDocId)
+                        {
+                            <div class="mt-3">
+                                <span class="badge text-bg-success me-2">Nachweis vorhanden</span>
+                                <a class="btn btn-sm btn-outline-primary" href="@($"/documents/{certDocId}/download")">
+                                    Bescheinigung herunterladen
+                                </a>
+                            </div>
+                        }
+                        else if (_detailCertificate?.GenerationFailed == true)
+                        {
+                            <p class="text-muted small mt-3 mb-0">
+                                Die Teilnahmebescheinigung konnte nicht automatisch erstellt werden.
+                            </p>
+                        }
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" @onclick="CloseDetailModal">Schließen</button>
@@ -341,6 +356,7 @@ else
     [Inject] private TrainingAssignmentService AssignmentService { get; set; } = null!;
     [Inject] private TrainingInvitationService InvitationService { get; set; } = null!;
     [Inject] private TrainingParticipantService ParticipantService { get; set; } = null!;
+    [Inject] private TrainingCertificateService CertificateService { get; set; } = null!;
 
     private List<TrainingAssignmentRow> _rows = [];
     private bool _loading = true;
@@ -362,6 +378,7 @@ else
 
     private bool _showDetailModal;
     private TrainingAssignmentDetail? _detail;
+    private TrainingParticipantCertificateInfo? _detailCertificate;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -471,6 +488,15 @@ else
     private async Task OpenDetailModalAsync(int assignmentId)
     {
         _detail = await AssignmentService.GetAssignmentDetailAsync(assignmentId, TenantId);
+        _detailCertificate = null;
+
+        if (_detail?.Assignment.Status == TrainingAssignmentStatus.Completed)
+        {
+            _detailCertificate = await CertificateService.EnsureCertificateForAssignmentAsync(
+                assignmentId,
+                TenantId);
+        }
+
         _showDetailModal = _detail is not null;
     }
 
@@ -478,6 +504,7 @@ else
     {
         _showDetailModal = false;
         _detail = null;
+        _detailCertificate = null;
     }
 
     private async Task SendInvitationAsync(int assignmentId)

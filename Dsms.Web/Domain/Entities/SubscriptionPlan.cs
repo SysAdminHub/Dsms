@@ -31,6 +31,13 @@ public class SubscriptionPlan
     /// Änderungen wirken sich nicht auf bestehende Lizenzen aus.
     /// </summary>
     public bool IsPromotionalPriceEnabled { get; set; }
+
+    /// <summary>
+    /// Wenn true, ist das Schulungsmodul in diesem Tarif enthalten.
+    /// Wird bei Lizenzerstellung in die Lizenz übernommen; Planänderungen wirken nicht auf bestehende Lizenzen.
+    /// </summary>
+    public bool HasTrainingModule { get; set; } = true;
+
     public decimal? PromotionalMonthlyPrice { get; set; }
     public decimal? PromotionalYearlyPrice { get; set; }
     public string? PromotionalBadgeText { get; set; }

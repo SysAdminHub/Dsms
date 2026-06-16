@@ -11,7 +11,8 @@ namespace Dsms.Web.Services.Training;
 public class TrainingParticipantPortalService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
     TrainingAccessCodeService accessCodeService,
-    TrainingParticipantSessionService sessionService)
+    TrainingParticipantSessionService sessionService,
+    TrainingCertificateService certificateService)
 {
     private const string InvalidCredentialsMessage =
         "Die eingegebenen Zugangsdaten sind ungültig oder abgelaufen.";
@@ -430,7 +431,13 @@ public class TrainingParticipantPortalService(
             return new TrainingParticipantCompletionResult(false, "Sitzung abgelaufen.");
 
         if (context.IsCompleted)
-            return new TrainingParticipantCompletionResult(true, null);
+        {
+            var existingCertificate = await certificateService.EnsureCertificateForAssignmentAsync(
+                context.Assignment.Id,
+                context.Assignment.TenantId,
+                ct);
+            return new TrainingParticipantCompletionResult(true, null, existingCertificate);
+        }
 
         if (!await AllSectionsViewedAsync(ct))
             return new TrainingParticipantCompletionResult(false, "Bitte sehen Sie sich zuerst alle Schulungskarten an.");
@@ -465,7 +472,29 @@ public class TrainingParticipantPortalService(
         assignment.UpdatedAt = now;
 
         await db.SaveChangesAsync(ct);
-        return new TrainingParticipantCompletionResult(true, null);
+
+        var certificate = await certificateService.EnsureCertificateForAssignmentAsync(
+            assignment.Id,
+            assignment.TenantId,
+            ct);
+
+        return new TrainingParticipantCompletionResult(true, null, certificate);
+    }
+
+    public async Task<TrainingParticipantCertificateInfo?> GetCertificateInfoAsync(CancellationToken ct = default)
+    {
+        var session = sessionService.GetSession();
+        if (session is null)
+            return null;
+
+        var context = await GetContextAsync(ct);
+        if (context is null || !context.IsCompleted)
+            return null;
+
+        return await certificateService.EnsureCertificateForAssignmentAsync(
+            session.AssignmentId,
+            session.TenantId,
+            ct);
     }
 
     public async Task<bool> ValidatePortalAssetAccessAsync(string assetKey, CancellationToken ct = default)

@@ -170,6 +170,7 @@ public sealed class SubscriptionPlanService(
             PriceYearly = dto.PriceYearly,
             Currency = dto.Currency.Trim().ToUpperInvariant(),
             IsPromotionalPriceEnabled = dto.IsPromotionalPriceEnabled,
+            HasTrainingModule = dto.HasTrainingModule,
             PromotionalMonthlyPrice = dto.PromotionalMonthlyPrice,
             PromotionalYearlyPrice = dto.PromotionalYearlyPrice,
             PromotionalBadgeText = NormalizeOptional(dto.PromotionalBadgeText),
@@ -238,6 +239,7 @@ public sealed class SubscriptionPlanService(
         plan.PriceYearly = dto.PriceYearly;
         plan.Currency = dto.Currency.Trim().ToUpperInvariant();
         plan.IsPromotionalPriceEnabled = dto.IsPromotionalPriceEnabled;
+        plan.HasTrainingModule = dto.HasTrainingModule;
         plan.PromotionalMonthlyPrice = dto.PromotionalMonthlyPrice;
         plan.PromotionalYearlyPrice = dto.PromotionalYearlyPrice;
         plan.PromotionalBadgeText = NormalizeOptional(dto.PromotionalBadgeText);
@@ -397,6 +399,7 @@ public sealed class SubscriptionPlanService(
         PriceYearly = plan.PriceYearly,
         Currency = plan.Currency,
         IsPromotionalPriceEnabled = plan.IsPromotionalPriceEnabled,
+        HasTrainingModule = plan.HasTrainingModule,
         PromotionalMonthlyPrice = plan.PromotionalMonthlyPrice,
         PromotionalYearlyPrice = plan.PromotionalYearlyPrice,
         PromotionalBadgeText = plan.PromotionalBadgeText,
@@ -445,6 +448,7 @@ public sealed class SubscriptionPlanService(
         plan.PriceYearly,
         plan.Currency,
         plan.IsPromotionalPriceEnabled,
+        plan.HasTrainingModule,
         plan.PromotionalMonthlyPrice,
         plan.PromotionalYearlyPrice,
         plan.PromotionalBadgeText,

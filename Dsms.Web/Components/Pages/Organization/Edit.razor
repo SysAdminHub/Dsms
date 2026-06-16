@@ -109,6 +109,10 @@ else
                                 <option value="@option.Id">@FormatRoleOption(option)</option>
                             }
                         </InputSelect>
+                        @if (_roleOptions.Count == 0)
+                        {
+                            <div class="form-text">Es sind noch keine anderen Datenschutzrollen vorhanden. Diese Rolle wird ohne übergeordnete Berichtslinie angelegt.</div>
+                        }
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label" for="reports-to-text">Berichtet an (Freitext)</label>

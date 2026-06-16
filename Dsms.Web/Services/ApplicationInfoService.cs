@@ -8,9 +8,11 @@ namespace Dsms.Web.Services;
 /// </summary>
 public sealed class ApplicationInfoService(
     IConfiguration configuration,
-    IOptions<AppBrandingOptions> brandingOptions) : IApplicationInfoService
+    IOptions<AppBrandingOptions> brandingOptions,
+    IOptions<AppUrlOptions> urlOptions) : IApplicationInfoService
 {
     private readonly AppBrandingOptions _branding = brandingOptions.Value;
+    private readonly AppUrlOptions _urls = urlOptions.Value;
 
     public string Version { get; } = ResolveVersion(configuration);
 
@@ -33,6 +35,10 @@ public sealed class ApplicationInfoService(
     public string AppUrl => _branding.AppUrl;
 
     public string SupportEmail => _branding.SupportEmail;
+
+    public string ProvisioningAppBaseUrl => _urls.ResolveProvisioningAppBaseUrl();
+
+    public string ProvisioningSignupUrl => _urls.ResolveSignupUrl();
 
     private static string ResolveVersion(IConfiguration configuration)
     {

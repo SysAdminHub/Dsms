@@ -102,6 +102,7 @@ public static class DatabaseSeeder
         license.MaxActiveMeasuresPerTenant = 20;
         license.MaxStorageMb = 500;
         license.MaxEmailRemindersPerMonth = 100;
+        license.HasTrainingModule = true;
         license.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
@@ -119,17 +120,17 @@ public static class DatabaseSeeder
         await EnsureDemoBusinessDataAsync(db, hauptsitz);
         await EnsureDemoSouthTenantDataAsync(db, sued);
 
-        await EnsureUserAsync(db, userManager, "superuser@demo.local", "Superuser Demo",
+        await EnsureUserAsync(db, userManager, "superuser@datenschutz-cloud.eu", "Superuser Demo",
             DemoPassword, tenantId: null, licenseId: null, DsmsRoles.Superuser);
-        await EnsureUserAsync(db, userManager, "admin@demo.local", "Admin Demo",
+        await EnsureUserAsync(db, userManager, "admin@datenschutz-cloud.eu", "Admin Demo",
             DemoPassword, hauptsitz.Id, demoLicense.Id, DsmsRoles.Admin);
-        await EnsureUserAsync(db, userManager, "auditor@demo.local", "Auditor Demo",
+        await EnsureUserAsync(db, userManager, "auditor@datenschutz-cloud.eu", "Auditor Demo",
             DemoPassword, hauptsitz.Id, licenseId: null, DsmsRoles.Auditor);
-        await EnsureUserAsync(db, userManager, "user@demo.local", "Benutzer Demo",
+        await EnsureUserAsync(db, userManager, "user@datenschutz-cloud.eu", "Benutzer Demo",
             DemoPassword, hauptsitz.Id, licenseId: null, DsmsRoles.User);
-        await EnsureUserAsync(db, userManager, "auditor.sued@demo.local", "Auditor Süd Demo",
+        await EnsureUserAsync(db, userManager, "auditor.sued@datenschutz-cloud.eu", "Auditor Süd Demo",
             DemoPassword, sued.Id, licenseId: null, DsmsRoles.Auditor);
-        await EnsureUserAsync(db, userManager, "user.sued@demo.local", "Benutzer Süd Demo",
+        await EnsureUserAsync(db, userManager, "user.sued@datenschutz-cloud.eu", "Benutzer Süd Demo",
             DemoPassword, sued.Id, licenseId: null, DsmsRoles.User);
     }
 

@@ -4,8 +4,10 @@ namespace Dsms.Web.Services.Legal;
 
 public sealed class LegalDocumentService(
     IWebHostEnvironment environment,
-    ILegalPlaceholderService placeholderService) : ILegalDocumentService
+    ILegalPlaceholderService placeholderService,
+    ILogger<LegalDocumentService> logger) : ILegalDocumentService
 {
+    private const string AppName = "Web";
     private const string MetadataFileName = "legal-documents.json";
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -17,6 +19,11 @@ public sealed class LegalDocumentService(
         var metadataPath = Path.Combine(GetLegalRootPath(), MetadataFileName);
         if (!File.Exists(metadataPath))
         {
+            logger.LogWarning(
+                "Legal-Dokument konnte nicht geladen werden. App={App}, Reason=MetadataMissing, MetadataFileName={MetadataFileName}, Path={Path}, Exists=false",
+                AppName,
+                MetadataFileName,
+                metadataPath);
             return null;
         }
 
@@ -68,16 +75,32 @@ public sealed class LegalDocumentService(
 
         if (!metadata.Documents.TryGetValue(normalizedKey, out var relativePath) || string.IsNullOrWhiteSpace(relativePath))
         {
+            logger.LogWarning(
+                "Legal-Dokument konnte nicht geladen werden. App={App}, DocumentKey={DocumentKey}, Reason=DocumentNotConfigured",
+                AppName,
+                normalizedKey);
             return LegalDocumentContent.NotFound(normalizedKey, "Das angeforderte Dokument ist nicht konfiguriert.");
         }
 
         if (!TryResolveDocumentPath(relativePath, out var absolutePath, out var safeRelativePath))
         {
+            logger.LogWarning(
+                "Legal-Dokument konnte nicht geladen werden. App={App}, DocumentKey={DocumentKey}, FileName={FileName}, Path={Path}, Reason=InvalidDocumentPath",
+                AppName,
+                normalizedKey,
+                Path.GetFileName(relativePath),
+                Path.Combine(GetLegalRootPath(), relativePath));
             return LegalDocumentContent.NotFound(normalizedKey, "Der Dokumentpfad ist ungültig.");
         }
 
         if (!File.Exists(absolutePath))
         {
+            logger.LogWarning(
+                "Legal-Dokument konnte nicht geladen werden. App={App}, DocumentKey={DocumentKey}, FileName={FileName}, Path={Path}, Exists=false",
+                AppName,
+                normalizedKey,
+                Path.GetFileName(absolutePath),
+                absolutePath);
             return LegalDocumentContent.NotFound(normalizedKey, "Die Dokumentdatei wurde nicht gefunden.");
         }
 

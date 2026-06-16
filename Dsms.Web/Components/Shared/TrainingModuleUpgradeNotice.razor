@@ -1,0 +1,33 @@
+@* Hinweis für nicht lizenzierte Feature-Module (Upgrade). *@
+@inject IApplicationInfoService AppInfo
+
+<div class="dsms-card dsms-feature-upgrade-notice">
+    <div class="dsms-card-body text-center py-5 px-4">
+        <div class="dsms-feature-upgrade-notice__icon mb-3" aria-hidden="true">
+            <span class="bi bi-mortarboard fs-1 text-muted"></span>
+        </div>
+        <h2 class="h4 mb-3">@Title</h2>
+        <p class="text-muted mb-2 mx-auto" style="max-width: 36rem;">
+            @Description
+        </p>
+        <p class="text-muted mb-4 mx-auto" style="max-width: 36rem;">
+            Dieses Modul ist in Ihrem aktuellen Plan nicht enthalten.
+            Bitte wenden Sie sich an Ihren Administrator oder kontaktieren Sie den Support,
+            um das Schulungsmodul freizuschalten.
+        </p>
+        <a class="btn btn-outline-primary"
+           href="@UpgradeMailtoLink">
+            Upgrade anfragen
+        </a>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Schulungsmodul nicht in Ihrer Lizenz enthalten";
+
+    [Parameter] public string Description { get; set; } =
+        "Mit dem Schulungsmodul können Sie Datenschutzschulungen planen, Teilnehmer verwalten, Quizfragen nutzen und Schulungsnachweise dokumentieren.";
+
+    private string UpgradeMailtoLink =>
+        $"mailto:{Uri.EscapeDataString(AppInfo.SupportEmail)}?subject={Uri.EscapeDataString("Upgrade Schulungsmodul")}";
+}

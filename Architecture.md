@@ -205,13 +205,13 @@ Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `To
 
 **`Training`** (konkrete Schulung/Durchführung): erbt von `ArchivableEntityBase`, Pflicht-`TenantId`, optional `TrainingTemplateId` (V1: Referenz, kein Inhaltssnapshot – siehe TODO in Entity). Felder: Titel, Beschreibung, `TrainingType`, Zielgruppe, `TrainingStatus`, Verantwortlicher (User/Freitext), `AccessCodeValidityDays` (1–90, Standard 14), Notizen. Teilnehmerzahlen werden aus `TrainingAssignments` berechnet (Legacy-Feld `ParticipantCount` in DB, nicht mehr führend in UI). Nachweise über normale `EvidenceDocument` + `DocumentLinks`. Teilnehmerportal: `/schulung/teilnahme` (Zugang), `/schulung/teilnahme/inhalt` (Durchführung).
 
-**`TrainingParticipant`** / **`TrainingAssignment`**: Schulungsteilnehmer sind fachliche Datensätze, keine Identity-Benutzer. `NormalizedEmail` (trim, lowercase) mit eindeutigem Index pro Mandant. **Neuanlage nur zentral** unter `/trainings/participants` (einzeln/Bulk); Schulungsdetail weist nur vorhandene aktive Teilnehmer per Mehrfachauswahl zu. Zuweisung mit E-Mail-Snapshot, 6-stelliger Zugangscode (nur Hash via `PasswordHasher`), Einladungsstatus (`TrainingAssignmentStatus`), Sperrlogik (`FailedAccessAttempts`, `LockedUntilUtc`). Fortschritt in `TrainingAssignmentSectionProgress`; Quiz in `TrainingQuizAttempt`/`TrainingQuizAnswer`. E-Mail-Vorlage `TrainingInvitation`.
+**`TrainingParticipant`** / **`TrainingAssignment`**: Schulungsteilnehmer sind fachliche Datensätze, keine Identity-Benutzer. `NormalizedEmail` (trim, lowercase) mit eindeutigem Index pro Mandant. **Neuanlage nur zentral** unter `/trainings/participants` (einzeln/Bulk); Schulungsdetail weist nur vorhandene aktive Teilnehmer per Mehrfachauswahl zu. Zuweisung mit E-Mail-Snapshot, 6-stelliger Zugangscode (nur Hash via `PasswordHasher`), Einladungsstatus (`TrainingAssignmentStatus`), Sperrlogik (`FailedAccessAttempts`, `LockedUntilUtc`). Fortschritt in `TrainingAssignmentSectionProgress`; Quiz in `TrainingQuizAttempt`/`TrainingQuizAnswer`. Bei Abschluss: automatische PDF-Teilnahmebescheinigung (`CertificateDocumentId` → `EvidenceDocument`, Verknüpfung über `DocumentLink` zu `Training`). E-Mail-Vorlage `TrainingInvitation`.
 
 Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen, **`TenantOnboardingTask`** (mandantenbezogene Dashboard-Checkliste „Erste Schritte“; eindeutiger Index `TenantId` + `Key`).
 
 **`License`** ist eine eigenständige Entity mit **`Guid Id`** (nicht `EntityBase`). Enthält Kundendaten, Status, Gültigkeit und Limit-Felder (lizenzweit und pro Mandant). `LicenseNumber` wird automatisch vergeben (Format `LIC-{Jahr}-{Sequenz}`).
 
-**`SubscriptionPlan`** ist eine Tarifvorlage mit **`Guid Id`** (nicht `EntityBase`). Enthält Anzeigenamen, reguläre Preise (`PriceMonthly`, `PriceYearly`), optionale Sonderpreise (`IsPromotionalPriceEnabled`, `PromotionalMonthlyPrice`, `PromotionalYearlyPrice`, `PromotionalBadgeText`), optionale externe Billing-IDs, `IsPublicSignupEnabled` (öffentliche Registrierungsseite) und dieselben Limit-Felder wie `License`. `null` = unbegrenzt. Sonderpreise wirken nur auf die öffentliche Registrierungsanzeige und den effektiven `PendingSignup.Amount`; bestehende Lizenzen werden nicht geändert. Änderungen an Plänen **ändern bestehende Lizenzen nicht**; beim Signup werden Planwerte in eine neue `License` kopiert über `PlanToLicenseMapper` / `ProvisioningService`.
+**`SubscriptionPlan`** ist eine Tarifvorlage mit **`Guid Id`** (nicht `EntityBase`). Enthält Anzeigenamen, reguläre Preise (`PriceMonthly`, `PriceYearly`), optionale Sonderpreise (`IsPromotionalPriceEnabled`, `PromotionalMonthlyPrice`, `PromotionalYearlyPrice`, `PromotionalBadgeText`), optionale externe Billing-IDs, `IsPublicSignupEnabled` (öffentliche Registrierungsseite), `HasTrainingModule` (Feature-Lock Schulungsmodul) und dieselben Limit-Felder wie `License`. `null` = unbegrenzt. Sonderpreise wirken nur auf die öffentliche Registrierungsanzeige und den effektiven `PendingSignup.Amount`; bestehende Lizenzen werden nicht geändert. Änderungen an Plänen **ändern bestehende Lizenzen nicht**; beim Signup werden Planwerte in eine neue `License` kopiert über `PlanToLicenseMapper` / `ProvisioningService`.
 
 **Plan-to-License Mapping:** `PlanToLicenseService` lädt einen aktiven `SubscriptionPlan`, kopiert alle Limit-Felder 1:1 (`null` bleibt `null`) und setzt `License.PlanName` auf `SubscriptionPlan.DisplayName`. Beispiel: Plan „Pro“ mit `MaxUsersPerTenant = 25` → License „Muster GmbH“ mit `MaxUsersPerTenant = 25`. Wird der Plan später auf 50 geändert, bleibt die bestehende License bei 25.
 
@@ -291,7 +291,10 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ITenantExportService` / `TenantExportService` | Scoped | Vollständiger Mandanten-Export als ZIP (JSON-DTOs + Dokumentdateien) |
 | `ITenantComplianceInfoService` / `TenantComplianceInfoService` | Scoped | DSGVO-Mandanten-Stammdaten lesen/speichern für aktuellen Mandanten (Admin/Superuser via `/tenant-daten`); TenantId serverseitig |
 | `ITenantManagementService` / `TenantManagementService` | Scoped | Plattformweite Mandantenverwaltung (nur Superuser, `/tenants/edit`) |
-| `ITenantDeletionService` / `TenantDeletionService` | Scoped | Löschanforderung markieren (`IsDeletionRequested`); Abbrechen nur Superuser |
+| `ITenantDeletionService` / `TenantDeletionService` | Scoped | Mandanten-Lifecycle: Löschanforderung (`RequestDeletionAsync`), Deaktivieren (`DeactivateTenantAsync`), Vormerkung (`MarkForDeletionAsync`), endgültige Löschung (`ExecutePermanentDeletionAsync`, Namensbestätigung, nur Superuser); Plattform-Systemprotokoll |
+| `ITenantDataErasureService` / `TenantDataErasureService` | Scoped | Entfernt mandantenbezogene DB-Daten und Dateien in FK-sicherer Reihenfolge; anonymisiert aufbewahrungspflichtige `PendingSignups`/`LogEntries` |
+| `ITenantDeletionNotificationService` / `TenantDeletionNotificationService` | Scoped | Systembenachrichtigungen bei Löschanforderung, Vormerkung, endgültiger Löschung und Fehlerfällen (`EmailSettings.SystemNotificationRecipientEmail`) |
+| `ICommunityTemplateNotificationService` / `CommunityTemplateNotificationService` | Scoped | Systembenachrichtigung bei Community-Einreichung (`EmailSettings.SystemNotificationRecipientEmail`); E-Mail an Einreicher nach Freigabe/Ablehnung (SMTP über `IEmailService`) |
 | `TenantDataEndpoints` | Minimal API | `POST /tenant-daten/export` – ZIP-Download mit serverseitiger Berechtigungsprüfung |
 | `DocumentUploadValidation` | Static | Dateityp-, MIME- und Größenprüfung für Uploads (PDF, DOCX, XLSX, JPG, PNG; max. 10 MB) |
 | `DocumentLinksService` | Scoped | Many-to-Many-Verknüpfungen (`DocumentLink`); Laden, Setzen, Validierung mandantensicher |
@@ -310,6 +313,8 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `TrainingInvitationService` | Scoped | Einladungs-E-Mails mit Zugangscode (Status `Invited` nur bei erfolgreichem Versand) |
 | `TrainingParticipantSessionService` | Scoped | Signierte HttpOnly-Cookie-Session für Teilnehmerportal (kein Identity-Login) |
 | `TrainingParticipantPortalService` | Scoped | Zugang, Kartenfortschritt, Quiz-Auswertung, Abschluss (mit `IgnoreQueryFilters` für öffentlichen Zugang) |
+| `TrainingCertificateService` | Scoped | PDF-Teilnahmebescheinigung erzeugen, im Dokumentenmodul ablegen, Duplikate vermeiden |
+| `ITrainingCertificatePdfService` / `TrainingCertificatePdfService` | Scoped | QuestPDF-Erzeugung der Teilnahmebescheinigung |
 | `TrainingTemplateAssetService` | Scoped | Schulungsasset-Upload, Validierung, Archivierung, Datei-Kopie |
 | `TrainingQuestionService` | Scoped | Quiz-Fragen/-Optionen, `ValidateQuizAsync` |
 | `TrainingAssetStorageService` | Scoped | Dateisystem unter `Storage:TrainingAssetPath` (Default: `Data/training-assets/`) |
@@ -335,6 +340,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IPasswordResetService` / `PasswordResetService` | Scoped | Passwortreset und Willkommens-Einladungen via Identity-Token + `IEmailService`; Rate Limit über `IDistributedCache` |
 | `IReminderService` / `ReminderService` | Scoped | Manuelle Erinnerungsvorschau und Sammelversand an Mandanten-Admins (kein Background-Job, keine History) |
 | `ILicenseService` / `LicenseService` | Scoped | Lizenz-CRUD, Usage-Counts, Limit-Prüfung und -Durchsetzung |
+| `ILicenseFeatureService` / `LicenseFeatureService` | Scoped | Lizenzbasierte Feature-Locks (z. B. `HasTrainingModuleAsync` für Mandant) |
 | `ISubscriptionPlanService` / `SubscriptionPlanService` | Scoped | Tarifvorlagen-CRUD (Superuser); `GetPublicSignupPlansAsync()`, `GetPublicSignupPlanByIdAsync()` für Signup |
 | `IPlanToLicenseService` / `PlanToLicenseService` | Scoped | Erstellt neue `License` aus `SubscriptionPlan` (Werte werden kopiert, nicht verknüpft) |
 | `IProvisioningService` / `ProvisioningService` | Scoped | Provisioniert Kunde: License + Tenant + Admin + Passwortvergabe-Mail |
@@ -343,7 +349,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `IFeedbackService` / `FeedbackService` | Scoped | Benutzer-Feedback per E-Mail an `AppBranding.SupportEmail`; Vorlage `FeedbackMessageToSupport`; keine DB-Persistenz |
 | `IPaidSignupService` / `PaidSignupService` | Scoped | Legacy Paid-Signup-Service (nicht mehr über eigene Seite) |
 | `IPendingSignupService` / `PendingSignupService` | Scoped | Zwischenspeicher für ausstehende Registrierungen; Public Signup; Rechnungsverwaltung (NextInvoiceDate, BillingStatus-Aktionen) |
-| `ILegalDocumentService` / `LegalDocumentService` | Scoped | Liest `Legal/legal-documents.json` und Markdown-Dateien für öffentliche Legal-Seiten |
+| `ILegalDocumentService` / `LegalDocumentService` | Scoped | Liest `Legal/legal-documents.json` und Markdown-Dateien für öffentliche Legal-Seiten (Pfadauflösung über `ContentRootPath/Legal`; Markdown-Dateien werden per `.csproj` ins Publish-Output kopiert) |
 | `ILegalAcceptanceService` / `LegalAcceptanceService` | Scoped | Speichert und liest Nachweisdatensätze `LegalAcceptance` (Signup-Zustimmung) |
 | `ILegalPdfService` / `LegalPdfService` | Scoped | PDF-Generierung aus Legal-Markdown (QuestPDF); AVV-Paket kombiniert AVV+TOM+Unterauftragnehmer |
 | `ISignupLegalEmailService` / `SignupLegalEmailService` | Scoped | Bestätigungsmail nach Public Signup mit Legal-PDF-Anhängen |
@@ -364,7 +370,7 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 - Cookies: `AddIdentityCookies()`
 - Zentraler Emailversand: `EmailService` (MailKit); Passwortreset nutzt `PasswordResetService` + Vorlage `PasswordReset`
 - Identity-Stub `IdentityNoOpEmailSender` bleibt für übrige Identity-UI (Registrierung etc.)
-- Passwortreset- und Einladungs-Token: `UserManager.GeneratePasswordResetTokenAsync` / `ResetPasswordAsync`; Lebensdauer 60 Min. (`DataProtectionTokenProviderOptions`)
+- Passwortreset- und Einladungs-Token: `UserManager.GeneratePasswordResetTokenAsync` / `ResetPasswordAsync`; Lebensdauer 60 Min. (`DataProtectionTokenProviderOptions`); **Dsms.Web** und **Dsms.Provisioning** teilen `DataProtection:ApplicationName` (`DatenschutzCloud`) und denselben Key-Ring (`DataProtection:KeysPath`, lokal typisch `../DataProtection-Keys`)
 - Keine eigene `PasswordResetTokens`- oder `UserInvitationTokens`-Tabelle
 - Benutzeranlage: `CreateAsync(user)` ohne Passwort, danach `SendWelcomeInvitationAsync` mit Template `WelcomeSetPassword`
 
@@ -407,11 +413,12 @@ Details und Code-Beispiele: **`Logging.md`** im Projektroot.
 
 | Datei | Inhalt |
 |-------|--------|
-| `appsettings.json` | Lokaler Connection-String-Fallback (`dsms_dev`/`changeme`), `Application:Version`, `AppBranding` (sichtbarer Produktname, `LogoUrl`, `ShortName`-Fallback, URLs, Tagline), `Storage:UploadPath`, Logging |
+| `appsettings.json` | Lokaler Connection-String-Fallback (`dsms_dev`/`changeme`), `Application:Version`, `AppUrls` (`MainAppBaseUrl`, `ProvisioningAppBaseUrl`, `ProvisioningSignupUrl`), `AppBranding` (sichtbarer Produktname, `LogoUrl`, `ShortName`-Fallback, URLs, Tagline), `Storage:UploadPath`, Logging |
 | `appsettings.Development.json` | `dsms_dev`, detaillierter EF-Logging |
 | `.env.example` / `.env` | Docker-Production-Secrets (nur `.env.example` im Repo) |
-| `docker-compose.yml` | App + MySQL 8, Volumes, Environment Variables |
-| `Dsms.Web/Dockerfile` | Multi-Stage Production-Image (Port 8080) |
+| `docker-compose.yml` | MySQL 8 + `dsms-web` + `dsms-provisioning`, Volumes, Environment Variables |
+| `Dsms.Web/Dockerfile` | Multi-Stage Production-Image für die Fachanwendung (Port 8080) |
+| `Dsms.Provisioning/Dockerfile` | Multi-Stage Production-Image für die Provisioning-App (Port 8080) |
 | `Properties/launchSettings.json` | `https://localhost:7245`, `http://localhost:5295` |
 | `Dsms.Web.csproj` | `UserSecretsId` für lokale Secrets |
 
@@ -421,7 +428,7 @@ Reihenfolge in `Program.cs`:
 
 1. Services registrieren (Blazor, Identity, DbContext, Anwendungsservices)
 2. `WebApplication` bauen
-3. Pipeline: Exception Handler, Statuscode `/not-found`, HTTPS, Static Files, Antiforgery
+3. Pipeline: Exception Handler, Statuscode `/not-found`, HTTPS, **`UseProvisioningRedirects()`** (alte Signup-/Plattform-Provisioning-Routen → Provisioning-App), Static Files, Antiforgery
 4. `MapRazorComponents<App>()` mit Interactive Server
 5. `MapAdditionalIdentityEndpoints()`
 6. **`await DatabaseSeeder.SeedAsync(app.Services)`** vor `app.Run()`
@@ -442,7 +449,7 @@ Reihenfolge in `Program.cs`:
 
 1. **`await db.Database.MigrateAsync()`** – wendet ausstehende Migrationen an (Startzeit)
 2. Rollen anlegen, falls fehlend (`Superuser`, `Admin`, `Auditor`, `User`)
-3. Wenn **kein** Mandant existiert: Demo-Mandant, Fachdaten, vier Demo-Benutzer inkl. `superuser@demo.local` (ohne `TenantId`)
+3. Wenn **kein** Mandant existiert: Demo-Mandant, Fachdaten, sechs Demo-Benutzer inkl. `superuser@datenschutz-cloud.eu` (ohne `TenantId`)
 
 **Hinweis:** Es gibt **keine** separate Prüfung einzelner Tabellen/Spalten außerhalb von EF-Migrationen. Schema-Änderungen erfolgen über neue EF-Migrationen.
 
@@ -540,7 +547,7 @@ Die Login-Seite ist an das DSMS-Design angepasst; viele Manage-/Register-Seiten 
 - MySQL 8 erforderlich
 - Connection String über `ConnectionStrings__DefaultConnection` (Production) oder `appsettings.json` (lokal)
 - Upload-Ordner `Data/Uploads` (konfigurierbar via `Storage:UploadPath` / `Storage__UploadPath`) – Docker-Volume `/app/Data/Uploads`
-- Data Protection Keys persistent unter `DataProtection-Keys` (Docker-Volume `/app/DataProtection-Keys`)
+- Data Protection Keys persistent unter gemeinsamem Pfad `../DataProtection-Keys` (Solution-Root lokal; Docker-Volume `/app/DataProtection-Keys` für Dsms.Web und Dsms.Provisioning)
 - HTTPS empfohlen (`UseHttpsRedirection`, HSTS in Production) – typisch per Reverse Proxy
 - **Annahme:** Einzelinstanz-Deployment; Blazor Server und SignalR erfordern Sticky Sessions bei Skalierung – im Code nicht dokumentiert
 
@@ -551,10 +558,13 @@ Briefing und Seitenstruktur: [`website.md`](./website.md).
 | Host | Dienst | Status |
 |------|--------|--------|
 | `datenschutz-cloud.eu` | Öffentliche Marketingseite (`Dsms.Marketing`, geplant) | Nicht im Repo |
-| `app.datenschutz-cloud.eu` | SaaS-App `Dsms.Web` | Konfiguriert in `AppBranding:AppUrl` |
+| `app.datenschutz-cloud.eu` | SaaS-Fachanwendung `Dsms.Web` | Konfiguriert in `AppBranding:AppUrl` / `AppUrls:MainAppBaseUrl` |
+| `signup.datenschutz-cloud.eu` | Provisioning-App `Dsms.Provisioning` (Registrierung, Pläne, Lizenzen) | `AppUrls:ProvisioningAppBaseUrl` / `ProvisioningSignupUrl` |
 | `demo.datenschutz-cloud.eu` | Demo-Instanz `Dsms.Web` | **TODO:** Deployment-Konzept |
 
-**V1 Marketing:** kein Datenbankzugriff; statische Inhalte; Login/Register nur als Links zur App (`/Account/Login`, `/signup`).
+**V1 Marketing:** kein Datenbankzugriff; statische Inhalte; Login/Register als Links zur Fach-App bzw. Provisioning-App (`AppUrls:ProvisioningSignupUrl`).
+
+**UI-Trennung:** Öffentliche Registrierung und kaufmännische Plattformfunktionen liegen in `Dsms.Provisioning`. `Dsms.Web` leitet GET-Anfragen auf `/signup`, `/signup/*` sowie `/platform/licenses`, `/platform/plans`, `/platform/discount-codes`, `/platform/provisioning` und `/platform/signups` per `ProvisioningRedirectMiddleware` zur Provisioning-App um. E-Mail-Einstellungen (`/platform/email/*`) bleiben in der Fachanwendung. Superuser-Navigation enthält keine Provisioning-Menüpunkte mehr (außer Email).
 
 **Später optional:** eigene MySQL-Datenbank `dsms_marketing` im gleichen Container – **kein** Zugriff auf Mandantendatenbank, **kein** gemeinsamer `ApplicationDbContext`.
 

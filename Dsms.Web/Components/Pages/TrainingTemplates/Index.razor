@@ -15,6 +15,7 @@ else if (_accessDenied)
 }
 else
 {
+    <TrainingModuleAccessGate RequireLicense="@(!_isGlobalMode)">
     <PageHeader Title="@(_isGlobalMode ? "Globale Schulungsvorlagen" : "Schulungsvorlagen")" HelpKey="training-templates"
                 Subtitle="@(_isGlobalMode ? "Globale und freigegebene Community-Vorlagen für alle Mandanten" : "Erstellen und verwalten Sie wiederverwendbare Schulungsinhalte mit Markdown-Karten, Bildern und Quizfragen.")">
         <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -187,6 +188,7 @@ else
             </div>
         </div>
     }
+    </TrainingModuleAccessGate>
 }
 
 @code {

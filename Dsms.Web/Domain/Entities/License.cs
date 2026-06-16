@@ -38,5 +38,10 @@ public class License
     public int? MaxStorageMb { get; set; }
     public int? MaxEmailRemindersPerMonth { get; set; }
 
+    /// <summary>
+    /// Wirksamer Feature-Status: Schulungsmodul für Mandanten dieser Lizenz.
+    /// </summary>
+    public bool HasTrainingModule { get; set; } = true;
+
     public ICollection<Tenant> Tenants { get; set; } = [];
 }

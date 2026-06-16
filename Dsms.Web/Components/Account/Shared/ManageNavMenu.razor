@@ -3,29 +3,17 @@
 
 @inject SignInManager<ApplicationUser> SignInManager
 
-<ul class="nav nav-pills flex-column">
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage" Match="NavLinkMatch.All">Profil</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/Email">E-Mail</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/ChangePassword">Passwort</NavLink>
-    </li>
+<nav class="dsms-account-nav">
+    <NavLink class="dsms-account-nav-link" href="Account/Manage" Match="NavLinkMatch.All">Profil</NavLink>
+    <NavLink class="dsms-account-nav-link" href="Account/Manage/Email">E-Mail</NavLink>
+    <NavLink class="dsms-account-nav-link" href="Account/Manage/ChangePassword">Passwort</NavLink>
     @if (hasExternalLogins)
     {
-        <li class="nav-item">
-            <NavLink class="nav-link" href="Account/Manage/ExternalLogins">Externe Anmeldungen</NavLink>
-        </li>
+        <NavLink class="dsms-account-nav-link" href="Account/Manage/ExternalLogins">Externe Anmeldungen</NavLink>
     }
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/TwoFactorAuthentication">Zwei-Faktor</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/PersonalData">Persönliche Daten</NavLink>
-    </li>
-</ul>
+    <NavLink class="dsms-account-nav-link" href="Account/Manage/TwoFactorAuthentication">Zwei-Faktor</NavLink>
+    <NavLink class="dsms-account-nav-link" href="Account/Manage/PersonalData">Persönliche Daten</NavLink>
+</nav>
 
 @code {
     private bool hasExternalLogins;

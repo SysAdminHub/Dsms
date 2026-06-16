@@ -125,6 +125,7 @@ public sealed partial class LicenseService
             MaxActiveMeasuresPerTenant = baseDetails.MaxActiveMeasuresPerTenant,
             MaxStorageMb = baseDetails.MaxStorageMb,
             MaxEmailRemindersPerMonth = baseDetails.MaxEmailRemindersPerMonth,
+            HasTrainingModule = baseDetails.HasTrainingModule,
             Usage = baseDetails.Usage,
             Usability = baseDetails.Usability
         };

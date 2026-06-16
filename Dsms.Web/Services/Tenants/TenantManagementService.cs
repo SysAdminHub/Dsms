@@ -32,6 +32,8 @@ public sealed class TenantManagementService(
                 Name = t.Name,
                 LegalName = t.LegalName,
                 IsActive = t.IsActive,
+                IsDeletionRequested = t.IsDeletionRequested,
+                DeletionRequestedAt = t.DeletionRequestedAt,
                 LicenseId = t.LicenseId,
                 LicenseNumber = l != null ? l.LicenseNumber : null,
                 LicenseCustomerName = l != null ? l.CustomerName : null,

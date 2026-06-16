@@ -86,6 +86,7 @@ builder.Services.AddScoped<DocumentCategoryService>();
 builder.Services.AddScoped<DataProtectionRoleService>();
 builder.Services.AddScoped<ITenantExportService, TenantExportService>();
 builder.Services.AddScoped<ITenantDeletionService, TenantDeletionService>();
+builder.Services.AddScoped<ITenantDeletionNotificationService, TenantDeletionNotificationService>();
 
 builder.Services.Configure<Dsms.Web.Configuration.DataProtectionOptions>(
     builder.Configuration.GetSection(Dsms.Web.Configuration.DataProtectionOptions.SectionName));
@@ -150,6 +151,8 @@ builder.Services.AddScoped<TrainingAssignmentService>();
 builder.Services.AddScoped<TrainingInvitationService>();
 builder.Services.AddScoped<TrainingParticipantSessionService>();
 builder.Services.AddScoped<TrainingParticipantPortalService>();
+builder.Services.AddScoped<ITrainingCertificatePdfService, TrainingCertificatePdfService>();
+builder.Services.AddScoped<TrainingCertificateService>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -259,6 +262,7 @@ app.MapDocumentFileEndpoints();
 app.MapTrainingAssetEndpoints();
 app.MapTrainingParticipantAssetEndpoints();
 app.MapTrainingParticipantLoginEndpoints();
+app.MapTrainingParticipantCertificateEndpoints();
 app.MapTenantDataEndpoints();
 app.MapLegalDocumentEndpoints();
 

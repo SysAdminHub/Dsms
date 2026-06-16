@@ -2,6 +2,7 @@
 @page "/tenants/edit/{Id:int}"
 @attribute [Authorize(Roles = DsmsRoles.Superuser)]
 @rendermode InteractiveServer
+@using Dsms.Web.Services.TenantDeletion
 
 <BrandedPageTitle Title="@(_isNew ? "Mandant anlegen" : "Mandant bearbeiten")" />
 
@@ -146,9 +147,104 @@
     </div>
 </div>
 
+@if (!_isNew && _model.IsActive)
+{
+    <div class="dsms-card dsms-form-card mt-4">
+        <div class="dsms-card-body">
+            <h2 class="h5 mb-3">Löschanforderung</h2>
+            @if (_deletionStatus is null)
+            {
+                <div class="dsms-loading">Lade …</div>
+            }
+            else if (_deletionStatus.IsDeletionRequested)
+            {
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Löschung angefordert</dt>
+                    <dd class="col-sm-8">Ja</dd>
+                    <dt class="col-sm-4">Angefordert am</dt>
+                    <dd class="col-sm-8">@(_deletionStatus.DeletionRequestedAt?.ToLocalTime().ToString("dd.MM.yyyy, HH:mm 'Uhr'") ?? "—")</dd>
+                    <dt class="col-sm-4">Angefordert von</dt>
+                    <dd class="col-sm-8">
+                        @if (!string.IsNullOrWhiteSpace(_deletionStatus.DeletionRequestedByDisplayName)
+                            || !string.IsNullOrWhiteSpace(_deletionStatus.DeletionRequestedByEmail))
+                        {
+                            @(_deletionStatus.DeletionRequestedByDisplayName ?? "—")
+                            @if (!string.IsNullOrWhiteSpace(_deletionStatus.DeletionRequestedByEmail))
+                            {
+                                <span class="text-muted"> (@_deletionStatus.DeletionRequestedByEmail)</span>
+                            }
+                        }
+                        else
+                        {
+                            <span>—</span>
+                        }
+                    </dd>
+                </dl>
+            }
+            else
+            {
+                <p class="text-muted mb-0">Für diesen Mandanten liegt keine Löschanforderung vor.</p>
+            }
+        </div>
+    </div>
+
+    <div class="dsms-card dsms-form-card mt-4 border-danger">
+        <div class="dsms-card-body">
+            <h2 class="h5 mb-2 text-danger">Mandant löschen</h2>
+            <p class="text-muted">
+                Diese Aktion deaktiviert den Mandanten und kann Auswirkungen auf alle zugehörigen Daten haben.
+                Benutzer können danach nicht mehr regulär auf diesen Mandanten zugreifen.
+            </p>
+
+            @if (!string.IsNullOrEmpty(_deleteError))
+            {
+                <div class="alert alert-danger dsms-alert">@_deleteError</div>
+            }
+            @if (!string.IsNullOrEmpty(_deleteMessage))
+            {
+                <div class="alert alert-success dsms-alert">@_deleteMessage</div>
+            }
+
+            @if (!_showDeleteConfirm)
+            {
+                <button type="button" class="btn btn-outline-danger" @onclick="ShowDeleteConfirm" disabled="@_deleteBusy">
+                    Mandant löschen
+                </button>
+            }
+            else
+            {
+                <p class="mb-2">
+                    Bitte geben Sie den Mandantennamen zur Bestätigung ein:
+                    <strong>@_model.Name</strong>
+                </p>
+                <div class="mb-3" style="max-width: 24rem;">
+                    <label class="form-label" for="deleteConfirmName">Mandantenname</label>
+                    <input id="deleteConfirmName" class="form-control @(_deleteNameMismatch ? "is-invalid" : null)"
+                           @bind="_deleteConfirmName" @bind:event="oninput" disabled="@_deleteBusy" />
+                    @if (_deleteNameMismatch)
+                    {
+                        <div class="invalid-feedback d-block">Der eingegebene Mandantenname stimmt nicht überein.</div>
+                    }
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-danger" @onclick="ExecuteDeleteAsync"
+                            disabled="@(_deleteBusy || !NamesMatchForDelete())">
+                        Mandant endgültig löschen
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="HideDeleteConfirm" disabled="@_deleteBusy">
+                        Abbrechen
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public int? Id { get; set; }
     [Inject] private ITenantManagementService TenantManagement { get; set; } = null!;
+    [Inject] private ITenantDeletionService DeletionService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private ILicenseService LicenseService { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
@@ -158,6 +254,13 @@
     private bool _isNew = true;
     private string? _errorMessage;
     private LicenseLimitCheckResult? _createLimit;
+    private TenantDeletionStatusDto? _deletionStatus;
+    private bool _showDeleteConfirm;
+    private string _deleteConfirmName = string.Empty;
+    private bool _deleteNameMismatch;
+    private bool _deleteBusy;
+    private string? _deleteError;
+    private string? _deleteMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -199,6 +302,7 @@
                 LicenseId = tenant.LicenseId
             };
             _selectedLicenseId = tenant.LicenseId;
+            _deletionStatus = await DeletionService.GetDeletionStatusAsync(tenant.Id);
         }
         else if (_licenses.Count == 1)
         {
@@ -241,5 +345,61 @@
         }
 
         Navigation.NavigateTo("tenants");
+    }
+
+    private void ShowDeleteConfirm()
+    {
+        _showDeleteConfirm = true;
+        _deleteConfirmName = string.Empty;
+        _deleteNameMismatch = false;
+        _deleteError = null;
+        _deleteMessage = null;
+    }
+
+    private void HideDeleteConfirm()
+    {
+        _showDeleteConfirm = false;
+        _deleteConfirmName = string.Empty;
+        _deleteNameMismatch = false;
+    }
+
+    private bool NamesMatchForDelete() =>
+        TenantDeletionService.TenantNamesMatch(_model.Name, _deleteConfirmName);
+
+    private async Task ExecuteDeleteAsync()
+    {
+        if (_model.Id <= 0)
+        {
+            return;
+        }
+
+        _deleteBusy = true;
+        _deleteError = null;
+        _deleteMessage = null;
+        _deleteNameMismatch = false;
+
+        try
+        {
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId is null)
+            {
+                _deleteError = "Benutzer nicht angemeldet.";
+                return;
+            }
+
+            var result = await DeletionService.ExecuteDeletionAsync(_model.Id, _deleteConfirmName, userId);
+            if (!result.Success)
+            {
+                _deleteNameMismatch = result.Message.Contains("stimmt nicht überein", StringComparison.OrdinalIgnoreCase);
+                _deleteError = result.Message;
+                return;
+            }
+
+            Navigation.NavigateTo("tenants");
+        }
+        finally
+        {
+            _deleteBusy = false;
+        }
     }
 }

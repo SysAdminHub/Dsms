@@ -1,11 +1,11 @@
-@* Tenant-Daten: Stammdaten, Export und Löschanforderung für Superuser und Mandanten-Admin. *@
+@* Mandantendaten: Stammdaten, Export und Löschanforderung für Superuser und Mandanten-Admin. *@
 @page "/tenant-daten"
 @attribute [Authorize(Roles = DsmsRoles.TenantDataManagement)]
 @rendermode InteractiveServer
 
-<BrandedPageTitle Title="Tenant-Daten" />
+<BrandedPageTitle Title="Mandantendaten" />
 
-<PageHeader Title="Tenant-Daten" HelpKey="tenant-data"
+<PageHeader Title="Mandantendaten" HelpKey="tenant-data"
             Subtitle="Mandanten-Stammdaten, Datenexport und Löschanforderung für den aktuellen Mandanten" />
 
 @if (!_authorized)
@@ -189,20 +189,20 @@ else
 
     <div class="dsms-card mb-4">
         <div class="dsms-card-body">
-            <h2 class="h5 mb-2">Tenant-Daten exportieren</h2>
+            <h2 class="h5 mb-2">Mandantendaten exportieren</h2>
             <p class="text-muted mb-3">
                 Laden Sie alle fachlichen Daten dieses Mandanten inklusive Dokumenten als ZIP-Datei herunter.
             </p>
             <form action="tenant-daten/export" method="post">
                 <AntiforgeryToken />
-                <button type="submit" class="btn btn-primary">Tenant-Daten exportieren</button>
+                <button type="submit" class="btn btn-primary">Mandantendaten exportieren</button>
             </form>
         </div>
     </div>
 
     <div class="dsms-card">
         <div class="dsms-card-body">
-            <h2 class="h5 mb-2">Tenant-Löschung anfordern</h2>
+            <h2 class="h5 mb-2">Mandantenlöschung anfordern</h2>
             <p class="text-muted">
                 Wenn Sie diesen Mandanten nicht mehr nutzen möchten, können Sie eine Löschung anfordern.
                 Bitte exportieren Sie vorher Ihre Daten.
@@ -210,8 +210,13 @@ else
 
             @if (_tenant.IsDeletionRequested)
             {
+                <div class="alert alert-warning dsms-alert mb-3" role="alert">
+                    Für diesen Mandanten wurde bereits am
+                    @(_tenant.DeletionRequestedAt?.ToLocalTime().ToString("dd.MM.yyyy, HH:mm 'Uhr'") ?? "—")
+                    eine Löschung angefordert.
+                </div>
                 <p class="text-muted mb-0">
-                    Eine Löschanforderung liegt bereits vor. In Version 1 werden keine Daten automatisch gelöscht.
+                    Die tatsächliche Löschung erfolgt nicht automatisch, sondern wird nach Prüfung manuell durchgeführt.
                 </p>
                 @if (_isSuperuser)
                 {
@@ -220,41 +225,23 @@ else
                     </button>
                 }
             }
-            else if (!_showDeletionConfirm)
-            {
-                <div class="alert alert-danger" role="alert">
-                    Diese Aktion markiert den Mandanten zur Löschung. Bitte laden Sie vorher einen vollständigen Datenexport herunter.
-                </div>
-                <button type="button" class="btn btn-outline-danger" @onclick="ShowDeletionConfirm" disabled="@_busy">
-                    Tenant-Löschung vorbereiten
-                </button>
-            }
             else
             {
                 <div class="alert alert-danger" role="alert">
-                    Diese Aktion markiert den Mandanten zur Löschung. Bitte laden Sie vorher einen vollständigen Datenexport herunter.
+                    Diese Aktion markiert den Mandanten zur Löschung. Die tatsächliche Löschung erfolgt nicht automatisch,
+                    sondern wird nach Prüfung manuell durchgeführt.
                 </div>
-                <p class="mb-2">
-                    Bitte geben Sie den Mandantennamen ein, um die Löschanforderung zu bestätigen:
-                    <strong>@_tenant.Name</strong>
-                </p>
-                <div class="mb-3" style="max-width: 24rem;">
-                    <label class="form-label" for="confirmName">Mandantenname bestätigen</label>
-                    <input id="confirmName" class="form-control @(_nameMismatch ? "is-invalid" : null)"
-                           @bind="_confirmedName" @bind:event="oninput" disabled="@_busy" />
-                    @if (_nameMismatch)
-                    {
-                        <div class="invalid-feedback d-block">Der eingegebene Mandantenname stimmt nicht überein.</div>
-                    }
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="confirm-deletion-request"
+                           @bind="_deletionConfirmed" disabled="@_busy" />
+                    <label class="form-check-label" for="confirm-deletion-request">
+                        Ich bestätige, dass ich die Löschung dieses Mandanten anfordern möchte.
+                    </label>
                 </div>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-danger" @onclick="RequestDeletionAsync" disabled="@_busy">
-                        Löschung anfordern
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" @onclick="HideDeletionConfirm" disabled="@_busy">
-                        Abbrechen
-                    </button>
-                </div>
+                <button type="button" class="btn btn-outline-danger" @onclick="RequestDeletionAsync"
+                        disabled="@(!_deletionConfirmed || _busy)">
+                    Mandantenlöschung anfordern
+                </button>
             }
         </div>
     </div>
@@ -273,9 +260,7 @@ else
     private TenantComplianceInfoSaveModel _complianceModel = new();
     private bool _authorized;
     private bool _isSuperuser;
-    private bool _showDeletionConfirm;
-    private string _confirmedName = string.Empty;
-    private bool _nameMismatch;
+    private bool _deletionConfirmed;
     private bool _busy;
     private string? _message;
     private bool _messageIsError;
@@ -363,21 +348,6 @@ else
         }
     }
 
-    private void ShowDeletionConfirm()
-    {
-        _showDeletionConfirm = true;
-        _confirmedName = string.Empty;
-        _nameMismatch = false;
-        _message = null;
-    }
-
-    private void HideDeletionConfirm()
-    {
-        _showDeletionConfirm = false;
-        _confirmedName = string.Empty;
-        _nameMismatch = false;
-    }
-
     private async Task RequestDeletionAsync()
     {
         if (_tenant is null)
@@ -387,7 +357,6 @@ else
 
         _busy = true;
         _message = null;
-        _nameMismatch = false;
 
         try
         {
@@ -399,18 +368,22 @@ else
                 return;
             }
 
-            var result = await DeletionService.RequestDeletionAsync(_tenant.Id, _confirmedName, userId);
+            var result = await DeletionService.RequestDeletionAsync(_tenant.Id, userId, _deletionConfirmed);
             if (!result.Success)
             {
-                _nameMismatch = result.Message.Contains("stimmt nicht überein", StringComparison.OrdinalIgnoreCase);
                 _message = result.Message;
                 _messageIsError = true;
                 return;
             }
 
-            _message = "Die Löschung des Mandanten wurde angefordert.";
+            _message = result.Message;
+            if (result.EmailNotificationFailed)
+            {
+                _message += " Die Systembenachrichtigung konnte nicht versendet werden.";
+            }
+
             _messageIsError = false;
-            _showDeletionConfirm = false;
+            _deletionConfirmed = false;
             _tenant = await TenantService.GetCurrentTenantAsync();
         }
         finally

@@ -4,7 +4,15 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- **Mandantenlöschung – Anforderung und Superuser-Löschung:** UI-Texte vereinheitlicht („Mandant“ statt „Tenant“). Löschanforderung per Checkbox mit Systembenachrichtigung an `EmailSettings.SystemNotificationRecipientEmail`. Auditlog (`TenantDeletionRequested`, `TenantDeletedBySuperuser`). Superuser sieht Löschstatus in Mandantenübersicht und -details; manuelle Deaktivierung mit Namensbestätigung über `ExecuteDeletionAsync` (Soft Delete via `IsActive = false`).
+
+- **Schulungsabschluss – PDF-Teilnahmebescheinigung:** Nach erfolgreichem Abschluss einer Schulung wird automatisch eine PDF-Teilnahmebescheinigung (QuestPDF) erzeugt, im Dokumentenmodul abgelegt und mit der Schulung verknüpft. `TrainingAssignment.CertificateDocumentId` verhindert Duplikate. Teilnehmer laden die Bescheinigung auf der Abschlussseite herunter (`/schulung/teilnahme/bescheinigung/download`, Cookie-Session). Admins sehen den Nachweis in der Teilnehmerdetail-Ansicht und im Dokumentenmodul. Migration `AddTrainingAssignmentCertificateDocumentId`.
+
 ### Behoben
+
+- **Datenschutzrollen – erste Rolle bei neuem Mandant:** Selbstbezugsprüfung für „Berichtet an“ und „Vertretung“ verglich `null == null` beim Anlegen einer neuen Rolle ohne Auswahl und blockierte fälschlich mit „Eine Rolle kann nicht an sich selbst berichten.“ Prüfung greift nur noch, wenn sowohl die aktuelle Rolle als auch eine referenzierte Rolle gesetzt sind. Dezenter Hinweis unter dem Berichtet-an-Dropdown, wenn noch keine anderen Rollen existieren.
 
 - **Dienstleister bearbeiten – Verarbeitungstätigkeiten zuordnen:** `ObjectDisposedException` beim An-/Abhaken von Verarbeitungstätigkeiten behoben. Ursache: dynamisches `InputSelect` mit `ValueExpression` auf Dictionary-Einträge und fehlende `@key` in der Checkbox-Liste destabilisierten den Blazor-Render-Tree. Auswahlzustand läuft jetzt über stabile Zeilenobjekte; TOM-Liste mit `@key` abgesichert; Speichern mit try/catch, Logging und deutscher Fehlermeldung.
 

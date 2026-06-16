@@ -37,6 +37,7 @@ else
                         <th>Verantwortlicher</th>
                         <th>Lizenz</th>
                         <th>Status</th>
+                        <th>Löschung</th>
                         <th class="dsms-table-actions"></th>
                     </tr>
                 </thead>
@@ -58,6 +59,16 @@ else
                             </td>
                             <td>
                                 <StatusBadge Text="@(tenant.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(tenant.IsActive ? "success" : "default")" />
+                            </td>
+                            <td>
+                                @if (tenant.IsDeletionRequested)
+                                {
+                                    <StatusBadge Text="Löschung angefordert" Variant="warning" />
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
                             </td>
                             <td class="dsms-table-actions">
                                 <a class="btn btn-sm btn-outline-secondary" href="@($"tenants/edit/{tenant.Id}")">Bearbeiten</a>

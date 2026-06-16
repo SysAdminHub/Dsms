@@ -205,7 +205,7 @@ Betroffene Entities: `ProcessingActivity`, `DataProtectionImpactAssessment`, `To
 
 **`Training`** (konkrete Schulung/Durchführung): erbt von `ArchivableEntityBase`, Pflicht-`TenantId`, optional `TrainingTemplateId` (V1: Referenz, kein Inhaltssnapshot – siehe TODO in Entity). Felder: Titel, Beschreibung, `TrainingType`, Zielgruppe, `TrainingStatus`, Verantwortlicher (User/Freitext), `AccessCodeValidityDays` (1–90, Standard 14), Notizen. Teilnehmerzahlen werden aus `TrainingAssignments` berechnet (Legacy-Feld `ParticipantCount` in DB, nicht mehr führend in UI). Nachweise über normale `EvidenceDocument` + `DocumentLinks`. Teilnehmerportal: `/schulung/teilnahme` (Zugang), `/schulung/teilnahme/inhalt` (Durchführung).
 
-**`TrainingParticipant`** / **`TrainingAssignment`**: Schulungsteilnehmer sind fachliche Datensätze, keine Identity-Benutzer. `NormalizedEmail` (trim, lowercase) mit eindeutigem Index pro Mandant. **Neuanlage nur zentral** unter `/trainings/participants` (einzeln/Bulk); Schulungsdetail weist nur vorhandene aktive Teilnehmer per Mehrfachauswahl zu. Zuweisung mit E-Mail-Snapshot, 6-stelliger Zugangscode (nur Hash via `PasswordHasher`), Einladungsstatus (`TrainingAssignmentStatus`), Sperrlogik (`FailedAccessAttempts`, `LockedUntilUtc`). Fortschritt in `TrainingAssignmentSectionProgress`; Quiz in `TrainingQuizAttempt`/`TrainingQuizAnswer`. E-Mail-Vorlage `TrainingInvitation`.
+**`TrainingParticipant`** / **`TrainingAssignment`**: Schulungsteilnehmer sind fachliche Datensätze, keine Identity-Benutzer. `NormalizedEmail` (trim, lowercase) mit eindeutigem Index pro Mandant. **Neuanlage nur zentral** unter `/trainings/participants` (einzeln/Bulk); Schulungsdetail weist nur vorhandene aktive Teilnehmer per Mehrfachauswahl zu. Zuweisung mit E-Mail-Snapshot, 6-stelliger Zugangscode (nur Hash via `PasswordHasher`), Einladungsstatus (`TrainingAssignmentStatus`), Sperrlogik (`FailedAccessAttempts`, `LockedUntilUtc`). Fortschritt in `TrainingAssignmentSectionProgress`; Quiz in `TrainingQuizAttempt`/`TrainingQuizAnswer`. Bei Abschluss: automatische PDF-Teilnahmebescheinigung (`CertificateDocumentId` → `EvidenceDocument`, Verknüpfung über `DocumentLink` zu `Training`). E-Mail-Vorlage `TrainingInvitation`.
 
 Nicht archivierbar (weiterhin `EntityBase`): `Tenant`, `AuditQuestion`, `AuditAnswer`, Join-Tabellen, **`TenantOnboardingTask`** (mandantenbezogene Dashboard-Checkliste „Erste Schritte“; eindeutiger Index `TenantId` + `Key`).
 
@@ -291,7 +291,8 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `ITenantExportService` / `TenantExportService` | Scoped | Vollständiger Mandanten-Export als ZIP (JSON-DTOs + Dokumentdateien) |
 | `ITenantComplianceInfoService` / `TenantComplianceInfoService` | Scoped | DSGVO-Mandanten-Stammdaten lesen/speichern für aktuellen Mandanten (Admin/Superuser via `/tenant-daten`); TenantId serverseitig |
 | `ITenantManagementService` / `TenantManagementService` | Scoped | Plattformweite Mandantenverwaltung (nur Superuser, `/tenants/edit`) |
-| `ITenantDeletionService` / `TenantDeletionService` | Scoped | Löschanforderung markieren (`IsDeletionRequested`); Abbrechen nur Superuser |
+| `ITenantDeletionService` / `TenantDeletionService` | Scoped | Löschanforderung markieren (`IsDeletionRequested`); Systemmail; Auditlog; Superuser-Deaktivierung (`ExecuteDeletionAsync`, Soft Delete via `IsActive=false`); Abbrechen nur Superuser |
+| `ITenantDeletionNotificationService` / `TenantDeletionNotificationService` | Scoped | Systembenachrichtigung bei Löschanforderung (`EmailSettings.SystemNotificationRecipientEmail`) |
 | `TenantDataEndpoints` | Minimal API | `POST /tenant-daten/export` – ZIP-Download mit serverseitiger Berechtigungsprüfung |
 | `DocumentUploadValidation` | Static | Dateityp-, MIME- und Größenprüfung für Uploads (PDF, DOCX, XLSX, JPG, PNG; max. 10 MB) |
 | `DocumentLinksService` | Scoped | Many-to-Many-Verknüpfungen (`DocumentLink`); Laden, Setzen, Validierung mandantensicher |
@@ -310,6 +311,8 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `TrainingInvitationService` | Scoped | Einladungs-E-Mails mit Zugangscode (Status `Invited` nur bei erfolgreichem Versand) |
 | `TrainingParticipantSessionService` | Scoped | Signierte HttpOnly-Cookie-Session für Teilnehmerportal (kein Identity-Login) |
 | `TrainingParticipantPortalService` | Scoped | Zugang, Kartenfortschritt, Quiz-Auswertung, Abschluss (mit `IgnoreQueryFilters` für öffentlichen Zugang) |
+| `TrainingCertificateService` | Scoped | PDF-Teilnahmebescheinigung erzeugen, im Dokumentenmodul ablegen, Duplikate vermeiden |
+| `ITrainingCertificatePdfService` / `TrainingCertificatePdfService` | Scoped | QuestPDF-Erzeugung der Teilnahmebescheinigung |
 | `TrainingTemplateAssetService` | Scoped | Schulungsasset-Upload, Validierung, Archivierung, Datei-Kopie |
 | `TrainingQuestionService` | Scoped | Quiz-Fragen/-Optionen, `ValidateQuizAsync` |
 | `TrainingAssetStorageService` | Scoped | Dateisystem unter `Storage:TrainingAssetPath` (Default: `Data/training-assets/`) |

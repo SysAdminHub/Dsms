@@ -9,6 +9,8 @@ public sealed class TenantListItemDto
     public string Name { get; init; } = string.Empty;
     public string? LegalName { get; init; }
     public bool IsActive { get; init; }
+    public bool IsDeletionRequested { get; init; }
+    public DateTime? DeletionRequestedAt { get; init; }
     public Guid? LicenseId { get; init; }
     public string? LicenseNumber { get; init; }
     public string? LicenseCustomerName { get; init; }

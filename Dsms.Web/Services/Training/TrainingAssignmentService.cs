@@ -445,7 +445,8 @@ public class TrainingAssignmentService(
             isExpired,
             isLocked,
             latestQuizAttempt?.Passed,
-            latestQuizAttempt?.ScorePercent);
+            latestQuizAttempt?.ScorePercent,
+            assignment.CertificateDocumentId);
     }
 
     private void RefreshExpiredStatus(TrainingAssignment assignment, DateTime utcNow)

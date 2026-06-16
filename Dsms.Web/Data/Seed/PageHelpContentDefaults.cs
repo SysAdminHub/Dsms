@@ -194,7 +194,7 @@ public static class PageHelpContentDefaults
             """),
         new(
             Domain.PageHelpContentKeys.TenantData,
-            "Tenant-Daten",
+            "Mandantendaten",
             "Art. 30 DSGVO, Art. 13/14 DSGVO",
             "Pflegen Sie Mandanten-Stammdaten, exportieren Sie Daten und verwalten Sie Löschanforderungen.",
             """

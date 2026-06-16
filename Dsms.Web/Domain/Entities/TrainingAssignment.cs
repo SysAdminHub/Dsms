@@ -41,6 +41,10 @@ public class TrainingAssignment : ArchivableEntityBase, ITenantEntity
     public DateTime? CompletedAtUtc { get; set; }
     public DateTime? ParticipationConfirmedAtUtc { get; set; }
 
+    /// <summary>Automatisch erzeugte Teilnahmebescheinigung im Dokumentenmodul.</summary>
+    public int? CertificateDocumentId { get; set; }
+    public EvidenceDocument? CertificateDocument { get; set; }
+
     public string? CreatedByUserId { get; set; }
     public string? UpdatedByUserId { get; set; }
 

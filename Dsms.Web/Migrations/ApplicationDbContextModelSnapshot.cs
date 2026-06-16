@@ -3142,6 +3142,9 @@ namespace Dsms.Web.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("varchar(450)");
 
+                    b.Property<int?>("CertificateDocumentId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("CompletedAtUtc")
                         .HasColumnType("datetime(6)");
 
@@ -3215,6 +3218,8 @@ namespace Dsms.Web.Migrations
 
                     b.HasIndex("AccessCodeExpiresAtUtc");
 
+                    b.HasIndex("CertificateDocumentId");
+
                     b.HasIndex("InvitationSentByUserId");
 
                     b.HasIndex("LockedUntilUtc");
@@ -3222,8 +3227,6 @@ namespace Dsms.Web.Migrations
                     b.HasIndex("ParticipantEmailSnapshot");
 
                     b.HasIndex("Status");
-
-                    b.HasIndex("TenantId");
 
                     b.HasIndex("TrainingId");
 
@@ -4667,6 +4670,11 @@ namespace Dsms.Web.Migrations
 
             modelBuilder.Entity("Dsms.Web.Domain.Entities.TrainingAssignment", b =>
                 {
+                    b.HasOne("Dsms.Web.Domain.Entities.EvidenceDocument", "CertificateDocument")
+                        .WithMany()
+                        .HasForeignKey("CertificateDocumentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Dsms.Web.Data.ApplicationUser", "InvitationSentByUser")
                         .WithMany()
                         .HasForeignKey("InvitationSentByUserId")
@@ -4688,6 +4696,8 @@ namespace Dsms.Web.Migrations
                         .WithMany("Assignments")
                         .HasForeignKey("TrainingParticipantId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CertificateDocument");
 
                     b.Navigation("InvitationSentByUser");
 

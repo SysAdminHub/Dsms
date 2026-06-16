@@ -8,7 +8,7 @@ namespace Dsms.Web.Services;
 /// Synchronisiert Many-to-Many-Verknüpfungen von Datenschutzvorfällen.
 /// Alle Ziel-IDs werden mandantenseitig validiert.
 /// </summary>
-public class PrivacyIncidentRelationsService(ApplicationDbContext db)
+public class PrivacyIncidentRelationsService(ApplicationDbContext db, ILogger<PrivacyIncidentRelationsService> logger)
 {
     public async Task<(bool Success, string? ErrorMessage)> SaveLinksAsync(
         int privacyIncidentId,
@@ -24,44 +24,61 @@ public class PrivacyIncidentRelationsService(ApplicationDbContext db)
         if (!incidentExists)
             return (false, "Vorfall nicht gefunden.");
 
-        if (processingActivityIds.Count > 0)
+        var distinctProcessingActivityIds = processingActivityIds.Distinct().ToList();
+        var distinctServiceProviderIds = serviceProviderIds.Distinct().ToList();
+        var distinctMeasureIds = measureIds.Distinct().ToList();
+        var distinctTomIds = tomIds.Distinct().ToList();
+
+        if (distinctProcessingActivityIds.Count > 0)
         {
             var validPaCount = await db.ProcessingActivities
-                .CountAsync(p => p.TenantId == tenantId && processingActivityIds.Contains(p.Id), ct);
-            if (validPaCount != processingActivityIds.Count)
+                .CountAsync(p => p.TenantId == tenantId && distinctProcessingActivityIds.Contains(p.Id), ct);
+            if (validPaCount != distinctProcessingActivityIds.Count)
                 return (false, "Eine oder mehrere Verarbeitungstätigkeiten gehören nicht zu Ihrem Mandanten.");
         }
 
-        if (serviceProviderIds.Count > 0)
+        if (distinctServiceProviderIds.Count > 0)
         {
             var validSpCount = await db.ServiceProviders
-                .CountAsync(s => s.TenantId == tenantId && serviceProviderIds.Contains(s.Id), ct);
-            if (validSpCount != serviceProviderIds.Count)
+                .CountAsync(s => s.TenantId == tenantId && distinctServiceProviderIds.Contains(s.Id), ct);
+            if (validSpCount != distinctServiceProviderIds.Count)
                 return (false, "Ein oder mehrere Dienstleister gehören nicht zu Ihrem Mandanten.");
         }
 
-        if (measureIds.Count > 0)
+        if (distinctMeasureIds.Count > 0)
         {
             var validMeasureCount = await db.Measures
-                .CountAsync(m => m.TenantId == tenantId && measureIds.Contains(m.Id), ct);
-            if (validMeasureCount != measureIds.Count)
+                .CountAsync(m => m.TenantId == tenantId && distinctMeasureIds.Contains(m.Id), ct);
+            if (validMeasureCount != distinctMeasureIds.Count)
                 return (false, "Eine oder mehrere Maßnahmen gehören nicht zu Ihrem Mandanten.");
         }
 
-        if (tomIds.Count > 0)
+        if (distinctTomIds.Count > 0)
         {
             var validTomCount = await db.Toms
-                .CountAsync(t => t.TenantId == tenantId && tomIds.Contains(t.Id), ct);
-            if (validTomCount != tomIds.Count)
+                .CountAsync(t => t.TenantId == tenantId && distinctTomIds.Contains(t.Id), ct);
+            if (validTomCount != distinctTomIds.Count)
                 return (false, "Eine oder mehrere TOMs gehören nicht zu Ihrem Mandanten.");
         }
 
-        await SyncProcessingActivitiesAsync(privacyIncidentId, tenantId, processingActivityIds, ct);
-        await SyncServiceProvidersAsync(privacyIncidentId, tenantId, serviceProviderIds, ct);
-        await SyncMeasuresAsync(privacyIncidentId, tenantId, measureIds, ct);
-        await SyncTomsAsync(privacyIncidentId, tenantId, tomIds, ct);
-
-        return (true, null);
+        try
+        {
+            await SyncProcessingActivitiesAsync(privacyIncidentId, tenantId, distinctProcessingActivityIds, ct);
+            await SyncServiceProvidersAsync(privacyIncidentId, tenantId, distinctServiceProviderIds, ct);
+            await SyncMeasuresAsync(privacyIncidentId, tenantId, distinctMeasureIds, ct);
+            await SyncTomsAsync(privacyIncidentId, tenantId, distinctTomIds, ct);
+            await db.SaveChangesAsync(ct);
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Fehler beim Speichern der Verknüpfungen für Datenschutzvorfall {PrivacyIncidentId} (Mandant {TenantId})",
+                privacyIncidentId,
+                tenantId);
+            return (false, "Die Verknüpfungen konnten nicht gespeichert werden. Bitte versuchen Sie es erneut.");
+        }
     }
 
     /// <summary>Verknüpft eine neu angelegte Maßnahme mit einem Vorfall (idempotent).</summary>

@@ -441,7 +441,7 @@ Verwendet in zahlreichen Fachseiten (VVT, DSFA, TOMs, Audits, Users, Tenants, �
 |------------|------|--------|
 | **Einstieg** | `Program.cs` → `DatabaseSeeder.SeedAsync()` | **Immer**, alle Umgebungen |
 | **Demo-Lizenz** | `DatabaseSeeder.cs` | `LIC-DEMO-000001`, Demo Kunde GmbH |
-| **Demo-User** | 6 Accounts `@demo.local` / `Demo123!` | superuser, admin, auditor, user (+ Süd-Mandant) |
+| **Demo-User** | 6 Accounts `@datenschutz-cloud.eu` / `Demo123!` | superuser, admin, auditor, user (+ Süd-Mandant) |
 | **Demo-Mandanten** | Hauptsitz + Niederlassung Süd | VVT, DSFA, Audit, … |
 | **Demo-Pläne** | `SubscriptionPlanSeeder` | free/basic/pro/business |
 | **Demo-Schulung** | `TrainingSeeder.cs` | demo.teilnehmer@example.com |
@@ -824,7 +824,7 @@ flowchart LR
 
 | # | Risiko | Schwere |
 |---|--------|---------|
-| 1 | Frischer Production-Docker-Deploy erstellt `superuser@demo.local` / `Demo123!` | **Kritisch** |
+| 1 | Frischer Production-Docker-Deploy erstellt `superuser@datenschutz-cloud.eu` / `Demo123!` | **Kritisch** |
 | 2 | `SubscriptionPlanSeeder`: Free-Plan mit `IsPublicSignupEnabled=true` öffnet `/signup` | **Kritisch** |
 | 3 | Produktive Legal-Texte mit PII und Subprozessoren im Repo | **Hoch** |
 | 4 | README-Lizenz widerspricht `LICENSE.txt` (AGPL) | **Hoch** |

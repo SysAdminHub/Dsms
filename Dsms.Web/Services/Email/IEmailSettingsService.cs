@@ -9,7 +9,6 @@ public interface IEmailSettingsService
     Task<EmailSettingsEditModel> GetForEditAsync();
     Task<EmailOperationResult> SaveAsync(EmailSettingsEditModel model);
     Task<EmailOperationResult> SendTestEmailAsync(string recipientEmail);
-    Task<EmailSettings?> GetSettingsForSendingAsync();
 }
 
 /// <summary>Formularmodell ohne Klartext-Passwort.</summary>

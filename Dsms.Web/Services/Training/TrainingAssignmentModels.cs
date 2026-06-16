@@ -13,7 +13,8 @@ public sealed record TrainingAssignmentRow(
     bool IsCodeExpired,
     bool IsLocked,
     bool? QuizPassed,
-    int? LastQuizScorePercent);
+    int? LastQuizScorePercent,
+    int? CertificateDocumentId);
 
 public sealed record TrainingParticipantStats(
     int TotalAssigned,

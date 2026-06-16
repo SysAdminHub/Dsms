@@ -57,7 +57,14 @@ else
                                 }
                             </td>
                             <td>
-                                <StatusBadge Text="@(tenant.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(tenant.IsActive ? "success" : "default")" />
+                                <StatusBadge Text="@tenant.LifecycleStatusDisplayName"
+                                             Variant="@TenantLifecycleStatusHelper.GetBadgeVariant(tenant.LifecycleStatus)" />
+                                @if (tenant.IsDeletionRequested && tenant.DeletionScheduledAt.HasValue)
+                                {
+                                    <div class="small text-muted">
+                                        Geplant: @tenant.DeletionScheduledAt.Value.ToLocalTime().ToString("dd.MM.yyyy")
+                                    </div>
+                                }
                             </td>
                             <td class="dsms-table-actions">
                                 <a class="btn btn-sm btn-outline-secondary" href="@($"tenants/edit/{tenant.Id}")">Bearbeiten</a>

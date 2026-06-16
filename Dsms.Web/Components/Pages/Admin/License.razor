@@ -14,9 +14,6 @@ else if (_overview?.Status == AdminLicenseOverviewStatus.IsSuperuser)
     <PageHeader Title="Meine Lizenz" HelpKey="license" />
     <div class="alert alert-info dsms-alert">
         @_overview.Message
-        <div class="mt-2">
-            <a class="btn btn-outline-primary btn-sm" href="platform/licenses">Zur Plattform-Lizenzverwaltung</a>
-        </div>
     </div>
 }
 else if (_overview?.Status is AdminLicenseOverviewStatus.NoLicenseAssigned or AdminLicenseOverviewStatus.LicenseNotFound)

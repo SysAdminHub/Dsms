@@ -13,7 +13,7 @@ namespace Dsms.Web.Services.Signup;
 
 public sealed class SignupNotificationService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
-    IEmailSettingsService emailSettingsService,
+    IEmailSendingSettingsProvider emailSettingsProvider,
     IEmailService emailService,
     ILogService logService,
     ILogger<SignupNotificationService> logger,
@@ -22,7 +22,7 @@ public sealed class SignupNotificationService(
     private readonly AppBrandingOptions _branding = brandingOptions.Value;
     public async Task TrySendPublicSignupNotificationAsync(Guid pendingSignupId, bool passwordSetupEmailSent)
     {
-        var emailSettings = await emailSettingsService.GetSettingsForSendingAsync();
+        var emailSettings = await emailSettingsProvider.GetSettingsForSendingAsync();
         if (emailSettings is null || !emailSettings.SystemNotificationsEnabled)
         {
             logger.LogInformation("Systembenachrichtigungen sind deaktiviert.");

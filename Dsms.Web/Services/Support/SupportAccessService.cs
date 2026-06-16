@@ -12,6 +12,7 @@ public sealed class SupportAccessService(
     ICurrentUserContext currentUser,
     ITenantContextService tenantContext,
     ISupportContextService supportContext,
+    ISupportAccessNotificationService supportAccessNotification,
     ILogService logService) : ISupportAccessService
 {
     public const string InvalidGrantMessage =
@@ -118,7 +119,9 @@ public sealed class SupportAccessService(
             result: "Success",
             metadata: new { grant.ValidUntil, DurationHours = duration.TotalHours, grant.Reason });
 
-        return SupportAccessOperationResult.Ok(grant, "Supportzugriff wurde freigegeben.");
+        await supportAccessNotification.TrySendSupportAccessRequestedNotificationAsync(grant.Id);
+
+        return SupportAccessOperationResult.Ok(grant, "Deine Supportzugriffs-Anfrage wurde gesendet.");
     }
 
     /// <inheritdoc />

@@ -561,7 +561,9 @@ public class ApplicationDbContext(
                 .HasForeignKey(a => a.TrainingParticipantId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(a => a.InvitationSentByUser).WithMany()
                 .HasForeignKey(a => a.InvitationSentByUserId).OnDelete(DeleteBehavior.SetNull);
-            e.HasIndex(a => a.TenantId);
+            e.HasOne(a => a.CertificateDocument).WithMany()
+                .HasForeignKey(a => a.CertificateDocumentId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(a => a.CertificateDocumentId);
             e.HasIndex(a => a.TrainingId);
             e.HasIndex(a => a.TrainingParticipantId);
             e.HasIndex(a => a.ParticipantEmailSnapshot);

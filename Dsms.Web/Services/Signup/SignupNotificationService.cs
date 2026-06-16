@@ -187,16 +187,7 @@ public sealed class SignupNotificationService(
         }
         else
         {
-            AppendSectionHtml(sb, "Rechnungsdaten", [
-                ("Rechnungsempfänger / Firma", signup.BillingCompanyName ?? "—"),
-                ("Rechnungs-E-Mail", signup.BillingEmail ?? "—"),
-                ("Straße und Hausnummer", signup.BillingStreet ?? "—"),
-                ("PLZ", signup.BillingPostalCode ?? "—"),
-                ("Ort", signup.BillingCity ?? "—"),
-                ("Land", signup.BillingCountry ?? "—"),
-                ("Umsatzsteuer-ID", signup.BillingVatId ?? "—"),
-                ("Bestellnummer / Referenz", signup.BillingReference ?? "—")
-            ]);
+            AppendSectionHtml(sb, "Rechnungsdaten", PendingSignupDisplayHelper.BuildBillingNotificationRows(signup).ToArray());
             sb.Append("<p><strong>Hinweis:</strong> Bitte manuell Rechnung erstellen und Lizenzlaufzeit nach Zahlung/Absprache im Backend anpassen.</p>");
         }
 
@@ -269,14 +260,10 @@ public sealed class SignupNotificationService(
         else
         {
             sb.AppendLine("=== Rechnungsdaten ===");
-            sb.AppendLine($"Rechnungsempfänger / Firma: {signup.BillingCompanyName ?? "—"}");
-            sb.AppendLine($"Rechnungs-E-Mail: {signup.BillingEmail ?? "—"}");
-            sb.AppendLine($"Straße: {signup.BillingStreet ?? "—"}");
-            sb.AppendLine($"PLZ: {signup.BillingPostalCode ?? "—"}");
-            sb.AppendLine($"Ort: {signup.BillingCity ?? "—"}");
-            sb.AppendLine($"Land: {signup.BillingCountry ?? "—"}");
-            sb.AppendLine($"USt-IdNr.: {signup.BillingVatId ?? "—"}");
-            sb.AppendLine($"Referenz: {signup.BillingReference ?? "—"}");
+            foreach (var (label, value) in PendingSignupDisplayHelper.BuildBillingNotificationTextRows(signup))
+            {
+                sb.AppendLine($"{label}: {value}");
+            }
             sb.AppendLine();
             sb.AppendLine("Hinweis: Bitte manuell Rechnung erstellen und Lizenzlaufzeit nach Zahlung/Absprache im Backend anpassen.");
         }

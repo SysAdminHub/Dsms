@@ -10,6 +10,8 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ### Geändert
 
+- **Signup: Rechnungsadresse optional:** Checkbox „Abweichende Rechnungsadresse“ auf `/signup` (Standard: deaktiviert). Ohne Checkbox werden Rechnungsadressfelder ausgeblendet; beim Absenden übernimmt der Server die Unternehmensadresse. Rechnungs-E-Mail, USt-ID und Bestellnummer bleiben sichtbar. Admin-Detailansicht und interne Benachrichtigungs-E-Mail zeigen „Rechnungsadresse entspricht Unternehmensadresse“, wenn keine abweichende Adresse gewählt wurde. Flag in `MetadataJson` (`HasDifferentBillingAddress`), keine DB-Migration.
+
 - **Kontoeinstellungen (Dsms.Web):** Account-Manage-Bereich (`/Account/Manage/*`) optisch an die Datenschutz-Cloud-UI angepasst (PageHeader, Kartenlayout, Seitennavigation, DSMS-Formularstile). Sichtbare Texte, Statusmeldungen und Validierungshinweise auf Deutsch übersetzt. Betroffen: Profil, E-Mail, Passwort, Zwei-Faktor, Persönliche Daten sowie zugehörige Unterseiten (Authenticator, Wiederherstellungscodes, externe Anmeldungen).
 
 - **Docker-Deployment (zwei Apps):** `docker-compose.yml` startet `db`, `dsms-web` (ehemals `dsms`) und `dsms-provisioning` mit gemeinsamer MySQL-Datenbank und geteiltem Data-Protection-Volume. `.env.example` und `Production_Deployment.md` für Zwei-Container-Betrieb aktualisiert. Neues `Dsms.Provisioning/Dockerfile` (Multi-Stage, Port 8080).

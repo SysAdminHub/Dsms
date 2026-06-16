@@ -3,11 +3,38 @@
 @attribute [Authorize(Roles = DsmsRoles.UserManagement)]
 @rendermode InteractiveServer
 
-<PageTitle>Benutzer</PageTitle>
+<BrandedPageTitle Title="Benutzer" />
 
-<PageHeader Title="Benutzer" Subtitle="Konten, Mandanten und Rollen verwalten">
+<PageHeader Title="Benutzer" HelpKey="users" Subtitle="Konten, Mandanten und Rollen verwalten">
     <a class="btn btn-primary" href="users/create">Neuer Benutzer</a>
 </PageHeader>
+
+@if (_userLimit is not null || _auditorLimit is not null || _adminLimit is not null)
+{
+    <div class="d-flex flex-column gap-2 mb-3">
+        @if (_userLimit is not null)
+        {
+            <LicenseUsageBadge Check="_userLimit" />
+        }
+        @if (_auditorLimit is not null)
+        {
+            <LicenseUsageBadge Check="_auditorLimit" />
+        }
+        @if (_adminLimit is not null)
+        {
+            <LicenseUsageBadge Check="_adminLimit" />
+        }
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <div class="alert alert-success dsms-alert">@_successMessage</div>
+}
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+}
 
 @if (_users is null)
 {
@@ -23,6 +50,7 @@ else
                         <th>E-Mail</th>
                         <th>Anzeigename</th>
                         <th>Mandant</th>
+                        <th>Lizenz</th>
                         <th>Rollen</th>
                         <th>Status</th>
                         <th class="dsms-table-actions"></th>
@@ -36,6 +64,17 @@ else
                             <td><strong>@entry.User.DisplayName</strong></td>
                             <td>@entry.TenantName</td>
                             <td>
+                                @if (entry.HasLicenseConflict)
+                                {
+                                    <StatusBadge Text="Lizenzkonflikt" Variant="danger" />
+                                    @if (!string.IsNullOrEmpty(entry.LicenseConflictMessage))
+                                    {
+                                        <div class="text-danger small">@entry.LicenseConflictMessage</div>
+                                    }
+                                }
+                                <span class="@(entry.HasLicenseConflict ? "text-danger" : "")">@entry.LicenseDisplayName</span>
+                            </td>
+                            <td>
                                 @foreach (var role in entry.Roles)
                                 {
                                     <StatusBadge Text="@role" Variant="primary" />
@@ -45,7 +84,21 @@ else
                                 <StatusBadge Text="@(entry.IsActive ? "Aktiv" : "Inaktiv")" Variant="@(entry.IsActive ? "success" : "default")" />
                             </td>
                             <td class="dsms-table-actions">
-                                <a class="btn btn-sm btn-outline-secondary" href="@($"users/edit/{entry.User.Id}")">Bearbeiten</a>
+                                <div class="dsms-table-action-stack">
+                                    <a class="btn btn-sm btn-outline-secondary" href="@($"users/edit/{entry.User.Id}")">Bearbeiten</a>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            disabled="@(_sendingUserId == entry.User.Id)"
+                                            @onclick="() => SendPasswordResetAsync(entry.User.Id)">
+                                        Passwortreset-Mail senden
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary"
+                                            disabled="@(_sendingInviteUserId == entry.User.Id)"
+                                            @onclick="() => SendInvitationAsync(entry.User.Id)">
+                                        Einladung erneut senden
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     }
@@ -57,9 +110,78 @@ else
 
 @code {
     [Inject] private IUserManagementService UserManagement { get; set; } = null!;
+    [Inject] private IPasswordResetService PasswordReset { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private IReadOnlyList<UserListItem>? _users;
+    private LicenseLimitCheckResult? _userLimit;
+    private LicenseLimitCheckResult? _auditorLimit;
+    private LicenseLimitCheckResult? _adminLimit;
+    private string? _sendingUserId;
+    private string? _sendingInviteUserId;
+    private string? _successMessage;
+    private string? _errorMessage;
 
-    protected override async Task OnInitializedAsync() =>
+    protected override async Task OnInitializedAsync()
+    {
         _users = await UserManagement.ListUsersAsync(includeInactive: true);
+
+        if (await UserAccess.IsSuperuserAsync())
+        {
+            var licenses = await LicenseService.GetActiveLicenseOptionsAsync();
+            if (licenses.Count == 1)
+            {
+                _adminLimit = await LicenseService.CanCreateAdminAsync(licenses[0].Id);
+            }
+
+            return;
+        }
+
+        var tenantId = await CurrentUser.GetTenantIdAsync();
+        if (tenantId is int tid)
+        {
+            _userLimit = await LicenseService.CanCreateUserAsync(tid);
+            _auditorLimit = await LicenseService.CanCreateAuditorAsync(tid);
+        }
+    }
+
+    private async Task SendPasswordResetAsync(string userId)
+    {
+        _sendingUserId = userId;
+        _successMessage = null;
+        _errorMessage = null;
+
+        var result = await PasswordReset.SendAdminResetAsync(userId);
+        if (result.Succeeded)
+        {
+            _successMessage = result.Message;
+        }
+        else
+        {
+            _errorMessage = result.Message;
+        }
+
+        _sendingUserId = null;
+    }
+
+    private async Task SendInvitationAsync(string userId)
+    {
+        _sendingInviteUserId = userId;
+        _successMessage = null;
+        _errorMessage = null;
+
+        var result = await PasswordReset.SendWelcomeInvitationAsync(userId);
+        if (result.Succeeded)
+        {
+            _successMessage = result.Message;
+        }
+        else
+        {
+            _errorMessage = result.Message;
+        }
+
+        _sendingInviteUserId = null;
+    }
 }

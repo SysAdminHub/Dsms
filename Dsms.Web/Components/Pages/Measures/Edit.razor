@@ -3,16 +3,34 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 
-<PageTitle>Maßnahme</PageTitle>
+<BrandedPageTitle Title="Maßnahme" />
 
 @if (_tenantId is null)
 {
     <PageHeader Title="Maßnahme" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
+else if (!_canEdit)
+{
+    <PageHeader Title="Maßnahme" />
+    <div class="alert alert-warning dsms-alert">Keine Berechtigung zum Bearbeiten von Maßnahmen.</div>
+    <a class="btn btn-outline-secondary" href="@GetCancelHref()">Zurück</a>
+}
+else if (!string.IsNullOrEmpty(_prefillError))
+{
+    <PageHeader Title="Maßnahme anlegen" />
+    <div class="alert alert-warning dsms-alert">@_prefillError</div>
+    <a class="btn btn-outline-secondary" href="@GetCancelHref()">Zurück</a>
+}
 else
 {
     <PageHeader Title="@(_model.Id == 0 ? "Maßnahme anlegen" : "Maßnahme bearbeiten")" />
+
+    @if (_model.Id == 0 && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
 
     <div class="dsms-card dsms-form-card">
         <div class="dsms-card-body">
@@ -83,37 +101,66 @@ else
                 }
 
                 <div class="dsms-form-actions">
-                    <button type="submit" class="btn btn-primary">Speichern</button>
-                    <a class="btn btn-outline-secondary" href="measures">Abbrechen</a>
+                    <button type="submit" class="btn btn-primary" disabled="@(_model.Id == 0 && _createLimit is { IsAllowed: false })">Speichern</button>
+                    <a class="btn btn-outline-secondary" href="@GetCancelHref()">Abbrechen</a>
                 </div>
             </EditForm>
         </div>
     </div>
+
+    @if (_model.Id > 0)
+    {
+        <LinkedDocumentsSection MeasureId="_model.Id" />
+    }
 }
 
 @code {
     [Parameter] public int? Id { get; set; }
+    [SupplyParameterFromQuery(Name = "auditRunId")]
+    public int? AuditRunId { get; set; }
+    [SupplyParameterFromQuery(Name = "auditAnswerId")]
+    public int? AuditAnswerId { get; set; }
+    [SupplyParameterFromQuery(Name = "privacyIncidentId")]
+    public int? PrivacyIncidentId { get; set; }
+    [SupplyParameterFromQuery(Name = "dataSubjectRequestId")]
+    public int? DataSubjectRequestId { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private ProcessingActivityRelationsService Relations { get; set; } = null!;
+    [Inject] private PrivacyIncidentRelationsService IncidentRelations { get; set; } = null!;
+    [Inject] private DataSubjectRequestRelationsService DataSubjectRequestRelations { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _canEdit;
     private bool _canEditLinks;
     private string? _linkSaveError;
+    private LicenseLimitCheckResult? _createLimit;
+    private string? _prefillError;
     private Measure _model = new() { Status = MeasureStatus.Open };
     private DateOnly? _dueDate;
     private List<AuditRun> _auditRuns = [];
     private List<ProcessingActivity> _processingActivities = [];
     private HashSet<int> _selectedProcessingActivityIds = [];
+    private MeasureStatus? _previousStatus;
+    private string? _previousTitle;
+    private DateOnly? _previousDueDate;
+    private int? _linkedPrivacyIncidentId;
+    private int? _linkedDataSubjectRequestId;
 
     protected override async Task OnInitializedAsync()
     {
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
-        _canEditLinks = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
-            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        _canEdit = await UserAccess.CanEditTenantOperationalContentAsync();
+        if (!_canEdit) return;
+
+        _canEditLinks = await UserAccess.CanEditComplianceContentAsync();
 
         _processingActivities = await Db.ProcessingActivities
             .Where(p => p.TenantId == _tenantId)
@@ -130,6 +177,9 @@ else
             _model = await Db.Measures
                 .Include(m => m.ProcessingActivityLinks)
                 .FirstAsync(m => m.Id == Id && m.TenantId == _tenantId);
+            _previousStatus = _model.Status;
+            _previousTitle = _model.Title;
+            _previousDueDate = _model.DueDate;
             _dueDate = _model.DueDate;
             _selectedProcessingActivityIds = _model.ProcessingActivityLinks
                 .Select(l => l.ProcessingActivityId)
@@ -138,12 +188,178 @@ else
         else
         {
             _model.TenantId = _tenantId.Value;
+            _createLimit = await LicenseService.CanCreateMeasureAsync(_tenantId.Value);
+            if (PrivacyIncidentId is int)
+            {
+                await TryPrefillFromPrivacyIncidentAsync();
+            }
+            else if (DataSubjectRequestId is int)
+            {
+                await TryPrefillFromDataSubjectRequestAsync();
+            }
+            else
+            {
+                await TryPrefillFromAuditAnswerAsync();
+            }
         }
+    }
+
+    private async Task TryPrefillFromAuditAnswerAsync()
+    {
+        if (AuditAnswerId is not int answerId || _tenantId is not int tenantId)
+            return;
+
+        var answer = await Db.AuditAnswers
+            .Include(a => a.AuditQuestion)
+            .Include(a => a.AuditRun)
+            .FirstOrDefaultAsync(a => a.Id == answerId);
+
+        if (answer is null
+            || answer.AuditRun.TenantId != tenantId
+            || (AuditRunId is int runId && answer.AuditRunId != runId))
+        {
+            _prefillError = "Die angegebene Audit-Antwort ist ungültig oder gehört nicht zu Ihrem Mandanten.";
+            return;
+        }
+
+        _model.AuditRunId = answer.AuditRunId;
+        _model.AuditAnswerId = answer.Id;
+        _model.Status = MeasureStatus.Open;
+        _model.Title = BuildMeasureTitle(answer.AuditQuestion.Text);
+        _model.Description = BuildMeasureDescription(answer);
+    }
+
+    private static string BuildMeasureTitle(string questionText)
+    {
+        const string prefix = "Maßnahme zu Auditfrage: ";
+        var title = prefix + questionText.Trim();
+        return title.Length <= 200 ? title : title[..197] + "...";
+    }
+
+    private async Task TryPrefillFromPrivacyIncidentAsync()
+    {
+        if (PrivacyIncidentId is not int incidentId || _tenantId is not int tenantId)
+            return;
+
+        var incident = await Db.PrivacyIncidents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == incidentId && i.TenantId == tenantId);
+
+        if (incident is null)
+        {
+            _prefillError = "Der angegebene Datenschutzvorfall ist ungültig oder gehört nicht zu Ihrem Mandanten.";
+            return;
+        }
+
+        _linkedPrivacyIncidentId = incident.Id;
+        _model.Status = MeasureStatus.Open;
+        _model.Title = BuildMeasureTitleFromIncident(incident);
+        _model.Description = BuildMeasureDescriptionFromIncident(incident);
+    }
+
+    private async Task TryPrefillFromDataSubjectRequestAsync()
+    {
+        if (DataSubjectRequestId is not int requestId || _tenantId is not int tenantId)
+            return;
+
+        var request = await Db.DataSubjectRequests
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == requestId && r.TenantId == tenantId);
+
+        if (request is null)
+        {
+            _prefillError = "Die angegebene Betroffenenanfrage ist ungültig oder gehört nicht zu Ihrem Mandanten.";
+            return;
+        }
+
+        _linkedDataSubjectRequestId = request.Id;
+        _model.Status = MeasureStatus.Open;
+        _model.Title = $"Maßnahme zu {DataSubjectRequestLabels.GetAuditDisplayName(request)}";
+        if (_model.Title.Length > 200)
+        {
+            _model.Title = _model.Title[..197] + "...";
+        }
+    }
+
+    private static string BuildMeasureTitleFromIncident(PrivacyIncident incident)
+    {
+        var title = $"Maßnahme zu Vorfall {incident.IncidentNumber}: {incident.Title.Trim()}";
+        return title.Length <= 200 ? title : title[..197] + "...";
+    }
+
+    private static string BuildMeasureDescriptionFromIncident(PrivacyIncident incident)
+    {
+        return string.Join(Environment.NewLine, new[]
+        {
+            $"Diese Maßnahme wurde aus dem Datenschutzvorfall {incident.IncidentNumber} erstellt.",
+            "",
+            "Vorfall:",
+            incident.Title.Trim(),
+            "",
+            "Bitte dokumentieren Sie die erforderlichen Abhilfe- oder Präventionsmaßnahmen."
+        });
+    }
+
+    private string GetCancelHref() =>
+        (_linkedPrivacyIncidentId ?? PrivacyIncidentId) is int id
+            ? $"incidents/{id}"
+            : "measures";
+
+    private static string BuildMeasureDescription(AuditAnswer answer)
+    {
+        var question = answer.AuditQuestion.Text.Trim();
+        var answerText = string.IsNullOrWhiteSpace(answer.AnswerText) ? "—" : answer.AnswerText.Trim();
+        var rating = ComplianceLabels.GetLevelLabel(answer.ComplianceLevel);
+        var notes = string.IsNullOrWhiteSpace(answer.Notes) ? "—" : answer.Notes.Trim();
+
+        return string.Join(Environment.NewLine, new[]
+        {
+            "Diese Maßnahme wurde aus einem Auditdurchlauf heraus erstellt.",
+            "",
+            "Auditfrage:",
+            question,
+            "",
+            "Antwort:",
+            answerText,
+            "",
+            "Bewertung:",
+            rating,
+            "",
+            "Notizen:",
+            notes,
+            "",
+            "Bitte prüfen und geeignete Korrekturmaßnahmen umsetzen."
+        });
     }
 
     private async Task SaveAsync()
     {
+        if (!await UserAccess.CanEditTenantOperationalContentAsync())
+        {
+            _linkSaveError = "Keine Berechtigung zum Speichern.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.Title))
+        {
+            _linkSaveError = "Bitte geben Sie einen Titel ein.";
+            return;
+        }
+
         _model.DueDate = _dueDate;
+
+        if (_model.AuditAnswerId is int answerId && _tenantId is int tenantId)
+        {
+            var answerValid = await Db.AuditAnswers
+                .AnyAsync(a => a.Id == answerId
+                    && a.AuditRun.TenantId == tenantId
+                    && (!_model.AuditRunId.HasValue || a.AuditRunId == _model.AuditRunId));
+            if (!answerValid)
+            {
+                _linkSaveError = "Die Audit-Antwort ist ungültig oder gehört nicht zu Ihrem Mandanten.";
+                return;
+            }
+        }
 
         // Abschlussdatum einmalig setzen, wenn Status auf Done wechselt.
         if (_model.Status == MeasureStatus.Done)
@@ -151,8 +367,33 @@ else
             _model.CompletedAt ??= DateTime.UtcNow;
         }
 
-        if (_model.Id == 0)
+        var isNew = _model.Id == 0;
+        var statusBeforeSave = _previousStatus;
+
+        if (isNew)
         {
+            if (_tenantId is int measureTenantId)
+            {
+                var limitCheck = await LicenseService.CanCreateMeasureAsync(measureTenantId);
+                if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "Measure"))
+                {
+                    _linkSaveError = limitCheck.Message;
+                    return;
+                }
+            }
+
+            var incidentIdForLink = _linkedPrivacyIncidentId ?? PrivacyIncidentId;
+            if (incidentIdForLink is int linkedIncidentId && _tenantId is int measureTenantForIncident)
+            {
+                var incidentValid = await Db.PrivacyIncidents
+                    .AnyAsync(i => i.Id == linkedIncidentId && i.TenantId == measureTenantForIncident);
+                if (!incidentValid)
+                {
+                    _linkSaveError = "Der Datenschutzvorfall ist ungültig oder gehört nicht zu Ihrem Mandanten.";
+                    return;
+                }
+            }
+
             Db.Measures.Add(_model);
         }
         else
@@ -162,10 +403,31 @@ else
 
         await Db.SaveChangesAsync();
 
-        if (_canEditLinks && _model.Id > 0 && _tenantId is int tenantId)
+        if (_tenantId is int tid)
+        {
+            if (isNew)
+            {
+                await ComplianceAuditLog.LogMeasureCreatedAsync(_model.Id, _model.Title, tid);
+            }
+            else
+            {
+                var changes = ComplianceAuditDiffBuilder.ForMeasure(
+                    _previousTitle, statusBeforeSave, _previousDueDate, _model);
+                await ComplianceAuditLog.LogMeasureUpdatedAsync(
+                    _model.Id, _model.Title, tid, changes);
+
+                if (statusBeforeSave.HasValue && statusBeforeSave != _model.Status
+                    && _model.Status == MeasureStatus.Done)
+                {
+                    await ComplianceAuditLog.LogMeasureCompletedAsync(_model.Id, _model.Title, tid);
+                }
+            }
+        }
+
+        if (_canEditLinks && _model.Id > 0 && _tenantId is int linkTenantId)
         {
             var linkResult = await Relations.SaveMeasureProcessingActivitiesAsync(
-                tenantId,
+                linkTenantId,
                 _model.Id,
                 _selectedProcessingActivityIds);
 
@@ -176,7 +438,44 @@ else
             }
         }
 
-        Navigation.NavigateTo("measures");
+        var returnIncidentId = _linkedPrivacyIncidentId ?? PrivacyIncidentId;
+        if (isNew && returnIncidentId is int incidentId && _tenantId is int incidentTenantId)
+        {
+            var (linkOk, linkError) = await IncidentRelations.LinkMeasureToIncidentAsync(
+                incidentId, _model.Id, incidentTenantId);
+
+            if (!linkOk)
+            {
+                _linkSaveError = linkError ?? "Verknüpfung zum Datenschutzvorfall fehlgeschlagen.";
+                return;
+            }
+        }
+
+        var returnRequestId = _linkedDataSubjectRequestId ?? DataSubjectRequestId;
+        if (isNew && returnRequestId is int requestId && _tenantId is int requestTenantId)
+        {
+            var (linkOk, linkError) = await DataSubjectRequestRelations.LinkMeasureToRequestAsync(
+                requestId, _model.Id, requestTenantId);
+
+            if (!linkOk)
+            {
+                _linkSaveError = linkError ?? "Verknüpfung zur Betroffenenanfrage fehlgeschlagen.";
+                return;
+            }
+        }
+
+        if (returnIncidentId is int id)
+        {
+            Navigation.NavigateTo($"incidents/{id}");
+        }
+        else if (returnRequestId is int reqId)
+        {
+            Navigation.NavigateTo($"data-subject-requests/{reqId}");
+        }
+        else
+        {
+            Navigation.NavigateTo("measures");
+        }
     }
 
     private void TogglePa(int id, bool selected)

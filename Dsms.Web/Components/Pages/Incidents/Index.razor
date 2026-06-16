@@ -1,0 +1,165 @@
+@* Listenansicht: Datenschutzvorfälle des aktuellen Mandanten. *@
+@page "/incidents"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Datenschutzvorfälle" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Datenschutzvorfälle" HelpKey="privacy-incidents" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant ausgewählt. Bitte wählen Sie zuerst einen Mandanten.</div>
+}
+else
+{
+    <PageHeader Title="Datenschutzvorfälle" HelpKey="privacy-incidents"
+                Subtitle="Dokumentieren, bewerten und nachverfolgen von Datenschutzpannen">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
+            @if (_canCreate && !_showArchived)
+            {
+                <a class="btn btn-primary" href="incidents/edit">Neuer Vorfall</a>
+            }
+        </div>
+    </PageHeader>
+
+    @if (!_showArchived)
+    {
+        <div class="dsms-card mb-4">
+            <div class="dsms-card-body py-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-6">
+                        <label class="form-label mb-1">Suche</label>
+                        <InputText class="form-control" @bind-Value="_searchText" placeholder="Vorfallsnummer oder Titel …" />
+                    </div>
+                    <div class="col-md-auto">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="LoadDataAsync">Filtern</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_incidents is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else if (_incidents.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">
+            @(_showArchived ? "Keine archivierten Vorfälle." : "Noch keine Datenschutzvorfälle erfasst.")
+        </div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Vorfallsnummer</th>
+                            <th>Titel</th>
+                            <th>Status</th>
+                            <th>Schweregrad</th>
+                            <th>Quelle</th>
+                            <th>Risiko</th>
+                            <th>Kenntnisnahme</th>
+                            <th>Meldepflicht Behörde</th>
+                            <th>Betroffene informieren</th>
+                            <th>Verantwortlich</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var incident in _incidents)
+                        {
+                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
+                                <td><strong>@incident.IncidentNumber</strong></td>
+                                <td>@incident.Title</td>
+                                <td>
+                                    <StatusBadge Text="@PrivacyIncidentLabels.GetStatusLabel(incident.Status)"
+                                                 Variant="@PrivacyIncidentLabels.GetStatusVariant(incident.Status)" />
+                                </td>
+                                <td>
+                                    <StatusBadge Text="@PrivacyIncidentLabels.GetSeverityLabel(incident.Severity)"
+                                                 Variant="@PrivacyIncidentLabels.GetSeverityVariant(incident.Severity)" />
+                                </td>
+                                <td>@PrivacyIncidentLabels.GetSourceLabel(incident.Source)</td>
+                                <td>
+                                    <StatusBadge Text="@PrivacyIncidentLabels.GetRiskLevelLabel(incident.RiskLevel)"
+                                                 Variant="@PrivacyIncidentLabels.GetRiskLevelVariant(incident.RiskLevel)" />
+                                </td>
+                                <td>@(incident.DiscoveredAt?.ToLocalTime().ToString("g") ?? "—")</td>
+                                <td>
+                                    <StatusBadge Text="@PrivacyIncidentLabels.GetDecisionStatusLabel(incident.SupervisoryAuthorityNotificationRequired)"
+                                                 Variant="@PrivacyIncidentLabels.GetDecisionStatusVariant(incident.SupervisoryAuthorityNotificationRequired)" />
+                                </td>
+                                <td>
+                                    <StatusBadge Text="@PrivacyIncidentLabels.GetDecisionStatusLabel(incident.DataSubjectsNotificationRequired)"
+                                                 Variant="@PrivacyIncidentLabels.GetDecisionStatusVariant(incident.DataSubjectsNotificationRequired)" />
+                                </td>
+                                <td>@(string.IsNullOrWhiteSpace(incident.ResponsiblePerson) ? "—" : incident.ResponsiblePerson)</td>
+                                <td class="dsms-table-actions">
+                                    <div class="dsms-table-action-stack">
+                                        <a class="btn btn-sm btn-outline-primary" href="@($"incidents/{incident.Id}")">Ansehen</a>
+                                        @if (_canEdit && !_showArchived)
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary" href="@($"incidents/edit/{incident.Id}")">Bearbeiten</a>
+                                        }
+                                        <ArchiveListActions TEntity="PrivacyIncident"
+                                                            EntityId="@incident.Id"
+                                                            ItemName="@incident.Title"
+                                                            EntityLabel="Datenschutzvorfall"
+                                                            CanEdit="@(_canCreate && !_showArchived)"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canCreate;
+    private bool _canEdit;
+    private bool _showArchived;
+    private string? _searchText;
+    private List<PrivacyIncident>? _incidents;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canCreate = await UserAccess.CanCreatePrivacyIncidentsAsync();
+        _canEdit = await UserAccess.CanEditPrivacyIncidentsAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _showArchived = ArchiveView.ShowArchivedOnly;
+        var query = Db.PrivacyIncidents.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(_searchText))
+        {
+            var term = _searchText.Trim();
+            query = query.Where(i =>
+                i.IncidentNumber.Contains(term) || i.Title.Contains(term));
+        }
+
+        _incidents = _showArchived
+            ? await query.OrderByDescending(i => i.ArchivedAt).ToListAsync()
+            : await query.OrderByDescending(i => i.DiscoveredAt ?? i.CreatedAt).ToListAsync();
+    }
+}

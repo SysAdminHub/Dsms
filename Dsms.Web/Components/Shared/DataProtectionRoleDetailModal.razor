@@ -1,0 +1,89 @@
+@if (Detail is not null)
+{
+    <div class="modal fade show d-block dsms-archive-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Datenschutzrolle</h5>
+                    <button type="button" class="btn-close" @onclick="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <div class="dsms-detail-label">Rollenbezeichnung</div>
+                            <div>@Detail.Role.RoleTitle</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="dsms-detail-label">Status</div>
+                            @if (Detail.Role.IsActive)
+                            {
+                                <StatusBadge Text="Aktiv" Variant="success" />
+                            }
+                            else
+                            {
+                                <StatusBadge Text="Inaktiv" Variant="warning" />
+                            }
+                        </div>
+                        <div class="col-md-6">
+                            <div class="dsms-detail-label">Person</div>
+                            <div>@(string.IsNullOrWhiteSpace(Detail.Role.PersonName) ? "—" : Detail.Role.PersonName)</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="dsms-detail-label">Verknüpfter Benutzer</div>
+                            <div>@(Detail.LinkedUserLabel ?? "Kein Benutzer verknüpft")</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="dsms-detail-label">E-Mail</div>
+                            <div>@(string.IsNullOrWhiteSpace(Detail.Role.Email) ? "—" : Detail.Role.Email)</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="dsms-detail-label">Telefon</div>
+                            <div>@(string.IsNullOrWhiteSpace(Detail.Role.Phone) ? "—" : Detail.Role.Phone)</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="dsms-detail-label">Abteilung</div>
+                            <div>@(string.IsNullOrWhiteSpace(Detail.Role.Department) ? "—" : Detail.Role.Department)</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="dsms-detail-label">Zuständigkeitsbereich</div>
+                            <div class="dsms-detail-value">@DisplayMultiline(Detail.Role.AreaOfResponsibility)</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="dsms-detail-label">Berichtet an</div>
+                            <div class="dsms-detail-value">@DisplayMultiline(Detail.ReportsToRoleDisplay)</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="dsms-detail-label">Vertretung</div>
+                            <div class="dsms-detail-value">@DisplayMultiline(Detail.DeputyRoleDisplay)</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="dsms-detail-label">Bemerkungen</div>
+                            <div class="dsms-detail-value">@DisplayMultiline(Detail.Role.Remarks)</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    @if (CanManage)
+                    {
+                        <a class="btn btn-primary" href="@($"organization/edit/{Detail.Role.Id}")">Bearbeiten</a>
+                    }
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Close">Schließen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter] public DataProtectionRoleDetailModel? Detail { get; set; }
+    [Parameter] public bool CanManage { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private async Task Close() => await OnClose.InvokeAsync();
+
+    private static MarkupString DisplayMultiline(string? text) =>
+        string.IsNullOrWhiteSpace(text)
+            ? new MarkupString("—")
+            : new MarkupString(System.Net.WebUtility.HtmlEncode(text).Replace("\n", "<br />"));
+}

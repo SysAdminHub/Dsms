@@ -1,0 +1,95 @@
+@* Read-only Quiz-Anzeige für Community-Prüfung und Vorschau. *@
+
+<div class="dsms-card mb-4">
+    <div class="dsms-card-header">Quiz</div>
+    <div class="dsms-card-body">
+        @if (IsQuizRequired || PassingScorePercent > 0)
+        {
+            <dl class="row mb-3">
+                <dt class="col-sm-3">Quiz erforderlich</dt>
+                <dd class="col-sm-9">@(IsQuizRequired ? "Ja" : "Nein")</dd>
+                <dt class="col-sm-3">Bestehensgrenze</dt>
+                <dd class="col-sm-9">@PassingScorePercent %</dd>
+            </dl>
+        }
+
+        @if (Questions.Count == 0)
+        {
+            <div class="text-muted">Diese Vorlage enthält kein Quiz.</div>
+        }
+        else
+        {
+            @foreach (var question in Questions.OrderBy(q => q.SortOrder))
+            {
+                var activeOptions = question.Options.Where(o => o.IsActive).OrderBy(o => o.SortOrder).ToList();
+                var correctLabel = question.QuestionType == TrainingQuestionType.MultipleChoice
+                    ? "Richtige Antworten"
+                    : "Richtige Antwort";
+
+                <div class="border rounded p-3 mb-3">
+                    <div class="d-flex flex-wrap gap-2 mb-2">
+                        <strong>Frage @question.SortOrder</strong>
+                        <StatusBadge Text="@TrainingLabels.GetQuestionTypeLabel(question.QuestionType)" Variant="primary" />
+                        @if (question.IsRequired)
+                        {
+                            <StatusBadge Text="Pflichtfrage" Variant="default" />
+                        }
+                        <span class="text-muted small">@question.Points Punkt@(question.Points == 1 ? "" : "e")</span>
+                    </div>
+
+                    <p class="mb-2">@question.QuestionText</p>
+
+                    @if (activeOptions.Count == 0)
+                    {
+                        <div class="text-muted small">Keine Antwortmöglichkeiten.</div>
+                    }
+                    else
+                    {
+                        <div class="small text-muted mb-1">Antworten</div>
+                        <ul class="list-unstyled mb-2">
+                            @foreach (var option in activeOptions)
+                            {
+                                <li class="mb-1">
+                                    @if (option.IsCorrect)
+                                    {
+                                        <span class="text-success fw-semibold">[x]</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">[ ]</span>
+                                    }
+                                    @option.AnswerText
+                                    @if (option.IsCorrect)
+                                    {
+                                        <span class="badge bg-success ms-1">@correctLabel</span>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(question.Explanation))
+                    {
+                        <div class="small">
+                            <span class="text-muted">Erklärung:</span>
+                            @question.Explanation
+                        </div>
+                    }
+
+                    @foreach (var option in activeOptions.Where(o => !string.IsNullOrWhiteSpace(o.Explanation)))
+                    {
+                        <div class="small text-muted ms-3">
+                            Hinweis zu „@option.AnswerText“: @option.Explanation
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<TrainingQuestion> Questions { get; set; } = [];
+    [Parameter] public bool IsQuizRequired { get; set; }
+    [Parameter] public int PassingScorePercent { get; set; } = 80;
+}

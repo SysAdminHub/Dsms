@@ -1,0 +1,25 @@
+@* Kompakte Organigramm-Box (z. B. für Zyklus-Warnbereich). *@
+
+<button type="button"
+        class="dsms-org-node @CssClass"
+        title="@Tooltip"
+        @onclick="OnClick">
+    <div class="dsms-org-node-title">@Title</div>
+    @if (!string.IsNullOrWhiteSpace(PersonName))
+    {
+        <div class="dsms-org-node-person">@PersonName</div>
+    }
+    @if (ShowInactiveBadge)
+    {
+        <span class="dsms-org-node-badge">Inaktiv</span>
+    }
+</button>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? PersonName { get; set; }
+    [Parameter] public string? Tooltip { get; set; }
+    [Parameter] public string CssClass { get; set; } = string.Empty;
+    [Parameter] public bool ShowInactiveBadge { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+}

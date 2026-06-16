@@ -1,0 +1,90 @@
+@*
+    Blockiert Superuser-Zugriff auf mandantenspezifische Fachmodule (serverseitig in der UI-Schicht).
+    Globale Audit-Vorlagen, Plattform-Routen und gültiger Supportmodus bleiben erlaubt.
+*@
+@inject IUserAccessService UserAccess
+@inject ISupportAccessService SupportAccess
+@inject NavigationManager Navigation
+@inject ILogService LogService
+@inject ILogger<BusinessModuleAccessGate> Logger
+
+@if (_ready)
+{
+    @ChildContent
+}
+else if (_accessDenied)
+{
+    <div class="alert alert-warning dsms-alert" role="alert">
+        @_deniedMessage
+    </div>
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool _ready;
+    private bool _accessDenied;
+    private string _deniedMessage = RouteAccessClassifier.TenantBusinessAccessDeniedMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+
+        if (!RouteAccessClassifier.IsBusinessModuleRoute(relativePath))
+        {
+            _ready = true;
+            return;
+        }
+
+        if (await UserAccess.CanAccessTenantBusinessModulesAsync())
+        {
+            _ready = true;
+
+            if (await UserAccess.IsSupportModeAsync())
+            {
+                await LogService.LogAuditAsync(
+                    action: "SupportModeBusinessModuleAccess",
+                    description: "Superuser hat Fachmodul im Supportmodus geöffnet.",
+                    entityType: "Route",
+                    entityName: relativePath,
+                    tenantId: await UserAccess.GetCurrentTenantIdAsync(),
+                    metadata: new
+                    {
+                        Route = relativePath,
+                        Result = "Success",
+                        SupportAccessGrantId = (await SupportAccess.GetCurrentSupportSessionAsync())?.GrantId
+                    });
+            }
+
+            return;
+        }
+
+        _accessDenied = true;
+        if (await UserAccess.IsSuperuserAsync())
+        {
+            var hadGrant = await SupportAccess.GetCurrentSupportSessionAsync() is null
+                && (await UserAccess.GetCurrentTenantIdAsync()).HasValue;
+            _deniedMessage = hadGrant
+                ? RouteAccessClassifier.SupportAccessInvalidMessage
+                : RouteAccessClassifier.TenantBusinessAccessDeniedMessage;
+        }
+
+        Logger.LogInformation(
+            "Fachmodul-Zugriff verweigert für Route {Route}",
+            relativePath);
+
+        await LogService.LogSecurityAsync(
+            action: "TenantBusinessAccessDenied",
+            description: _deniedMessage,
+            severity: "Warning",
+            tenantId: await UserAccess.GetCurrentTenantIdAsync(),
+            metadata: new
+            {
+                Route = relativePath,
+                IsSuperuser = await UserAccess.IsSuperuserAsync(),
+                HasTenantContext = await UserAccess.HasTenantContextAsync(),
+                IsSupportMode = await UserAccess.IsSupportModeAsync(),
+                Result = "Denied"
+            });
+    }
+}

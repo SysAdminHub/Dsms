@@ -1,0 +1,188 @@
+@page "/trainings/participants/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using Dsms.Web.Services.Training
+
+<BrandedPageTitle Title="Schulungsteilnehmer" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Schulungsteilnehmer" HelpKey="training-participants" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <TrainingModuleAccessGate>
+    @if (!_canView)
+{
+    <PageHeader Title="Schulungsteilnehmer" HelpKey="training-participants" />
+    <div class="alert alert-warning dsms-alert">Keine Berechtigung für Teilnehmerdaten.</div>
+}
+else if (_detail is null && _loaded)
+{
+    <PageHeader Title="Schulungsteilnehmer" HelpKey="training-participants" />
+    <div class="alert alert-warning dsms-alert">Teilnehmer nicht gefunden.</div>
+}
+else if (_detail is null)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else
+{
+    var p = _detail.Participant;
+    <PageHeader Title="@(p.Name ?? p.Email)"
+                HelpKey="training-participants"
+                Subtitle="Stammdaten und Schulungshistorie">
+        @if (_canManage)
+        {
+            <a class="btn btn-primary" href="trainings/participants/edit/@p.Id">Bearbeiten</a>
+        }
+        <a class="btn btn-outline-secondary" href="trainings/participants">Zur Liste</a>
+    </PageHeader>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Stammdaten</div>
+        <div class="dsms-card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Name</div>
+                    <div>@(p.Name ?? "—")</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">E-Mail-Adresse</div>
+                    <div>@p.Email</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Abteilung</div>
+                    <div>@(p.Department ?? "—")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Externe Referenz</div>
+                    <div>@(p.ExternalReference ?? "—")</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dsms-detail-label">Status</div>
+                    @if (p.IsActive && !p.IsArchived)
+                    {
+                        <StatusBadge Text="Aktiv" Variant="success" />
+                    }
+                    else
+                    {
+                        <StatusBadge Text="Inaktiv" Variant="warning" />
+                    }
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Erstellt am</div>
+                    <div>@p.CreatedAt.ToLocalTime().ToString("g")</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dsms-detail-label">Geändert am</div>
+                    <div>@(p.UpdatedAt?.ToLocalTime().ToString("g") ?? "—")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card">
+        <div class="dsms-card-header">Schulungshistorie</div>
+        @if (_detail.Assignments.Count == 0)
+        {
+            <div class="dsms-card-body">
+                <div class="text-muted">Noch keine Schulungszuweisungen.</div>
+            </div>
+        }
+        else
+        {
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Schulung</th>
+                            <th>Typ</th>
+                            <th>Schulungsstatus</th>
+                            <th>Zuweisung</th>
+                            <th>Eingeladen</th>
+                            <th>Gestartet</th>
+                            <th>Abgeschlossen</th>
+                            <th>Quiz</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in _detail.Assignments)
+                        {
+                            var a = row.Assignment;
+                            var t = row.Training;
+                            <tr>
+                                <td>
+                                    <a href="trainings/@t.Id">@t.Title</a>
+                                    @if (row.EmailSnapshotDiffers)
+                                    {
+                                        <div class="text-muted small">Einladung an: @a.ParticipantEmailSnapshot</div>
+                                    }
+                                </td>
+                                <td>@TrainingLabels.GetTrainingTypeLabel(t.TrainingType)</td>
+                                <td>
+                                    <StatusBadge Text="@TrainingLabels.GetStatusLabel(t.Status)"
+                                                 Variant="@TrainingLabels.GetStatusVariant(t.Status)" />
+                                </td>
+                                <td>
+                                    <StatusBadge Text="@TrainingLabels.GetAssignmentStatusLabel(a.Status)"
+                                                 Variant="@TrainingLabels.GetAssignmentStatusVariant(a.Status)" />
+                                </td>
+                                <td>@(a.InvitationSentAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
+                                <td>@(a.StartedAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
+                                <td>@(a.CompletedAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
+                                <td>
+                                    @if (row.LastQuizScorePercent is int score)
+                                    {
+                                        @($"{score} % ({(row.QuizPassed == true ? "bestanden" : "nicht bestanden")})")
+                                    }
+                                    else
+                                    {
+                                        <span>—</span>
+                                    }
+                                </td>
+                                <td class="dsms-table-actions">
+                                    <a class="btn btn-sm btn-outline-secondary" href="trainings/@t.Id">Schulung anzeigen</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+    </TrainingModuleAccessGate>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private TrainingParticipantService ParticipantService { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canView;
+    private bool _canManage;
+    private bool _loaded;
+    private TrainingParticipantDetail? _detail;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        _loaded = false;
+        _detail = null;
+
+        if (_tenantId is null) return;
+
+        _canView = await ParticipantService.CanViewAsync(_tenantId.Value);
+        _canManage = await ParticipantService.CanManageAsync();
+
+        if (_canView)
+            _detail = await ParticipantService.GetParticipantDetailAsync(Id, _tenantId.Value);
+
+        _loaded = true;
+    }
+}

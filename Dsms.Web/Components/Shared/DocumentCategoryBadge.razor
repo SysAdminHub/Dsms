@@ -1,0 +1,16 @@
+@* Badge für mandantenbezogene Dokumentkategorie. *@
+@if (Category is not null)
+{
+    <span class="dsms-badge dsms-document-category-badge @DocumentCategoryColors.GetBadgeClass(Category.Color)">
+        @Category.Name
+        @if (ShowInactiveHint && !Category.IsActive)
+        {
+            <span class="dsms-document-category-badge__inactive">(inaktiv)</span>
+        }
+    </span>
+}
+
+@code {
+    [Parameter] public DocumentCategory? Category { get; set; }
+    [Parameter] public bool ShowInactiveHint { get; set; } = true;
+}

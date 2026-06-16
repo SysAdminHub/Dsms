@@ -1,0 +1,262 @@
+@* Bearbeiten der Metadaten und DocumentLinks eines bestehenden Dokuments. *@
+@if (_visible)
+{
+    <div class="modal fade show d-block dsms-document-links-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Dokument bearbeiten</h5>
+                    <button type="button" class="btn-close" @onclick="Cancel" disabled="@_saving"></button>
+                </div>
+                <div class="modal-body">
+                    @if (_loading)
+                    {
+                        <div class="dsms-loading">Lade …</div>
+                    }
+                    else if (_tenantId is not null)
+                    {
+                        <p class="mb-3">
+                            <span class="text-muted">Dokument:</span> <strong>@_fileName</strong>
+                        </p>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label" for="document-edit-type">Dokumenttyp <span class="text-danger">*</span></label>
+                                <InputSelect id="document-edit-type" class="form-select" @bind-Value="_documentType">
+                                    @foreach (var type in EvidenceDocumentLabels.AllTypes)
+                                    {
+                                        <option value="@type">@EvidenceDocumentLabels.GetTypeLabel(type)</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="document-edit-category">Kategorie</label>
+                                <InputSelect id="document-edit-category" class="form-select" @bind-Value="_documentCategoryIdValue">
+                                    <option value="">Keine Kategorie</option>
+                                    @foreach (var category in _categories)
+                                    {
+                                        <option value="@category.Id">
+                                            @category.Name@(!category.IsActive ? " (inaktiv)" : "")
+                                        </option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        </div>
+
+                        <DocumentLinkTypePicker TenantId="_tenantId.Value"
+                                                SelectedItems="_selectedItems"
+                                                SelectedItemsChanged="OnSelectedItemsChanged" />
+
+                        @if (!string.IsNullOrEmpty(_message))
+                        {
+                            <div class="alert @(_isError ? "alert-danger" : "alert-success") dsms-alert mt-3 mb-0">@_message</div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel" disabled="@_saving">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveAsync" disabled="@(_loading || _saving)">
+                        @(_saving ? "Speichern …" : "Speichern")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private DocumentLinksService LinksService { get; set; } = null!;
+    [Inject] private DocumentCategoryService CategoryService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
+
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private bool _visible;
+    private bool _loading;
+    private bool _saving;
+    private bool _isError;
+    private int? _tenantId;
+    private int _documentId;
+    private string _fileName = string.Empty;
+    private string? _message;
+    private DocumentType _documentType = DocumentType.Evidence;
+    private DocumentType _originalDocumentType = DocumentType.Evidence;
+    private string _documentCategoryIdValue = string.Empty;
+    private int? _originalCategoryId;
+    private string? _originalCategoryName;
+    private List<DocumentCategory> _categories = [];
+    private List<DocumentLinkSelectionViewModel> _selectedItems = [];
+
+    public async Task ShowAsync(int documentId)
+    {
+        if (!await UserAccess.CanEditTenantOperationalContentAsync())
+        {
+            return;
+        }
+
+        _documentId = documentId;
+        _visible = true;
+        _loading = true;
+        _saving = false;
+        _message = null;
+        _isError = false;
+
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null)
+        {
+            _loading = false;
+            _visible = false;
+            return;
+        }
+
+        var document = await Db.EvidenceDocuments
+            .Include(d => d.DocumentCategory)
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.TenantId == _tenantId);
+
+        if (document is null)
+        {
+            _loading = false;
+            _visible = false;
+            return;
+        }
+
+        _fileName = document.FileName;
+        _documentType = document.DocumentType;
+        _originalDocumentType = document.DocumentType;
+        _originalCategoryId = document.DocumentCategoryId;
+        _originalCategoryName = document.DocumentCategory?.Name;
+        _documentCategoryIdValue = document.DocumentCategoryId?.ToString() ?? string.Empty;
+        _categories = (await CategoryService.GetOptionsForDocumentEditAsync(_tenantId.Value, document.DocumentCategoryId)).ToList();
+        _selectedItems = (await LinksService.GetSelectionViewModelsForDocumentAsync(documentId, _tenantId.Value)).ToList();
+        _loading = false;
+    }
+
+    private Task OnSelectedItemsChanged(IList<DocumentLinkSelectionViewModel> items)
+    {
+        _selectedItems = items.ToList();
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_tenantId is null || _saving)
+        {
+            return;
+        }
+
+        _saving = true;
+        _message = null;
+        _isError = false;
+
+        try
+        {
+            var document = await Db.EvidenceDocuments
+                .Include(d => d.DocumentCategory)
+                .FirstOrDefaultAsync(d => d.Id == _documentId && d.TenantId == _tenantId);
+
+            if (document is null)
+            {
+                _message = "Dokument nicht gefunden.";
+                _isError = true;
+                return;
+            }
+
+            var newCategoryId = ParseCategoryId(_documentCategoryIdValue);
+            var (categoryValid, categoryError) = await CategoryService.ValidateCategoryForDocumentAsync(
+                _tenantId.Value,
+                newCategoryId,
+                document.DocumentCategoryId);
+
+            if (!categoryValid)
+            {
+                _message = categoryError;
+                _isError = true;
+                return;
+            }
+
+            var newCategoryName = newCategoryId is null
+                ? null
+                : _categories.FirstOrDefault(c => c.Id == newCategoryId)?.Name
+                  ?? document.DocumentCategory?.Name;
+
+            var metadataChanged = document.DocumentType != _documentType
+                || document.DocumentCategoryId != newCategoryId;
+
+            if (metadataChanged)
+            {
+                var changes = ComplianceAuditDiffBuilder.ForEvidenceDocument(
+                    _originalDocumentType,
+                    _originalCategoryName,
+                    _documentType,
+                    newCategoryName);
+
+                document.DocumentType = _documentType;
+                document.DocumentCategoryId = newCategoryId;
+                await Db.SaveChangesAsync();
+
+                if (changes.Count > 0)
+                {
+                    await ComplianceAuditLog.LogEvidenceDocumentUpdatedAsync(
+                        document.Id,
+                        document.FileName,
+                        _tenantId.Value,
+                        changes);
+                }
+            }
+
+            var links = _selectedItems
+                .Select(i => new DocumentLinkTarget(i.EntityType, i.EntityId))
+                .Distinct()
+                .ToList();
+
+            var (result, errorMessage) = await LinksService.SetLinksForDocumentAsync(
+                _documentId,
+                _tenantId.Value,
+                links);
+
+            switch (result)
+            {
+                case UpdateDocumentLinksResult.Success:
+                    _visible = false;
+                    await OnSaved.InvokeAsync();
+                    break;
+                case UpdateDocumentLinksResult.PermissionDenied:
+                case UpdateDocumentLinksResult.InvalidTenantReference:
+                case UpdateDocumentLinksResult.NotFound:
+                    _message = errorMessage ?? "Speichern fehlgeschlagen.";
+                    _isError = true;
+                    break;
+                default:
+                    _message = "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.";
+                    _isError = true;
+                    break;
+            }
+        }
+        catch
+        {
+            _message = "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.";
+            _isError = true;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        if (_saving)
+        {
+            return;
+        }
+
+        _visible = false;
+    }
+
+    private static int? ParseCategoryId(string value) =>
+        string.IsNullOrWhiteSpace(value) || !int.TryParse(value, out var id) ? null : id;
+}

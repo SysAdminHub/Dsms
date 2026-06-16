@@ -1,0 +1,242 @@
+@* Route deaktiviert – nur noch in Dsms.Provisioning. *@
+@* @page "/platform/licenses/create-from-plan" *@
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Lizenz aus Plan erstellen" />
+
+<PageHeader Title="Lizenz aus Plan erstellen"
+            Subtitle="Erstellt nur eine Kundenlizenz aus einer Tarifvorlage – ohne Mandant, Admin oder E-Mail." />
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="dsms-card dsms-form-card">
+            <div class="dsms-card-body">
+                <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+                    <DataAnnotationsValidator />
+
+                    <h5 class="mb-3">Tarif auswählen</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-12">
+                            <label class="form-label">Tarif *</label>
+                            <select class="form-select" @bind="_selectedPlanId" @bind:after="OnPlanChangedAsync">
+                                <option value="">Bitte wählen …</option>
+                                @foreach (var plan in _plans)
+                                {
+                                    <option value="@plan.Id">@SubscriptionPlanDisplayHelper.FormatPlanOptionLabel(plan)</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <h5 class="mb-3">Kundendaten</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Kundenname *</label>
+                            <InputText class="form-control" @bind-Value="_model.CustomerName" @bind-Value:after="RefreshPreviewAsync" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Kunden-E-Mail</label>
+                            <InputText class="form-control" @bind-Value="_model.CustomerEmail" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Status *</label>
+                            <InputSelect class="form-select" @bind-Value="_model.Status" @bind-Value:after="RefreshPreviewAsync">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                                <option value="Suspended">Suspended</option>
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Gültig von</label>
+                            <InputDate class="form-control" @bind-Value="_model.ValidFrom" @bind-Value:after="RefreshPreviewAsync" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Gültig bis</label>
+                            <InputDate class="form-control" @bind-Value="_model.ValidUntil" @bind-Value:after="RefreshPreviewAsync" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Interne Notiz</label>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="_model.InternalNote" />
+                        </div>
+                    </div>
+
+                    <div class="dsms-form-actions">
+                        <button type="submit" class="btn btn-primary" disabled="@(_saving || _selectedPlanId == Guid.Empty)">Lizenz erstellen</button>
+                        <a class="btn btn-outline-secondary" href="platform/licenses">Abbrechen</a>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        @if (_previewLoading)
+        {
+            <div class="dsms-loading">Lade Vorschau …</div>
+        }
+        else if (_preview is null)
+        {
+            <div class="alert alert-info dsms-alert">Bitte wählen Sie einen Tarif aus, um die geplanten Lizenzwerte zu sehen.</div>
+        }
+        else
+        {
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Tarif</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Anzeigename</dt>
+                        <dd class="col-sm-7">@_preview.PlanDisplayName</dd>
+                        <dt class="col-sm-5">Preis monatlich</dt>
+                        <dd class="col-sm-7">@SubscriptionPlanDisplayHelper.FormatMonthlyPrice(_preview.PriceMonthly, _preview.Currency, _preview.IsFree)</dd>
+                        <dt class="col-sm-5">Plan in Lizenz</dt>
+                        <dd class="col-sm-7">@_preview.PlanNameForLicense</dd>
+                        <dt class="col-sm-5">Status</dt>
+                        <dd class="col-sm-7">@_preview.Status</dd>
+                        <dt class="col-sm-5">Gültig von</dt>
+                        <dd class="col-sm-7">@(_preview.ValidFrom?.ToString("d") ?? "—")</dd>
+                        <dt class="col-sm-5">Gültig bis</dt>
+                        <dd class="col-sm-7">@(_preview.ValidUntil?.ToString("d") ?? "—")</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Lizenzweite Limits</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-6">Max. Mandanten</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_preview.MaxTenants)</dd>
+                        <dt class="col-sm-6">Max. Admins</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_preview.MaxAdmins)</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Limits pro Mandant</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-6">Max. Benutzer pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_preview.MaxUsersPerTenant)</dd>
+                        <dt class="col-sm-6">Max. Auditoren pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_preview.MaxAuditorsPerTenant)</dd>
+                        <dt class="col-sm-6">Max. eigene Auditvorlagen pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_preview.MaxCustomAuditTemplatesPerTenant)</dd>
+                        <dt class="col-sm-6">Max. laufende Audits pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_preview.MaxActiveAuditsPerTenant)</dd>
+                        <dt class="col-sm-6">Max. Verarbeitungstätigkeiten pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_preview.MaxProcessingActivitiesPerTenant)</dd>
+                        <dt class="col-sm-6">Max. DSFA pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_preview.MaxDpiaPerTenant)</dd>
+                        <dt class="col-sm-6">Max. TOMs pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_preview.MaxTomsPerTenant)</dd>
+                        <dt class="col-sm-6">Max. Dienstleister pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_preview.MaxProcessorsPerTenant)</dd>
+                        <dt class="col-sm-6">Max. laufende Maßnahmen pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_preview.MaxActiveMeasuresPerTenant)</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card">
+                <div class="dsms-card-header"><strong>Sonstige Limits</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-6">Speicher (MB)</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_preview.MaxStorageMb)</dd>
+                        <dt class="col-sm-6">E-Mail-Erinnerungen / Monat</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_preview.MaxEmailRemindersPerMonth)</dd>
+                    </dl>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Inject] private IPlanToLicenseService PlanToLicenseService { get; set; } = null!;
+    [Inject] private ISubscriptionPlanService PlanService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private CreateLicenseFromPlanDto _model = new() { ValidFrom = DateTime.UtcNow.Date };
+    private List<SubscriptionPlanOptionDto> _plans = [];
+    private LicenseFromPlanPreviewDto? _preview;
+    private Guid _selectedPlanId;
+    private bool _previewLoading;
+    private bool _saving;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _plans = (await PlanService.GetActivePlansAsync()).ToList();
+    }
+
+    private async Task OnPlanChangedAsync()
+    {
+        _model.PlanId = _selectedPlanId;
+        await RefreshPreviewAsync();
+    }
+
+    private async Task RefreshPreviewAsync()
+    {
+        _errorMessage = null;
+
+        if (_selectedPlanId == Guid.Empty)
+        {
+            _preview = null;
+            return;
+        }
+
+        _previewLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            _model.PlanId = _selectedPlanId;
+            _preview = await PlanToLicenseService.PreviewLicenseFromPlanAsync(_selectedPlanId, _model);
+        }
+        catch (Exception ex)
+        {
+            _preview = null;
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _previewLoading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _errorMessage = null;
+
+        if (_selectedPlanId == Guid.Empty)
+        {
+            _errorMessage = "Bitte wählen Sie einen Tarif aus.";
+            return;
+        }
+
+        _model.PlanId = _selectedPlanId;
+        _saving = true;
+
+        try
+        {
+            var licenseId = await PlanToLicenseService.CreateLicenseFromPlanAsync(_model);
+            Navigation.NavigateTo($"platform/licenses/{licenseId}");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

@@ -1,0 +1,148 @@
+@* Verknüpfte Nachweisdokumente laden und anzeigen (mandantengebunden via DocumentLinks). *@
+
+<div class="dsms-card @CssClass">
+    <div class="dsms-card-header">@Title</div>
+    <div class="dsms-card-body">
+        @if (_loading)
+        {
+            <div class="dsms-loading">Lade …</div>
+        }
+        else if (_documents.Count == 0)
+        {
+            <div class="dsms-empty">@EmptyMessage</div>
+            @if (!string.IsNullOrEmpty(EmptyHint))
+            {
+                <p class="form-text text-muted mb-0">@EmptyHint</p>
+            }
+        }
+        else
+        {
+            @if (!string.IsNullOrEmpty(EmptyHint))
+            {
+                <p class="form-text text-muted">@EmptyHint</p>
+            }
+            <EvidenceDocumentsGroupedList Documents="_documents" />
+        }
+    </div>
+</div>
+
+@code {
+    [Inject] private DocumentLinksService LinksService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    [Parameter] public string Title { get; set; } = "Verknüpfte Dokumente";
+    [Parameter] public string CssClass { get; set; } = "mb-4";
+    [Parameter] public string EmptyMessage { get; set; } = "Keine Dokumente verknüpft.";
+    [Parameter] public string? EmptyHint { get; set; } = "Dokumente können unter „Dokumente“ hochgeladen und zugeordnet werden.";
+
+    [Parameter] public int? AuditRunId { get; set; }
+    [Parameter] public int? MeasureId { get; set; }
+    [Parameter] public int? ServiceProviderId { get; set; }
+    [Parameter] public int? ProcessingActivityId { get; set; }
+    [Parameter] public int? DataProtectionImpactAssessmentId { get; set; }
+    [Parameter] public int? PrivacyIncidentId { get; set; }
+    [Parameter] public int? DataSubjectRequestId { get; set; }
+    [Parameter] public int? TomId { get; set; }
+    [Parameter] public int? TrainingId { get; set; }
+
+    private bool _loading = true;
+    private List<EvidenceDocument> _documents = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+
+        var tenantId = await CurrentUser.GetTenantIdAsync();
+        if (tenantId is null)
+        {
+            _documents = [];
+            _loading = false;
+            return;
+        }
+
+        if (!TryResolveEntity(out var entityType, out var entityId))
+        {
+            _documents = [];
+            _loading = false;
+            return;
+        }
+
+        _documents = (await LinksService.GetDocumentsForEntityAsync(entityType, entityId, tenantId.Value)).ToList();
+        _loading = false;
+    }
+
+    private bool TryResolveEntity(out DocumentLinkedEntityType entityType, out int entityId)
+    {
+        if (AuditRunId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.AuditRun;
+            entityId = AuditRunId.Value;
+            return true;
+        }
+
+        if (MeasureId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.Measure;
+            entityId = MeasureId.Value;
+            return true;
+        }
+
+        if (ServiceProviderId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.ServiceProvider;
+            entityId = ServiceProviderId.Value;
+            return true;
+        }
+
+        if (ProcessingActivityId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.ProcessingActivity;
+            entityId = ProcessingActivityId.Value;
+            return true;
+        }
+
+        if (DataProtectionImpactAssessmentId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.Dsfa;
+            entityId = DataProtectionImpactAssessmentId.Value;
+            return true;
+        }
+
+        if (PrivacyIncidentId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.PrivacyIncident;
+            entityId = PrivacyIncidentId.Value;
+            return true;
+        }
+
+        if (DataSubjectRequestId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.DataSubjectRequest;
+            entityId = DataSubjectRequestId.Value;
+            return true;
+        }
+
+        if (TomId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.Tom;
+            entityId = TomId.Value;
+            return true;
+        }
+
+        if (TrainingId.HasValue)
+        {
+            entityType = DocumentLinkedEntityType.Training;
+            entityId = TrainingId.Value;
+            return true;
+        }
+
+        entityType = default;
+        entityId = 0;
+        return false;
+    }
+}

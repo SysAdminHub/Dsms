@@ -1,0 +1,11 @@
+@* Hinweis, wenn ein Lizenzlimit die Neuanlage blockiert. *@
+@if (Check is { IsAllowed: false })
+{
+    <div class="alert alert-warning dsms-alert dsms-license-limit-alert mb-3">
+        @Check.Message
+    </div>
+}
+
+@code {
+    [Parameter] public LicenseLimitCheckResult? Check { get; set; }
+}

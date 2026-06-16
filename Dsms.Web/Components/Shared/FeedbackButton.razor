@@ -1,0 +1,29 @@
+@* Sidebar-Aktion zum Senden von Feedback; öffnet das globale Modal im MainLayout. *@
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
+
+<button type="button"
+        class="nav-link dsms-nav-logout"
+        title="Feedback oder Nachricht senden"
+        disabled="@ModalState.Cooldown"
+        @onclick="Open">
+    Feedback senden
+</button>
+
+@code {
+    [Inject] private FeedbackModalState ModalState { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        ModalState.Changed += OnModalStateChanged;
+    }
+
+    private void Open() => ModalState.Open();
+
+    private void OnModalStateChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        ModalState.Changed -= OnModalStateChanged;
+    }
+}

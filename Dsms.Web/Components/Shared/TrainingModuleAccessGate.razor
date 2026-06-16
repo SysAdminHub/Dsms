@@ -1,0 +1,44 @@
+@*
+    Prüft die Lizenzfreischaltung für mandantenspezifische Schulungsfunktionen.
+    Globale Superuser-Funktionen (Vorlagen ohne Mandantenkontext) bleiben unberührt.
+*@
+@inject ILicenseFeatureService LicenseFeatures
+@inject IUserAccessService UserAccess
+
+@if (_ready)
+{
+    @if (_hasAccess)
+    {
+        @ChildContent
+    }
+    else
+    {
+        <TrainingModuleUpgradeNotice />
+    }
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// Wenn false, wird die Lizenzprüfung übersprungen (z. B. globale Vorlagenverwaltung).
+    /// </summary>
+    [Parameter] public bool RequireLicense { get; set; } = true;
+
+    private bool _ready;
+    private bool _hasAccess;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RequireLicense)
+        {
+            _hasAccess = true;
+        }
+        else
+        {
+            _hasAccess = await LicenseFeatures.HasTrainingModuleAsync();
+        }
+
+        _ready = true;
+    }
+}

@@ -6,21 +6,37 @@
 
 @rendermode InteractiveServer
 
-<PageTitle>DSFA</PageTitle>
+<BrandedPageTitle Title="DSFA" />
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="DSFA" />
+    <PageHeader Title="DSFA" HelpKey="dsfa" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="DSFA" Subtitle="Datenschutz-Folgenabschätzungen">
-        @if (_canEdit)
-        {
-            <a class="btn btn-primary" href="dsfa/edit">Neue DSFA</a>
-        }
+    <PageHeader Title="DSFA" HelpKey="dsfa" Subtitle="Datenschutz-Folgenabschätzungen">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
+            @if (_canEdit && !_showArchived)
+            {
+                @if (_createLimit is { IsAllowed: false })
+                {
+                    <button type="button" class="btn btn-primary" disabled title="@_createLimit.Message">Neue DSFA</button>
+                }
+                else
+                {
+                    <a class="btn btn-primary" href="dsfa/edit">Neue DSFA</a>
+                }
+            }
+        </div>
     </PageHeader>
+
+    @if (_canEdit && !_showArchived && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
 
     @if (_items is null)
     {
@@ -28,7 +44,9 @@ else
     }
     else if (_items.Count == 0)
     {
-        <div class="alert alert-info dsms-alert">Noch keine DSFA erfasst.</div>
+        <div class="alert alert-info dsms-alert">
+            @(_showArchived ? "Keine archivierten DSFA-Einträge." : "Noch keine DSFA erfasst.")
+        </div>
     }
     else
     {
@@ -44,15 +62,28 @@ else
                             <th>Ergebnis</th>
                             <th>Verantwortlich</th>
                             <th>Nächste Prüfung</th>
-                            <th>Letzte Änderung</th>
+                            @if (_showArchived)
+                            {
+                                <th>Archiviert am</th>
+                            }
+                            else
+                            {
+                                <th>Letzte Änderung</th>
+                            }
                             <th class="dsms-table-actions"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var item in _items)
                         {
-                            <tr>
-                                <td><strong>@item.Title</strong></td>
+                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
+                                <td>
+                                    <strong>@item.Title</strong>
+                                    @if (_showArchived)
+                                    {
+                                        <span class="ms-2"><ArchivedBadge /></span>
+                                    }
+                                </td>
                                 <td>@item.ProcessingActivityName</td>
                                 <td>
                                     <StatusBadge Text="@DsfaLabels.GetStatusLabel(item.Status)"
@@ -65,13 +96,24 @@ else
                                 <td>@DsfaLabels.GetOutcomeLabel(item.Outcome)</td>
                                 <td>@(string.IsNullOrWhiteSpace(item.ResponsiblePerson) ? "—" : item.ResponsiblePerson)</td>
                                 <td>@FormatNextReview(item.NextReviewAt)</td>
-                                <td>@FormatUpdated(item)</td>
+                                <td>@FormatDateColumn(item)</td>
                                 <td class="dsms-table-actions">
-                                    <a class="btn btn-sm btn-outline-primary" href="@($"dsfa/{item.Id}")">Details</a>
-                                    @if (_canEdit)
-                                    {
-                                        <a class="btn btn-sm btn-outline-secondary" href="@($"dsfa/edit/{item.Id}")">Bearbeiten</a>
-                                    }
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
+                                        {
+                                            <a class="btn btn-sm btn-outline-primary" href="@($"dsfa/{item.Id}")">Details</a>
+                                            @if (_canEdit)
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"dsfa/edit/{item.Id}")">Bearbeiten</a>
+                                            }
+                                        }
+                                        <ArchiveListActions TEntity="DataProtectionImpactAssessment"
+                                                            EntityId="@item.Id"
+                                                            ItemName="@item.Title"
+                                                            EntityLabel="DSFA"
+                                                            CanEdit="@_canEdit"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -85,9 +127,14 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private int? _tenantId;
     private bool _canEdit;
+    private bool _showArchived;
+    private LicenseLimitCheckResult? _createLimit;
     private List<DsfaListRow>? _items;
 
     protected override async Task OnInitializedAsync()
@@ -95,30 +142,58 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
-        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
-            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
-        _items = await Db.DataProtectionImpactAssessments
-            .Where(d => d.TenantId == _tenantId)
-            .OrderByDescending(d => d.UpdatedAt ?? d.CreatedAt)
-            .Select(d => new DsfaListRow
-            {
-                Id = d.Id,
-                Title = d.Title,
-                ProcessingActivityName = d.ProcessingActivity.Name,
-                Status = d.Status,
-                ResidualRisk = d.ResidualRisk,
-                Outcome = d.Outcome,
-                ResponsiblePerson = d.ResponsiblePerson,
-                NextReviewAt = d.NextReviewAt,
-                CreatedAt = d.CreatedAt,
-                UpdatedAt = d.UpdatedAt
-            })
-            .ToListAsync();
+        _createLimit = await LicenseService.CanCreateDpiaAsync(_tenantId.Value);
+        await LoadDataAsync();
     }
 
-    private static string FormatUpdated(DsfaListRow item) =>
-        (item.UpdatedAt ?? item.CreatedAt).ToLocalTime().ToString("g");
+    private async Task LoadDataAsync()
+    {
+        if (_tenantId is null) return;
+
+        // Lokale Variable: Global Query Filter liest ShowArchivedOnly zur Laufzeit –
+        // expliziter Filter vermeidet Timing-Probleme und Join-Probleme mit VVT-Archivfilter.
+        var showArchived = ArchiveView.ShowArchivedOnly;
+        _showArchived = showArchived;
+        var tenantId = _tenantId.Value;
+
+        var dpias = await Db.DataProtectionImpactAssessments
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(d => d.TenantId == tenantId && d.IsArchived == showArchived)
+            .OrderByDescending(d => showArchived ? d.ArchivedAt : (d.UpdatedAt ?? d.CreatedAt))
+            .ToListAsync();
+
+        var paIds = dpias.Select(d => d.ProcessingActivityId).Distinct().ToList();
+        var paNames = paIds.Count == 0
+            ? new Dictionary<int, string>()
+            : await Db.ProcessingActivities
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(p => p.TenantId == tenantId && paIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.Name);
+
+        _items = dpias.Select(d => new DsfaListRow
+        {
+            Id = d.Id,
+            Title = d.Title,
+            ProcessingActivityName = paNames.GetValueOrDefault(d.ProcessingActivityId, "—"),
+            Status = d.Status,
+            ResidualRisk = d.ResidualRisk,
+            Outcome = d.Outcome,
+            ResponsiblePerson = d.ResponsiblePerson,
+            NextReviewAt = d.NextReviewAt,
+            CreatedAt = d.CreatedAt,
+            UpdatedAt = d.UpdatedAt,
+            ArchivedAt = d.ArchivedAt
+        }).ToList();
+    }
+
+    private string FormatDateColumn(DsfaListRow item) =>
+        _showArchived
+            ? item.ArchivedAt?.ToLocalTime().ToString("g") ?? "—"
+            : (item.UpdatedAt ?? item.CreatedAt).ToLocalTime().ToString("g");
 
     private static string FormatNextReview(DateOnly? date)
     {
@@ -139,5 +214,6 @@ else
         public DateOnly? NextReviewAt { get; init; }
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
+        public DateTime? ArchivedAt { get; init; }
     }
 }

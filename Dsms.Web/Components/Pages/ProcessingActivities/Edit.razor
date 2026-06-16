@@ -1,18 +1,24 @@
 @*
     Anlegen und Bearbeiten von Verarbeitungstätigkeiten.
-    Nur Admin und Auditor; Speichern und Laden immer mit TenantId-Filter.
+    Nur Admin; Speichern und Laden immer mit TenantId-Filter.
 *@
 @page "/processing-activities/edit"
 @page "/processing-activities/edit/{Id:int}"
-@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+@attribute [Authorize]
 @rendermode InteractiveServer
 
-<PageTitle>Verarbeitungstätigkeit bearbeiten</PageTitle>
+<BrandedPageTitle Title="Verarbeitungstätigkeit bearbeiten" />
 
 @if (_tenantId is null)
 {
     <PageHeader Title="Verarbeitungstätigkeit" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (!_canEdit)
+{
+    <PageHeader Title="Verarbeitungstätigkeit" />
+    <div class="alert alert-warning dsms-alert">@_accessDeniedMessage</div>
+    <a class="btn btn-outline-secondary" href="processing-activities">Zur Liste</a>
 }
 else if (_notFound)
 {
@@ -22,6 +28,16 @@ else if (_notFound)
 else
 {
     <PageHeader Title="@(_model.Id == 0 ? "Verarbeitungstätigkeit anlegen" : "Verarbeitungstätigkeit bearbeiten")" />
+
+    @if (_model.Id == 0 && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
+    @if (!string.IsNullOrEmpty(_saveError))
+    {
+        <div class="alert alert-danger dsms-alert">@_saveError</div>
+    }
 
     <div class="dsms-card dsms-form-card">
         <div class="dsms-card-body">
@@ -96,7 +112,7 @@ else
                 </div>
 
                 <div class="dsms-form-actions">
-                    <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                    <button type="submit" class="btn btn-primary" disabled="@(_saving || (_model.Id == 0 && _createLimit is { IsAllowed: false }))">Speichern</button>
                     <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"processing-activities/{_model.Id}" : "processing-activities")">Abbrechen</a>
                 </div>
             </EditForm>
@@ -109,16 +125,35 @@ else
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _canEdit;
+    private string _accessDeniedMessage = "Keine Berechtigung zum Bearbeiten von Verarbeitungstätigkeiten.";
     private bool _notFound;
     private bool _saving;
+    private string? _saveError;
+    private LicenseLimitCheckResult? _createLimit;
     private ProcessingActivity _model = new() { Status = ProcessingActivityStatus.Draft };
+    private ProcessingActivityStatus? _previousStatus;
+    private string? _previousName;
+    private string? _previousOwner;
+    private string? _previousDepartment;
 
     protected override async Task OnInitializedAsync()
     {
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
+
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
+        if (!_canEdit)
+        {
+            _accessDeniedMessage = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
 
         if (Id is > 0)
         {
@@ -132,10 +167,15 @@ else
             }
 
             _model = existing;
+            _previousStatus = existing.Status;
+            _previousName = existing.Name;
+            _previousOwner = existing.Owner;
+            _previousDepartment = existing.ResponsibleDepartment;
         }
         else
         {
             _model.TenantId = _tenantId.Value;
+            _createLimit = await LicenseService.CanCreateProcessingActivityAsync(_tenantId.Value);
         }
     }
 
@@ -146,13 +186,30 @@ else
             return;
         }
 
+        if (!await UserAccess.CanEditComplianceContentAsync())
+        {
+            _saveError = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
+
+        _saveError = null;
         _saving = true;
 
         // TenantId bei Updates nicht verändern lassen – Schutz vor Mandantenwechsel.
         _model.TenantId = _tenantId.Value;
 
-        if (_model.Id == 0)
+        var isNew = _model.Id == 0;
+
+        if (isNew)
         {
+            var limitCheck = await LicenseService.CanCreateProcessingActivityAsync(_tenantId.Value);
+            if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "ProcessingActivity"))
+            {
+                _saveError = limitCheck.Message;
+                _saving = false;
+                return;
+            }
+
             _model.CreatedAt = DateTime.UtcNow;
             Db.ProcessingActivities.Add(_model);
         }
@@ -162,6 +219,19 @@ else
         }
 
         await Db.SaveChangesAsync();
+
+        if (isNew)
+        {
+            await ComplianceAuditLog.LogProcessingActivityCreatedAsync(_model.Id, _model.Name, _tenantId.Value);
+        }
+        else
+        {
+            var changes = ComplianceAuditDiffBuilder.ForProcessingActivity(
+                _previousName, _previousStatus, _previousOwner, _previousDepartment, _model);
+            await ComplianceAuditLog.LogProcessingActivityUpdatedAsync(
+                _model.Id, _model.Name, _tenantId.Value, changes);
+        }
+
         Navigation.NavigateTo(_model.Id > 0 ? $"processing-activities/{_model.Id}" : "processing-activities");
     }
 }

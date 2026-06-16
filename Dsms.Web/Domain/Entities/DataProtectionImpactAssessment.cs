@@ -6,7 +6,7 @@ namespace Dsms.Web.Domain.Entities;
 /// Datenschutz-Folgenabschätzung (DSFA) zu einer Verarbeitungstätigkeit.
 /// Mandantenbezogen; eine Verarbeitungstätigkeit kann mehrere DSFA-Einträge haben (z. B. Versionen).
 /// </summary>
-public class DataProtectionImpactAssessment : EntityBase
+public class DataProtectionImpactAssessment : ArchivableEntityBase, ITenantEntity
 {
     public int TenantId { get; set; }
     public Tenant Tenant { get; set; } = null!;
@@ -48,6 +48,4 @@ public class DataProtectionImpactAssessment : EntityBase
 
     public DateOnly? NextReviewAt { get; set; }
 
-    /// <summary>Nachweisdokumente, die dieser DSFA zugeordnet sind.</summary>
-    public ICollection<EvidenceDocument> Documents { get; set; } = [];
 }

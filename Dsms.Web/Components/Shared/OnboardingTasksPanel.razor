@@ -1,0 +1,129 @@
+@*
+    Einklappbare „Erste Schritte“-Checkliste auf dem Dashboard (mandantenbezogen).
+    Startet immer eingeklappt; Zustand wird nicht in localStorage persistiert.
+*@
+
+<div class="dsms-card dsms-onboarding-card dsms-dashboard-onboarding-compact">
+    <div class="dsms-onboarding-header @(_expanded ? "dsms-onboarding-header--expanded" : "dsms-onboarding-header--collapsed")">
+        <div class="dsms-onboarding-header-main">
+            <div class="dsms-onboarding-title">Erste Schritte</div>
+            @if (_expanded)
+            {
+                <p class="dsms-onboarding-subtitle">Richten Sie Datenschutz-Cloud Schritt für Schritt ein.</p>
+            }
+        </div>
+        <div class="dsms-onboarding-header-actions">
+            <span class="dsms-onboarding-badge" aria-label="Fortschritt">@CompletedCount/@_tasks.Count erledigt</span>
+            <button type="button"
+                    class="btn btn-link btn-sm dsms-onboarding-toggle"
+                    @onclick="ToggleExpanded"
+                    aria-expanded="@_expanded"
+                    aria-controls="onboarding-tasks-content"
+                    title="@(_expanded ? "Einklappen" : "Ausklappen")">
+                <span class="dsms-onboarding-chevron @(_expanded ? "dsms-onboarding-chevron--expanded" : "")" aria-hidden="true">›</span>
+                <span class="dsms-onboarding-toggle-label">@(_expanded ? "Einklappen" : "Ausklappen")</span>
+            </button>
+        </div>
+    </div>
+
+    @if (_expanded)
+    {
+        <div id="onboarding-tasks-content" class="dsms-onboarding-body">
+            @if (_tasks.Count > 0)
+            {
+                <div class="dsms-onboarding-progress" role="progressbar"
+                     aria-valuenow="@CompletedCount"
+                     aria-valuemin="0"
+                     aria-valuemax="@_tasks.Count"
+                     aria-label="Fortschritt Erste Schritte">
+                    <div class="dsms-onboarding-progress-bar" style="width: @ProgressPercent%"></div>
+                </div>
+
+                <div class="dsms-onboarding-task-list">
+                    @foreach (var task in _tasks)
+                    {
+                        var isBusy = _busyTaskId == task.Id;
+                        <div class="dsms-onboarding-task-item @(task.IsCompleted ? "dsms-onboarding-task-completed" : "")">
+                            <label class="dsms-onboarding-task-check">
+                                <input type="checkbox"
+                                       checked="@task.IsCompleted"
+                                       disabled="@isBusy"
+                                       aria-label="@($"Aufgabe „{task.Title}“ als erledigt markieren")"
+                                       @onchange="e => OnTaskToggleAsync(task, e)" />
+                            </label>
+                            <div class="dsms-onboarding-task-content">
+                                <div class="dsms-onboarding-task-title-row">
+                                    <span class="dsms-onboarding-task-title">@task.Title</span>
+                                    @if (task.IsCompleted)
+                                    {
+                                        <span class="dsms-onboarding-task-done-badge">Erledigt</span>
+                                    }
+                                </div>
+                                <div class="dsms-onboarding-task-description">@GetShortDescription(task.Key)</div>
+                            </div>
+                            <div class="dsms-onboarding-task-actions">
+                                <a href="@task.TargetUrl" class="dsms-onboarding-task-link">Öffnen</a>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly Dictionary<string, string> ShortDescriptions = new(StringComparer.Ordinal)
+    {
+        ["processing-activities"] = "Wichtige Verarbeitungstätigkeiten dokumentieren.",
+        ["toms"] = "Schutzmaßnahmen für personenbezogene Daten erfassen.",
+        ["service-providers"] = "Externe Stellen und AVV-Informationen dokumentieren.",
+        ["dpia"] = "Prüfen, ob eine Datenschutz-Folgenabschätzung nötig ist.",
+        ["audit"] = "Einen Audit-Durchlauf starten oder bearbeiten.",
+        ["documents"] = "Verträge, Nachweise und Datenschutzdokumente ablegen."
+    };
+
+    [Inject] private ITenantOnboardingService OnboardingService { get; set; } = null!;
+
+    private List<TenantOnboardingTask> _tasks = [];
+    private bool _expanded;
+    private int? _busyTaskId;
+
+    private int CompletedCount => _tasks.Count(t => t.IsCompleted);
+    private int ProgressPercent => _tasks.Count == 0 ? 0 : (int)Math.Round(CompletedCount * 100.0 / _tasks.Count);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tasks = (await OnboardingService.GetTasksForCurrentTenantAsync()).ToList();
+    }
+
+    private static string GetShortDescription(string key) =>
+        ShortDescriptions.TryGetValue(key, out var text) ? text : string.Empty;
+
+    private void ToggleExpanded() => _expanded = !_expanded;
+
+    private async Task OnTaskToggleAsync(TenantOnboardingTask task, ChangeEventArgs e)
+    {
+        if (e.Value is not bool isCompleted)
+        {
+            return;
+        }
+
+        _busyTaskId = task.Id;
+
+        try
+        {
+            var updated = await OnboardingService.ToggleTaskCompletedAsync(task.Id, isCompleted);
+            if (updated is not null)
+            {
+                task.IsCompleted = updated.IsCompleted;
+                task.CompletedAt = updated.CompletedAt;
+                task.CompletedByUserId = updated.CompletedByUserId;
+            }
+        }
+        finally
+        {
+            _busyTaskId = null;
+        }
+    }
+}

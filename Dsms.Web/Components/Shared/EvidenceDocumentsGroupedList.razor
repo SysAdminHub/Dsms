@@ -1,0 +1,87 @@
+@* Gruppierte oder kompakte Anzeige verknüpfter Nachweisdokumente. *@
+
+@if (Documents.Count == 0)
+{
+    @EmptyContent
+}
+else if (Documents.Count <= 2)
+{
+    <div class="dsms-table-wrap">
+        <table class="table dsms-table mb-0">
+            <thead>
+                <tr>
+                    <th>Dateiname</th>
+                    <th>Hochgeladen</th>
+                    <th>Größe</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var doc in Documents)
+                {
+                    <tr>
+                        <td>
+                            <strong>@doc.FileName</strong>
+                            <div class="mt-1 d-flex flex-wrap align-items-center gap-1">
+                                <DocumentTypeBadge Type="@doc.DocumentType" />
+                                @if (doc.DocumentCategory is not null)
+                                {
+                                    <DocumentCategoryBadge Category="doc.DocumentCategory" />
+                                }
+                            </div>
+                        </td>
+                        <td>@doc.CreatedAt.ToLocalTime().ToString("g")</td>
+                        <td>@FormatSize(doc.FileSizeBytes)</td>
+                        <td>
+                            <DocumentActions DocumentId="@doc.Id"
+                                             FileName="@doc.FileName"
+                                             ContentType="@doc.ContentType" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    @foreach (var group in Documents
+        .GroupBy(d => d.DocumentType)
+        .OrderBy(g => EvidenceDocumentLabels.GetTypeSortOrder(g.Key)))
+    {
+        <h6 class="dsms-linked-docs-group-title">@EvidenceDocumentLabels.GetTypeLabel(group.Key)</h6>
+        <ul class="dsms-linked-docs-group-list mb-3">
+            @foreach (var doc in group.OrderByDescending(d => d.CreatedAt))
+            {
+                <li class="dsms-linked-docs-group-item">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        <div>
+                            <strong>@doc.FileName</strong>
+                            <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+                                <DocumentTypeBadge Type="@doc.DocumentType" />
+                                @if (doc.DocumentCategory is not null)
+                                {
+                                    <DocumentCategoryBadge Category="doc.DocumentCategory" />
+                                }
+                            </div>
+                            <div class="text-muted small mt-1">
+                                @doc.CreatedAt.ToLocalTime().ToString("g") · @FormatSize(doc.FileSizeBytes)
+                            </div>
+                        </div>
+                        <DocumentActions DocumentId="@doc.Id"
+                                         FileName="@doc.FileName"
+                                         ContentType="@doc.ContentType" />
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    [Parameter] public IReadOnlyList<EvidenceDocument> Documents { get; set; } = [];
+    [Parameter] public RenderFragment? EmptyContent { get; set; }
+
+    private static string FormatSize(long bytes) =>
+        bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024.0:F1} KB";
+}

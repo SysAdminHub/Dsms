@@ -4,19 +4,36 @@
 *@
 @page "/audit-runs/edit"
 @page "/audit-runs/edit/{Id:int}"
-@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+@attribute [Authorize]
 @rendermode InteractiveServer
 
-<PageTitle>Audit-Durchlauf</PageTitle>
+<BrandedPageTitle Title="Audit-Durchlauf" />
 
 @if (_tenantId is null)
 {
     <PageHeader Title="Audit-Durchlauf" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
+else if (!_canEdit)
+{
+    <PageHeader Title="Audit-Durchlauf" />
+    <div class="alert alert-warning dsms-alert">@_accessDeniedMessage</div>
+    <a class="btn btn-outline-secondary" href="audit-runs">Zur Liste</a>
+}
 else
 {
     <PageHeader Title="@(_model.Id == 0 ? "Audit-Durchlauf anlegen" : "Audit-Durchlauf bearbeiten")" />
+
+    @if (_model.Id == 0 && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
+
+    @if (!string.IsNullOrEmpty(_saveError))
+    {
+        <div class="alert alert-danger dsms-alert">@_saveError</div>
+    }
 
     <div class="dsms-card dsms-form-card">
         <div class="dsms-card-body">
@@ -32,7 +49,9 @@ else
                     <InputSelect class="form-select" @bind-Value="_model.AuditTemplateId">
                         @foreach (var template in _templates)
                         {
-                            <option value="@template.Id">@template.Title (@template.Version)</option>
+                            <option value="@template.Id">
+                                @template.Title (@template.Version) – @AuditTemplateLabels.GetTypeBadge(template.TemplateType)
+                            </option>
                         }
                     </InputSelect>
                 </div>
@@ -41,13 +60,13 @@ else
                     <InputSelect class="form-select" @bind-Value="_model.Status">
                         @foreach (var status in Enum.GetValues<AuditRunStatus>())
                         {
-                            <option value="@status">@status</option>
+                            <option value="@status">@AuditRunLabels.GetStatusLabel(status)</option>
                         }
                     </InputSelect>
                 </div>
 
                 <div class="dsms-form-actions">
-                    <button type="submit" class="btn btn-primary">Speichern</button>
+                    <button type="submit" class="btn btn-primary" disabled="@(_model.Id == 0 && _createLimit is { IsAllowed: false })">Speichern</button>
                     <a class="btn btn-outline-secondary" href="audit-runs">Zurück</a>
                     @if (_model.Id > 0)
                     {
@@ -57,35 +76,59 @@ else
             </EditForm>
         </div>
     </div>
+
+    @if (_model.Id > 0)
+    {
+        <LinkedDocumentsSection AuditRunId="_model.Id" />
+    }
 }
 
 @code {
     [Parameter] public int? Id { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private IAuditTemplateService TemplateService { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _canEdit;
+    private string _accessDeniedMessage = "Keine Berechtigung zum Bearbeiten von Audit-Durchläufen.";
+    private LicenseLimitCheckResult? _createLimit;
+    private string? _saveError;
     private AuditRun _model = new() { Status = AuditRunStatus.Draft };
     private List<AuditTemplate> _templates = [];
+    private AuditRunStatus? _previousStatus;
+    private string? _previousTitle;
 
     protected override async Task OnInitializedAsync()
     {
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
-        _templates = await Db.AuditTemplates
-            .Where(t => t.TenantId == _tenantId && t.IsActive)
-            .OrderBy(t => t.Title)
-            .ToListAsync();
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
+        if (!_canEdit)
+        {
+            _accessDeniedMessage = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
+
+        _templates = (await TemplateService.ListActiveForAuditStartAsync()).ToList();
 
         if (Id is > 0)
         {
-            _model = await Db.AuditRuns.FirstAsync(r => r.Id == Id && r.TenantId == _tenantId);
+            _model = await Db.AuditRuns
+                .FirstAsync(r => r.Id == Id && r.TenantId == _tenantId);
+            _previousStatus = _model.Status;
+            _previousTitle = _model.Title;
         }
         else
         {
             _model.TenantId = _tenantId.Value;
+            _createLimit = await LicenseService.CanCreateActiveAuditAsync(_tenantId.Value);
             if (_templates.Count > 0)
             {
                 _model.AuditTemplateId = _templates[0].Id;
@@ -95,33 +138,51 @@ else
 
     private async Task SaveAsync()
     {
+        if (!await UserAccess.CanEditComplianceContentAsync())
+        {
+            _saveError = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
+
         var isNew = _model.Id == 0;
 
         if (isNew)
         {
+            if (_tenantId is int tenantId)
+            {
+                var limitCheck = await LicenseService.CanCreateActiveAuditAsync(tenantId);
+                if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "AuditRun"))
+                {
+                    _saveError = limitCheck.Message;
+                    return;
+                }
+            }
+
+            var template = await TemplateService.GetByIdAsync(_model.AuditTemplateId);
+            if (template is null || !template.IsActive || template.IsArchived)
+            {
+                return;
+            }
+
             if (_model.Status == AuditRunStatus.InProgress)
             {
                 _model.StartedAt = DateTime.UtcNow;
             }
 
             Db.AuditRuns.Add(_model);
-            await Db.SaveChangesAsync(); // Id wird für AuditAnswers benötigt
-
-            // Antwort-Platzhalter je Vorlagenfrage – ein Durchlauf, eine Zeile pro Frage.
-            var questions = await Db.AuditQuestions
-                .Where(q => q.AuditTemplateId == _model.AuditTemplateId)
-                .ToListAsync();
-
-            foreach (var question in questions)
-            {
-                Db.AuditAnswers.Add(new AuditAnswer
-                {
-                    AuditRunId = _model.Id,
-                    AuditQuestionId = question.Id
-                });
-            }
-
             await Db.SaveChangesAsync();
+
+            await TemplateService.CreateAnswerSnapshotsAsync(_model, template);
+            await Db.SaveChangesAsync();
+
+            if (_tenantId is int tid)
+            {
+                await ComplianceAuditLog.LogAuditCreatedAsync(_model.Id, _model.Title, tid);
+                if (_model.Status == AuditRunStatus.InProgress)
+                {
+                    await ComplianceAuditLog.LogAuditStartedAsync(_model.Id, _model.Title, tid);
+                }
+            }
         }
         else
         {
@@ -133,11 +194,37 @@ else
 
             if (_model.Status == AuditRunStatus.Completed)
             {
-                _model.CompletedAt = DateTime.UtcNow;
+                if (_model.StartedAt is null)
+                {
+                    _model.StartedAt = DateTime.UtcNow;
+                }
+
+                if (_model.CompletedAt is null)
+                {
+                    _model.CompletedAt = DateTime.UtcNow;
+                }
             }
 
             _model.UpdatedAt = DateTime.UtcNow;
             await Db.SaveChangesAsync();
+
+            if (_tenantId is int tid)
+            {
+                var changes = ComplianceAuditDiffBuilder.ForAuditRun(_previousTitle, _previousStatus, _model);
+                await ComplianceAuditLog.LogAuditUpdatedAsync(_model.Id, _model.Title, tid, changes);
+
+                if (_previousStatus != _model.Status)
+                {
+                    if (_model.Status == AuditRunStatus.InProgress)
+                    {
+                        await ComplianceAuditLog.LogAuditStartedAsync(_model.Id, _model.Title, tid);
+                    }
+                    else if (_model.Status == AuditRunStatus.Completed)
+                    {
+                        await ComplianceAuditLog.LogAuditCompletedAsync(_model.Id, _model.Title, tid);
+                    }
+                }
+            }
         }
 
         Navigation.NavigateTo("audit-runs");

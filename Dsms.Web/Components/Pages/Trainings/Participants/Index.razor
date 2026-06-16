@@ -1,0 +1,470 @@
+@page "/trainings/participants"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using Dsms.Web.Services.Training
+
+<BrandedPageTitle Title="Schulungsteilnehmer" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Schulungsteilnehmer" HelpKey="training-participants" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else
+{
+    <TrainingModuleAccessGate>
+    @if (!_canView)
+{
+    <PageHeader Title="Schulungsteilnehmer" HelpKey="training-participants" />
+    <div class="alert alert-warning dsms-alert">Keine Berechtigung für Teilnehmerdaten.</div>
+}
+else
+{
+    <PageHeader Title="Schulungsteilnehmer"
+                HelpKey="training-participants"
+                Subtitle="Verwalten Sie Teilnehmer und sehen Sie, welche Schulungen bereits zugewiesen, gestartet oder abgeschlossen wurden.">
+        @if (_canManage)
+        {
+            <button type="button" class="btn btn-primary" @onclick="OpenAddModal">Teilnehmer hinzufügen</button>
+            <button type="button" class="btn btn-outline-primary" @onclick="OpenBulkModal">Mehrere Teilnehmer hinzufügen</button>
+        }
+    </PageHeader>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert alert-success dsms-alert">@_message</div>
+    }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger dsms-alert">
+            @_error
+            @if (_duplicateParticipantId is int dupId)
+            {
+                <div class="mt-2">
+                    <a class="btn btn-sm btn-outline-primary" href="trainings/participants/@dupId">
+                        Bestehenden Teilnehmer anzeigen
+                    </a>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label" for="tp-search">Suche</label>
+                    <input id="tp-search" class="form-control" @bind="_searchText" @bind:event="oninput"
+                           @onkeyup="LoadDataAsync" placeholder="Name, E-Mail, Abteilung …" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="tp-filter">Filter</label>
+                    <select id="tp-filter" class="form-select" @bind="_filter" @bind:after="LoadDataAsync">
+                        <option value="@TrainingParticipantListFilter.Active">Aktiv</option>
+                        <option value="@TrainingParticipantListFilter.All">Alle</option>
+                        <option value="@TrainingParticipantListFilter.Inactive">Inaktiv</option>
+                        <option value="@TrainingParticipantListFilter.HasOpen">Hat offene Schulungen</option>
+                        <option value="@TrainingParticipantListFilter.HasCompleted">Hat abgeschlossene Schulungen</option>
+                        <option value="@TrainingParticipantListFilter.NeverCompleted">Noch nie abgeschlossen</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="tp-dept">Abteilung</label>
+                    <select id="tp-dept" class="form-select" @bind="_department" @bind:after="LoadDataAsync">
+                        <option value="">Alle Abteilungen</option>
+                        @foreach (var dept in _departments)
+                        {
+                            <option value="@dept">@dept</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="dsms-loading">Lade Teilnehmer …</div>
+    }
+    else if (_rows.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">Keine Teilnehmer gefunden.</div>
+    }
+    else
+    {
+        <div class="dsms-card">
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>E-Mail</th>
+                            <th>Abteilung</th>
+                            <th>Status</th>
+                            <th>Schulungen</th>
+                            <th>Letzte Teilnahme</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in _rows)
+                        {
+                            var p = row.Participant;
+                            <tr>
+                                <td>
+                                    <a href="trainings/participants/@p.Id">@(p.Name ?? p.Email)</a>
+                                </td>
+                                <td>@p.Email</td>
+                                <td>@(p.Department ?? "—")</td>
+                                <td>
+                                    @if (p.IsActive && !p.IsArchived)
+                                    {
+                                        <StatusBadge Text="Aktiv" Variant="success" />
+                                    }
+                                    else
+                                    {
+                                        <StatusBadge Text="Inaktiv" Variant="warning" />
+                                    }
+                                </td>
+                                <td class="small">
+                                    @row.TotalAssignments gesamt
+                                    @if (row.OpenCount > 0 || row.CompletedCount > 0)
+                                    {
+                                        <span class="text-muted">
+                                            · @row.OpenCount offen · @row.CompletedCount abgeschlossen
+                                        </span>
+                                    }
+                                </td>
+                                <td>@(row.LastParticipationUtc?.ToLocalTime().ToString("g") ?? "—")</td>
+                                <td class="dsms-table-actions">
+                                    <div class="dsms-table-action-stack">
+                                        <a class="btn btn-sm btn-outline-secondary" href="trainings/participants/@p.Id">Anzeigen</a>
+                                        @if (_canManage)
+                                        {
+                                            <a class="btn btn-sm btn-outline-primary" href="trainings/participants/edit/@p.Id">Bearbeiten</a>
+                                            @if (p.IsActive && !p.IsArchived)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-warning"
+                                                        disabled="@_busy" @onclick="() => ToggleActiveAsync(p.Id, false)">
+                                                    Deaktivieren
+                                                </button>
+                                            }
+                                            else if (!p.IsArchived)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-success"
+                                                        disabled="@_busy" @onclick="() => ToggleActiveAsync(p.Id, true)">
+                                                    Reaktivieren
+                                                </button>
+                                            }
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    @if (_showAddModal)
+    {
+        <div class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,.4);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Teilnehmer hinzufügen</h5>
+                        <button type="button" class="btn-close" @onclick="CloseAddModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        @if (!string.IsNullOrEmpty(_addError))
+                        {
+                            <div class="alert alert-danger dsms-alert">
+                                @_addError
+                                @if (_duplicateParticipantId is int dupId)
+                                {
+                                    <div class="mt-2">
+                                        <a class="btn btn-sm btn-outline-primary" href="trainings/participants/@dupId">
+                                            Bestehenden Teilnehmer anzeigen
+                                        </a>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        <div class="mb-3">
+                            <label class="form-label">Name (optional)</label>
+                            <input class="form-control" @bind="_addName" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">E-Mail-Adresse <span class="text-danger">*</span></label>
+                            <input class="form-control" type="email" @bind="_addEmail" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Abteilung (optional)</label>
+                            <input class="form-control" @bind="_addDepartment" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Externe Referenz (optional)</label>
+                            <input class="form-control" @bind="_addExternalReference" />
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="add-active" @bind="_addIsActive" />
+                            <label class="form-check-label" for="add-active">Aktiv</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseAddModal">Abbrechen</button>
+                        <button type="button" class="btn btn-primary" @onclick="SaveAddAsync" disabled="@_busy">Speichern</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_showBulkModal)
+    {
+        <div class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,.4);">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Mehrere Teilnehmer hinzufügen</h5>
+                        <button type="button" class="btn-close" @onclick="CloseBulkModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="form-text">Erlaubte Formate pro Zeile:</p>
+                        <ul class="form-text small">
+                            <li><code>Name;E-Mail;Abteilung</code></li>
+                            <li><code>Name;E-Mail</code></li>
+                            <li><code>E-Mail</code></li>
+                        </ul>
+                        <textarea class="form-control font-monospace" rows="10"
+                                  @bind="_bulkText" @bind:after="OnBulkTextChangedAsync"
+                                  placeholder="Max Mustermann;max@example.com;IT&#10;Erika Beispiel;erika@example.com&#10;test@example.com"></textarea>
+
+                        @if (!string.IsNullOrEmpty(_bulkSyntaxError))
+                        {
+                            <div class="alert alert-danger dsms-alert mt-3">
+                                <strong>Der Import wurde nicht durchgeführt, weil einige Zeilen ungültig sind.</strong>
+                                <pre class="mb-0 mt-2 small" style="white-space: pre-wrap;">@_bulkSyntaxError</pre>
+                            </div>
+                        }
+
+                        @if (_bulkPreview is not null)
+                        {
+                            <div class="alert alert-info dsms-alert mt-3">
+                                <strong>Zusammenfassung:</strong>
+                                @_bulkPreview.NewParticipantCount neue Teilnehmer,
+                                @_bulkPreview.ExistingParticipantCount bereits vorhanden,
+                                @_bulkPreview.InvalidCount ungültige Zeilen
+                                @if (_bulkPreview.DuplicateInInputCount > 0)
+                                {
+                                    <span>, @_bulkPreview.DuplicateInInputCount doppelte E-Mails im Import</span>
+                                }.
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseBulkModal">Abbrechen</button>
+                        <button type="button" class="btn btn-primary" @onclick="ExecuteBulkAsync"
+                                disabled="@(_busy || string.IsNullOrWhiteSpace(_bulkText))">
+                            @(_busy ? "Importiere …" : "Importieren")
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+    </TrainingModuleAccessGate>
+}
+
+@code {
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private TrainingParticipantService ParticipantService { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canView;
+    private bool _canManage;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _message;
+    private string? _error;
+    private int? _duplicateParticipantId;
+    private string _searchText = "";
+    private string _department = "";
+    private TrainingParticipantListFilter _filter = TrainingParticipantListFilter.Active;
+    private List<TrainingParticipantListRow> _rows = [];
+    private List<string> _departments = [];
+
+    private bool _showAddModal;
+    private string? _addError;
+    private string _addName = "";
+    private string _addEmail = "";
+    private string _addDepartment = "";
+    private string _addExternalReference = "";
+    private bool _addIsActive = true;
+
+    private bool _showBulkModal;
+    private string _bulkText = "";
+    private TrainingParticipantBulkImportPreview? _bulkPreview;
+    private string? _bulkSyntaxError;
+
+    private const string BulkImportSyntaxHelp =
+        "Erlaubte Formate:\n\n" +
+        "Name;E-Mail;Abteilung\n" +
+        "Name;E-Mail\n" +
+        "E-Mail\n\n" +
+        "Beispiele:\n\n" +
+        "Max Mustermann;max@example.com;IT\n" +
+        "Erika Beispiel;erika@example.com\n" +
+        "test@example.com";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null) return;
+
+        _canView = await ParticipantService.CanViewAsync(_tenantId.Value);
+        _canManage = await ParticipantService.CanManageAsync();
+        if (_canView)
+            await LoadDataAsync();
+        else
+            _loading = false;
+    }
+
+    private async Task LoadDataAsync()
+    {
+        if (_tenantId is null || !_canView) return;
+
+        _loading = true;
+        _departments = (await ParticipantService.GetDepartmentsAsync(_tenantId.Value)).ToList();
+        _rows = (await ParticipantService.GetParticipantOverviewAsync(
+            _tenantId.Value,
+            _searchText,
+            _filter,
+            string.IsNullOrWhiteSpace(_department) ? null : _department)).ToList();
+        _loading = false;
+    }
+
+    private async Task ToggleActiveAsync(int id, bool active)
+    {
+        if (_tenantId is null) return;
+
+        _busy = true;
+        await ParticipantService.SetParticipantActiveAsync(id, _tenantId.Value, active);
+        await LoadDataAsync();
+        _busy = false;
+    }
+
+    private void OpenAddModal()
+    {
+        _addName = _addEmail = _addDepartment = _addExternalReference = "";
+        _addIsActive = true;
+        _addError = null;
+        _duplicateParticipantId = null;
+        _showAddModal = true;
+    }
+
+    private void CloseAddModal() => _showAddModal = false;
+
+    private async Task SaveAddAsync()
+    {
+        if (_tenantId is null) return;
+
+        _busy = true;
+        _addError = null;
+        _message = null;
+        _duplicateParticipantId = null;
+
+        var result = await ParticipantService.CreateParticipantAsync(
+            _tenantId.Value,
+            _addEmail,
+            _addName,
+            _addDepartment,
+            _addExternalReference,
+            _addIsActive);
+
+        if (!result.Success)
+        {
+            _addError = result.Message;
+            _duplicateParticipantId = result.ExistingParticipantId;
+            _busy = false;
+            return;
+        }
+
+        _message = "Teilnehmer wurde angelegt.";
+        _showAddModal = false;
+        await LoadDataAsync();
+        _busy = false;
+    }
+
+    private void OpenBulkModal()
+    {
+        _bulkText = "";
+        _bulkPreview = null;
+        _bulkSyntaxError = null;
+        _showBulkModal = true;
+    }
+
+    private void CloseBulkModal() => _showBulkModal = false;
+
+    private async Task OnBulkTextChangedAsync()
+    {
+        _bulkSyntaxError = null;
+        if (_tenantId is null || string.IsNullOrWhiteSpace(_bulkText))
+        {
+            _bulkPreview = null;
+            return;
+        }
+
+        _bulkPreview = await ParticipantService.PreviewBulkParticipantImportAsync(_tenantId.Value, _bulkText);
+    }
+
+    private async Task ExecuteBulkAsync()
+    {
+        if (_tenantId is null || string.IsNullOrWhiteSpace(_bulkText))
+            return;
+
+        _busy = true;
+        _error = null;
+        _message = null;
+        _bulkSyntaxError = null;
+
+        var preview = await ParticipantService.PreviewBulkParticipantImportAsync(_tenantId.Value, _bulkText);
+        _bulkPreview = preview;
+
+        if (preview.InvalidCount > 0)
+        {
+            _bulkSyntaxError = BuildBulkSyntaxErrorMessage(preview);
+            _busy = false;
+            return;
+        }
+
+        var result = await ParticipantService.ExecuteBulkParticipantImportAsync(_tenantId.Value, _bulkText);
+
+        if (result.FailureCount > 0 && result.CreatedCount == 0)
+        {
+            _bulkSyntaxError = string.Join(Environment.NewLine, result.Errors);
+            _busy = false;
+            return;
+        }
+
+        _message = $"{result.CreatedCount} neue Teilnehmer angelegt, {result.ExistingCount} bereits vorhanden.";
+        if (result.FailureCount > 0)
+            _error = string.Join("; ", result.Errors);
+
+        _showBulkModal = false;
+        await LoadDataAsync();
+        _busy = false;
+    }
+
+    private static string BuildBulkSyntaxErrorMessage(TrainingParticipantBulkImportPreview preview)
+    {
+        var details = preview.Lines
+            .Where(l => !l.IsValid)
+            .Select(l => $"Zeile {l.LineNumber}: {l.ErrorMessage}")
+            .ToList();
+
+        return string.Join(Environment.NewLine, details) + Environment.NewLine + Environment.NewLine + BulkImportSyntaxHelp;
+    }
+}

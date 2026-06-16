@@ -1,0 +1,45 @@
+@* Download und optionaler PDF-Viewer für Nachweisdokumente. *@
+
+<div class="dsms-table-action-stack">
+    @if (DocumentUploadValidation.IsViewableInBrowser(ContentType, FileName))
+    {
+        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ShowViewer">Anzeigen</button>
+    }
+    <a class="btn btn-sm btn-outline-primary" href="@DownloadUrl">Download</a>
+</div>
+
+@if (_viewerVisible)
+{
+    <div class="modal fade show d-block dsms-document-viewer-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@FileName</h5>
+                    <button type="button" class="btn-close" @onclick="CloseViewer"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <iframe src="@ViewUrl" class="dsms-document-viewer-frame" title="@FileName"></iframe>
+                </div>
+                <div class="modal-footer">
+                    <a class="btn btn-primary" href="@DownloadUrl">Download</a>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CloseViewer">Schließen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter, EditorRequired] public int DocumentId { get; set; }
+    [Parameter, EditorRequired] public string FileName { get; set; } = "";
+    [Parameter] public string ContentType { get; set; } = "";
+
+    private bool _viewerVisible;
+
+    private string DownloadUrl => $"/documents/{DocumentId}/download";
+    private string ViewUrl => $"/documents/{DocumentId}/view";
+
+    private void ShowViewer() => _viewerVisible = true;
+    private void CloseViewer() => _viewerVisible = false;
+}

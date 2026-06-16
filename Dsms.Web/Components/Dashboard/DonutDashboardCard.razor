@@ -1,0 +1,114 @@
+@*
+    Wiederverwendbare Dashboard-Kachel mit SVG-Donut, Legende und Link zur Fachseite.
+*@
+
+<article class="dsms-dashboard-card">
+    <div class="dsms-dashboard-card-header">
+        <h2 class="dsms-dashboard-card-title">@Title</h2>
+        @if (!string.IsNullOrEmpty(DetailsUrl))
+        {
+            <a href="@DetailsUrl" class="dsms-dashboard-card-link">@(DetailsText ?? "Zur Übersicht")</a>
+        }
+    </div>
+
+    <div class="dsms-dashboard-card-body">
+        <div class="dsms-donut-chart">
+            <svg viewBox="0 0 120 120" class="dsms-donut-chart-svg" role="img" aria-label="@($"{Title}: {Total} gesamt")">
+                <circle class="dsms-donut-chart-bg"
+                        cx="60" cy="60" r="@Radius"
+                        fill="none"
+                        stroke-width="@StrokeWidth" />
+
+                @if (_chartTotal > 0)
+                {
+                    var offset = 0d;
+                    foreach (var segment in _visibleSegments)
+                    {
+                        var length = _circumference * segment.Value / _chartTotal;
+                        var gap = _circumference - length;
+                        <circle class="dsms-donut-chart-segment @segment.CssClass"
+                                cx="60" cy="60" r="@Radius"
+                                fill="none"
+                                stroke-width="@StrokeWidth"
+                                stroke-dasharray="@($"{length.ToString("F4", System.Globalization.CultureInfo.InvariantCulture)} {gap.ToString("F4", System.Globalization.CultureInfo.InvariantCulture)}")"
+                                stroke-dashoffset="@((-_circumference * offset / _chartTotal).ToString("F4", System.Globalization.CultureInfo.InvariantCulture))"
+                                transform="rotate(-90 60 60)">
+                            <title>@segment.Tooltip</title>
+                        </circle>
+                        offset += segment.Value;
+                    }
+                }
+            </svg>
+
+            <div class="dsms-donut-chart-center">
+                <div class="dsms-donut-chart-total">@Total</div>
+                <div class="dsms-donut-chart-sub">gesamt</div>
+            </div>
+        </div>
+
+        @if (_visibleSegments.Count > 0)
+        {
+            <ul class="dsms-dashboard-segment-legend">
+                @foreach (var segment in _visibleSegments)
+                {
+                    <li class="dsms-dashboard-segment-legend-item">
+                        <span class="dsms-dashboard-legend-dot @segment.CssClass" style="background-color: @segment.Color"></span>
+                        <span class="dsms-dashboard-legend-label">@segment.Label</span>
+                        <span class="dsms-dashboard-legend-value">@segment.Value</span>
+                    </li>
+                }
+            </ul>
+        }
+        else if (Total == 0 && !string.IsNullOrEmpty(EmptyText))
+        {
+            <p class="dsms-dashboard-empty-hint">@EmptyText</p>
+        }
+
+        @if (LegendItems.Count > 0)
+        {
+            <ul class="dsms-dashboard-legend">
+                @foreach (var item in LegendItems)
+                {
+                    <li class="dsms-dashboard-legend-item">
+                        @if (!string.IsNullOrEmpty(item.Color))
+                        {
+                            <span class="dsms-dashboard-legend-dot @item.CssClass" style="background-color: @item.Color"></span>
+                        }
+                        else
+                        {
+                            <span class="dsms-dashboard-legend-dot dsms-dashboard-legend-dot--muted"></span>
+                        }
+
+                        @if (!string.IsNullOrEmpty(item.Url))
+                        {
+                            <a href="@item.Url" class="dsms-dashboard-legend-label dsms-dashboard-legend-link">@item.Label</a>
+                        }
+                        else
+                        {
+                            <span class="dsms-dashboard-legend-label">@item.Label</span>
+                        }
+
+                        <span class="dsms-dashboard-legend-value @item.CssClass">@item.Value</span>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</article>
+
+@code {
+    private const double Radius = 46;
+    private const double StrokeWidth = 12;
+
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public int Total { get; set; }
+    [Parameter] public IReadOnlyList<DashboardDonutSegment> Segments { get; set; } = [];
+    [Parameter] public IReadOnlyList<DashboardLegendItem> LegendItems { get; set; } = [];
+    [Parameter] public string? DetailsUrl { get; set; }
+    [Parameter] public string? DetailsText { get; set; }
+    [Parameter] public string? EmptyText { get; set; }
+
+    private double _circumference => 2 * Math.PI * Radius;
+    private int _chartTotal => Segments.Sum(s => s.Value);
+    private IReadOnlyList<DashboardDonutSegment> _visibleSegments => Segments.Where(s => s.Value > 0).ToList();
+}

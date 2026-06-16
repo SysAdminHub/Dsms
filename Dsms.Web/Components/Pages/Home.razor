@@ -1,133 +1,170 @@
 ﻿@*
-    Startseite nach Login: Kennzahlen und Kurzlisten aus DashboardService (mandantenbezogen).
+    Startseite nach Login: Plattform-Dashboard für Superuser, Mandanten-Dashboard für Tenant-Benutzer.
 *@
 @page "/"
 @attribute [Authorize]
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
-<PageTitle>Dashboard</PageTitle>
-
-<PageHeader Title="Dashboard" Subtitle="Überblick über Maßnahmen, Audits, TOMs und Dienstleister" />
+<BrandedPageTitle Title="Dashboard" />
 
 @if (_loading)
 {
     <div class="dsms-loading">Lade Übersicht …</div>
 }
+else if (_isSuperuser)
+{
+    <PageHeader Title="Administration"
+                Subtitle="Verwaltung der Mandanten, Benutzer und globalen Audit-Vorlagen" />
+
+    <div class="dsms-dashboard-grid">
+        <div class="dsms-card">
+            <div class="dsms-card-header">Mandantenverwaltung</div>
+            <div class="dsms-card-body">
+                <p class="text-muted mb-3">Mandanten anlegen, bearbeiten und deaktivieren.</p>
+                <a class="btn btn-primary" href="tenants">Mandanten verwalten</a>
+            </div>
+        </div>
+
+        <div class="dsms-card">
+            <div class="dsms-card-header">Benutzerverwaltung</div>
+            <div class="dsms-card-body">
+                <p class="text-muted mb-3">Benutzer erstellen, Mandanten zuordnen und Rollen vergeben.</p>
+                <a class="btn btn-primary" href="users">Benutzer verwalten</a>
+            </div>
+        </div>
+
+        <div class="dsms-card">
+            <div class="dsms-card-header">Globale Audit-Vorlagen</div>
+            <div class="dsms-card-body">
+                <p class="text-muted mb-3">Offizielle und Community-Vorlagen für alle Mandanten verwalten.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary" href="audit-templates">Vorlagen anzeigen</a>
+                    <a class="btn btn-outline-primary" href="audit-templates/edit?type=official">Neue globale Vorlage</a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 else if (_tenantId is null)
 {
-    <div class="alert alert-info dsms-alert">
-        @if (_isSuperuser)
+    if (_tenants.Count == 0)
+    {
+        <PageHeader Title="Dashboard" Subtitle="Kompakter Überblick über Verarbeitungstätigkeiten, TOMs, DSFA und weitere Bereiche" />
+        <div class="alert alert-warning dsms-alert">
+            Ihrem Benutzerkonto sind keine Mandanten zugeordnet. Bitte wenden Sie sich an einen Administrator.
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_errorMessage))
         {
-            <text>Als Superuser verwalten Sie die Plattform unter „Mandanten“ und „Benutzer“. Compliance-Daten erfordern eine Mandantenzuordnung (geplant: Mandantenwechsel).</text>
+            <div class="alert alert-danger dsms-alert">@_errorMessage</div>
         }
-        else
-        {
-            <text>Ihrem Benutzerkonto ist kein Mandant zugeordnet. Bitte wenden Sie sich an einen Administrator.</text>
-        }
-    </div>
+
+        <PageHeader Title="Mandant wählen"
+                    Subtitle="Wählen Sie den Mandanten, in dessen Kontext Sie arbeiten möchten." />
+
+        <div class="dsms-card dsms-form-card">
+            <div class="dsms-card-body">
+                <div class="list-group">
+                    @foreach (var tenant in _tenants)
+                    {
+                        <button type="button"
+                                class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                @onclick="() => SelectTenant(tenant.Id)"
+                                disabled="@_selecting">
+
+                            <span>
+                                <strong>@tenant.Name</strong>
+
+                                @if (!string.IsNullOrWhiteSpace(tenant.LegalName) && tenant.LegalName != tenant.Name)
+                                {
+                                    <span class="text-muted ms-2">@tenant.LegalName</span>
+                                }
+                            </span>
+
+                            <span class="btn btn-sm btn-primary">Auswählen</span>
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    }
 }
 else if (_summary is not null)
 {
-    <div class="dsms-stat-grid">
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">Offene Maßnahmen</div>
-            <div class="dsms-stat-value">@_summary.OpenMeasuresCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">Laufende Audits</div>
-            <div class="dsms-stat-value">@_summary.ActiveAuditsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--muted">
-            <div class="dsms-stat-label">Audit-Entwürfe</div>
-            <div class="dsms-stat-value">@_summary.DraftAuditsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">TOMs gesamt</div>
-            <div class="dsms-stat-value">@_summary.TotalTomsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">TOMs geplant</div>
-            <div class="dsms-stat-value">@_summary.PlannedTomsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">TOMs nicht umgesetzt</div>
-            <div class="dsms-stat-value">@_summary.NotImplementedTomsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">TOM-Prüfungen überfällig</div>
-            <div class="dsms-stat-value">@_summary.OverdueTomReviewsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">Dienstleister gesamt</div>
-            <div class="dsms-stat-value">@_summary.TotalServiceProvidersCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">Aktive Auftragsverarbeiter</div>
-            <div class="dsms-stat-value">@_summary.ActiveDataProcessorsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">Auftragsverarbeiter ohne AVV</div>
-            <div class="dsms-stat-value">@_summary.ProcessorsWithoutAvvCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">Drittlandbezug</div>
-            <div class="dsms-stat-value">@_summary.ThirdCountryProvidersCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">Risiko hoch/kritisch</div>
-            <div class="dsms-stat-value">@_summary.HighRiskProvidersCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">AVV-Prüfungen überfällig</div>
-            <div class="dsms-stat-value">@_summary.OverdueAvvReviewsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">Verarbeitungstätigkeiten</div>
-            <div class="dsms-stat-value">@_summary.TotalProcessingActivitiesCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">VVT ohne TOMs</div>
-            <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithoutTomsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">VVT ohne Dokumente</div>
-            <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithoutDocumentsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">VVT mit offenen Maßnahmen</div>
-            <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithOpenMeasuresCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">DSFA erforderlich (VVT)</div>
-            <div class="dsms-stat-value">@_summary.ProcessingActivitiesDpiaRequiredCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">DSFA gesamt</div>
-            <div class="dsms-stat-value">@_summary.TotalDpiaAssessmentsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--primary">
-            <div class="dsms-stat-label">DSFA in Prüfung</div>
-            <div class="dsms-stat-value">@_summary.DpiaInReviewCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">DSFA Restrisiko hoch/kritisch</div>
-            <div class="dsms-stat-value">@_summary.DpiaHighOrCriticalRiskCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">DSFA-Prüfungen überfällig</div>
-            <div class="dsms-stat-value">@_summary.OverdueDpiaReviewsCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--warning">
-            <div class="dsms-stat-label">DSFA-Pflicht ohne DSFA</div>
-            <div class="dsms-stat-value">@_summary.ProcessingActivitiesDpiaRequiredWithoutAssessmentCount</div>
-        </div>
-        <div class="dsms-stat-card dsms-stat-card--danger">
-            <div class="dsms-stat-label">VVT mit Risiko-Dienstleister</div>
-            <div class="dsms-stat-value">@_summary.ProcessingActivitiesWithHighRiskProvidersCount</div>
-        </div>
+    <PageHeader Title="Dashboard" Subtitle="Kompakter Überblick über Verarbeitungstätigkeiten, TOMs, DSFA und weitere Bereiche" />
+
+    <div class="dsms-dashboard-grid">
+        <DonutDashboardCard Title="Verarbeitungstätigkeiten"
+                            Total="@_summary.TotalProcessingActivitiesCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.ProcessingActivityStatusGroups, _summary.TotalProcessingActivitiesCount)"
+                            LegendItems="@DashboardChartBuilder.ProcessingActivityLegend(_summary)"
+                            DetailsUrl="processing-activities"
+                            EmptyText="Noch keine Verarbeitungstätigkeiten erfasst." />
+
+        <DonutDashboardCard Title="TOMs"
+                            Total="@_summary.TotalTomsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.TomStatusGroups, _summary.TotalTomsCount)"
+                            LegendItems="@DashboardChartBuilder.TomLegend(_summary)"
+                            DetailsUrl="toms"
+                            EmptyText="Noch keine TOMs erfasst." />
+
+        <DonutDashboardCard Title="DSFA"
+                            Total="@_summary.TotalDpiaAssessmentsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.DpiaStatusGroups, _summary.TotalDpiaAssessmentsCount)"
+                            LegendItems="@DashboardChartBuilder.DpiaLegend(_summary)"
+                            DetailsUrl="dsfa"
+                            EmptyText="Noch keine DSFA erfasst." />
+
+        <DonutDashboardCard Title="Dienstleister"
+                            Total="@_summary.TotalServiceProvidersCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.ServiceProviderStatusGroups, _summary.TotalServiceProvidersCount)"
+                            LegendItems="@DashboardChartBuilder.ServiceProviderLegend(_summary)"
+                            DetailsUrl="service-providers"
+                            EmptyText="Noch keine Dienstleister erfasst." />
+
+        <DonutDashboardCard Title="Datenschutzvorfälle"
+                            Total="@_summary.TotalPrivacyIncidentsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.PrivacyIncidentStatusGroups, _summary.TotalPrivacyIncidentsCount)"
+                            LegendItems="@DashboardChartBuilder.PrivacyIncidentLegend(_summary)"
+                            DetailsUrl="incidents"
+                            EmptyText="Noch keine Vorfälle erfasst." />
+
+        <DonutDashboardCard Title="Betroffenenanfragen"
+                            Total="@_summary.TotalDataSubjectRequestsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.DataSubjectRequestStatusGroups, _summary.TotalDataSubjectRequestsCount)"
+                            LegendItems="@DashboardChartBuilder.DataSubjectRequestLegend(_summary)"
+                            DetailsUrl="data-subject-requests"
+                            EmptyText="Noch keine Betroffenenanfragen erfasst." />
+
+        <DonutDashboardCard Title="Maßnahmen"
+                            Total="@_summary.TotalMeasuresCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.MeasureStatusGroups, _summary.TotalMeasuresCount)"
+                            LegendItems="@DashboardChartBuilder.MeasureLegend(_summary)"
+                            DetailsUrl="measures"
+                            EmptyText="Noch keine Maßnahmen erfasst." />
+
+        <DonutDashboardCard Title="Audits"
+                            Total="@_summary.TotalAuditsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.AuditStatusGroups, _summary.TotalAuditsCount)"
+                            LegendItems="@DashboardChartBuilder.AuditLegend(_summary)"
+                            DetailsUrl="audit-runs"
+                            EmptyText="Noch keine Audits erfasst." />
+
+        <DonutDashboardCard Title="Schulungen"
+                            Total="@_summary.TotalTrainingsCount"
+                            Segments="@DashboardChartBuilder.BuildStatusSegments(_summary.TrainingStatusGroups, _summary.TotalTrainingsCount)"
+                            LegendItems="@DashboardChartBuilder.TrainingLegend(_summary)"
+                            DetailsUrl="trainings"
+                            EmptyText="Noch keine Schulungen erfasst." />
     </div>
 
-    <div class="dsms-split-grid">
+    <div class="dsms-dashboard-bottom-grid">
+        <OnboardingTasksPanel />
+    </div>
+
+    <div class="dsms-split-grid dsms-dashboard-lists">
         <div class="dsms-card">
             <div class="dsms-card-header">Offene Maßnahmen</div>
             @if (_summary.RecentMeasures.Count == 0)
@@ -168,29 +205,90 @@ else if (_summary is not null)
         </div>
     </div>
 }
+else
+{
+    <PageHeader Title="Dashboard" Subtitle="Kompakter Überblick über Verarbeitungstätigkeiten, TOMs, DSFA und weitere Bereiche" />
+    <div class="alert alert-danger dsms-alert">
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            @_errorMessage
+        }
+        else
+        {
+            <text>Dashboard-Daten konnten nicht geladen werden. Bitte Seite neu laden.</text>
+        }
+    </div>
+}
 
 @code {
     [Inject] private DashboardService DashboardService { get; set; } = null!;
-    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ITenantService TenantService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
 
     private bool _loading = true;
     private bool _isSuperuser;
     private int? _tenantId;
     private DashboardSummary? _summary;
+    private List<Tenant> _tenants = [];
+    private bool _selecting;
+    private string? _errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
-        _isSuperuser = await CurrentUser.IsInRoleAsync(DsmsRoles.Superuser);
-        _tenantId = await CurrentUser.GetTenantIdAsync();
-        if (_tenantId.HasValue)
+        _loading = true;
+        _errorMessage = null;
+
+        try
         {
+            _isSuperuser = await UserAccess.IsSuperuserAsync();
+
+            if (_isSuperuser)
+            {
+                return;
+            }
+
+            await TenantService.InitializeContextAsync();
+            _tenants = (await TenantService.GetAccessibleTenantsAsync()).ToList();
+
+            _tenantId = await UserAccess.GetCurrentTenantIdAsync();
+
+            if (!_tenantId.HasValue)
+            {
+                if (_tenants.Count == 1)
+                {
+                    Navigation.NavigateTo(
+                        TenantSwitchEndpoints.BuildSwitchUrl(_tenants[0].Id, "/"),
+                        forceLoad: true);
+                    return;
+                }
+
+                return;
+            }
+
             _summary = await DashboardService.GetSummaryAsync(_tenantId.Value);
         }
-
-        _loading = false;
+        catch (Exception)
+        {
+            _summary = null;
+            _errorMessage = "Das Dashboard konnte nicht geladen werden.";
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
-    // Badge-Farben für Dashboard-Liste – rein visuell, keine Fachlogik.
+    private void SelectTenant(int tenantId)
+    {
+        _selecting = true;
+        _errorMessage = null;
+
+        Navigation.NavigateTo(
+            TenantSwitchEndpoints.BuildSwitchUrl(tenantId, "/"),
+            forceLoad: true);
+    }
+
     private static string GetMeasureVariant(MeasureStatus status) => status switch
     {
         MeasureStatus.Done => "success",

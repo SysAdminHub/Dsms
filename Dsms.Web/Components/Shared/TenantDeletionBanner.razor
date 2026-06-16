@@ -1,0 +1,29 @@
+@* Warnhinweis, wenn für den aktuellen Mandanten eine Löschung angefordert wurde. *@
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inject ITenantService TenantService
+
+@if (_showBanner)
+{
+    <div class="alert alert-warning dsms-deletion-banner mb-0 rounded-0 border-0" role="alert">
+        Für diesen Mandanten wurde eine Löschung angefordert.
+        @if (_scheduledAt.HasValue)
+        {
+            <span> Geplant: @_scheduledAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") Uhr.</span>
+        }
+    </div>
+}
+
+@code {
+    private bool _showBanner;
+    private DateTime? _scheduledAt;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tenant = await TenantService.GetCurrentTenantAsync();
+        if (tenant?.IsDeletionRequested == true)
+        {
+            _showBanner = true;
+            _scheduledAt = tenant.DeletionScheduledAt;
+        }
+    }
+}

@@ -1,0 +1,90 @@
+@using Dsms.Web.Services.Training
+
+<div class="training-markdown-preview dsms-card">
+    <div class="dsms-card-body">
+        @if (_loading)
+        {
+            <div class="dsms-loading">Vorschau wird geladen …</div>
+        }
+        else if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger dsms-alert mb-0">@_error</div>
+        }
+        else if (string.IsNullOrWhiteSpace(Markdown) && string.IsNullOrEmpty(Html))
+        {
+            <div class="text-muted">Kein Inhalt.</div>
+        }
+        else
+        {
+            <div class="training-markdown-content">@((MarkupString)_html)</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Inject] private TrainingTemplateService TemplateService { get; set; } = null!;
+
+    /// <summary>Fertig gerendertes HTML – wenn gesetzt, keine Datenbankabfrage.</summary>
+    [Parameter] public string? Html { get; set; }
+    [Parameter] public int TemplateId { get; set; }
+    [Parameter] public int? TenantId { get; set; }
+    [Parameter] public string? Markdown { get; set; }
+
+    private string _html = "";
+    private bool _loading;
+    private string? _error;
+    private string? _lastMarkdown;
+    private string? _lastHtml;
+    private int _renderVersion;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(Html))
+        {
+            _html = Html;
+            _loading = false;
+            _error = null;
+            _lastHtml = Html;
+            return;
+        }
+
+        if (_lastMarkdown == Markdown && !string.IsNullOrEmpty(_html) && string.IsNullOrEmpty(_error))
+            return;
+
+        var version = ++_renderVersion;
+        _lastMarkdown = Markdown;
+        _loading = true;
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(Markdown))
+        {
+            _html = "";
+            _loading = false;
+            return;
+        }
+
+        try
+        {
+            var resolved = await TemplateService.PrepareMarkdownForRenderingAsync(
+                Markdown, TemplateId, TenantId);
+
+            if (version != _renderVersion)
+                return;
+
+            _html = TrainingMarkdownRenderer.ToHtml(resolved);
+        }
+        catch (Exception ex)
+        {
+            if (version != _renderVersion)
+                return;
+
+            _error = $"Vorschau konnte nicht geladen werden: {ex.Message}";
+            _html = "";
+        }
+        finally
+        {
+            if (version == _renderVersion)
+                _loading = false;
+        }
+    }
+}

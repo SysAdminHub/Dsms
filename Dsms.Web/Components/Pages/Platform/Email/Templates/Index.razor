@@ -1,0 +1,90 @@
+@* Nur Superuser: globale Email-Vorlagen. *@
+@page "/platform/email/templates"
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Email-Vorlagen" />
+
+<PageHeader Title="Email-Vorlagen" Subtitle="Globale Vorlagen für System-Emails" />
+
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <NavLink class="nav-link" href="platform/email/settings">SMTP-Einstellungen</NavLink>
+    </li>
+    <li class="nav-item">
+        <span class="nav-link active">Vorlagen</span>
+    </li>
+</ul>
+
+@if (_loading)
+{
+    <p class="dsms-loading">Laden …</p>
+}
+else if (_templates.Count == 0)
+{
+    <p class="text-muted">Keine Vorlagen vorhanden.</p>
+}
+else
+{
+    <div class="dsms-card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Anzeigename</th>
+                        <th>TemplateKey</th>
+                        <th>Betreff</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var template in _templates)
+                    {
+                        <tr>
+                            <td>@template.DisplayName</td>
+                            <td><code>@template.TemplateKey</code></td>
+                            <td>@template.Subject</td>
+                            <td>
+                                @if (template.IsEnabled)
+                                {
+                                    <span class="badge text-bg-success">Aktiv</span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-secondary">Deaktiviert</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" href="platform/email/templates/edit/@template.Id">Bearbeiten</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private IEmailTemplateService EmailTemplates { get; set; } = null!;
+
+    private IReadOnlyList<EmailTemplate> _templates = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _templates = await EmailTemplates.ListAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _templates = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

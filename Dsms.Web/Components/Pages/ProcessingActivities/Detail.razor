@@ -3,7 +3,7 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 
-<PageTitle>Verarbeitungstätigkeit</PageTitle>
+<BrandedPageTitle Title="Verarbeitungstätigkeit" />
 
 @if (_tenantId is null)
 {
@@ -250,29 +250,7 @@ else
         }
         else
         {
-            <div class="dsms-table-wrap">
-                <table class="table dsms-table mb-0">
-                    <thead>
-                        <tr>
-                            <th>Dateiname</th>
-                            <th>Hochgeladen</th>
-                            <th>Größe</th>
-                            <th>Aktion</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var doc in _snapshot.Documents)
-                        {
-                            <tr>
-                                <td><strong>@doc.FileName</strong></td>
-                                <td>@doc.CreatedAt.ToLocalTime().ToString("g")</td>
-                                <td>@FormatSize(doc.FileSizeBytes)</td>
-                                <td><span class="text-muted">Download noch nicht implementiert</span></td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
+            <EvidenceDocumentsGroupedList Documents="_snapshot.Documents" />
         }
     </div>
 
@@ -482,6 +460,7 @@ else
 @code {
     [Parameter] public int Id { get; set; }
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private ProcessingActivityRelationsService Relations { get; set; } = null!;
 
     private int? _tenantId;
@@ -498,8 +477,7 @@ else
             return;
         }
 
-        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
-            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
         _snapshot = await Relations.GetSnapshotAsync(_tenantId.Value, Id);
         _loaded = true;

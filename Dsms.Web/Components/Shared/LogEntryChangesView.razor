@@ -1,0 +1,62 @@
+@using Dsms.Web.Services.Logging
+
+@if (_model.HasStructuredChanges)
+{
+    <div class="mt-2">
+        <strong class="d-block mb-2">Geänderte Werte</strong>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0">
+                <thead>
+                    <tr>
+                        <th>Feld</th>
+                        <th>Alt</th>
+                        <th>Neu</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var change in _model.Changes)
+                    {
+                        <tr>
+                            <td>@change.DisplayName</td>
+                            <td>@(change.OldValue ?? "–")</td>
+                            <td>@(change.NewValue ?? "–")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else if (_model.IsLegacyFormat)
+{
+    <div class="alert alert-secondary dsms-alert small mb-2">
+        Änderungsdetails liegen im alten Format vor.
+    </div>
+    @if (!string.IsNullOrEmpty(_model.LegacyOldJson))
+    {
+        <div class="mb-2">
+            <strong class="small">Alte Werte (Rohdaten)</strong>
+            <pre class="small bg-light p-2 rounded mb-0">@_model.LegacyOldJson</pre>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(_model.LegacyNewJson))
+    {
+        <div>
+            <strong class="small">Neue Werte (Rohdaten)</strong>
+            <pre class="small bg-light p-2 rounded mb-0">@_model.LegacyNewJson</pre>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public string? OldValuesJson { get; set; }
+    [Parameter] public string? NewValuesJson { get; set; }
+    [Parameter] public string? MetadataJson { get; set; }
+
+    private AuditLogChangesViewModel _model = new([], false);
+
+    protected override void OnParametersSet()
+    {
+        _model = AuditLogChangeParser.Parse(OldValuesJson, NewValuesJson, MetadataJson);
+    }
+}

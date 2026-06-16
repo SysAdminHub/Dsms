@@ -1,4 +1,4 @@
-﻿@page "/Account/Manage/Email"
+@page "/Account/Manage/Email"
 
 @using System.ComponentModel.DataAnnotations
 @using System.Text
@@ -12,43 +12,53 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Manage email</PageTitle>
+<BrandedPageTitle Title="E-Mail-Adresse" />
 
-<h3>Manage email</h3>
+<div class="dsms-card dsms-form-card">
+    <div class="dsms-card-header">E-Mail-Adresse</div>
+    <div class="dsms-card-body">
+        <p class="dsms-account-section-intro">Verwalten Sie die E-Mail-Adresse, die für Ihr Benutzerkonto verwendet wird.</p>
 
-<StatusMessage Message="@message"/>
-<div class="row">
-    <div class="col-xl-6">
+        <StatusMessage Message="@message" />
+
         <form @onsubmit="OnSendEmailVerificationAsync" @formname="send-verification" id="send-verification-form" method="post">
             <AntiforgeryToken />
         </form>
-        <EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post">
+
+        <EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post" class="dsms-form">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            @if (isEmailConfirmed)
-            {
-                <div class="form-floating mb-3 input-group">
-                    <input type="text" value="@email" id="email" class="form-control" placeholder="Enter your email" disabled />
-                    <div class="input-group-append">
-                        <span class="h-100 input-group-text text-success font-weight-bold">✓</span>
+            <ValidationSummary class="alert alert-danger dsms-alert" role="alert" />
+
+            <div class="mb-3">
+                <label for="email" class="form-label">Aktuelle E-Mail-Adresse</label>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <input type="text" value="@email" id="email" class="form-control" disabled />
+                    @if (isEmailConfirmed)
+                    {
+                        <span class="dsms-badge dsms-badge--success">Bestätigt</span>
+                    }
+                    else
+                    {
+                        <span class="dsms-badge dsms-badge--warning">Nicht bestätigt</span>
+                    }
+                </div>
+                @if (!isEmailConfirmed)
+                {
+                    <div class="mt-2">
+                        <button type="submit" class="btn btn-outline-secondary btn-sm" form="send-verification-form">Bestätigungs-E-Mail erneut senden</button>
                     </div>
-                    <label for="email" class="form-label">Email</label>
-                </div>
-            }
-            else
-            {
-                <div class="form-floating mb-3">
-                    <input type="text" value="@email" id="email" class="form-control" placeholder="Enter your email" disabled />
-                    <label for="email" class="form-label">Email</label>
-                    <button type="submit" class="btn btn-link" form="send-verification-form">Send verification email</button>
-                </div>
-            }
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.NewEmail" id="Input.NewEmail" class="form-control" autocomplete="email" aria-required="true" placeholder="Enter a new email" />
-                <label for="Input.NewEmail" class="form-label">New email</label>
+                }
+            </div>
+
+            <div class="mb-3">
+                <label for="Input.NewEmail" class="form-label">Neue E-Mail-Adresse</label>
+                <InputText @bind-Value="Input.NewEmail" id="Input.NewEmail" class="form-control" autocomplete="email" aria-required="true" />
                 <ValidationMessage For="() => Input.NewEmail" class="text-danger" />
             </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Change email</button>
+
+            <div class="dsms-form-actions">
+                <button type="submit" class="btn btn-primary">E-Mail ändern</button>
+            </div>
         </EditForm>
     </div>
 </div>
@@ -86,7 +96,7 @@
     {
         if (Input.NewEmail is null || Input.NewEmail == email)
         {
-            message = "Your email is unchanged.";
+            message = "Ihre E-Mail-Adresse wurde nicht geändert.";
             return;
         }
 
@@ -105,7 +115,7 @@
 
         await EmailSender.SendConfirmationLinkAsync(user, Input.NewEmail, HtmlEncoder.Default.Encode(callbackUrl));
 
-        message = "Confirmation link to change email sent. Please check your email.";
+        message = "Ein Bestätigungslink zur Änderung der E-Mail-Adresse wurde gesendet. Bitte prüfen Sie Ihr Postfach.";
     }
 
     private async Task OnSendEmailVerificationAsync()
@@ -130,14 +140,14 @@
 
         await EmailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(callbackUrl));
 
-        message = "Verification email sent. Please check your email.";
+        message = "Die Bestätigungs-E-Mail wurde gesendet. Bitte prüfen Sie Ihr Postfach.";
     }
 
     private sealed class InputModel
     {
-        [Required]
-        [EmailAddress]
-        [Display(Name = "New email")]
+        [Required(ErrorMessage = "Bitte geben Sie eine E-Mail-Adresse ein.")]
+        [EmailAddress(ErrorMessage = "Bitte geben Sie eine gültige E-Mail-Adresse ein.")]
+        [Display(Name = "Neue E-Mail-Adresse")]
         public string? NewEmail { get; set; }
     }
 }

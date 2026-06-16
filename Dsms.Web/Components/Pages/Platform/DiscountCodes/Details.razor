@@ -1,0 +1,156 @@
+@* Route deaktiviert – nur noch in Dsms.Provisioning. *@
+@* @page "/platform/discount-codes/{Id:guid}" *@
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Rabattcode" />
+
+@if (_loading)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_item is null)
+{
+    <div class="alert alert-warning dsms-alert">Rabattcode nicht gefunden.</div>
+}
+else
+{
+    <PageHeader Title="@_item.Code" Subtitle="@_item.Name">
+        <a class="btn btn-outline-primary" href="@($"platform/discount-codes/edit/{_item.Id}")">Bearbeiten</a>
+        @if (_item.IsActive)
+        {
+            <button type="button" class="btn btn-outline-warning" disabled="@_toggling" @onclick="DeactivateAsync">Deaktivieren</button>
+        }
+        else
+        {
+            <button type="button" class="btn btn-outline-success" disabled="@_toggling" @onclick="ActivateAsync">Aktivieren</button>
+        }
+        <a class="btn btn-outline-secondary" href="platform/discount-codes">Zur Übersicht</a>
+    </PageHeader>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Basisdaten</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Id</dt>
+                        <dd class="col-sm-7"><code>@_item.Id</code></dd>
+                        <dt class="col-sm-5">Code</dt>
+                        <dd class="col-sm-7"><code>@_item.Code</code></dd>
+                        <dt class="col-sm-5">Name</dt>
+                        <dd class="col-sm-7">@_item.Name</dd>
+                        <dt class="col-sm-5">Beschreibung</dt>
+                        <dd class="col-sm-7">@(_item.Description ?? "—")</dd>
+                        <dt class="col-sm-5">Status</dt>
+                        <dd class="col-sm-7">
+                            <StatusBadge Text="@(_item.IsActive ? "Aktiv" : "Inaktiv")"
+                                         Variant="@(_item.IsActive ? "success" : "default")" />
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Rabatt</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Rabatt-Typ</dt>
+                        <dd class="col-sm-7">@_item.DiscountTypeDisplayText</dd>
+                        <dt class="col-sm-5">Wert</dt>
+                        <dd class="col-sm-7">@_item.DiscountDisplayText</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card">
+                <div class="dsms-card-header"><strong>Interne Notiz</strong></div>
+                <div class="dsms-card-body">
+                    <p class="mb-0">@(_item.InternalNote ?? "—")</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Gültigkeit und Einschränkungen</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Planbindung</dt>
+                        <dd class="col-sm-7">@_item.AppliesToPlanDisplayName</dd>
+                        <dt class="col-sm-5">Abrechnungsbindung</dt>
+                        <dd class="col-sm-7">@_item.AppliesToBillingCycleDisplayText</dd>
+                        <dt class="col-sm-5">Gültig von</dt>
+                        <dd class="col-sm-7">@(_item.ValidFrom?.ToLocalTime().ToString("d") ?? "—")</dd>
+                        <dt class="col-sm-5">Gültig bis</dt>
+                        <dd class="col-sm-7">@(_item.ValidUntil?.ToLocalTime().ToString("d") ?? "—")</dd>
+                        <dt class="col-sm-5">Gültigkeit</dt>
+                        <dd class="col-sm-7">@_item.ValidityDisplayText</dd>
+                        <dt class="col-sm-5">Nutzung</dt>
+                        <dd class="col-sm-7">@_item.UsageDisplayText</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card">
+                <div class="dsms-card-header"><strong>Protokoll</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Erstellt</dt>
+                        <dd class="col-sm-7">@_item.CreatedAt.ToLocalTime().ToString("g")</dd>
+                        <dt class="col-sm-5">Erstellt von</dt>
+                        <dd class="col-sm-7">@(_item.CreatedByDisplayName ?? "—")</dd>
+                        <dt class="col-sm-5">Geändert</dt>
+                        <dd class="col-sm-7">@(_item.UpdatedAt?.ToLocalTime().ToString("g") ?? "—")</dd>
+                        <dt class="col-sm-5">Geändert von</dt>
+                        <dd class="col-sm-7">@(_item.UpdatedByDisplayName ?? "—")</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [Inject] private IDiscountCodeService DiscountCodeService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private DiscountCodeDetailDto? _item;
+    private bool _loading = true;
+    private bool _toggling;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _item = await DiscountCodeService.GetByIdAsync(Id);
+        _loading = false;
+    }
+
+    private async Task ActivateAsync()
+    {
+        _toggling = true;
+        try
+        {
+            await DiscountCodeService.ActivateAsync(Id);
+            _item = await DiscountCodeService.GetByIdAsync(Id);
+        }
+        finally
+        {
+            _toggling = false;
+        }
+    }
+
+    private async Task DeactivateAsync()
+    {
+        _toggling = true;
+        try
+        {
+            await DiscountCodeService.DeactivateAsync(Id);
+            _item = await DiscountCodeService.GetByIdAsync(Id);
+        }
+        finally
+        {
+            _toggling = false;
+        }
+    }
+}

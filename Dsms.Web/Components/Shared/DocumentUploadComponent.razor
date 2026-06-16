@@ -1,0 +1,211 @@
+@*
+    Dateiauswahl mit verzögertem Upload – Upload erfolgt erst beim Klick auf „Hochladen“.
+*@
+
+<div class="dsms-upload-zone">
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+        <label class="btn btn-primary mb-0">
+            Datei auswählen
+            <InputFile OnChange="OnFileSelected"
+                       accept="@DocumentUploadValidation.AcceptAttribute"
+                       class="dsms-upload-input-hidden" />
+        </label>
+        @if (_selectedFile is not null)
+        {
+            <div class="dsms-upload-selected">
+                <strong>@_selectedFile.Name</strong>
+                <span class="text-muted ms-1">(@FormatSize(_selectedFile.Size))</span>
+                <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" @onclick="ClearFile">Entfernen</button>
+            </div>
+        }
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <label class="form-label" for="document-upload-type">Dokumenttyp <span class="text-danger">*</span></label>
+            <InputSelect id="document-upload-type" class="form-select" @bind-Value="_documentType">
+                @foreach (var type in EvidenceDocumentLabels.AllTypes)
+                {
+                    <option value="@type">@EvidenceDocumentLabels.GetTypeLabel(type)</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label" for="document-upload-category">Kategorie</label>
+            <InputSelect id="document-upload-category" class="form-select" @bind-Value="_documentCategoryIdValue">
+                <option value="">Keine Kategorie</option>
+                @foreach (var category in Categories)
+                {
+                    <option value="@category.Id">@category.Name</option>
+                }
+            </InputSelect>
+        </div>
+    </div>
+
+    @ChildContent
+
+    <div class="mt-3">
+        <button type="button"
+                class="btn btn-primary"
+                disabled="@(_selectedFile is null || _uploading)"
+                @onclick="UploadAsync">
+            @(_uploading ? "Wird hochgeladen …" : "Hochladen")
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_isError ? "alert-danger" : "alert-success") dsms-alert mt-3 mb-0">@_message</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public int TenantId { get; set; }
+    [Parameter] public IReadOnlyList<DocumentCategory> Categories { get; set; } = [];
+    [Parameter] public IReadOnlyList<DocumentLinkTarget> SelectedLinks { get; set; } = [];
+    [Parameter] public EventCallback OnUploaded { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [Inject] private ApplicationDbContext Db { get; set; } = null!;
+    [Inject] private DocumentStorageService Storage { get; set; } = null!;
+    [Inject] private DocumentLinksService LinksService { get; set; } = null!;
+    [Inject] private DocumentCategoryService CategoryService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
+
+    private IBrowserFile? _selectedFile;
+    private DocumentType _documentType = DocumentType.Evidence;
+    private string _documentCategoryIdValue = string.Empty;
+    private bool _uploading;
+    private string? _message;
+    private bool _isError;
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _message = null;
+        _isError = false;
+
+        var file = e.File;
+        var result = DocumentUploadValidation.Validate(file.Name, file.ContentType, file.Size);
+        if (!result.IsValid)
+        {
+            _selectedFile = null;
+            _message = result.ErrorMessage;
+            _isError = true;
+            return;
+        }
+
+        _selectedFile = file;
+    }
+
+    private async Task UploadAsync()
+    {
+        if (_selectedFile is null || _uploading)
+            return;
+
+        if (!await UserAccess.CanEditTenantOperationalContentAsync())
+        {
+            _message = "Keine Berechtigung zum Hochladen von Dokumenten.";
+            _isError = true;
+            return;
+        }
+
+        _uploading = true;
+        _message = null;
+        _isError = false;
+
+        try
+        {
+            var file = _selectedFile;
+            var validation = DocumentUploadValidation.Validate(file.Name, file.ContentType, file.Size);
+            if (!validation.IsValid)
+            {
+                _message = validation.ErrorMessage;
+                _isError = true;
+                return;
+            }
+
+            foreach (var link in SelectedLinks)
+            {
+                var (valid, error) = await LinksService.ValidateLinkTargetAsync(link.EntityType, link.EntityId, TenantId);
+                if (!valid)
+                {
+                    _message = error;
+                    _isError = true;
+                    return;
+                }
+            }
+
+            var categoryId = ParseCategoryId(_documentCategoryIdValue);
+            var (categoryValid, categoryError) = await CategoryService.ValidateCategoryForDocumentAsync(TenantId, categoryId);
+            if (!categoryValid)
+            {
+                _message = categoryError;
+                _isError = true;
+                return;
+            }
+
+            await using var stream = file.OpenReadStream(DocumentUploadValidation.MaxFileSizeBytes);
+            var path = await Storage.SaveAsync(TenantId, file.Name, stream);
+
+            var document = new EvidenceDocument
+            {
+                TenantId = TenantId,
+                DocumentType = _documentType,
+                DocumentCategoryId = categoryId,
+                FileName = file.Name,
+                ContentType = file.ContentType,
+                StoragePath = path,
+                FileSizeBytes = file.Size,
+                UploadedByUserId = await CurrentUser.GetUserIdAsync()
+            };
+
+            Db.EvidenceDocuments.Add(document);
+            await Db.SaveChangesAsync();
+
+            if (SelectedLinks.Count > 0)
+            {
+                var (linkResult, linkError) = await LinksService.SetLinksForDocumentAsync(
+                    document.Id,
+                    TenantId,
+                    SelectedLinks);
+
+                if (linkResult != UpdateDocumentLinksResult.Success)
+                {
+                    _message = linkError ?? "Datei gespeichert, Bezüge konnten nicht gesetzt werden.";
+                    _isError = true;
+                    return;
+                }
+            }
+
+            await ComplianceAuditLog.LogEvidenceDocumentUploadedAsync(document.Id, document.FileName, TenantId);
+
+            _message = $"Datei \"{file.Name}\" wurde gespeichert.";
+            _selectedFile = null;
+            await OnUploaded.InvokeAsync();
+        }
+        catch
+        {
+            _message = "Upload fehlgeschlagen. Bitte versuchen Sie es erneut.";
+            _isError = true;
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private void ClearFile()
+    {
+        _selectedFile = null;
+        _message = null;
+        _isError = false;
+    }
+
+    private static int? ParseCategoryId(string value) =>
+        string.IsNullOrWhiteSpace(value) || !int.TryParse(value, out var id) ? null : id;
+
+    private static string FormatSize(long bytes) =>
+        bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024.0:F1} KB";
+}

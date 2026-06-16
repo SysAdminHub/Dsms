@@ -1,17 +1,23 @@
 @*
     Verknüpfungen einer Verarbeitungstätigkeit pflegen (TOMs, Dienstleister, Dokumente, Maßnahmen, Audit-Antworten).
-    Nur Admin und Auditor; alle IDs werden serverseitig gegen den Mandanten geprüft.
+    Nur Admin; alle IDs werden serverseitig gegen den Mandanten geprüft.
 *@
 @page "/processing-activities/links/{Id:int}"
-@attribute [Authorize(Roles = $"{DsmsRoles.Admin},{DsmsRoles.Auditor}")]
+@attribute [Authorize]
 @rendermode InteractiveServer
 
-<PageTitle>Verknüpfungen bearbeiten</PageTitle>
+<BrandedPageTitle Title="Verknüpfungen bearbeiten" />
 
 @if (_tenantId is null)
 {
     <PageHeader Title="Verknüpfungen" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (!_canEdit)
+{
+    <PageHeader Title="Verknüpfungen" />
+    <div class="alert alert-warning dsms-alert">@_accessDeniedMessage</div>
+    <a class="btn btn-outline-secondary" href="@($"processing-activities/{Id}")">Zur Detailansicht</a>
 }
 else if (_notFound)
 {
@@ -96,7 +102,13 @@ else
                                        checked="@_selectedDocumentIds.Contains(doc.Id)"
                                        @onchange="e => Toggle(_selectedDocumentIds, doc.Id, (bool)e.Value!)" />
                                 <label class="form-check-label" for="@($"doc-{doc.Id}")">
-                                    @doc.FileName <span class="text-muted">(@doc.CreatedAt.ToLocalTime().ToString("g"))</span>
+                                    @doc.FileName
+                                    <DocumentTypeBadge Type="@doc.DocumentType" />
+                                    @if (doc.DocumentCategory is not null)
+                                    {
+                                        <DocumentCategoryBadge Category="doc.DocumentCategory" />
+                                    }
+                                    <span class="text-muted">(@doc.CreatedAt.ToLocalTime().ToString("g"))</span>
                                 </label>
                             </div>
                         }
@@ -171,8 +183,11 @@ else
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
     [Inject] private ProcessingActivityRelationsService Relations { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _canEdit;
+    private string _accessDeniedMessage = "Keine Berechtigung zum Bearbeiten von Verknüpfungen.";
     private bool _notFound;
     private bool _saving;
     private string? _saveError;
@@ -196,6 +211,13 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
+        if (!_canEdit)
+        {
+            _accessDeniedMessage = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
+
         var activity = await Db.ProcessingActivities
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == Id && p.TenantId == _tenantId);
@@ -210,7 +232,11 @@ else
 
         _allToms = await Db.Toms.Where(t => t.TenantId == _tenantId).OrderBy(t => t.Title).ToListAsync();
         _allServiceProviders = await Db.ServiceProviders.Where(s => s.TenantId == _tenantId).OrderBy(s => s.Name).ToListAsync();
-        _allDocuments = await Db.EvidenceDocuments.Where(d => d.TenantId == _tenantId).OrderByDescending(d => d.CreatedAt).ToListAsync();
+        _allDocuments = await Db.EvidenceDocuments
+            .Include(d => d.DocumentCategory)
+            .Where(d => d.TenantId == _tenantId)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync();
         _allMeasures = await Db.Measures.Where(m => m.TenantId == _tenantId).OrderBy(m => m.Title).ToListAsync();
 
         _allAuditAnswers = await Db.AuditAnswers
@@ -238,9 +264,11 @@ else
             .Select(l => l.ServiceProviderId)
             .ToListAsync()).ToHashSet();
 
-        _selectedDocumentIds = (await Db.EvidenceDocuments
-            .Where(d => d.TenantId == _tenantId && d.ProcessingActivityId == Id)
-            .Select(d => d.Id)
+        _selectedDocumentIds = (await Db.DocumentLinks
+            .Where(l => l.TenantId == _tenantId
+                && l.LinkedEntityType == DocumentLinkedEntityType.ProcessingActivity
+                && l.LinkedEntityId == Id)
+            .Select(l => l.DocumentId)
             .ToListAsync()).ToHashSet();
 
         _selectedMeasureIds = (await Db.ProcessingActivityMeasures
@@ -257,6 +285,12 @@ else
     private async Task SaveAsync()
     {
         if (_tenantId is null) return;
+
+        if (!await UserAccess.CanEditComplianceContentAsync())
+        {
+            _saveError = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
 
         _saving = true;
         _saveError = null;

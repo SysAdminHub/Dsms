@@ -1,0 +1,69 @@
+@*
+    Stellt sicher, dass ein aktiver Mandant gesetzt ist, bevor Compliance-Seiten angezeigt werden.
+    Superuser arbeiten ohne Mandantenkontext (Plattform-Administration).
+*@
+@inject ITenantService TenantService
+@inject IUserAccessService UserAccess
+@inject NavigationManager Navigation
+@inject ILogger<TenantContextGate> Logger
+
+@if (_ready)
+{
+    @ChildContent
+}
+else if (_redirecting)
+{
+    <div class="dsms-loading">Mandantenkontext wird geladen …</div>
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool _ready;
+    private bool _redirecting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+        if (!TenantService.IsTenantRequiredForRoute(relativePath))
+        {
+            _ready = true;
+            return;
+        }
+
+        if (await UserAccess.IsSuperuserAsync())
+        {
+            _ready = true;
+            return;
+        }
+
+        var tenantId = await TenantService.EnsureTenantContextAsync();
+        if (tenantId.HasValue)
+        {
+            _ready = true;
+            return;
+        }
+
+        var accessible = await TenantService.GetAccessibleTenantsAsync();
+        if (accessible.Count == 0)
+        {
+            _ready = true;
+            return;
+        }
+
+        _redirecting = true;
+        Logger.LogInformation(
+            "Kein Mandant nach Recovery – Weiterleitung zu /select-tenant (Route: {Route})",
+            relativePath);
+
+        try
+        {
+            Navigation.NavigateTo("/select-tenant", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Weiterleitung zu /select-tenant fehlgeschlagen");
+            _ready = true;
+        }
+    }
+}

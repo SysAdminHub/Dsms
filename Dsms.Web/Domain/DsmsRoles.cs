@@ -29,4 +29,19 @@ public static class DsmsRoles
 
     /// <summary>Identity-Rollen-String für Seiten der Benutzerverwaltung (Superuser + Admin).</summary>
     public const string UserManagement = $"{Superuser},{Admin}";
+
+    /// <summary>Identity-Rollen-String für Tenant-Daten (Export, Löschanforderung).</summary>
+    public const string TenantDataManagement = $"{Superuser},{Admin}";
+
+    /// <summary>
+    /// Identity-Rollen-String für Bearbeitung von Compliance-Stammdaten
+    /// (VVT, DSFA, TOMs, Dienstleister, Audit-Durchläufe anlegen/bearbeiten).
+    /// Auditor hat nur Leserechte.
+    /// </summary>
+    public const string ComplianceEditor = Admin;
+
+    /// <summary>
+    /// Identity-Rollen-String für lesenden Zugriff auf Compliance-Inhalte im Mandantenbereich.
+    /// </summary>
+    public const string ComplianceViewer = $"{Admin},{Auditor},{User}";
 }

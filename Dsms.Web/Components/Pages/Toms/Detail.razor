@@ -8,7 +8,7 @@
 
 
 
-<PageTitle>TOM</PageTitle>
+<BrandedPageTitle Title="TOM" />
 
 
 
@@ -234,6 +234,10 @@ else
 
     </div>
 
+    <LinkedDocumentsSection TomId="@_tom.Id"
+                            EmptyMessage="Keine Dokumente verknüpft."
+                            EmptyHint="Dokumente können unter „Dokumente“ hochgeladen und TOMs zugeordnet werden." />
+
 }
 
 
@@ -245,6 +249,7 @@ else
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
 
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
 
 
 
@@ -278,14 +283,11 @@ else
 
 
 
-        _canEdit = await CurrentUser.IsInRoleAsync(DsmsRoles.Admin)
-
-            || await CurrentUser.IsInRoleAsync(DsmsRoles.Auditor);
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
 
 
         _tom = await Db.Toms
-
             .FirstOrDefaultAsync(t => t.Id == Id && t.TenantId == _tenantId);
 
 

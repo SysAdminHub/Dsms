@@ -1,0 +1,62 @@
+@if (ShowArchivedView)
+{
+    <button type="button" class="btn btn-sm btn-outline-success" disabled="@_busy" @onclick="RestoreAsync">
+        Reaktivieren
+    </button>
+}
+else
+{
+    <button type="button" class="btn btn-sm btn-outline-warning" disabled="@_busy" @onclick="PrepareArchiveAsync">
+        Archivieren
+    </button>
+}
+
+<ArchiveConfirmModal @ref="_modal" Title="Schulungsvorlage" OnConfirmed="ExecuteArchiveAsync" />
+
+@code {
+    [Inject] private TrainingTemplateService TemplateService { get; set; } = null!;
+
+    [Parameter, EditorRequired] public int TemplateId { get; set; }
+    [Parameter, EditorRequired] public string ItemName { get; set; } = "";
+    [Parameter] public bool ShowArchivedView { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private ArchiveConfirmModal? _modal;
+    private bool _busy;
+
+    private Task PrepareArchiveAsync()
+    {
+        _modal?.Show(ItemName, []);
+        return Task.CompletedTask;
+    }
+
+    private async Task ExecuteArchiveAsync()
+    {
+        _busy = true;
+        try
+        {
+            var result = await TemplateService.ArchiveTemplateAsync(TemplateId);
+            if (result.Success)
+                await OnChanged.InvokeAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RestoreAsync()
+    {
+        _busy = true;
+        try
+        {
+            var result = await TemplateService.RestoreTemplateAsync(TemplateId);
+            if (result.Success)
+                await OnChanged.InvokeAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

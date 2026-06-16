@@ -3,22 +3,47 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 
-<PageTitle>Audit-Durchläufe</PageTitle>
+<BrandedPageTitle Title="Audit-Durchläufe" />
 
 @if (_tenantId is null)
 {
-    <PageHeader Title="Audit-Durchläufe" />
+    <PageHeader Title="Audit-Durchläufe" HelpKey="audit-runs" />
     <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
 }
 else
 {
-    <PageHeader Title="Audit-Durchläufe" Subtitle="Laufende und abgeschlossene Datenschutz-Audits">
-        <a class="btn btn-primary" href="audit-runs/edit">Neuer Durchlauf</a>
+    <PageHeader Title="Audit-Durchläufe" HelpKey="audit-runs" Subtitle="Laufende und abgeschlossene Datenschutz-Audits">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
+            @if (_canEdit && !_showArchived)
+            {
+                @if (_createLimit is { IsAllowed: false })
+                {
+                    <button type="button" class="btn btn-primary" disabled title="@_createLimit.Message">Neuer Durchlauf</button>
+                }
+                else
+                {
+                    <a class="btn btn-primary" href="audit-runs/edit">Neuer Durchlauf</a>
+                }
+            }
+        </div>
     </PageHeader>
+
+    @if (_canEdit && !_showArchived && _createLimit is not null)
+    {
+        <LicenseUsageBadge Check="_createLimit" />
+        <LicenseLimitAlert Check="_createLimit" />
+    }
 
     @if (_runs is null)
     {
         <div class="dsms-loading">Lade …</div>
+    }
+    else if (_runs.Count == 0)
+    {
+        <div class="alert alert-info dsms-alert">
+            @(_showArchived ? "Keine archivierten Audit-Durchläufe." : "Noch keine Audit-Durchläufe erfasst.")
+        </div>
     }
     else
     {
@@ -31,20 +56,59 @@ else
                             <th>Vorlage</th>
                             <th>Status</th>
                             <th>Gestartet</th>
+                            @if (!_showArchived)
+                            {
+                                <th>Abgeschlossen</th>
+                            }
+                            @if (_showArchived)
+                            {
+                                <th>Archiviert am</th>
+                            }
                             <th class="dsms-table-actions"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var run in _runs)
                         {
-                            <tr>
-                                <td><strong>@run.Title</strong></td>
-                                <td>@run.AuditTemplate.Title</td>
-                                <td><StatusBadge Text="@run.Status.ToString()" Variant="primary" /></td>
+                            <tr class="@(_showArchived ? "dsms-table-row--archived" : null)">
+                                <td>
+                                    <strong>@run.Title</strong>
+                                    @if (_showArchived)
+                                    {
+                                        <span class="ms-2"><ArchivedBadge /></span>
+                                    }
+                                </td>
+                                <td>@GetTemplateTitle(run)</td>
+                                <td><StatusBadge Text="@AuditRunLabels.GetStatusLabel(run.Status)" Variant="@AuditRunLabels.GetStatusVariant(run.Status)" /></td>
                                 <td>@(run.StartedAt?.ToLocalTime().ToString("d") ?? "—")</td>
+                                @if (!_showArchived)
+                                {
+                                    <td>@(run.CompletedAt?.ToLocalTime().ToString("d") ?? "—")</td>
+                                }
+                                @if (_showArchived)
+                                {
+                                    <td>@(run.ArchivedAt?.ToLocalTime().ToString("g") ?? "—")</td>
+                                }
                                 <td class="dsms-table-actions">
-                                    <a class="btn btn-sm btn-outline-secondary" href="@($"audit-runs/edit/{run.Id}")">Bearbeiten</a>
-                                    <a class="btn btn-sm btn-primary" href="@($"audit-runs/answers/{run.Id}")">Fragen</a>
+                                    <div class="dsms-table-action-stack">
+                                        @if (!_showArchived)
+                                        {
+                                            @if (_canEdit)
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"audit-runs/edit/{run.Id}")">Bearbeiten</a>
+                                            }
+                                            <a class="btn btn-sm @(_canAnswer ? "btn-primary" : "btn-outline-secondary")"
+                                               href="@($"audit-runs/answers/{run.Id}")">
+                                                @(_canAnswer ? "Audit durchführen" : "Antworten ansehen")
+                                            </a>
+                                        }
+                                        <ArchiveListActions TEntity="AuditRun"
+                                                            EntityId="@run.Id"
+                                                            ItemName="@run.Title"
+                                                            EntityLabel="Audit-Durchlauf"
+                                                            CanEdit="@_canEdit"
+                                                            OnChanged="LoadDataAsync" />
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -58,8 +122,15 @@ else
 @code {
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ArchiveViewContextAccessor ArchiveView { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _canEdit;
+    private bool _canAnswer;
+    private bool _showArchived;
+    private LicenseLimitCheckResult? _createLimit;
     private List<AuditRun>? _runs;
 
     protected override async Task OnInitializedAsync()
@@ -67,10 +138,54 @@ else
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
 
+        _canEdit = await UserAccess.CanEditComplianceContentAsync();
+        _canAnswer = await UserAccess.CanEditTenantOperationalContentAsync();
+        _createLimit = await LicenseService.CanCreateActiveAuditAsync(_tenantId.Value);
+        await LoadDataAsync();
+    }
+
+    private Dictionary<int, string> _templateTitles = [];
+
+    private async Task LoadDataAsync()
+    {
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        // Lokale Variable: Global Query Filter liest ShowArchivedOnly zur Laufzeit –
+        // Include auf AuditTemplate würde archivierte Durchläufe ausblenden, weil Vorlagen
+        // in der Archivansicht fälschlich nach IsArchived == true gefiltert werden.
+        var showArchived = ArchiveView.ShowArchivedOnly;
+        _showArchived = showArchived;
+        var tenantId = _tenantId.Value;
+
         _runs = await Db.AuditRuns
-            .Include(r => r.AuditTemplate)
-            .Where(r => r.TenantId == _tenantId)
-            .OrderByDescending(r => r.CreatedAt)
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(r => r.TenantId == tenantId && r.IsArchived == showArchived)
+            .OrderByDescending(r => showArchived ? r.ArchivedAt : r.CreatedAt)
             .ToListAsync();
+
+        var templateIds = _runs.Select(r => r.AuditTemplateId).Distinct().ToList();
+        _templateTitles = templateIds.Count == 0
+            ? []
+            : await Db.AuditTemplates
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(t => templateIds.Contains(t.Id))
+                .ToDictionaryAsync(t => t.Id, t => t.Title);
+    }
+
+    private string GetTemplateTitle(AuditRun run)
+    {
+        if (!string.IsNullOrWhiteSpace(run.TemplateTitleSnapshot))
+        {
+            return string.IsNullOrWhiteSpace(run.TemplateVersionSnapshot)
+                ? run.TemplateTitleSnapshot
+                : $"{run.TemplateTitleSnapshot} ({run.TemplateVersionSnapshot})";
+        }
+
+        return _templateTitles.GetValueOrDefault(run.AuditTemplateId, "—");
     }
 }

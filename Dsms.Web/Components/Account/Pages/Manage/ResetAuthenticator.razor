@@ -1,4 +1,4 @@
-﻿@page "/Account/Manage/ResetAuthenticator"
+@page "/Account/Manage/ResetAuthenticator"
 
 @using Microsoft.AspNetCore.Identity
 @using Dsms.Web.Data
@@ -8,25 +8,28 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<ResetAuthenticator> Logger
 
-<PageTitle>Reset authenticator key</PageTitle>
+<BrandedPageTitle Title="Authenticator-App zurücksetzen" />
 
-<StatusMessage />
-<h3>Reset authenticator key</h3>
-<div class="alert alert-warning" role="alert">
-    <p>
-        <span class="glyphicon glyphicon-warning-sign"></span>
-        <strong>If you reset your authenticator key your authenticator app will not work until you reconfigure it.</strong>
-    </p>
-    <p>
-        This process disables 2FA until you verify your authenticator app.
-        If you do not complete your authenticator app configuration you may lose access to your account.
-    </p>
-</div>
-<div>
-    <form @formname="reset-authenticator" @onsubmit="OnSubmitAsync" method="post">
-        <AntiforgeryToken />
-        <button class="btn btn-danger" type="submit">Reset authenticator key</button>
-    </form>
+<div class="dsms-card dsms-form-card">
+    <div class="dsms-card-header">Authenticator-App zurücksetzen</div>
+    <div class="dsms-card-body">
+        <StatusMessage />
+
+        <div class="alert alert-warning dsms-alert" role="alert">
+            <p class="mb-2">
+                <strong>Wenn Sie Ihren Authenticator-Schlüssel zurücksetzen, funktioniert Ihre Authenticator-App erst wieder, nachdem Sie sie neu eingerichtet haben.</strong>
+            </p>
+            <p class="mb-0">
+                Dieser Vorgang deaktiviert die Zwei-Faktor-Authentifizierung, bis Sie Ihre Authenticator-App bestätigt haben.
+                Wenn Sie die Einrichtung nicht abschließen, können Sie den Zugriff auf Ihr Konto verlieren.
+            </p>
+        </div>
+
+        <form @formname="reset-authenticator" @onsubmit="OnSubmitAsync" method="post">
+            <AntiforgeryToken />
+            <button class="btn btn-danger" type="submit">Authenticator-Schlüssel zurücksetzen</button>
+        </form>
+    </div>
 </div>
 
 @code {
@@ -51,7 +54,7 @@
 
         RedirectManager.RedirectToWithStatus(
             "Account/Manage/EnableAuthenticator",
-            "Your authenticator app key has been reset, you will need to configure your authenticator app using the new key.",
+            "Ihr Authenticator-Schlüssel wurde zurückgesetzt. Richten Sie Ihre Authenticator-App mit dem neuen Schlüssel ein.",
             HttpContext);
     }
 }

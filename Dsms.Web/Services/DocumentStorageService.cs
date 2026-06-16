@@ -4,13 +4,16 @@ namespace Dsms.Web.Services;
 /// Speichert Nachweis-Dateien im Dateisystem unter <c>Data/Uploads/{tenantId}/</c>.
 /// In der Datenbank wird nur der relative Pfad (<see cref="Domain.Entities.EvidenceDocument.StoragePath"/>) abgelegt.
 /// </summary>
-public class DocumentStorageService(IWebHostEnvironment environment)
+public class DocumentStorageService(IWebHostEnvironment environment, IConfiguration configuration)
 {
-    private const string UploadRoot = "Data/Uploads";
+    private readonly string _uploadRoot = configuration["Storage:UploadPath"] ?? "Data/Uploads";
+
+    /// <summary>Relativer Upload-Pfad (für DB-Einträge und Konfiguration).</summary>
+    public string UploadRoot => _uploadRoot;
 
     /// <summary>Absoluter Pfad zum Upload-Stammverzeichnis.</summary>
     public string GetUploadRootPath() =>
-        Path.Combine(environment.ContentRootPath, UploadRoot);
+        Path.Combine(environment.ContentRootPath, _uploadRoot);
 
     /// <summary>
     /// Schreibt die Datei mandantenspezifisch und liefert den relativen Pfad für die DB (Forward-Slashes).
@@ -27,7 +30,7 @@ public class DocumentStorageService(IWebHostEnvironment environment)
         await using var fileStream = File.Create(fullPath);
         await content.CopyToAsync(fileStream, ct);
 
-        return Path.Combine(UploadRoot, tenantId.ToString(), safeName).Replace('\\', '/');
+        return Path.Combine(_uploadRoot, tenantId.ToString(), safeName).Replace('\\', '/');
     }
 
     /// <summary>Mappt einen in der DB gespeicherten relativen Pfad auf den absoluten Dateipfad.</summary>

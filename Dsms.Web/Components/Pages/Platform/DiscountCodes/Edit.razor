@@ -1,0 +1,295 @@
+@* Route deaktiviert – nur noch in Dsms.Provisioning. *@
+@* @page "/platform/discount-codes/edit" *@
+@* @page "/platform/discount-codes/edit/{Id:guid}" *@
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="@(_isNew ? "Rabattcode anlegen" : "Rabattcode bearbeiten")" />
+
+<PageHeader Title="@(_isNew ? "Rabattcode anlegen" : "Rabattcode bearbeiten")"
+            Subtitle="Rabattcodes werden in diesem Schritt noch nicht im Signup verwendet." />
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+}
+
+<div class="dsms-card dsms-form-card">
+    <div class="dsms-card-body">
+        <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="alert alert-danger dsms-alert" />
+
+            <h5 class="mb-3">Basisdaten</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label">Code *</label>
+                    <InputText class="form-control" @bind-Value="_model.Code" placeholder="z. B. LAUNCH2026" style="text-transform: uppercase;" />
+                    <div class="form-text">Nur A–Z, 0–9, Bindestrich und Unterstrich. Wird in Großbuchstaben gespeichert.</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Name *</label>
+                    <InputText class="form-control" @bind-Value="_model.Name" />
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check mt-4">
+                        <InputCheckbox class="form-check-input" @bind-Value="_model.IsActive" id="isActive" />
+                        <label class="form-check-label" for="isActive">Aktiv</label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Beschreibung</label>
+                    <InputTextArea class="form-control" rows="2" @bind-Value="_model.Description" />
+                </div>
+            </div>
+
+            <h5 class="mb-3">Rabatt</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label">Rabatt-Typ *</label>
+                    <InputSelect class="form-select" @bind-Value="_model.DiscountType">
+                        <option value="@DiscountCodeType.Percentage">@DiscountCodeLabels.GetTypeLabel(DiscountCodeType.Percentage)</option>
+                        <option value="@DiscountCodeType.FixedAmount">@DiscountCodeLabels.GetTypeLabel(DiscountCodeType.FixedAmount)</option>
+                        <option value="@DiscountCodeType.FreeMonths">@DiscountCodeLabels.GetTypeLabel(DiscountCodeType.FreeMonths)</option>
+                    </InputSelect>
+                </div>
+                @if (_model.DiscountType == DiscountCodeType.Percentage)
+                {
+                    <div class="col-md-4">
+                        <label class="form-label">Prozentwert *</label>
+                        <input type="text" class="form-control" @bind="_percentageText" placeholder="z. B. 20" />
+                    </div>
+                }
+                @if (_model.DiscountType == DiscountCodeType.FixedAmount)
+                {
+                    <div class="col-md-4">
+                        <label class="form-label">Fester Betrag (EUR) *</label>
+                        <input type="text" class="form-control" @bind="_fixedAmountText" placeholder="z. B. 5,00" />
+                    </div>
+                }
+                @if (_model.DiscountType == DiscountCodeType.FreeMonths)
+                {
+                    <div class="col-md-4">
+                        <label class="form-label">Kostenlose Monate *</label>
+                        <input type="number" class="form-control" min="1" max="36" @bind="_freeMonthsText" />
+                    </div>
+                }
+            </div>
+
+            <h5 class="mb-3">Gültigkeit und Einschränkungen</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <label class="form-label">Gültig von</label>
+                    <InputDate class="form-control" @bind-Value="_model.ValidFrom" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Gültig bis</label>
+                    <InputDate class="form-control" @bind-Value="_model.ValidUntil" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Gilt für Plan</label>
+                    <select class="form-select" @bind="_selectedPlanIdText">
+                        <option value="">Alle Pläne</option>
+                        @foreach (var plan in _plans)
+                        {
+                            <option value="@plan.Id">@plan.DisplayName</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Gilt für Abrechnung</label>
+                    <select class="form-select" @bind="_billingCycleScope">
+                        <option value="">Monatlich und jährlich</option>
+                        <option value="@BillingCycles.Monthly">Nur monatlich</option>
+                        <option value="@BillingCycles.Yearly">Nur jährlich</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Maximale Nutzungen</label>
+                    <input type="number" class="form-control" min="1" @bind="_maxRedemptionsText" placeholder="Leer = unbegrenzt" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Bisherige Nutzungen</label>
+                    <input type="text" class="form-control" value="@_model.CurrentRedemptions" readonly />
+                    <div class="form-text">Wird erst bei späterer Einlösung im Signup erhöht.</div>
+                </div>
+            </div>
+
+            <h5 class="mb-3">Interne Notiz</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-12">
+                    <InputTextArea class="form-control" rows="3" @bind-Value="_model.InternalNote" />
+                </div>
+            </div>
+
+            <div class="dsms-form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">Speichern</button>
+                <a class="btn btn-outline-secondary" href="@(_isNew ? "platform/discount-codes" : $"platform/discount-codes/{Id}")">Abbrechen</a>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    [Inject] private IDiscountCodeService DiscountCodeService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private DiscountCodeEditDto _model = new();
+    private List<DiscountCodePlanOptionDto> _plans = [];
+    private bool _isNew = true;
+    private bool _saving;
+    private string? _errorMessage;
+
+    private string? _percentageText;
+    private string? _fixedAmountText;
+    private string? _freeMonthsText;
+    private string? _maxRedemptionsText;
+    private string _selectedPlanIdText = "";
+    private string _billingCycleScope = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _plans = (await DiscountCodeService.GetPlanOptionsAsync()).ToList();
+
+        if (Id is Guid discountCodeId)
+        {
+            _isNew = false;
+            try
+            {
+                _model = await DiscountCodeService.GetForEditAsync(discountCodeId);
+            }
+            catch
+            {
+                Navigation.NavigateTo("platform/discount-codes");
+                return;
+            }
+
+            _percentageText = ToDecimalText(_model.PercentageValue);
+            _fixedAmountText = ToDecimalText(_model.FixedAmountValue);
+            _freeMonthsText = _model.FreeMonths?.ToString();
+            _maxRedemptionsText = _model.MaxRedemptions?.ToString();
+            _selectedPlanIdText = _model.AppliesToPlanId?.ToString() ?? "";
+            _billingCycleScope = _model.AppliesToBillingCycle ?? "";
+        }
+        else
+        {
+            _model = await DiscountCodeService.GetForEditAsync(null);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _errorMessage = null;
+
+        if (!TryApplyValues(out var valueError))
+        {
+            _errorMessage = valueError;
+            return;
+        }
+
+        _model.AppliesToPlanId = string.IsNullOrWhiteSpace(_selectedPlanIdText)
+            ? null
+            : Guid.TryParse(_selectedPlanIdText, out var planId) ? planId : null;
+
+        _model.AppliesToBillingCycle = string.IsNullOrWhiteSpace(_billingCycleScope) ? null : _billingCycleScope;
+
+        _saving = true;
+        try
+        {
+            var result = await DiscountCodeService.SaveAsync(_model);
+            if (!result.Success)
+            {
+                _errorMessage = result.ErrorMessage;
+                return;
+            }
+
+            Navigation.NavigateTo($"platform/discount-codes/{result.Id}");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private bool TryApplyValues(out string? errorMessage)
+    {
+        errorMessage = null;
+
+        if (_model.DiscountType == DiscountCodeType.Percentage)
+        {
+            if (!TryParseNullableDecimal(_percentageText, out var percentage, out errorMessage))
+            {
+                return false;
+            }
+
+            _model.PercentageValue = percentage;
+            _model.FixedAmountValue = null;
+            _model.FreeMonths = null;
+        }
+        else if (_model.DiscountType == DiscountCodeType.FixedAmount)
+        {
+            if (!TryParseNullableDecimal(_fixedAmountText, out var amount, out errorMessage))
+            {
+                return false;
+            }
+
+            _model.FixedAmountValue = amount;
+            _model.PercentageValue = null;
+            _model.FreeMonths = null;
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(_freeMonthsText))
+            {
+                errorMessage = "Anzahl kostenloser Monate ist erforderlich.";
+                return false;
+            }
+
+            if (!int.TryParse(_freeMonthsText, out var months))
+            {
+                errorMessage = "Ungültige Anzahl kostenloser Monate.";
+                return false;
+            }
+
+            _model.FreeMonths = months;
+            _model.PercentageValue = null;
+            _model.FixedAmountValue = null;
+        }
+
+        _model.MaxRedemptions = ParseNullableInt(_maxRedemptionsText);
+        return true;
+    }
+
+    private static string? ToDecimalText(decimal? value) =>
+        value.HasValue ? value.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
+
+    private static int? ParseNullableInt(string? text) =>
+        string.IsNullOrWhiteSpace(text) ? null : int.TryParse(text, out var value) ? value : null;
+
+    private static bool TryParseNullableDecimal(string? text, out decimal? value, out string? errorMessage)
+    {
+        errorMessage = null;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            value = null;
+            errorMessage = "Wert ist erforderlich.";
+            return false;
+        }
+
+        if (decimal.TryParse(text, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.CurrentCulture, out var parsed)
+            || decimal.TryParse(text, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out parsed))
+        {
+            value = parsed;
+            return true;
+        }
+
+        value = null;
+        errorMessage = "Ungültiger Wert.";
+        return false;
+    }
+}

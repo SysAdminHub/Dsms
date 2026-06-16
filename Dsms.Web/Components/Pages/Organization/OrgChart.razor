@@ -1,0 +1,262 @@
+@* Grafisches Datenschutz-Organigramm auf Basis von ReportsToRoleId. *@
+@page "/organization"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IJSRuntime Js
+@inject NavigationManager Navigation
+
+<BrandedPageTitle Title="Datenschutz-Organigramm" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Datenschutz-Organigramm" HelpKey="organization-org-chart" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant ausgewählt. Bitte wählen Sie zuerst einen Mandanten.</div>
+}
+else
+{
+    <PageHeader Title="Datenschutz-Organigramm"
+                HelpKey="organization-org-chart"
+                Subtitle="Organisatorische Berichtslinien – unabhängig von technischen App-Rollen">
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-outline-secondary dsms-no-print" @onclick="PrintAsync">Drucken</button>
+            @if (_canManage)
+            {
+                <a class="btn btn-primary dsms-no-print" href="organization/edit">Neue Datenschutzrolle</a>
+            }
+        </div>
+    </PageHeader>
+
+    <OrganizationNavTabs />
+
+    <div class="row g-2 mb-3 dsms-org-chart-stats dsms-no-print">
+        <div class="col-6 col-md-3">
+            <div class="dsms-stat-chip dsms-stat-chip--compact">
+                <div class="dsms-stat-chip-label">Aktive Rollen</div>
+                <div class="dsms-stat-chip-value">@(_chart?.ActiveCount ?? 0)</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="dsms-stat-chip dsms-stat-chip--compact">
+                <div class="dsms-stat-chip-label">Inaktive Rollen</div>
+                <div class="dsms-stat-chip-value">@(_chart?.InactiveCount ?? 0)</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="dsms-stat-chip dsms-stat-chip--compact">
+                <div class="dsms-stat-chip-label">Ohne Berichtslinie</div>
+                <div class="dsms-stat-chip-value">@(_chart?.WithoutReportsToCount ?? 0)</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="dsms-stat-chip dsms-stat-chip--compact">
+                <div class="dsms-stat-chip-label">Mit App-Benutzer</div>
+                <div class="dsms-stat-chip-value">@(_chart?.LinkedUserCount ?? 0)</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4 dsms-no-print">
+        <div class="dsms-card-body py-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label mb-1">Rollenbezeichnung</label>
+                    <InputSelect class="form-select" @bind-Value="_filterRoleTitle">
+                        <option value="">Alle</option>
+                        @foreach (var title in _roleTitleOptions)
+                        {
+                            <option value="@title">@title</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label mb-1">Abteilung</label>
+                    <InputSelect class="form-select" @bind-Value="_filterDepartment">
+                        <option value="">Alle</option>
+                        @foreach (var department in _departmentOptions)
+                        {
+                            <option value="@department">@department</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label mb-1">Suche</label>
+                    <InputText class="form-control" @bind-Value="_searchText"
+                               placeholder="Rolle, Person, E-Mail, Zuständigkeit …" />
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mb-2">
+                        <InputCheckbox class="form-check-input" @bind-Value="_includeInactive" id="org-include-inactive" />
+                        <label class="form-check-label" for="org-include-inactive">Inaktive Rollen anzeigen</label>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="LoadChartAsync">Anwenden</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_chart is null)
+    {
+        <div class="dsms-loading">Lade …</div>
+    }
+    else
+    {
+        @if (_chart.Warnings.Count > 0)
+        {
+            <div class="dsms-org-chart-notices dsms-no-print mb-3">
+                @foreach (var warning in _chart.Warnings)
+                {
+                    <div class="dsms-org-chart-notice @GetWarningCssClass(warning)">@warning</div>
+                }
+            </div>
+        }
+
+        @if (_chart.RootNodes.Count == 0 && _chart.CycleNodes.Count == 0)
+        {
+            <div class="alert alert-info dsms-alert">Keine Datenschutzrollen für die aktuelle Ansicht vorhanden.</div>
+        }
+        else
+        {
+            <div class="dsms-org-chart-container dsms-org-chart-print-area">
+                <h2 class="dsms-org-chart-title">Datenschutz-Organigramm</h2>
+
+                @if (_chart.RootNodes.Count > 0)
+                {
+                    <div class="dsms-org-chart-scroll">
+                        <div class="dsms-org-tree">
+                            <ul class="dsms-org-tree-level dsms-org-tree-roots">
+                                @foreach (var root in _chart.RootNodes)
+                                {
+                                    <DataProtectionOrgChartNode Node="root"
+                                                                CanManage="_canManage"
+                                                                OnNodeSelected="ShowNodeDetailAsync" />
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                }
+
+                @if (_chart.CycleNodes.Count > 0)
+                {
+                    <div class="dsms-org-chart-cycle-section">
+                        <h3 class="dsms-org-chart-cycle-title">Rollen in zirkulären Berichtslinien</h3>
+                        <div class="dsms-org-chart-cycle-list">
+                            @foreach (var node in _chart.CycleNodes)
+                            {
+                                <DataProtectionOrgChartNodeButton Title="@node.RoleTitle"
+                                                                  PersonName="@node.PersonName"
+                                                                  Tooltip="@node.RoleTitle"
+                                                                  CssClass="dsms-org-node--cycle"
+                                                                  ShowInactiveBadge="@(!node.IsActive)"
+                                                                  OnClick="@(() => ShowNodeDetailAsync(node))" />
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    <DataProtectionRoleDetailModal Detail="_selectedDetail"
+                                   CanManage="_canManage"
+                                   OnClose="CloseDetailModal" />
+}
+
+@code {
+    [Inject] private DataProtectionRoleService RoleService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _canManage;
+    private bool _includeInactive;
+    [SupplyParameterFromQuery(Name = "view")]
+    private string? View { get; set; }
+    private string? _searchText;
+    private string? _filterRoleTitle;
+    private string? _filterDepartment;
+    private DataProtectionOrgChartViewModel? _chart;
+    private DataProtectionRoleDetailModel? _selectedDetail;
+    private List<string> _roleTitleOptions = [];
+    private List<string> _departmentOptions = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.Equals(View, "list", StringComparison.OrdinalIgnoreCase))
+        {
+            Navigation.NavigateTo("organization/list", replace: true);
+            return;
+        }
+
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        _canManage = await RoleService.CanManageRolesAsync();
+        await LoadFilterOptionsAsync();
+        await LoadChartAsync();
+    }
+
+    private async Task LoadFilterOptionsAsync()
+    {
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        var all = await RoleService.GetListAsync(_tenantId.Value, new DataProtectionRoleListFilter { IsActive = null });
+        _roleTitleOptions = all.Select(i => i.Role.RoleTitle).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x).ToList();
+        _departmentOptions = all
+            .Select(i => i.Role.Department)
+            .Where(d => !string.IsNullOrWhiteSpace(d))
+            .Select(d => d!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+    }
+
+    private async Task LoadChartAsync()
+    {
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        _chart = await RoleService.GetOrgChartAsync(_tenantId.Value, new DataProtectionOrgChartFilter
+        {
+            IncludeInactive = _includeInactive,
+            SearchText = _searchText,
+            RoleTitle = _filterRoleTitle,
+            Department = _filterDepartment
+        });
+    }
+
+    private async Task ShowNodeDetailAsync(DataProtectionOrgChartNodeViewModel node)
+    {
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        _selectedDetail = await RoleService.GetByIdAsync(node.Id, _tenantId.Value);
+    }
+
+    private Task CloseDetailModal()
+    {
+        _selectedDetail = null;
+        return Task.CompletedTask;
+    }
+
+    private async Task PrintAsync() => await Js.InvokeVoidAsync("print");
+
+    private static string GetWarningCssClass(string warning)
+    {
+        if (warning.Contains("zirkulär", StringComparison.OrdinalIgnoreCase)
+            || warning.Contains("nicht mehr vorhandene", StringComparison.OrdinalIgnoreCase))
+        {
+            return "dsms-org-chart-notice--error";
+        }
+
+        return "dsms-org-chart-notice--info";
+    }
+}

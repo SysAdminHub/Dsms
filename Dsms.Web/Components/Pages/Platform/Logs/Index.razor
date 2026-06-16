@@ -1,0 +1,376 @@
+@* Nur Superuser: alle Protokolle (Audit, System, Security) mandantenübergreifend als Metadaten. *@
+@page "/platform/logs"
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+@using Dsms.Web.Services.Logging
+
+<BrandedPageTitle Title="Protokolle" />
+
+<PageHeader Title="Protokolle" Subtitle="Zentrales Audit- und Systemprotokoll der Plattform" />
+
+<div class="alert alert-secondary dsms-alert mb-4">
+    Dieses Protokoll zeigt sicherheits- und revisionsrelevante Metadaten aus der Plattform. Fachinhalte der Mandanten werden nicht angezeigt.
+</div>
+
+<div class="dsms-card dsms-form-card mb-4">
+    <div class="dsms-card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">Von</label>
+                <InputDate class="form-control" @bind-Value="_filterFrom" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Bis</label>
+                <InputDate class="form-control" @bind-Value="_filterTo" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Kategorie</label>
+                <select class="form-select" @bind="_category">
+                    <option value="">Alle</option>
+                    <option value="Audit">Audit</option>
+                    <option value="System">System</option>
+                    <option value="Security">Security</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Severity</label>
+                <select class="form-select" @bind="_severity">
+                    <option value="">Alle</option>
+                    <option value="Info">Info</option>
+                    <option value="Warning">Warning</option>
+                    <option value="Error">Error</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Benutzer/E-Mail</label>
+                <input class="form-control" @bind="_userEmail" placeholder="E-Mail …" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Aktion</label>
+                <input class="form-control" @bind="_action" placeholder="z. B. MeasureCreated" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Lizenz</label>
+                <select class="form-select" @bind="_licenseId">
+                    <option value="">Alle</option>
+                    @foreach (var lic in _licenses)
+                    {
+                        <option value="@lic.Id">@lic.DisplayName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Mandant-ID</label>
+                <input class="form-control" type="number" @bind="_tenantId" placeholder="ID" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Mandant Name</label>
+                <input class="form-control" @bind="_tenantName" placeholder="Name …" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Modul</label>
+                <select class="form-select" @bind="_module">
+                    <option value="">Alle</option>
+                    @foreach (var module in _modules)
+                    {
+                        <option value="@module">@module</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Entitätstyp</label>
+                <input class="form-control" @bind="_entityType" placeholder="z. B. Measure" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Ergebnis</label>
+                <select class="form-select" @bind="_resultFilter">
+                    <option value="">Alle</option>
+                    <option value="Success">Success</option>
+                    <option value="Denied">Denied</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Supportmodus</label>
+                <select class="form-select" @bind="_supportMode">
+                    <option value="">Alle</option>
+                    <option value="true">Ja</option>
+                    <option value="false">Nein</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Suchtext (Beschreibung)</label>
+                <input class="form-control" @bind="_searchText" placeholder="Suche …" />
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-outline-primary w-100" @onclick="LoadAsync">Anwenden</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_result?.Items.Count == 0)
+{
+    <div class="alert alert-info dsms-alert">Keine Protokolleinträge gefunden.</div>
+}
+else if (_result is not null)
+{
+    <div class="dsms-card">
+        <div class="dsms-table-wrap">
+            <table class="table dsms-table">
+                <thead>
+                    <tr>
+                        <th>Datum/Zeit</th>
+                        <th>Kategorie</th>
+                        <th>Severity</th>
+                        <th>Aktion</th>
+                        <th>Beschreibung</th>
+                        <th>Benutzer</th>
+                        <th>Lizenz</th>
+                        <th>Mandant</th>
+                        <th>Modul</th>
+                        <th>Entität</th>
+                        <th class="dsms-table-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _result.Items)
+                    {
+                        <tr>
+                            <td>@item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                            <td>@item.LogCategory</td>
+                            <td>@item.Severity</td>
+                            <td><code class="small">@item.Action</code></td>
+                            <td>@item.Description</td>
+                            <td>@(item.UserDisplayName ?? item.UserEmail ?? "–")</td>
+                            <td>@(item.LicenseNumber ?? "–")</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(item.TenantName))
+                                {
+                                    <span>@item.TenantName</span>
+                                    @if (item.TenantId is int tid)
+                                    {
+                                        <span class="text-muted small"> (#@tid)</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span>–</span>
+                                }
+                            </td>
+                            <td>@(item.Module ?? "–")</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(item.EntityType))
+                                {
+                                    <span>@item.EntityType</span>
+                                    @if (!string.IsNullOrEmpty(item.EntityName))
+                                    {
+                                        <span class="text-muted"> · @item.EntityName</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span>–</span>
+                                }
+                            </td>
+                            <td class="dsms-table-actions">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => ShowDetailsAsync(item.Id)">Details</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <span class="text-muted">@_result.TotalCount Einträge · Seite @_result.Page</span>
+        <div class="btn-group">
+            <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_result.Page <= 1)" @onclick="PrevPage">Zurück</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_result.Page * _result.PageSize >= _result.TotalCount)" @onclick="NextPage">Weiter</button>
+        </div>
+    </div>
+}
+
+@if (_details is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,.4);">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Protokolldetails</h5>
+                    <button type="button" class="btn-close" @onclick="CloseDetails"></button>
+                </div>
+                <div class="modal-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Zeitpunkt</dt>
+                        <dd class="col-sm-9">@_details.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</dd>
+                        <dt class="col-sm-3">Kategorie</dt>
+                        <dd class="col-sm-9">@_details.LogCategory / @_details.Severity</dd>
+                        <dt class="col-sm-3">Aktion</dt>
+                        <dd class="col-sm-9"><code>@_details.Action</code></dd>
+                        <dt class="col-sm-3">Beschreibung</dt>
+                        <dd class="col-sm-9">@_details.Description</dd>
+                        <dt class="col-sm-3">Benutzer</dt>
+                        <dd class="col-sm-9">@(_details.UserDisplayName ?? "–") · @(_details.UserEmail ?? "–")</dd>
+                        <dt class="col-sm-3">Lizenz</dt>
+                        <dd class="col-sm-9">@(_details.LicenseNumber ?? "–")</dd>
+                        <dt class="col-sm-3">Mandant</dt>
+                        <dd class="col-sm-9">
+                            @(_details.TenantName ?? "–")
+                            @if (_details.TenantId is int tid)
+                            {
+                                <span class="text-muted"> (ID @tid)</span>
+                            }
+                        </dd>
+                        <dt class="col-sm-3">Modul</dt>
+                        <dd class="col-sm-9">@(_details.Module ?? "–")</dd>
+                        <dt class="col-sm-3">Ergebnis</dt>
+                        <dd class="col-sm-9">@(_details.Result ?? "–")</dd>
+                        <dt class="col-sm-3">Supportmodus</dt>
+                        <dd class="col-sm-9">@(_details.IsSupportMode ? "Ja" : "Nein")</dd>
+                        @if (_details.SupportAccessGrantId is int grantId)
+                        {
+                            <dt class="col-sm-3">Support-Grant</dt>
+                            <dd class="col-sm-9">@grantId</dd>
+                        }
+                        <dt class="col-sm-3">Entität</dt>
+                        <dd class="col-sm-9">
+                            @(_details.EntityType ?? "–")
+                            @if (!string.IsNullOrEmpty(_details.EntityId))
+                            {
+                                <span> / ID @_details.EntityId</span>
+                            }
+                            @if (!string.IsNullOrEmpty(_details.EntityName))
+                            {
+                                <span class="text-muted"> · @_details.EntityName</span>
+                            }
+                        </dd>
+                        <dt class="col-sm-3">IP (anonym.)</dt>
+                        <dd class="col-sm-9">@(_details.IpAddressAnonymized ?? "–")</dd>
+                        <dt class="col-sm-3">User-Agent</dt>
+                        <dd class="col-sm-9 small">@(_details.UserAgent ?? "–")</dd>
+                        @if (AuditLogChangeParser.HasDisplayableMetadata(_details.MetadataJson))
+                        {
+                            <dt class="col-sm-3">Metadaten</dt>
+                            <dd class="col-sm-9"><pre class="small bg-light p-2 rounded">@_details.MetadataJson</pre></dd>
+                        }
+                        @if (!string.IsNullOrEmpty(_details.ExceptionMessage))
+                        {
+                            <dt class="col-sm-3">Exception</dt>
+                            <dd class="col-sm-9">
+                                <div class="text-danger">@_details.ExceptionType: @_details.ExceptionMessage</div>
+                                @if (!string.IsNullOrEmpty(_details.ExceptionDetails))
+                                {
+                                    <pre class="small bg-light p-2 rounded mt-2">@_details.ExceptionDetails</pre>
+                                }
+                            </dd>
+                        }
+                    </dl>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseDetails">Schließen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private ILogQueryService LogQueryService { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
+
+    private bool _loading = true;
+    private LogQueryResult? _result;
+    private LogEntryDetailsDto? _details;
+    private IReadOnlyList<LicenseOptionDto> _licenses = [];
+    private IReadOnlyList<string> _modules = AuditLogPresentationHelper.GetKnownModules();
+
+    private DateTime? _filterFrom;
+    private DateTime? _filterTo;
+    private string _category = "";
+    private string _severity = "";
+    private string _userEmail = "";
+    private string _action = "";
+    private string _licenseId = "";
+    private int? _tenantId;
+    private string _tenantName = "";
+    private string _module = "";
+    private string _entityType = "";
+    private string _resultFilter = "";
+    private string _supportMode = "";
+    private string _searchText = "";
+    private int _page = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _licenses = await LicenseService.GetActiveLicenseOptionsAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _page = 1;
+        await FetchAsync();
+        _loading = false;
+    }
+
+    private async Task FetchAsync()
+    {
+        Guid? licenseGuid = Guid.TryParse(_licenseId, out var g) ? g : null;
+        bool? supportMode = _supportMode switch
+        {
+            "true" => true,
+            "false" => false,
+            _ => null
+        };
+
+        _result = await LogQueryService.GetPlatformLogsAsync(new LogQueryFilter
+        {
+            From = _filterFrom,
+            To = _filterTo,
+            Category = string.IsNullOrWhiteSpace(_category) ? null : _category,
+            Severity = string.IsNullOrWhiteSpace(_severity) ? null : _severity,
+            UserEmail = string.IsNullOrWhiteSpace(_userEmail) ? null : _userEmail,
+            Action = string.IsNullOrWhiteSpace(_action) ? null : _action,
+            LicenseId = licenseGuid,
+            TenantId = _tenantId,
+            TenantName = string.IsNullOrWhiteSpace(_tenantName) ? null : _tenantName,
+            Module = string.IsNullOrWhiteSpace(_module) ? null : _module,
+            EntityType = string.IsNullOrWhiteSpace(_entityType) ? null : _entityType,
+            Result = string.IsNullOrWhiteSpace(_resultFilter) ? null : _resultFilter,
+            IsSupportMode = supportMode,
+            SearchText = string.IsNullOrWhiteSpace(_searchText) ? null : _searchText,
+            Page = _page
+        });
+    }
+
+    private async Task ShowDetailsAsync(Guid id)
+    {
+        _details = await LogQueryService.GetPlatformLogDetailsAsync(id);
+    }
+
+    private void CloseDetails() => _details = null;
+
+    private async Task PrevPage()
+    {
+        if (_page > 1)
+        {
+            _page--;
+            await FetchAsync();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (_result is not null && _page * _result.PageSize < _result.TotalCount)
+        {
+            _page++;
+            await FetchAsync();
+        }
+    }
+}

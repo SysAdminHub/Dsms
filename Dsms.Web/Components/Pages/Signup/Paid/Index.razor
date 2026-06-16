@@ -1,0 +1,13 @@
+@* Route deaktiviert – Weiterleitung zur Provisioning-App über ProvisioningRedirectMiddleware. *@
+@* @page "/signup/paid" *@
+@layout LoginLayout
+@rendermode InteractiveServer
+
+@inject NavigationManager Navigation
+
+@code {
+    protected override void OnInitialized()
+    {
+        Navigation.NavigateTo("signup?preferPaid=true", replace: true);
+    }
+}

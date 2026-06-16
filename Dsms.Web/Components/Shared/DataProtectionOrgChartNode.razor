@@ -1,0 +1,96 @@
+@* Rekursiver Organigramm-Knoten (ul/li-Baum mit Verbindungslinien). *@
+
+<li class="dsms-org-tree-item">
+    <button type="button"
+            class="dsms-org-node @GetNodeCssClass()"
+            title="@GetTooltip()"
+            @onclick="() => OnNodeSelected.InvokeAsync(Node)">
+        <div class="dsms-org-node-title">@Node.RoleTitle</div>
+        @if (!string.IsNullOrWhiteSpace(Node.PersonName))
+        {
+            <div class="dsms-org-node-person">@Node.PersonName</div>
+        }
+        @if (!Node.IsActive)
+        {
+            <span class="dsms-org-node-badge">Inaktiv</span>
+        }
+        @if (!string.IsNullOrWhiteSpace(Node.LinkedUserDisplayName))
+        {
+            <span class="dsms-org-node-badge dsms-org-node-badge--subtle">Benutzer</span>
+        }
+        @if (Node.HasOrphanedReportsTo)
+        {
+            <span class="dsms-org-node-badge dsms-org-node-badge--warn">Verwaist</span>
+        }
+    </button>
+
+    @if (Node.Children.Count > 0)
+    {
+        <ul class="dsms-org-tree-level">
+            @foreach (var child in Node.Children)
+            {
+                <DataProtectionOrgChartNode Node="child"
+                                              CanManage="CanManage"
+                                              OnNodeSelected="OnNodeSelected" />
+            }
+        </ul>
+    }
+</li>
+
+@code {
+    [Parameter, EditorRequired] public DataProtectionOrgChartNodeViewModel Node { get; set; } = null!;
+    [Parameter] public bool CanManage { get; set; }
+    [Parameter] public EventCallback<DataProtectionOrgChartNodeViewModel> OnNodeSelected { get; set; }
+
+    private string GetNodeCssClass()
+    {
+        var classes = new List<string>();
+        if (!Node.IsActive)
+        {
+            classes.Add("dsms-org-node--inactive");
+        }
+
+        if (Node.HasOrphanedReportsTo)
+        {
+            classes.Add("dsms-org-node--warning");
+        }
+
+        return string.Join(' ', classes);
+    }
+
+    private string GetTooltip()
+    {
+        var parts = new List<string> { Node.RoleTitle };
+        if (!string.IsNullOrWhiteSpace(Node.PersonName))
+        {
+            parts.Add(Node.PersonName);
+        }
+
+        if (!string.IsNullOrWhiteSpace(Node.Department))
+        {
+            parts.Add(Node.Department);
+        }
+
+        if (!string.IsNullOrWhiteSpace(Node.Email))
+        {
+            parts.Add(Node.Email);
+        }
+
+        if (!string.IsNullOrWhiteSpace(Node.AreaOfResponsibility))
+        {
+            parts.Add(Node.AreaOfResponsibility);
+        }
+
+        if (!string.IsNullOrWhiteSpace(Node.DeputyDisplayText))
+        {
+            parts.Add($"Vertretung: {Node.DeputyDisplayText}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(Node.ReportsToFreeText))
+        {
+            parts.Add($"Berichtet an: {Node.ReportsToFreeText}");
+        }
+
+        return string.Join(" · ", parts);
+    }
+}

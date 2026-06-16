@@ -26,10 +26,45 @@ main {
     min-height: var(--dsms-header-height);
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: var(--dsms-space-4);
     padding: 0 var(--dsms-space-6);
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 20;
+}
+
+.dsms-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--dsms-space-3);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* Mandanten-Anzeige in Formularen (read-only) */
+.dsms-tenant-readonly {
+    display: flex;
+    align-items: center;
+    gap: var(--dsms-space-3);
+    padding: var(--dsms-space-3);
+    background: var(--dsms-bg);
+    border: 1px solid var(--dsms-border);
+    border-radius: var(--dsms-radius-md, 0.5rem);
+}
+
+.dsms-tenant-readonly__name {
+    font-weight: 600;
+    color: var(--dsms-text);
+}
+
+.dsms-tenant-readonly__id {
+    font-size: var(--dsms-font-size-sm);
+    color: var(--dsms-text-muted);
+}
+
+.dsms-tenant-context-hint {
+    font-size: var(--dsms-font-size-sm);
 }
 
 .dsms-topbar-title {
@@ -47,6 +82,23 @@ article.content {
     flex: 1;
     padding-left: var(--dsms-space-6);
     padding-right: var(--dsms-space-6);
+}
+
+.dsms-main-layout-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.dsms-main-layout-body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.dsms-main-layout-footer {
+    flex-shrink: 0;
+    margin-top: auto;
 }
 
 @media (min-width: 641px) {
@@ -141,4 +193,458 @@ article.content {
     font-weight: 700;
     font-size: var(--dsms-font-size-lg);
     margin-bottom: var(--dsms-space-4);
+}
+
+.dsms-auth-brand-logo {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 1rem;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto var(--dsms-space-4);
+}
+
+/* Öffentliche Registrierung (/signup) – optisch an Login-Seite angelehnt */
+.dsms-public-signup-layout {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: var(--dsms-space-8) var(--dsms-space-4);
+    background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 45%, #f4f6f9 45%);
+}
+
+.dsms-public-signup-page {
+    width: 100%;
+    max-width: 1100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.dsms-public-signup-header {
+    width: 100%;
+    max-width: 36rem;
+    margin-bottom: var(--dsms-space-6);
+}
+
+.dsms-public-signup-header.dsms-login-brand h1 {
+    color: #ffffff;
+}
+
+.dsms-public-signup-header.dsms-login-brand p {
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.dsms-signup-alert-wrap {
+    width: 100%;
+    max-width: 720px;
+    margin-bottom: var(--dsms-space-4);
+}
+
+.dsms-signup-plans-heading {
+    width: 100%;
+    text-align: center;
+    font-size: var(--dsms-font-size-lg);
+    font-weight: 600;
+    margin: 0 0 var(--dsms-space-5);
+    color: #ffffff;
+}
+
+.dsms-signup-plan-row {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto var(--dsms-space-2);
+}
+
+.dsms-signup-plan-card,
+.dsms-plan-card {
+    position: relative;
+    overflow: hidden;
+    width: 320px;
+    max-width: 100%;
+    background: var(--dsms-surface);
+    border-radius: var(--dsms-radius-lg);
+    box-shadow: var(--dsms-shadow-lg);
+    border: 1px solid var(--dsms-border);
+    padding: var(--dsms-space-6);
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dsms-plan-card-has-ribbon {
+    padding-top: 2.5rem;
+}
+
+.dsms-plan-card-has-ribbon .dsms-signup-plan-card__header {
+    padding-right: 5.75rem;
+}
+
+.dsms-signup-plan-card--selected {
+    border-color: var(--dsms-primary);
+    box-shadow: 0 0 0 1px var(--dsms-primary), var(--dsms-shadow-lg);
+    background: linear-gradient(180deg, var(--dsms-primary-soft) 0%, var(--dsms-surface) 5rem);
+}
+
+.dsms-signup-plan-card__header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--dsms-space-2);
+    margin-bottom: var(--dsms-space-3);
+}
+
+.dsms-signup-plan-card__title {
+    font-size: var(--dsms-font-size-base);
+    color: var(--dsms-text);
+}
+
+.dsms-signup-plan-card__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--dsms-space-2);
+}
+
+.dsms-signup-plan-card__description {
+    margin: 0 0 var(--dsms-space-3);
+    font-size: var(--dsms-font-size-sm);
+    color: var(--dsms-text-muted);
+    line-height: 1.45;
+}
+
+.dsms-signup-plan-card__prices {
+    margin-bottom: var(--dsms-space-2);
+}
+
+.dsms-signup-plan-card__prices p {
+    margin: 0 0 0.15rem;
+    font-size: var(--dsms-font-size-sm);
+}
+
+.dsms-plan-promo-ribbon {
+    position: absolute;
+    top: 16px;
+    right: 14px;
+    z-index: 2;
+    max-width: calc(100% - 2rem);
+    transform: rotate(14deg);
+    transform-origin: center center;
+    pointer-events: none;
+    filter: drop-shadow(0 2px 4px rgba(220, 38, 38, 0.2));
+}
+
+.dsms-plan-promo-ribbon-text {
+    display: block;
+    min-width: 105px;
+    max-width: 10rem;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    color: #fff;
+    background: linear-gradient(135deg, #f97316, #dc2626);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 999px;
+    box-shadow:
+        0 8px 18px rgba(220, 38, 38, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dsms-plan-price-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem;
+}
+
+.dsms-plan-price-original {
+    color: var(--dsms-text-muted);
+    text-decoration: line-through;
+    font-weight: 400;
+}
+
+.dsms-plan-price-promotional {
+    color: var(--dsms-text);
+    font-weight: 600;
+}
+
+.dsms-signup-plan-card__hint {
+    margin: 0 0 var(--dsms-space-3);
+    font-size: var(--dsms-font-size-sm);
+    color: var(--dsms-text-muted);
+}
+
+.dsms-signup-plan-card__limits-title {
+    margin: 0 0 var(--dsms-space-2);
+    font-size: var(--dsms-font-size-sm);
+}
+
+.dsms-signup-plan-card__limits {
+    margin: 0 0 var(--dsms-space-3);
+    padding-left: 1.1rem;
+    font-size: var(--dsms-font-size-sm);
+}
+
+.dsms-signup-plan-card__limits li {
+    margin-bottom: 0.1rem;
+    line-height: 1.4;
+}
+
+.dsms-signup-plan-card__footer {
+    margin-top: auto;
+    padding-top: var(--dsms-space-2);
+}
+
+.dsms-signup-registration-card {
+    width: 720px;
+    max-width: 100%;
+    margin: 2rem auto 0;
+    background: var(--dsms-surface);
+    border-radius: var(--dsms-radius-lg);
+    box-shadow: var(--dsms-shadow-lg);
+    border: 1px solid var(--dsms-border);
+    padding: var(--dsms-space-8);
+}
+
+.dsms-signup-section-title {
+    font-size: var(--dsms-font-size-lg);
+    font-weight: 600;
+    margin: 0 0 var(--dsms-space-2);
+}
+
+.dsms-signup-section-lead {
+    margin: 0 0 var(--dsms-space-5);
+    font-size: var(--dsms-font-size-sm);
+    color: var(--dsms-text-muted);
+    line-height: 1.5;
+}
+
+.dsms-selected-plan-info {
+    margin-bottom: var(--dsms-space-5);
+}
+
+.dsms-signup-price-preview {
+    padding: var(--dsms-space-4);
+    background: var(--dsms-surface-muted, #f8f9fb);
+    border: 1px solid var(--dsms-border);
+    border-radius: var(--dsms-radius-md);
+}
+
+.dsms-signup-price-preview__title {
+    margin: 0 0 var(--dsms-space-3);
+    font-size: var(--dsms-font-size-sm);
+    font-weight: 600;
+}
+
+.dsms-signup-price-preview__list {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.dsms-signup-price-preview__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: var(--dsms-font-size-sm);
+}
+
+.dsms-signup-price-preview__row dt {
+    margin: 0;
+    color: var(--dsms-text-muted);
+    font-weight: 500;
+}
+
+.dsms-signup-price-preview__row dd {
+    margin: 0;
+    text-align: right;
+}
+
+.dsms-signup-price-preview__row--final {
+    margin-top: 0.35rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--dsms-border);
+}
+
+.dsms-signup-price-preview__row--after-free {
+    margin-top: 0.15rem;
+    padding-top: 0.35rem;
+    border-top: 1px dashed var(--dsms-border);
+}
+
+.dsms-signup-price-preview__row--after-free dt {
+    color: var(--dsms-text);
+    font-weight: 600;
+}
+
+.dsms-signup-price-preview__row--after-free dd {
+    color: var(--dsms-text);
+    font-weight: 500;
+}
+
+.dsms-signup-legal-consent .form-check-label {
+    line-height: 1.45;
+}
+
+.dsms-signup-legal-consent .form-check-label a {
+    white-space: nowrap;
+}
+
+.dsms-signup-validation-summary {
+    margin: 0.75rem 0 0;
+    padding: 0.875rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.dsms-signup-validation-summary__list {
+    padding-left: 1.15rem;
+    margin: 0;
+}
+
+.dsms-signup-validation-summary__list li + li {
+    margin-top: 0.35rem;
+}
+
+.dsms-public-signup-footer {
+    text-align: center;
+    padding-top: var(--dsms-space-6);
+    margin-top: var(--dsms-space-2);
+    border-top: 1px solid var(--dsms-border);
+    font-size: var(--dsms-font-size-sm);
+}
+
+.dsms-training-participant-layout {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--dsms-bg-subtle, #f5f7fa);
+    padding: var(--dsms-space-6) var(--dsms-space-4);
+}
+
+.dsms-training-participant-header {
+    text-align: center;
+    margin-bottom: var(--dsms-space-4);
+}
+
+.dsms-training-participant-main {
+    flex: 1;
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.dsms-training-participant-page {
+    width: 100%;
+}
+
+.dsms-training-participant-footer {
+    text-align: center;
+    padding-top: var(--dsms-space-6);
+    margin-top: var(--dsms-space-4);
+    font-size: var(--dsms-font-size-sm);
+}
+
+@media (max-width: 767.98px) {
+    .dsms-public-signup-layout {
+        padding: var(--dsms-space-6) var(--dsms-space-3);
+    }
+
+    .dsms-signup-plan-card,
+    .dsms-plan-card {
+        width: 100%;
+        max-width: 420px;
+    }
+
+    .dsms-plan-promo-ribbon {
+        top: 14px;
+        right: 14px;
+        max-width: calc(100% - 1.75rem);
+    }
+
+    .dsms-plan-promo-ribbon-text {
+        min-width: 90px;
+        max-width: 8.4375rem;
+        font-size: 0.72rem;
+        padding: 0.35rem 0.65rem;
+        letter-spacing: 0.03em;
+    }
+
+    .dsms-plan-card-has-ribbon {
+        padding-top: 2.25rem;
+    }
+
+    .dsms-plan-card-has-ribbon .dsms-signup-plan-card__header {
+        padding-right: 5rem;
+    }
+
+    .dsms-signup-registration-card {
+        padding: var(--dsms-space-6);
+        margin-top: var(--dsms-space-6);
+    }
+}
+
+.dsms-archive-toggle .btn-secondary {
+    pointer-events: none;
+}
+
+.dsms-archive-modal .modal-content {
+    border: 1px solid var(--dsms-border);
+    box-shadow: var(--dsms-shadow-lg);
+}
+
+.dsms-table-row--archived td:first-child strong {
+    opacity: 0.85;
+}
+
+@media print {
+    .sidebar,
+    .dsms-no-print,
+    .nav-tabs,
+    .dsms-page-help-btn,
+    #blazor-error-ui {
+        display: none !important;
+    }
+
+    .page {
+        display: block !important;
+    }
+
+    article.content {
+        padding: 0 !important;
+        max-width: none !important;
+    }
+
+    .dsms-org-chart-scroll {
+        overflow: visible !important;
+    }
+
+    .dsms-org-chart-container {
+        border: 1px solid #cbd5e1;
+        box-shadow: none;
+    }
+
+    .dsms-org-node {
+        break-inside: avoid;
+        box-shadow: none !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .dsms-org-tree-item::before,
+    .dsms-org-tree-item::after,
+    .dsms-org-tree-level::before {
+        border-color: #334155 !important;
+    }
 }

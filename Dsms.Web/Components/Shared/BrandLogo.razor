@@ -1,0 +1,12 @@
+@inject IApplicationInfoService ApplicationInfo
+
+@if (!string.IsNullOrWhiteSpace(ApplicationInfo.LogoUrl))
+{
+    <img src="@ApplicationInfo.LogoUrl"
+         alt=""
+         class="dsms-auth-brand-logo" />
+}
+else
+{
+    <span class="dsms-login-logo">@ApplicationInfo.ShortName</span>
+}

@@ -1,0 +1,70 @@
+@* Bestätigungsdialog beim Übernehmen von Vorlagenwerten in ein bereits ausgefülltes Schulungsformular. *@
+@if (_visible)
+{
+    <div class="modal fade show d-block dsms-archive-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Vorlagenwerte übernehmen?</h5>
+                    <button type="button" class="btn-close" @onclick="Cancel"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Die ausgewählte Vorlage kann bestehende Eingaben überschreiben. Möchten Sie die Werte aus der Vorlage übernehmen?</p>
+                    @if (!string.IsNullOrWhiteSpace(_templateTitle))
+                    {
+                        <div class="dsms-template-info-box mb-0">
+                            <div class="fw-semibold">@_templateTitle</div>
+                            @if (!string.IsNullOrWhiteSpace(_templateSubtitle))
+                            {
+                                <div class="text-muted small">@_templateSubtitle</div>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer flex-wrap">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel">Abbrechen</button>
+                    <button type="button" class="btn btn-outline-primary" @onclick="LinkOnly">Nur Vorlage verknüpfen</button>
+                    <button type="button" class="btn btn-primary" @onclick="ApplyValues">Werte übernehmen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter] public EventCallback OnApplyValues { get; set; }
+    [Parameter] public EventCallback OnLinkOnly { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private bool _visible;
+    private string _templateTitle = "";
+    private string _templateSubtitle = "";
+
+    public void Show(string templateTitle, string templateSubtitle)
+    {
+        _templateTitle = templateTitle;
+        _templateSubtitle = templateSubtitle;
+        _visible = true;
+    }
+
+    public void Hide() => _visible = false;
+
+    private async Task ApplyValues()
+    {
+        _visible = false;
+        await OnApplyValues.InvokeAsync();
+    }
+
+    private async Task LinkOnly()
+    {
+        _visible = false;
+        await OnLinkOnly.InvokeAsync();
+    }
+
+    private async Task Cancel()
+    {
+        _visible = false;
+        await OnCancel.InvokeAsync();
+    }
+}

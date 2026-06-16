@@ -1,0 +1,13 @@
+@inject IApplicationInfoService ApplicationInfo
+
+<PageTitle>@FormattedTitle</PageTitle>
+
+@code {
+    [Parameter]
+    public string? Title { get; set; }
+
+    private string FormattedTitle =>
+        string.IsNullOrWhiteSpace(Title)
+            ? ApplicationInfo.ProductName
+            : $"{Title} | {ApplicationInfo.ProductName}";
+}

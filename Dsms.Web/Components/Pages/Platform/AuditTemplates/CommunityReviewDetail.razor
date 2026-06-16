@@ -1,0 +1,156 @@
+@* Superuser: einzelne Community-Einreichung prüfen, freigeben oder ablehnen. *@
+@page "/platform/audit-templates/community/{Id:int}"
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Community-Einreichung prüfen" />
+
+@if (_template is null && !_accessDenied)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_accessDenied || _template is null)
+{
+    <PageHeader Title="Community-Einreichung prüfen" />
+    <div class="alert alert-danger dsms-alert">Zugriff verweigert oder Einreichung nicht gefunden.</div>
+    <a class="btn btn-outline-secondary" href="platform/audit-templates/community">Zurück</a>
+}
+else
+{
+    <PageHeader Title="Community-Einreichung prüfen" Subtitle="@_template.Title">
+        <a class="btn btn-outline-secondary" href="platform/audit-templates/community">Zurück</a>
+    </PageHeader>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_messageIsError ? "alert-danger" : "alert-success") dsms-alert">@_message</div>
+    }
+
+    <div class="alert alert-warning dsms-alert">@AuditTemplateLabels.CommunityReviewPrivacyHint</div>
+
+    <div class="dsms-card dsms-form-card mb-4">
+        <div class="dsms-card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Titel</dt>
+                <dd class="col-sm-9">@_template.Title</dd>
+                <dt class="col-sm-3">Version</dt>
+                <dd class="col-sm-9">@_template.Version</dd>
+                <dt class="col-sm-3">Beschreibung</dt>
+                <dd class="col-sm-9">@(_template.Description ?? "—")</dd>
+                <dt class="col-sm-3">Mandant</dt>
+                <dd class="col-sm-9">@(_tenantName ?? "—")</dd>
+                <dt class="col-sm-3">Eingereicht am</dt>
+                <dd class="col-sm-9">@(_template.SubmittedAt?.ToLocalTime().ToString("g") ?? "—")</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Fragen (@_template.Questions.Count)</div>
+        <div class="dsms-card-body">
+            @if (_template.Questions.Count == 0)
+            {
+                <div class="dsms-empty">Keine Fragen vorhanden.</div>
+            }
+            else
+            {
+                <ul class="dsms-list">
+                    @foreach (var question in _template.Questions.OrderBy(q => q.SortOrder))
+                    {
+                        <li class="dsms-list-item">
+                            <span>
+                                <strong>@question.SortOrder.</strong>
+                                @if (!string.IsNullOrEmpty(question.Category))
+                                {
+                                    <StatusBadge Text="@question.Category" Variant="primary" />
+                                }
+                                @question.Text
+                            </span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+
+    <div class="dsms-card dsms-form-card">
+        <div class="dsms-card-body">
+            <div class="mb-3">
+                <label class="form-label">Kommentar (optional)</label>
+                <InputTextArea class="form-control" @bind-Value="_reviewComment" rows="3" />
+            </div>
+            <div class="dsms-form-actions">
+                <button type="button" class="btn btn-success" disabled="@_busy" @onclick="ApproveAsync">Freigeben</button>
+                <button type="button" class="btn btn-outline-danger" disabled="@_busy" @onclick="RejectAsync">Ablehnen</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Inject] private IAuditTemplateService TemplateService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private AuditTemplate? _template;
+    private string? _tenantName;
+    private string? _reviewComment;
+    private string? _message;
+    private bool _messageIsError;
+    private bool _accessDenied;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _template = await TemplateService.GetSubmittedForReviewAsync(Id);
+        if (_template is null)
+        {
+            _accessDenied = true;
+            return;
+        }
+
+        _tenantName = _template.Tenant?.Name;
+    }
+
+    private async Task ApproveAsync()
+    {
+        _busy = true;
+        try
+        {
+            var result = await TemplateService.ApproveCommunityAsync(Id, _reviewComment);
+            if (result.Succeeded)
+            {
+                Navigation.NavigateTo("platform/audit-templates/community");
+                return;
+            }
+
+            _message = result.Message;
+            _messageIsError = true;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RejectAsync()
+    {
+        _busy = true;
+        try
+        {
+            var result = await TemplateService.RejectCommunityAsync(Id, _reviewComment);
+            if (result.Succeeded)
+            {
+                Navigation.NavigateTo("platform/audit-templates/community");
+                return;
+            }
+
+            _message = result.Message;
+            _messageIsError = true;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

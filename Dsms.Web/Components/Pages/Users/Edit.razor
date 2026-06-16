@@ -1,12 +1,12 @@
 @*
     Benutzer bearbeiten: zentrale Prüfung über IUserManagementService / IUserAccessService.
-    Superuser: Mandant und Rolle; Admin: nur eigener Mandant, kein Superuser.
+    Superuser: Lizenz + gefilterte Mandanten; Admin: nur eigener Mandant, kein Superuser.
 *@
 @page "/users/edit/{UserId}"
 @attribute [Authorize(Roles = DsmsRoles.UserManagement)]
 @rendermode InteractiveServer
 
-<PageTitle>Benutzer bearbeiten</PageTitle>
+<BrandedPageTitle Title="Benutzer bearbeiten" />
 
 @if (_user is null && _loaded)
 {
@@ -23,12 +23,20 @@ else
 
     <div class="dsms-card dsms-form-card">
         <div class="dsms-card-body">
+            @if (!string.IsNullOrEmpty(_successMessage))
+            {
+                <div class="alert alert-success dsms-alert">@_successMessage</div>
+            }
             @if (!string.IsNullOrEmpty(_errorMessage))
             {
                 <div class="alert alert-danger dsms-alert">@_errorMessage</div>
             }
+            @if (_hasLicenseConflict)
+            {
+                <div class="alert alert-warning dsms-alert">@_licenseConflictMessage</div>
+            }
 
-            <EditForm Model="_editModel" OnValidSubmit="SaveAsync" class="dsms-form">
+            <EditForm Model="_editModel" FormName="user-edit" OnValidSubmit="SaveAsync" class="dsms-form">
                 <div class="mb-3">
                     <label class="form-label">E-Mail</label>
                     <input class="form-control" value="@_user.Email" disabled />
@@ -37,25 +45,6 @@ else
                     <label class="form-label">Anzeigename</label>
                     <InputText class="form-control" @bind-Value="_editModel.DisplayName" />
                 </div>
-                @if (_showTenantSelect)
-                {
-                    <div class="mb-3">
-                        <label class="form-label">Mandant</label>
-                        <InputSelect class="form-select" @bind-Value="_editModel.TenantId">
-                            @foreach (var tenant in _tenants)
-                            {
-                                <option value="@tenant.Id">@tenant.Name</option>
-                            }
-                        </InputSelect>
-                    </div>
-                }
-                else if (_user.TenantId is null)
-                {
-                    <div class="mb-3">
-                        <label class="form-label">Mandant</label>
-                        <input class="form-control" value="— (plattformweit)" disabled />
-                    </div>
-                }
                 <div class="mb-3">
                     <label class="form-label">Rolle</label>
                     <InputSelect class="form-select" @bind-Value="_editModel.Role" @bind-Value:after="OnRoleChanged">
@@ -65,6 +54,81 @@ else
                         }
                     </InputSelect>
                 </div>
+
+                @if (_showLicenseSection)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Lizenz *</label>
+                        <InputSelect class="form-select" TValue="Guid?" @bind-Value="_editModel.LicenseId" @bind-Value:after="OnLicenseChanged">
+                            <option value="">— Bitte wählen —</option>
+                            @foreach (var license in _licenses)
+                            {
+                                <option value="@license.Id">@license.DisplayName</option>
+                            }
+                        </InputSelect>
+                    </div>
+                }
+                else if (_editModel.Role == DsmsRoles.Superuser)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Lizenz</label>
+                        <input class="form-control" value="@LicenseDisplayHelper.SystemLicenseText" disabled />
+                    </div>
+                }
+
+                @if (_showTenantSelect)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">
+                            Mandanten @(_tenantRequired ? "*" : "(optional)")
+                        </label>
+                        @if (_isSuperuser)
+                        {
+                            @if (_editModel.LicenseId is null)
+                            {
+                                <p class="form-text text-muted">Bitte wählen Sie zuerst eine Lizenz aus.</p>
+                            }
+                            else if (_filteredTenants.Count == 0)
+                            {
+                                <p class="form-text text-muted">Keine Mandanten für diese Lizenz vorhanden.</p>
+                            }
+                            else
+                            {
+                                <p class="form-text text-muted">Es werden nur Mandanten der ausgewählten Lizenz angezeigt.</p>
+                                @foreach (var tenant in _filteredTenants)
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox"
+                                               class="form-check-input"
+                                               id="@($"tenant-{tenant.Id}")"
+                                               checked="@_editModel.TenantIds.Contains(tenant.Id)"
+                                               @onchange="e => ToggleTenant(tenant.Id, e)" />
+                                        <label class="form-check-label" for="@($"tenant-{tenant.Id}")">@tenant.Name</label>
+                                    </div>
+                                }
+                            }
+                        }
+                        else
+                        {
+                            <div class="dsms-tenant-readonly">
+                                <span class="dsms-tenant-readonly__name">@(_currentTenant?.Name ?? "—")</span>
+                                @if (_currentTenant is not null)
+                                {
+                                    <span class="dsms-tenant-readonly__id">ID @_currentTenant.Id</span>
+                                }
+                            </div>
+                            <p class="form-text text-muted mb-0">Übernimmt den im Header gewählten Mandanten.</p>
+                        }
+                    </div>
+                }
+                else if (_user.TenantId is null && _editModel.Role != DsmsRoles.Superuser)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Mandant</label>
+                        <input class="form-control" value="— (plattformweit)" disabled />
+                    </div>
+                }
+
                 <div class="form-check mb-4">
                     <InputCheckbox class="form-check-input" @bind-Value="_editModel.IsActive" id="userActive" />
                     <label class="form-check-label" for="userActive">Konto aktiv (deaktivierte Benutzer können sich nicht anmelden)</label>
@@ -72,6 +136,12 @@ else
 
                 <div class="dsms-form-actions">
                     <button type="submit" class="btn btn-primary">Speichern</button>
+                    <button type="button" class="btn btn-outline-primary" disabled="@_sendingReset" @onclick="SendPasswordResetAsync">
+                        Passwortreset-Mail senden
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" disabled="@_sendingInvite" @onclick="SendInvitationAsync">
+                        Einladung erneut senden
+                    </button>
                     <a class="btn btn-outline-secondary" href="users">Abbrechen</a>
                 </div>
             </EditForm>
@@ -84,16 +154,30 @@ else
     [Inject] private IUserManagementService UserManagement { get; set; } = null!;
     [Inject] private IUserAccessService UserAccess { get; set; } = null!;
     [Inject] private UserManager<ApplicationUser> UserManager { get; set; } = null!;
+    [Inject] private ITenantContextService TenantContext { get; set; } = null!;
+    [Inject] private ITenantService TenantService { get; set; } = null!;
+    [Inject] private ITenantManagementService TenantManagement { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private IPasswordResetService PasswordReset { get; set; } = null!;
 
     private ApplicationUser? _user;
-    private List<Tenant> _tenants = [];
+    private List<Tenant> _filteredTenants = [];
+    private List<LicenseOptionDto> _licenses = [];
+    private Tenant? _currentTenant;
     private IReadOnlyList<string>? _assignableRoles;
     private bool _showTenantSelect;
+    private bool _showLicenseSection;
+    private bool _tenantRequired;
     private bool _isSuperuser;
     private bool _loaded;
+    private bool _hasLicenseConflict;
+    private string? _licenseConflictMessage;
     private string? _errorMessage;
+    private string? _successMessage;
+    private bool _sendingReset;
+    private bool _sendingInvite;
     private EditFormModel _editModel = new();
 
     protected override async Task OnInitializedAsync()
@@ -110,46 +194,229 @@ else
 
         if (_isSuperuser)
         {
-            _tenants = await Db.Tenants.OrderBy(t => t.Name).ToListAsync();
+            _licenses = (await LicenseService.GetActiveLicenseOptionsAsync()).ToList();
         }
 
+        _currentTenant = await TenantService.GetCurrentTenantAsync();
+        var assignedTenantIds = await UserManagement.GetUserTenantIdsAsync(UserId);
         var roles = await UserManager.GetRolesAsync(_user);
+
         _editModel = new EditFormModel
         {
             DisplayName = _user.DisplayName,
-            TenantId = _user.TenantId,
+            TenantId = assignedTenantIds.Count > 0 ? assignedTenantIds[0] : _user.TenantId,
+            TenantIds = assignedTenantIds.ToList(),
             Role = roles.FirstOrDefault() ?? DsmsRoles.User,
-            IsActive = _user.IsActive
+            IsActive = _user.IsActive,
+            LicenseId = await ResolveInitialLicenseIdAsync(_user, roles, assignedTenantIds)
         };
 
-        OnRoleChanged();
+        await DetectLicenseConflictAsync(roles, assignedTenantIds);
+        await OnRoleChanged();
     }
 
-    private void OnRoleChanged()
+    private async Task<Guid?> ResolveInitialLicenseIdAsync(
+        ApplicationUser user,
+        IList<string> roles,
+        IReadOnlyList<int> assignedTenantIds)
+    {
+        if (roles.Contains(DsmsRoles.Superuser))
+        {
+            return null;
+        }
+
+        if (roles.Contains(DsmsRoles.Admin))
+        {
+            return user.LicenseId;
+        }
+
+        if (assignedTenantIds.Count == 0)
+        {
+            return null;
+        }
+
+        var licenseIds = await Db.Tenants
+            .IgnoreQueryFilters()
+            .Where(t => assignedTenantIds.Contains(t.Id) && t.LicenseId != null)
+            .Select(t => t.LicenseId)
+            .Distinct()
+            .ToListAsync();
+
+        return licenseIds.Count == 1 ? licenseIds[0] : null;
+    }
+
+    private async Task DetectLicenseConflictAsync(IList<string> roles, IReadOnlyList<int> assignedTenantIds)
+    {
+        _hasLicenseConflict = false;
+        _licenseConflictMessage = null;
+
+        if (_user is null || roles.Contains(DsmsRoles.Superuser))
+        {
+            return;
+        }
+
+        if (roles.Contains(DsmsRoles.Admin))
+        {
+            if (_user.LicenseId is null)
+            {
+                _hasLicenseConflict = true;
+                _licenseConflictMessage = "Für Kundenadmins muss eine Lizenz ausgewählt werden.";
+                return;
+            }
+
+            if (assignedTenantIds.Count > 0)
+            {
+                var mismatched = await Db.Tenants
+                    .IgnoreQueryFilters()
+                    .AnyAsync(t => assignedTenantIds.Contains(t.Id)
+                        && t.LicenseId != null
+                        && t.LicenseId != _user.LicenseId);
+                if (mismatched)
+                {
+                    _hasLicenseConflict = true;
+                    _licenseConflictMessage = "Lizenz stimmt nicht mit Mandant überein.";
+                }
+            }
+
+            return;
+        }
+
+        if (assignedTenantIds.Count == 0)
+        {
+            return;
+        }
+
+        var tenantLicenseIds = await Db.Tenants
+            .IgnoreQueryFilters()
+            .Where(t => assignedTenantIds.Contains(t.Id))
+            .Select(t => t.LicenseId)
+            .Distinct()
+            .ToListAsync();
+
+        if (tenantLicenseIds.Count(id => id.HasValue) > 1)
+        {
+            _hasLicenseConflict = true;
+            _licenseConflictMessage = "Mehrere Lizenzen über Mandantenzuordnungen – bitte korrigieren.";
+        }
+        else if (_user.LicenseId.HasValue
+            && tenantLicenseIds.FirstOrDefault() != _user.LicenseId)
+        {
+            _hasLicenseConflict = true;
+            _licenseConflictMessage = "Die Benutzerlizenz stimmt nicht mit der Mandantenlizenz überein.";
+        }
+    }
+
+    private async Task OnRoleChanged()
     {
         if (IUserAccessService.RoleRequiresNoTenant(_editModel.Role))
         {
             _editModel.TenantId = null;
+            _editModel.TenantIds = [];
+            _editModel.LicenseId = null;
             _showTenantSelect = false;
+            _showLicenseSection = false;
+            _tenantRequired = false;
             return;
         }
 
-        _showTenantSelect = _isSuperuser;
-        if (_showTenantSelect && _editModel.TenantId is null && _tenants.Count > 0)
+        _showLicenseSection = _isSuperuser;
+        _tenantRequired = _editModel.Role is not DsmsRoles.Admin || !_isSuperuser;
+        _showTenantSelect = _isSuperuser || _editModel.Role is not DsmsRoles.Admin;
+
+        if (_isSuperuser)
         {
-            _editModel.TenantId = _tenants[0].Id;
+            await OnLicenseChanged();
         }
+        else
+        {
+            await SyncTenantsFromContextAsync();
+        }
+    }
+
+    private async Task OnLicenseChanged()
+    {
+        _filteredTenants = [];
+
+        if (_editModel.LicenseId is Guid licenseId)
+        {
+            _filteredTenants = (await TenantManagement.GetTenantsByLicenseAsync(licenseId)).ToList();
+            _editModel.TenantIds.RemoveAll(id => _filteredTenants.All(t => t.Id != id));
+            _editModel.TenantId = _editModel.TenantIds.FirstOrDefault();
+        }
+        else
+        {
+            _editModel.TenantIds = [];
+            _editModel.TenantId = null;
+        }
+    }
+
+    private async Task SyncTenantsFromContextAsync()
+    {
+        _currentTenant = await TenantService.GetCurrentTenantAsync();
+        var currentId = await TenantContext.GetCurrentTenantIdAsync();
+        if (currentId is int tid)
+        {
+            _editModel.TenantId = tid;
+            _editModel.TenantIds = [tid];
+        }
+    }
+
+    private void ToggleTenant(int tenantId, ChangeEventArgs e)
+    {
+        var isChecked = e.Value is bool b && b;
+        if (isChecked)
+        {
+            if (!_editModel.TenantIds.Contains(tenantId))
+            {
+                _editModel.TenantIds.Add(tenantId);
+            }
+        }
+        else
+        {
+            _editModel.TenantIds.Remove(tenantId);
+        }
+
+        _editModel.TenantId = _editModel.TenantIds.FirstOrDefault();
     }
 
     private async Task SaveAsync()
     {
         if (_user is null) return;
 
+        if (!_isSuperuser && !IUserAccessService.RoleRequiresNoTenant(_editModel.Role))
+        {
+            await SyncTenantsFromContextAsync();
+        }
+
+        if (_isSuperuser && _editModel.Role == DsmsRoles.Admin && !_editModel.LicenseId.HasValue)
+        {
+            _errorMessage = "Für Kundenadmins muss eine Lizenz ausgewählt werden.";
+            return;
+        }
+
+        if (_isSuperuser
+            && _tenantRequired
+            && (_editModel.LicenseId is null || _editModel.TenantIds.Count == 0))
+        {
+            _errorMessage = "Benutzer und Auditoren müssen einem Mandanten der ausgewählten Lizenz zugeordnet sein.";
+            return;
+        }
+
+        if (!_isSuperuser
+            && !IUserAccessService.RoleRequiresNoTenant(_editModel.Role)
+            && _editModel.TenantIds.Count == 0)
+        {
+            _errorMessage = "Kein aktiver Mandant gewählt. Bitte wählen Sie oben im Header einen Mandanten aus.";
+            return;
+        }
+
         var result = await UserManagement.UpdateUserAsync(UserId, new UserEditModel
         {
             DisplayName = _editModel.DisplayName,
             Role = _editModel.Role,
+            LicenseId = _editModel.LicenseId,
             TenantId = _editModel.TenantId,
+            TenantIds = _editModel.TenantIds,
             IsActive = _editModel.IsActive
         });
 
@@ -162,10 +429,40 @@ else
         Navigation.NavigateTo("users");
     }
 
+    private async Task SendPasswordResetAsync()
+    {
+        if (_user is null) return;
+
+        _sendingReset = true;
+        _successMessage = null;
+        _errorMessage = null;
+
+        var result = await PasswordReset.SendAdminResetAsync(_user.Id);
+        _successMessage = result.Succeeded ? result.Message : null;
+        _errorMessage = result.Succeeded ? null : result.Message;
+        _sendingReset = false;
+    }
+
+    private async Task SendInvitationAsync()
+    {
+        if (_user is null) return;
+
+        _sendingInvite = true;
+        _successMessage = null;
+        _errorMessage = null;
+
+        var result = await PasswordReset.SendWelcomeInvitationAsync(_user.Id);
+        _successMessage = result.Succeeded ? result.Message : null;
+        _errorMessage = result.Succeeded ? null : result.Message;
+        _sendingInvite = false;
+    }
+
     private sealed class EditFormModel
     {
         public string DisplayName { get; set; } = "";
+        public Guid? LicenseId { get; set; }
         public int? TenantId { get; set; }
+        public List<int> TenantIds { get; set; } = [];
         public string Role { get; set; } = DsmsRoles.User;
         public bool IsActive { get; set; } = true;
     }

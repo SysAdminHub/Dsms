@@ -1,0 +1,417 @@
+@* Mandantendaten: Stammdaten, Export und Löschanforderung für Superuser und Mandanten-Admin. *@
+@page "/tenant-daten"
+@attribute [Authorize(Roles = DsmsRoles.TenantDataManagement)]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Mandantendaten" />
+
+<PageHeader Title="Mandantendaten" HelpKey="tenant-data"
+            Subtitle="Mandanten-Stammdaten, Datenexport und Löschanforderung für den aktuellen Mandanten" />
+
+@if (!_authorized)
+{
+    <div class="alert alert-danger">Sie haben keine Berechtigung für diese Seite.</div>
+}
+else if (_tenant is null)
+{
+    <div class="alert alert-warning">
+        Bitte wählen Sie zuerst einen Mandanten aus.
+        <a href="select-tenant" class="alert-link">Mandant wählen</a>
+    </div>
+}
+else
+{
+    @if (_tenant.IsDeletionRequested)
+    {
+        <div class="alert alert-warning" role="alert">
+            <strong>Für diesen Mandanten wurde eine Löschung angefordert.</strong>
+            @if (_tenant.DeletionScheduledAt.HasValue)
+            {
+                <span> Geplanter Zeitpunkt: @_tenant.DeletionScheduledAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") Uhr.</span>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_messageIsError ? "alert-danger" : "alert-success")" role="alert">@_message</div>
+    }
+
+    <div class="dsms-card dsms-form-card mb-4">
+        <div class="dsms-card-body">
+            <h2 class="h5 mb-2">Mandanten-Stammdaten</h2>
+            <p class="text-muted mb-3">
+                Zentrale Angaben für das Verzeichnis von Verarbeitungstätigkeiten (Art. 30 DSGVO).
+                Mandant: <strong>@_tenant.Name</strong>
+            </p>
+
+            <EditForm Model="_complianceModel" OnValidSubmit="SaveComplianceInfoAsync" class="dsms-form">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger dsms-alert" />
+
+                <h5 class="dsms-form-section">Vertrags- und AVV-Daten</h5>
+                <p class="form-text text-muted mb-3">
+                    Diese Angaben werden für den Auftragsverarbeitungsvertrag verwendet.
+                    <a href="/legal/avv" target="_blank" rel="noopener">AVV anzeigen</a>
+                </p>
+                @if (_complianceInfo is not null)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Vertragsdatum / Registrierungsdatum</label>
+                        <input class="form-control" readonly value="@_complianceInfo.ContractDateUtc.ToLocalTime().ToString("dd.MM.yyyy")" />
+                    </div>
+                }
+                <div class="mb-3">
+                    <label class="form-label">Ansprechpartner</label>
+                    <InputText class="form-control" @bind-Value="_complianceModel.ContactName" />
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Land</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.Country" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Umsatzsteuer-ID</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.VatId" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Angaben zum Verantwortlichen</h5>
+                <div class="mb-3">
+                    <label class="form-label">Name des Verantwortlichen / der Organisation</label>
+                    <InputText class="form-control" @bind-Value="_complianceModel.LegalName" />
+                </div>
+                <div class="row">
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Straße</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.Street" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Hausnummer</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.HouseNumber" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Postleitzahl</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.PostalCode" />
+                    </div>
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Ort</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.City" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Telefon</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.Phone" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">E-Mail-Adresse</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.Email" />
+                    </div>
+                    <div class="col-12 mb-3">
+                        <label class="form-label">Internet-Adresse / Website</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.Website" />
+                    </div>
+                </div>
+
+                <h5 class="dsms-form-section">Datenschutzbeauftragte Person</h5>
+                <p class="form-text text-muted">Alle Angaben sind optional. Leer lassen, wenn kein Datenschutzbeauftragter benannt ist.</p>
+                <div class="mb-3">
+                    <label class="form-label">Name</label>
+                    <InputText class="form-control" @bind-Value="_complianceModel.DpoName" />
+                </div>
+                <div class="row">
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Straße</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.DpoStreet" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Hausnummer</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.DpoHouseNumber" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Postleitzahl</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.DpoPostalCode" />
+                    </div>
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Ort</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.DpoCity" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Telefon</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.DpoPhone" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">E-Mail-Adresse</label>
+                        <InputText class="form-control" @bind-Value="_complianceModel.DpoEmail" />
+                    </div>
+                </div>
+
+                <div class="dsms-form-actions">
+                    <button type="submit" class="btn btn-primary" disabled="@_busy">Stammdaten speichern</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-body">
+            <h2 class="h5 mb-2">Datenschutzorganisation</h2>
+            <p class="text-muted mb-3">
+                Wichtigste aktive Datenschutzrollen des Mandanten. Pflege erfolgt im Modul Organisation.
+            </p>
+            @if (_highlightedRoles is null)
+            {
+                <div class="dsms-loading">Lade …</div>
+            }
+            else if (_highlightedRoles.Count == 0)
+            {
+                <div class="alert alert-info dsms-alert mb-3">
+                    Noch keine aktiven Datenschutzrollen erfasst.
+                </div>
+            }
+            else
+            {
+                <div class="row g-3 mb-3">
+                    @foreach (var role in _highlightedRoles)
+                    {
+                        <div class="col-md-6 col-lg-4">
+                            <div class="border rounded p-3 h-100">
+                                <div class="fw-semibold">@role.RoleTitle</div>
+                                <div>@(string.IsNullOrWhiteSpace(role.PersonName) ? "—" : role.PersonName)</div>
+                                <div class="text-muted small">@(string.IsNullOrWhiteSpace(role.Email) ? "—" : role.Email)</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            <a class="btn btn-outline-primary" href="organization/list">Alle Datenschutzrollen anzeigen</a>
+        </div>
+    </div>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-body">
+            <h2 class="h5 mb-2">Mandantendaten exportieren</h2>
+            <p class="text-muted mb-3">
+                Laden Sie alle fachlichen Daten dieses Mandanten inklusive Dokumenten als ZIP-Datei herunter.
+            </p>
+            <form action="tenant-daten/export" method="post">
+                <AntiforgeryToken />
+                <button type="submit" class="btn btn-primary">Mandantendaten exportieren</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="dsms-card">
+        <div class="dsms-card-body">
+            <h2 class="h5 mb-2">Mandantenlöschung anfordern</h2>
+            <p class="text-muted">
+                Wenn Sie diesen Mandanten nicht mehr nutzen möchten, können Sie eine Löschung anfordern.
+                Bitte exportieren Sie vorher Ihre Daten.
+            </p>
+
+            @if (_tenant.IsDeletionRequested)
+            {
+                <div class="alert alert-warning dsms-alert mb-3" role="alert">
+                    Deine Löschanfrage wurde erfasst. Der Mandant wird nach Prüfung gelöscht.
+                    Der Zugriff auf diesen Mandanten ist bis dahin gesperrt.
+                </div>
+                @if (_isSuperuser)
+                {
+                    <button type="button" class="btn btn-outline-secondary mt-3" @onclick="CancelDeletionAsync" disabled="@_busy">
+                        Löschanforderung abbrechen
+                    </button>
+                }
+            }
+            else
+            {
+                <div class="alert alert-danger" role="alert">
+                    Diese Aktion erfasst eine Löschanfrage. Es erfolgt keine sofortige endgültige Löschung.
+                    Der Zugriff wird gesperrt, bis ein Plattform-Administrator den Mandanten endgültig löscht.
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="confirm-deletion-request"
+                           @bind="_deletionConfirmed" disabled="@_busy" />
+                    <label class="form-check-label" for="confirm-deletion-request">
+                        Ich bestätige, dass ich die Löschung dieses Mandanten anfordern möchte.
+                    </label>
+                </div>
+                <button type="button" class="btn btn-outline-danger" @onclick="RequestDeletionAsync"
+                        disabled="@(!_deletionConfirmed || _busy)">
+                    Mandantenlöschung anfordern
+                </button>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ITenantService TenantService { get; set; } = null!;
+    [Inject] private ITenantComplianceInfoService ComplianceInfoService { get; set; } = null!;
+    [Inject] private ITenantDeletionService DeletionService { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private DataProtectionRoleService DataProtectionRoleService { get; set; } = null!;
+
+    private Domain.Entities.Tenant? _tenant;
+    private TenantComplianceInfoDto? _complianceInfo;
+    private TenantComplianceInfoSaveModel _complianceModel = new();
+    private bool _authorized;
+    private bool _isSuperuser;
+    private bool _deletionConfirmed;
+    private bool _busy;
+    private string? _message;
+    private bool _messageIsError;
+    private IReadOnlyList<Domain.Entities.DataProtectionRole>? _highlightedRoles;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _authorized = await UserAccess.CanManageTenantDataAsync();
+        if (!_authorized)
+        {
+            return;
+        }
+
+        _isSuperuser = await UserAccess.IsSuperuserAsync();
+        _tenant = await TenantService.GetCurrentTenantAsync();
+        await LoadComplianceModelAsync();
+        await LoadHighlightedRolesAsync();
+    }
+
+    private async Task LoadHighlightedRolesAsync()
+    {
+        if (_tenant is null)
+        {
+            return;
+        }
+
+        _highlightedRoles = await DataProtectionRoleService.GetHighlightedActiveRolesAsync(_tenant.Id);
+    }
+
+    private async Task LoadComplianceModelAsync()
+    {
+        var info = await ComplianceInfoService.GetForCurrentTenantAsync();
+        if (info is null)
+        {
+            return;
+        }
+
+        _complianceInfo = info;
+        _complianceModel = new TenantComplianceInfoSaveModel
+        {
+            LegalName = info.LegalName,
+            Street = info.Street,
+            HouseNumber = info.HouseNumber,
+            PostalCode = info.PostalCode,
+            City = info.City,
+            Country = info.Country,
+            ContactName = info.ContactName,
+            VatId = info.VatId,
+            Phone = info.Phone,
+            Email = info.Email,
+            Website = info.Website,
+            DpoName = info.DpoName,
+            DpoStreet = info.DpoStreet,
+            DpoHouseNumber = info.DpoHouseNumber,
+            DpoPostalCode = info.DpoPostalCode,
+            DpoCity = info.DpoCity,
+            DpoPhone = info.DpoPhone,
+            DpoEmail = info.DpoEmail
+        };
+    }
+
+    private async Task SaveComplianceInfoAsync()
+    {
+        _busy = true;
+        _message = null;
+
+        try
+        {
+            var result = await ComplianceInfoService.UpdateForCurrentTenantAsync(_complianceModel);
+            if (!result.Succeeded)
+            {
+                _message = result.ErrorMessage;
+                _messageIsError = true;
+                return;
+            }
+
+            _message = "Die Mandanten-Stammdaten wurden gespeichert.";
+            _messageIsError = false;
+            _tenant = await TenantService.GetCurrentTenantAsync();
+            await LoadComplianceModelAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RequestDeletionAsync()
+    {
+        if (_tenant is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        _message = null;
+
+        try
+        {
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId is null)
+            {
+                _message = "Benutzer nicht angemeldet.";
+                _messageIsError = true;
+                return;
+            }
+
+            var result = await DeletionService.RequestDeletionAsync(_tenant.Id, userId, _deletionConfirmed);
+            if (!result.Success)
+            {
+                _message = result.Message;
+                _messageIsError = true;
+                return;
+            }
+
+            _message = result.Message;
+            if (result.EmailNotificationFailed)
+            {
+                _message += " Die Systembenachrichtigung konnte nicht versendet werden.";
+            }
+
+            _messageIsError = false;
+            _deletionConfirmed = false;
+            _tenant = await TenantService.GetCurrentTenantAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CancelDeletionAsync()
+    {
+        if (_tenant is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        _message = null;
+
+        try
+        {
+            var result = await DeletionService.CancelDeletionRequestAsync(_tenant.Id);
+            _message = result.Message;
+            _messageIsError = !result.Success;
+
+            if (result.Success)
+            {
+                _tenant = await TenantService.GetCurrentTenantAsync();
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

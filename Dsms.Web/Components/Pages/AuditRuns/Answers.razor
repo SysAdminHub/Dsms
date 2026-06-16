@@ -6,7 +6,7 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 
-<PageTitle>Audit-Fragen</PageTitle>
+<BrandedPageTitle Title="Audit-Fragen" />
 
 @if (_run is null)
 {
@@ -14,38 +14,104 @@
 }
 else
 {
-    <PageHeader Title="@_run.Title" Subtitle="@($"Vorlage: {_run.AuditTemplate.Title} · Status: {_run.Status}")">
-        <a class="btn btn-outline-secondary" href="audit-runs">Zurück</a>
+    <PageHeader Title="@_run.Title" Subtitle="@GetPageSubtitle()">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            @if (_canComplete && !_run.IsArchived && _run.Status != AuditRunStatus.Completed)
+            {
+                <button type="button"
+                        class="btn btn-success"
+                        disabled="@_completing"
+                        @onclick="CompleteAuditAsync">
+                    Audit abschließen
+                </button>
+            }
+            <a class="btn btn-outline-secondary" href="audit-runs">Zurück</a>
+        </div>
     </PageHeader>
+
+    @if (_canComplete && !_run.IsArchived && _run.Status != AuditRunStatus.Completed)
+    {
+        <p class="text-muted small mb-3">Bitte prüfen Sie vor dem Abschließen, ob alle Auditfragen bearbeitet wurden.</p>
+    }
+
+    @if (!_canEdit)
+    {
+        <div class="alert alert-info dsms-alert">Sie sehen die Audit-Antworten im Lesemodus. Änderungen sind für Ihre Rolle nicht erlaubt.</div>
+    }
+
+    <LinkedDocumentsSection AuditRunId="_run.Id" />
 
     @foreach (var answer in _answers)
     {
         <div class="dsms-answer-card">
-            <h5>@answer.AuditQuestion.SortOrder. @answer.AuditQuestion.Text</h5>
-            <EditForm Model="answer" OnValidSubmit="() => SaveAnswerAsync(answer)" FormName="@($"answer-{answer.Id}")" class="dsms-form">
-                <div class="mb-3">
-                    <label class="form-label">Antwort</label>
-                    <InputTextArea class="form-control" @bind-Value="answer.AnswerText" rows="2" />
-                </div>
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Bewertung</label>
-                        <InputSelect class="form-select" @bind-Value="answer.ComplianceLevel">
-                            @foreach (var level in Enum.GetValues<ComplianceLevel>())
-                            {
-                                <option value="@level">@ComplianceLabels.GetLevelLabel(level)</option>
-                            }
-                        </InputSelect>
+            <h5>@AuditAnswerDisplay.GetSortOrder(answer). @AuditAnswerDisplay.GetQuestionText(answer)</h5>
+            @if (_canEdit)
+            {
+                <EditForm Model="answer" OnValidSubmit="() => SaveAnswerAsync(answer)" FormName="@($"answer-{answer.Id}")" class="dsms-form">
+                    <div class="mb-3">
+                        <label class="form-label">Antwort</label>
+                        <InputTextArea class="form-control" @bind-Value="answer.AnswerText" rows="2" />
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Notizen</label>
-                        <InputTextArea class="form-control" @bind-Value="answer.Notes" rows="2" />
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Bewertung</label>
+                            <InputSelect class="form-select" @bind-Value="answer.ComplianceLevel">
+                                @foreach (var level in Enum.GetValues<ComplianceLevel>())
+                                {
+                                    <option value="@level">@ComplianceLabels.GetLevelLabel(level)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Notizen</label>
+                            <InputTextArea class="form-control" @bind-Value="answer.Notes" rows="2" />
+                        </div>
+                    </div>
+                    <div class="mt-3 d-flex flex-wrap align-items-center gap-2">
+                        <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
+                        @if (ComplianceLabels.ShouldShowCreateMeasureButton(answer.ComplianceLevel))
+                        {
+                            <a class="btn btn-sm btn-outline-secondary"
+                               href="@($"measures/edit?auditRunId={Id}&auditAnswerId={answer.Id}")">
+                                + Maßnahme anlegen
+                            </a>
+                        }
+                        @if (_measureCountsByAnswerId.TryGetValue(answer.Id, out var measureCount) && measureCount > 0)
+                        {
+                            <a class="text-muted small" href="@($"measures?auditAnswerId={answer.Id}")">
+                                @(measureCount == 1 ? "1 Maßnahme vorhanden" : $"{measureCount} Maßnahmen vorhanden")
+                            </a>
+                        }
+                    </div>
+                </EditForm>
+            }
+            else
+            {
+                <div class="dsms-form">
+                    <div class="mb-3">
+                        <label class="form-label">Antwort</label>
+                        <div class="form-control bg-light" style="min-height: 3rem; white-space: pre-wrap;">@(string.IsNullOrWhiteSpace(answer.AnswerText) ? "—" : answer.AnswerText)</div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Bewertung</label>
+                            <div class="form-control bg-light">@ComplianceLabels.GetLevelLabel(answer.ComplianceLevel)</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Notizen</label>
+                            <div class="form-control bg-light" style="min-height: 3rem; white-space: pre-wrap;">@(string.IsNullOrWhiteSpace(answer.Notes) ? "—" : answer.Notes)</div>
+                        </div>
+                    </div>
+                    <div class="mt-3 d-flex flex-wrap align-items-center gap-2">
+                        @if (_measureCountsByAnswerId.TryGetValue(answer.Id, out var measureCountReadOnly) && measureCountReadOnly > 0)
+                        {
+                            <a class="text-muted small" href="@($"measures?auditAnswerId={answer.Id}")">
+                                @(measureCountReadOnly == 1 ? "1 Maßnahme vorhanden" : $"{measureCountReadOnly} Maßnahmen vorhanden")
+                            </a>
+                        }
                     </div>
                 </div>
-                <div class="mt-3">
-                    <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
-                </div>
-            </EditForm>
+            }
         </div>
     }
 }
@@ -54,15 +120,24 @@ else
     [Parameter] public int Id { get; set; }
     [Inject] private ApplicationDbContext Db { get; set; } = null!;
     [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
 
     private int? _tenantId;
+    private bool _canEdit;
+    private bool _canComplete;
+    private bool _completing;
     private AuditRun? _run;
     private List<AuditAnswer> _answers = [];
+    private Dictionary<int, int> _measureCountsByAnswerId = [];
 
     protected override async Task OnInitializedAsync()
     {
         _tenantId = await CurrentUser.GetTenantIdAsync();
         if (_tenantId is null) return;
+
+        _canEdit = await UserAccess.CanEditTenantOperationalContentAsync();
+        _canComplete = await UserAccess.CanEditComplianceContentAsync();
 
         _run = await Db.AuditRuns
             .Include(r => r.AuditTemplate)
@@ -73,14 +148,130 @@ else
         _answers = await Db.AuditAnswers
             .Include(a => a.AuditQuestion)
             .Where(a => a.AuditRunId == Id)
-            .OrderBy(a => a.AuditQuestion.SortOrder)
             .ToListAsync();
+        _answers = _answers.OrderBy(AuditAnswerDisplay.GetSortOrder).ToList();
+
+        await LoadMeasureCountsAsync();
+    }
+
+    private async Task LoadMeasureCountsAsync()
+    {
+        var answerIds = _answers.Select(a => a.Id).ToList();
+        if (answerIds.Count == 0)
+        {
+            _measureCountsByAnswerId = [];
+            return;
+        }
+
+        _measureCountsByAnswerId = await Db.Measures
+            .Where(m => m.TenantId == _tenantId && m.AuditAnswerId != null && answerIds.Contains(m.AuditAnswerId.Value))
+            .GroupBy(m => m.AuditAnswerId!.Value)
+            .Select(g => new { AnswerId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.AnswerId, x => x.Count);
+    }
+
+    private async Task CompleteAuditAsync()
+    {
+        if (!await UserAccess.CanEditComplianceContentAsync() || _run is null)
+        {
+            return;
+        }
+
+        if (_run.IsArchived || _run.Status == AuditRunStatus.Completed)
+        {
+            return;
+        }
+
+        _completing = true;
+
+        try
+        {
+            if (!AuditRunLifecycle.ApplyComplete(_run))
+            {
+                return;
+            }
+
+            await Db.SaveChangesAsync();
+
+            if (_tenantId is int tenantId)
+            {
+                await ComplianceAuditLog.LogAuditCompletedAsync(_run.Id, _run.Title, tenantId);
+            }
+        }
+        finally
+        {
+            _completing = false;
+        }
     }
 
     private async Task SaveAnswerAsync(AuditAnswer answer)
     {
+        if (!await UserAccess.CanEditTenantOperationalContentAsync() || _run is null)
+        {
+            return;
+        }
+
+        if (_run.IsArchived || _run.Status == AuditRunStatus.Completed)
+        {
+            return;
+        }
+
         answer.AnsweredAt = DateTime.UtcNow;
         answer.UpdatedAt = DateTime.UtcNow;
+
+        var started = AuditRunLifecycle.ApplyStartOnAnswerSave(_run);
         await Db.SaveChangesAsync();
+
+        if (_tenantId is int tenantId)
+        {
+            if (started)
+            {
+                await ComplianceAuditLog.LogAuditStartedAsync(_run.Id, _run.Title, tenantId);
+            }
+
+            await ComplianceAuditLog.LogAuditAnswerUpdatedAsync(
+                _run.Id, _run.Title, answer.Id, tenantId);
+        }
+    }
+
+    private string GetSubtitlePrefix() => _canEdit ? "" : "Lesemodus · ";
+
+    private string GetPageSubtitle()
+    {
+        if (_run is null)
+        {
+            return string.Empty;
+        }
+
+        var parts = new List<string>
+        {
+            $"{GetSubtitlePrefix()}Vorlage: {GetTemplateDisplayTitle()}",
+            $"Status: {AuditRunLabels.GetStatusLabel(_run.Status)}",
+            $"Gestartet: {FormatAuditDate(_run.StartedAt)}"
+        };
+
+        if (_run.CompletedAt is not null)
+        {
+            parts.Add($"Abgeschlossen: {FormatAuditDate(_run.CompletedAt)}");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    private static string FormatAuditDate(DateTime? value) =>
+        value?.ToLocalTime().ToString("g") ?? "—";
+
+    private string GetTemplateDisplayTitle()
+    {
+        if (_run is null) return "";
+        if (!string.IsNullOrEmpty(_run.TemplateTitleSnapshot))
+        {
+            var version = _run.TemplateVersionSnapshot;
+            return string.IsNullOrEmpty(version)
+                ? _run.TemplateTitleSnapshot
+                : $"{_run.TemplateTitleSnapshot} ({version})";
+        }
+
+        return _run.AuditTemplate?.Title ?? "—";
     }
 }

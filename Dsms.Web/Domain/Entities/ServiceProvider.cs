@@ -14,7 +14,7 @@ namespace Dsms.Web.Domain.Entities;
 
 /// </summary>
 
-public class ServiceProvider : EntityBase
+public class ServiceProvider : ArchivableEntityBase, ITenantEntity
 
 {
 
@@ -145,8 +145,5 @@ public class ServiceProvider : EntityBase
     public ICollection<ProcessingActivityServiceProvider> ProcessingActivityLinks { get; set; } = [];
 
     public ICollection<ServiceProviderTom> TomLinks { get; set; } = [];
-
-    public ICollection<EvidenceDocument> Documents { get; set; } = [];
-
 }
 

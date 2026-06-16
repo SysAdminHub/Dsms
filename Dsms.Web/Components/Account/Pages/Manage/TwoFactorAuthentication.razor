@@ -1,4 +1,4 @@
-﻿@page "/Account/Manage/TwoFactorAuthentication"
+@page "/Account/Manage/TwoFactorAuthentication"
 
 @using Microsoft.AspNetCore.Http.Features
 @using Microsoft.AspNetCore.Identity
@@ -8,66 +8,77 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Two-factor authentication (2FA)</PageTitle>
+<BrandedPageTitle Title="Zwei-Faktor-Authentifizierung" />
 
-<StatusMessage />
-<h3>Two-factor authentication (2FA)</h3>
-@if (canTrack)
-{
-    if (is2faEnabled)
-    {
-        if (recoveryCodesLeft == 0)
+<div class="dsms-card dsms-form-card">
+    <div class="dsms-card-header">Zwei-Faktor-Authentifizierung</div>
+    <div class="dsms-card-body">
+        <p class="dsms-account-section-intro">Erhöhen Sie die Sicherheit Ihres Kontos durch eine zusätzliche Anmeldebestätigung.</p>
+
+        <StatusMessage />
+
+        @if (canTrack)
         {
-            <div class="alert alert-danger">
-                <strong>You have no recovery codes left.</strong>
-                <p>You must <a href="Account/Manage/GenerateRecoveryCodes">generate a new set of recovery codes</a> before you can log in with a recovery code.</p>
+            if (is2faEnabled)
+            {
+                if (recoveryCodesLeft == 0)
+                {
+                    <div class="alert alert-danger dsms-alert">
+                        <strong>Sie haben keine Wiederherstellungscodes mehr.</strong>
+                        <p class="mb-0 mt-2">Sie müssen <a href="Account/Manage/GenerateRecoveryCodes">neue Wiederherstellungscodes erzeugen</a>, bevor Sie sich mit einem Wiederherstellungscode anmelden können.</p>
+                    </div>
+                }
+                else if (recoveryCodesLeft == 1)
+                {
+                    <div class="alert alert-danger dsms-alert">
+                        <strong>Sie haben noch 1 Wiederherstellungscode.</strong>
+                        <p class="mb-0 mt-2">Sie können <a href="Account/Manage/GenerateRecoveryCodes">neue Wiederherstellungscodes erzeugen</a>.</p>
+                    </div>
+                }
+                else if (recoveryCodesLeft <= 3)
+                {
+                    <div class="alert alert-warning dsms-alert">
+                        <strong>Sie haben noch @recoveryCodesLeft Wiederherstellungscodes.</strong>
+                        <p class="mb-0 mt-2">Sie sollten <a href="Account/Manage/GenerateRecoveryCodes">neue Wiederherstellungscodes erzeugen</a>.</p>
+                    </div>
+                }
+
+                <div class="dsms-account-actions mb-4">
+                    @if (isMachineRemembered)
+                    {
+                        <form @formname="forget-browser" @onsubmit="OnSubmitForgetBrowserAsync" method="post">
+                            <AntiforgeryToken />
+                            <button type="submit" class="btn btn-outline-secondary">Diesen Browser vergessen</button>
+                        </form>
+                    }
+
+                    <a href="Account/Manage/Disable2fa" class="btn btn-outline-secondary">Zwei-Faktor deaktivieren</a>
+                    <a href="Account/Manage/GenerateRecoveryCodes" class="btn btn-outline-secondary">Wiederherstellungscodes zurücksetzen</a>
+                </div>
+            }
+
+            <h5 class="dsms-form-section">Authenticator-App</h5>
+            <div class="dsms-account-actions">
+                @if (!hasAuthenticator)
+                {
+                    <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary">Authenticator-App hinzufügen</a>
+                }
+                else
+                {
+                    <a href="Account/Manage/EnableAuthenticator" class="btn btn-outline-secondary">Authenticator-App einrichten</a>
+                    <a href="Account/Manage/ResetAuthenticator" class="btn btn-outline-secondary">Authenticator-App zurücksetzen</a>
+                }
             </div>
         }
-        else if (recoveryCodesLeft == 1)
+        else
         {
-            <div class="alert alert-danger">
-                <strong>You have 1 recovery code left.</strong>
-                <p>You can <a href="Account/Manage/GenerateRecoveryCodes">generate a new set of recovery codes</a>.</p>
+            <div class="alert alert-danger dsms-alert">
+                <strong>Datenschutz- und Cookie-Richtlinie wurden nicht akzeptiert.</strong>
+                <p class="mb-0 mt-2">Sie müssen die Richtlinie akzeptieren, bevor Sie die Zwei-Faktor-Authentifizierung aktivieren können.</p>
             </div>
         }
-        else if (recoveryCodesLeft <= 3)
-        {
-            <div class="alert alert-warning">
-                <strong>You have @recoveryCodesLeft recovery codes left.</strong>
-                <p>You should <a href="Account/Manage/GenerateRecoveryCodes">generate a new set of recovery codes</a>.</p>
-            </div>
-        }
-
-        if (isMachineRemembered)
-        {
-            <form style="display: inline-block" @formname="forget-browser" @onsubmit="OnSubmitForgetBrowserAsync" method="post">
-                <AntiforgeryToken />
-                <button type="submit" class="btn btn-primary">Forget this browser</button>
-            </form>
-        }
-
-        <a href="Account/Manage/Disable2fa" class="btn btn-primary">Disable 2FA</a>
-        <a href="Account/Manage/GenerateRecoveryCodes" class="btn btn-primary">Reset recovery codes</a>
-    }
-
-    <h4>Authenticator app</h4>
-    @if (!hasAuthenticator)
-    {
-        <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary">Add authenticator app</a>
-    }
-    else
-    {
-        <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary">Set up authenticator app</a>
-        <a href="Account/Manage/ResetAuthenticator" class="btn btn-primary">Reset authenticator app</a>
-    }
-}
-else
-{
-    <div class="alert alert-danger">
-        <strong>Privacy and cookie policy have not been accepted.</strong>
-        <p>You must accept the policy before you can enable two factor authentication.</p>
     </div>
-}
+</div>
 
 @code {
     private bool canTrack;
@@ -100,7 +111,7 @@ else
         await SignInManager.ForgetTwoFactorClientAsync();
 
         RedirectManager.RedirectToCurrentPageWithStatus(
-            "The current browser has been forgotten. When you login again from this browser you will be prompted for your 2fa code.",
+            "Dieser Browser wurde vergessen. Bei der nächsten Anmeldung in diesem Browser werden Sie erneut nach Ihrem Zwei-Faktor-Code gefragt.",
             HttpContext);
     }
 }

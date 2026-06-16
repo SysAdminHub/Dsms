@@ -1,0 +1,208 @@
+@using Dsms.Web.Services.Legal
+@* Nur Superuser: ausstehende Registrierungen (Vorbereitung für bezahlte Signups). *@
+@* Route deaktiviert – nur noch in Dsms.Provisioning. *@
+@* @page "/platform/signups" *@
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Registrierungen" />
+
+<PageHeader Title="Registrierungen" Subtitle="Öffentliche und manuelle Registrierungen – Übersicht und Provisioning-Historie">
+    <a class="btn btn-outline-primary" href="platform/signups/create">Neu vormerken</a>
+</PageHeader>
+
+<div class="dsms-card dsms-form-card mb-4">
+    <div class="dsms-card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Suche</label>
+                <input class="form-control" @bind="_search" placeholder="Kunde, E-Mail, Mandant …" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select class="form-select" @bind="_statusFilter">
+                    <option value="">Alle</option>
+                    @foreach (var status in PendingSignupStatuses.All)
+                    {
+                        <option value="@status">@PendingSignupDisplayHelper.GetStatusDisplayName(status)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Tarif</label>
+                <select class="form-select" @bind="_planFilter">
+                    <option value="">Alle</option>
+                    @foreach (var plan in _plans)
+                    {
+                        <option value="@plan.Id">@plan.DisplayName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Von</label>
+                <InputDate class="form-control" @bind-Value="_createdFrom" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Bis</label>
+                <InputDate class="form-control" @bind-Value="_createdTo" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Rechnungsstatus</label>
+                <select class="form-select" @bind="_billingStatusFilter">
+                    <option value="">Alle</option>
+                    @foreach (var status in BillingStatuses.All)
+                    {
+                        <option value="@status">@BillingStatuses.GetDisplayName(status)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Nächste Rechnung bis</label>
+                <InputDate class="form-control" @bind-Value="_nextInvoiceUntil" TValue="DateOnly?" />
+            </div>
+            <div class="col-md-1">
+                <button type="button" class="btn btn-outline-primary w-100" @onclick="LoadAsync">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_items.Count == 0)
+{
+    <div class="alert alert-info dsms-alert">Keine Registrierungen gefunden.</div>
+}
+else
+{
+    <div class="dsms-card">
+        <div class="dsms-table-wrap">
+            <table class="table dsms-table">
+                <thead>
+                    <tr>
+                        <th>Erstellt</th>
+                        <th>Status</th>
+                        <th>Kunde</th>
+                        <th>Mandant</th>
+                        <th>Admin</th>
+                        <th>Plan</th>
+                        <th>Quelle</th>
+                        <th>Betrag</th>
+                        <th>Rechnung</th>
+                        <th>Nächste Rechnung</th>
+                        <th>Legal</th>
+                        <th>Lizenz</th>
+                        <th>Provisioniert</th>
+                        <th>Fehler</th>
+                        <th class="dsms-table-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _items)
+                    {
+                        <tr>
+                            <td>@item.CreatedAt.ToLocalTime().ToString("g")</td>
+                            <td>
+                                <StatusBadge Text="@PendingSignupDisplayHelper.GetStatusDisplayName(item.Status)"
+                                             Variant="@PendingSignupDisplayHelper.StatusVariant(item.Status)" />
+                            </td>
+                            <td>
+                                @item.CustomerName
+                                @if (!string.IsNullOrWhiteSpace(item.CustomerEmail))
+                                {
+                                    <div class="text-muted small">@item.CustomerEmail</div>
+                                }
+                            </td>
+                            <td>@item.TenantName</td>
+                            <td>
+                                @item.AdminDisplayName
+                                <div class="text-muted small">@item.AdminEmail</div>
+                            </td>
+                            <td>@(item.PlanDisplayNameSnapshot ?? "—")</td>
+                            <td class="small">@(item.Source ?? "—")</td>
+                            <td class="small" style="white-space: pre-line">
+                                @PendingSignupDisplayHelper.FormatListPriceSummary(item)
+                                @if (!string.IsNullOrWhiteSpace(item.DiscountCodeSnapshot)
+                                    && !PendingSignupDisplayHelper.IsFreeMonthsDiscount(item.DiscountTypeSnapshot))
+                                {
+                                    <div class="text-muted small">
+                                        Rabatt: @item.DiscountCodeSnapshot
+                                        @if (item.Status == PendingSignupStatuses.Provisioned)
+                                        {
+                                            <StatusBadge Text="eingelöst" Variant="success" />
+                                        }
+                                    </div>
+                                }
+                            </td>
+                            <td>
+                                <StatusBadge Text="@PendingSignupDisplayHelper.GetBillingStatusDisplay(item.BillingStatus, item.MetadataJson, item.PaymentProvider, item.Amount)"
+                                             Variant="@PendingSignupDisplayHelper.BillingStatusBadgeVariant(item.BillingStatus, item.MetadataJson, item.PaymentProvider, item.Amount)" />
+                            </td>
+                            <td class="small">@BillingStatusDisplayHelper.FormatNextInvoiceDate(item.NextInvoiceDate, PendingSignupDisplayHelper.IsFreeSignup(item.PaymentProvider, item.Amount))</td>
+                            <td class="small" style="white-space: pre-line">
+                                @if (item.LegalAcceptance?.HasAcceptance == true)
+                                {
+                                    <StatusBadge Text="Legal akzeptiert" Variant="success" />
+                                    <div class="text-muted mt-1">@LegalAcceptanceDisplayHelper.FormatListSummary(item.LegalAcceptance)</div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Keine Legal-Zustimmung gefunden</span>
+                                }
+                            </td>
+                            <td>@(item.ProvisionedLicenseNumber ?? "—")</td>
+                            <td>@(item.ProvisionedAt?.ToLocalTime().ToString("g") ?? "—")</td>
+                            <td class="small text-danger">@(item.ErrorMessage ?? "—")</td>
+                            <td class="dsms-table-actions">
+                                <a class="btn btn-sm btn-outline-secondary" href="@($"platform/signups/{item.Id}")">Details</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private IPendingSignupService PendingSignupService { get; set; } = null!;
+    [Inject] private ISubscriptionPlanService PlanService { get; set; } = null!;
+
+    private List<PendingSignupListDto> _items = [];
+    private List<SubscriptionPlanOptionDto> _plans = [];
+    private bool _loading = true;
+    private string _search = "";
+    private string _statusFilter = "";
+    private string _planFilter = "";
+    private DateTime? _createdFrom;
+    private DateTime? _createdTo;
+    private string _billingStatusFilter = "";
+    private DateOnly? _nextInvoiceUntil;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _plans = (await PlanService.GetPlanOptionsAsync()).ToList();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        Guid? planId = Guid.TryParse(_planFilter, out var parsed) ? parsed : null;
+
+        _items = (await PendingSignupService.GetAllAsync(
+            string.IsNullOrWhiteSpace(_search) ? null : _search,
+            string.IsNullOrWhiteSpace(_statusFilter) ? null : _statusFilter,
+            planId,
+            _createdFrom,
+            _createdTo,
+            string.IsNullOrWhiteSpace(_billingStatusFilter) ? null : _billingStatusFilter,
+            _nextInvoiceUntil)).ToList();
+
+        _loading = false;
+    }
+}

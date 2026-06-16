@@ -1,0 +1,171 @@
+@* Route deaktiviert – nur noch in Dsms.Provisioning. *@
+@* @page "/platform/plans/{Id:guid}" *@
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Tarifdetails" />
+
+@if (_loading)
+{
+    <div class="dsms-loading">Lade …</div>
+}
+else if (_plan is null)
+{
+    <div class="alert alert-warning dsms-alert">Tarif nicht gefunden.</div>
+}
+else
+{
+    <PageHeader Title="@_plan.DisplayName" Subtitle="@($"Technischer Name: {_plan.Name}")">
+        <a class="btn btn-outline-primary" href="@($"platform/plans/edit/{_plan.Id}")">Bearbeiten</a>
+        <a class="btn btn-outline-secondary" href="platform/plans">Zur Übersicht</a>
+    </PageHeader>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Basisdaten</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Id</dt>
+                        <dd class="col-sm-7"><code>@_plan.Id</code></dd>
+                        <dt class="col-sm-5">Name</dt>
+                        <dd class="col-sm-7"><code>@_plan.Name</code></dd>
+                        <dt class="col-sm-5">Anzeigename</dt>
+                        <dd class="col-sm-7">@_plan.DisplayName</dd>
+                        <dt class="col-sm-5">Beschreibung</dt>
+                        <dd class="col-sm-7">@(_plan.Description ?? "—")</dd>
+                        <dt class="col-sm-5">Aktiv</dt>
+                        <dd class="col-sm-7"><StatusBadge Text="@(_plan.IsActive ? "Ja" : "Nein")" Variant="@(_plan.IsActive ? "success" : "default")" /></dd>
+                        <dt class="col-sm-5">Kostenlos</dt>
+                        <dd class="col-sm-7">@(_plan.IsFree ? "Ja" : "Nein")</dd>
+                        <dt class="col-sm-5">Öffentlich registrierbar</dt>
+                        <dd class="col-sm-7"><StatusBadge Text="@(_plan.IsPublicSignupEnabled ? "Ja" : "Nein")" Variant="@(_plan.IsPublicSignupEnabled ? "success" : "default")" /></dd>
+                        <dt class="col-sm-5">Sortierung</dt>
+                        <dd class="col-sm-7">@_plan.SortOrder</dd>
+                        <dt class="col-sm-5">Erstellt</dt>
+                        <dd class="col-sm-7">@_plan.CreatedAt.ToLocalTime().ToString("g")</dd>
+                        <dt class="col-sm-5">Aktualisiert</dt>
+                        <dd class="col-sm-7">@(_plan.UpdatedAt?.ToLocalTime().ToString("g") ?? "—")</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Preise</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Preis monatlich</dt>
+                        <dd class="col-sm-7">@SubscriptionPlanDisplayHelper.FormatMonthlyPrice(_plan.PriceMonthly, _plan.Currency, _plan.IsFree)</dd>
+                        <dt class="col-sm-5">Preis jährlich</dt>
+                        <dd class="col-sm-7">@SubscriptionPlanDisplayHelper.FormatYearlyPrice(_plan.PriceYearly, _plan.Currency, _plan.IsFree)</dd>
+                        <dt class="col-sm-5">Währung</dt>
+                        <dd class="col-sm-7">@_plan.Currency</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Sonderangebot</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Sonderpreis aktiv</dt>
+                        <dd class="col-sm-7">@(_plan.IsPromotionalPriceEnabled ? "Ja" : "Nein")</dd>
+                        <dt class="col-sm-5">Sonderpreis monatlich</dt>
+                        <dd class="col-sm-7">@SubscriptionPlanDisplayHelper.FormatPromotionalMonthlyPriceForDetails(_plan.PromotionalMonthlyPrice, _plan.Currency)</dd>
+                        <dt class="col-sm-5">Sonderpreis jährlich</dt>
+                        <dd class="col-sm-7">@SubscriptionPlanDisplayHelper.FormatPromotionalYearlyPriceForDetails(_plan.PromotionalYearlyPrice, _plan.Currency)</dd>
+                        <dt class="col-sm-5">Badge-Text</dt>
+                        <dd class="col-sm-7">@(_plan.PromotionalBadgeText ?? "—")</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Externe Billing-Felder</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">ExternalProductId</dt>
+                        <dd class="col-sm-7">@(_plan.ExternalProductId ?? "—")</dd>
+                        <dt class="col-sm-5">ExternalMonthlyPriceId</dt>
+                        <dd class="col-sm-7">@(_plan.ExternalMonthlyPriceId ?? "—")</dd>
+                        <dt class="col-sm-5">ExternalYearlyPriceId</dt>
+                        <dd class="col-sm-7">@(_plan.ExternalYearlyPriceId ?? "—")</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card">
+                <div class="dsms-card-header"><strong>Interne Notiz</strong></div>
+                <div class="dsms-card-body">
+                    <p class="mb-0">@(_plan.InternalNote ?? "—")</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Lizenzweite Limits</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-6">Max. Mandanten</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_plan.MaxTenants)</dd>
+                        <dt class="col-sm-6">Max. Admins</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_plan.MaxAdmins)</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card mb-4">
+                <div class="dsms-card-header"><strong>Limits pro Mandant</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-6">Max. Benutzer pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_plan.MaxUsersPerTenant)</dd>
+                        <dt class="col-sm-6">Max. Auditoren pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_plan.MaxAuditorsPerTenant)</dd>
+                        <dt class="col-sm-6">Max. eigene Auditvorlagen pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_plan.MaxCustomAuditTemplatesPerTenant)</dd>
+                        <dt class="col-sm-6">Max. laufende Audits pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_plan.MaxActiveAuditsPerTenant)</dd>
+                        <dt class="col-sm-6">Max. Verarbeitungstätigkeiten pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_plan.MaxProcessingActivitiesPerTenant)</dd>
+                        <dt class="col-sm-6">Max. DSFA pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_plan.MaxDpiaPerTenant)</dd>
+                        <dt class="col-sm-6">Max. TOMs pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_plan.MaxTomsPerTenant)</dd>
+                        <dt class="col-sm-6">Max. Dienstleister pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_plan.MaxProcessorsPerTenant)</dd>
+                        <dt class="col-sm-6">Max. laufende Maßnahmen pro Mandant</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_plan.MaxActiveMeasuresPerTenant)</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="dsms-card">
+                <div class="dsms-card-header"><strong>Sonstige Limits</strong></div>
+                <div class="dsms-card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-6">Max. Speicher (MB)</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_plan.MaxStorageMb)</dd>
+                        <dt class="col-sm-6">Max. E-Mail-Erinnerungen / Monat</dt>
+                        <dd class="col-sm-6">@SubscriptionPlanDisplayHelper.FormatLimit(_plan.MaxEmailRemindersPerMonth)</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [Inject] private ISubscriptionPlanService PlanService { get; set; } = null!;
+
+    private SubscriptionPlanDetailsDto? _plan;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _plan = await PlanService.GetPlanByIdAsync(Id);
+        _loading = false;
+    }
+}

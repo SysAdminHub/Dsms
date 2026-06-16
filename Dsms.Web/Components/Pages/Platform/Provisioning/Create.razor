@@ -1,0 +1,197 @@
+@* Route deaktiviert – nur noch in Dsms.Provisioning. *@
+@* @page "/platform/provisioning/create" *@
+@attribute [Authorize(Roles = DsmsRoles.Superuser)]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Kunde provisionieren" />
+
+<PageHeader Title="Kunde provisionieren"
+            Subtitle="Erstellt Lizenz, ersten Mandanten und Admin-Benutzer aus einer Tarifvorlage." />
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger dsms-alert">@_errorMessage</div>
+}
+
+@if (_result is not null)
+{
+    <div class="alert @(_result.Success ? "alert-success" : "alert-danger") dsms-alert">
+        <strong>@_result.Message</strong>
+        @if (_result.Success)
+        {
+            <ul class="mb-0 mt-2">
+                <li>Lizenz: @_result.LicenseNumber</li>
+                <li>Mandant: @_result.TenantName</li>
+                <li>Admin: @_result.AdminEmail</li>
+                <li>Passwortmail: @(_result.PasswordSetupEmailSent ? "versendet" : "nicht versendet")</li>
+            </ul>
+            @if (_result.Warnings.Count > 0)
+            {
+                <ul class="mb-0 mt-2">
+                    @foreach (var warning in _result.Warnings)
+                    {
+                        <li>@warning</li>
+                    }
+                </ul>
+            }
+            <div class="mt-3">
+                @if (_result.LicenseId is Guid licenseId)
+                {
+                    <a class="btn btn-sm btn-outline-primary me-2" href="@($"platform/licenses/{licenseId}")">Zur Lizenz</a>
+                }
+                @if (_result.TenantId is int tenantId)
+                {
+                    <a class="btn btn-sm btn-outline-secondary me-2" href="@($"tenants/edit/{tenantId}")">Zum Mandanten</a>
+                }
+                @if (!string.IsNullOrEmpty(_result.AdminUserId))
+                {
+                    <a class="btn btn-sm btn-outline-secondary" href="@($"users/edit/{_result.AdminUserId}")">Zum Admin</a>
+                }
+            </div>
+        }
+        else if (_result.Errors.Count > 0)
+        {
+            <ul class="mb-0 mt-2">
+                @foreach (var error in _result.Errors)
+                {
+                    <li>@error</li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+<div class="dsms-card dsms-form-card">
+    <div class="dsms-card-body">
+        <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+            <DataAnnotationsValidator />
+
+            <h5 class="mb-3">Tarif</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label">Tarif *</label>
+                    <select class="form-select" @bind="_model.PlanId">
+                        <option value="@Guid.Empty">Bitte wählen …</option>
+                        @foreach (var plan in _plans)
+                        {
+                            <option value="@plan.Id">@SubscriptionPlanDisplayHelper.FormatPlanOptionLabel(plan)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <h5 class="mb-3">Kunde / Lizenz</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label">Kundenname *</label>
+                    <InputText class="form-control" @bind-Value="_model.CustomerName" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Kunden-E-Mail</label>
+                    <InputText class="form-control" @bind-Value="_model.CustomerEmail" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Lizenzstatus</label>
+                    <InputSelect class="form-select" @bind-Value="_model.LicenseStatus">
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                        <option value="Suspended">Suspended</option>
+                    </InputSelect>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Gültig von</label>
+                    <InputDate class="form-control" @bind-Value="_model.LicenseValidFrom" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Gültig bis</label>
+                    <InputDate class="form-control" @bind-Value="_model.LicenseValidUntil" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Interne Lizenznotiz</label>
+                    <InputTextArea class="form-control" rows="2" @bind-Value="_model.LicenseInternalNote" />
+                </div>
+            </div>
+
+            <h5 class="mb-3">Mandant</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label">Mandantenname *</label>
+                    <InputText class="form-control" @bind-Value="_model.TenantName" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Rechtlicher Name</label>
+                    <InputText class="form-control" @bind-Value="_model.TenantLegalName" />
+                </div>
+            </div>
+
+            <h5 class="mb-3">Erster Admin</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label">Admin-E-Mail *</label>
+                    <InputText class="form-control" @bind-Value="_model.AdminEmail" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Anzeigename *</label>
+                    <InputText class="form-control" @bind-Value="_model.AdminDisplayName" />
+                </div>
+            </div>
+
+            <div class="form-check mb-4">
+                <InputCheckbox class="form-check-input" @bind-Value="_model.SendWelcomeEmail" id="sendWelcome" />
+                <label class="form-check-label" for="sendWelcome">Willkommens-/Passwortvergabe-Mail senden</label>
+            </div>
+
+            <div class="dsms-form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">Kunde anlegen</button>
+                <a class="btn btn-outline-secondary" href="platform/licenses">Abbrechen</a>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [Inject] private IProvisioningService ProvisioningService { get; set; } = null!;
+    [Inject] private ISubscriptionPlanService PlanService { get; set; } = null!;
+
+    private ProvisionCustomerRequestDto _model = new()
+    {
+        LicenseStatus = "Active",
+        LicenseValidFrom = DateTime.UtcNow.Date,
+        SendWelcomeEmail = true,
+        Source = "ManualProvisioning"
+    };
+
+    private List<SubscriptionPlanOptionDto> _plans = [];
+    private ProvisionCustomerResultDto? _result;
+    private bool _saving;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _plans = (await PlanService.GetActivePlansAsync()).ToList();
+    }
+
+    private async Task SaveAsync()
+    {
+        _errorMessage = null;
+        _result = null;
+        _saving = true;
+
+        try
+        {
+            _result = await ProvisioningService.ProvisionCustomerAsync(_model);
+            if (!_result.Success)
+            {
+                _errorMessage = _result.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

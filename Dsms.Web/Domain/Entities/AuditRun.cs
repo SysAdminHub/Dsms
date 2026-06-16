@@ -6,13 +6,19 @@ namespace Dsms.Web.Domain.Entities;
 /// Konkreter Audit-Durchlauf auf Basis einer Vorlage.
 /// <see cref="Status"/> steuert Lebenszyklus; Zeitstempel werden in der UI beim Speichern gesetzt.
 /// </summary>
-public class AuditRun : EntityBase
+public class AuditRun : ArchivableEntityBase, ITenantEntity
 {
     public int TenantId { get; set; }
     public Tenant Tenant { get; set; } = null!;
 
     public int AuditTemplateId { get; set; }
     public AuditTemplate AuditTemplate { get; set; } = null!;
+
+    /// <summary>Snapshot des Vorlagentitels beim Auditstart.</summary>
+    public string? TemplateTitleSnapshot { get; set; }
+
+    /// <summary>Snapshot der Vorlagenversion beim Auditstart.</summary>
+    public string? TemplateVersionSnapshot { get; set; }
 
     public string Title { get; set; } = string.Empty;
     public AuditRunStatus Status { get; set; } = AuditRunStatus.Draft;
@@ -22,5 +28,4 @@ public class AuditRun : EntityBase
 
     public ICollection<AuditAnswer> Answers { get; set; } = [];
     public ICollection<Measure> Measures { get; set; } = [];
-    public ICollection<EvidenceDocument> Documents { get; set; } = [];
 }

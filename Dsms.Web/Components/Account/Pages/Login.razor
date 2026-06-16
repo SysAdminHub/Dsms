@@ -11,14 +11,17 @@
 
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
+@inject ILogger<Login> Logger
+@inject Dsms.Web.Services.Logging.ILogService LogService
+@inject IApplicationInfoService ApplicationInfo
 
-<PageTitle>Anmelden</PageTitle>
+<BrandedPageTitle Title="Anmelden" />
 
 <div class="dsms-login-card">
     <div class="dsms-login-brand">
-        <div class="dsms-login-logo">DS</div>
-        <h1>Willkommen bei DSMS</h1>
-        <p>Datenschutz-Management für Ihr Unternehmen</p>
+        <BrandLogo />
+        <h1>Willkommen bei @ApplicationInfo.ProductName</h1>
+        <p>@ApplicationInfo.Description</p>
     </div>
 
     <StatusMessage Message="@errorMessage" />
@@ -43,6 +46,12 @@
         </div>
         <button type="submit" class="w-100 btn btn-primary btn-lg">Anmelden</button>
     </EditForm>
+
+    <div class="text-center mt-3">
+        <a href="passwort-vergessen">Passwort vergessen?</a>
+        <span class="mx-2">·</span>
+        <a href="@ApplicationInfo.ProvisioningSignupUrl">Zur Registrierung</a>
+    </div>
 </div>
 
 @code {
@@ -80,15 +89,79 @@
         var user = await SignInManager.UserManager.FindByEmailAsync(Input.Email);
         if (user is not null && !user.IsActive)
         {
+            try
+            {
+                await LogService.LogLoginFailedAsync(Input.Email, "AccountInactive");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Login-Securitylog konnte nicht geschrieben werden.");
+            }
+
             errorMessage = "Dieses Benutzerkonto ist deaktiviert. Bitte wenden Sie sich an einen Administrator.";
             return;
         }
 
         var result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+
+        Logger.LogInformation(
+            "Password sign-in for {Email}: Succeeded={Succeeded}, RequiresTwoFactor={RequiresTwoFactor}",
+            Input.Email, result.Succeeded, result.RequiresTwoFactor);
+
         if (result.Succeeded)
         {
+            if (user is not null)
+            {
+                try
+                {
+                    await LogService.LogLoginSuccessfulAsync(user);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Login-Auditlog konnte nicht geschrieben werden.");
+                }
+            }
+
             RedirectManager.RedirectTo(ReturnUrl);
             return;
+        }
+
+        if (result.RequiresTwoFactor)
+        {
+            // forceLoad: vollständiger Request nach Form-POST, damit 2FA-Zwischencookie gesetzt wird.
+            RedirectManager.RedirectTo(
+                "Account/LoginWith2fa",
+                new Dictionary<string, object?>
+                {
+                    ["ReturnUrl"] = ReturnUrl,
+                    ["RememberMe"] = Input.RememberMe
+                },
+                forceLoad: true);
+            return;
+        }
+
+        if (result.IsLockedOut)
+        {
+            try
+            {
+                await LogService.LogLoginFailedAsync(Input.Email, "LockedOut");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Login-Securitylog konnte nicht geschrieben werden.");
+            }
+
+            RedirectManager.RedirectTo("Account/Lockout", forceLoad: true);
+            return;
+        }
+
+        try
+        {
+            await LogService.LogLoginFailedAsync(Input.Email, "InvalidCredentials");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Login-Securitylog konnte nicht geschrieben werden.");
         }
 
         errorMessage = "Anmeldung fehlgeschlagen. E-Mail oder Passwort prüfen.";

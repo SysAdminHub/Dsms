@@ -6,6 +6,7 @@ using Dsms.Web.Services.Logging;
 using Dsms.Web.Services.PasswordReset;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Dsms.Web.Services;
 
@@ -18,7 +19,8 @@ public class UserManagementService(
     IPasswordResetService passwordReset,
     ILicenseService licenseService,
     ILogService logService,
-    ILicenseCreateGuard licenseCreateGuard) : IUserManagementService
+    ILicenseCreateGuard licenseCreateGuard,
+    ILogger<UserManagementService> logger) : IUserManagementService
 {
     /// <inheritdoc />
     public async Task<IReadOnlyList<UserListItem>> ListUsersAsync(bool includeInactive)
@@ -147,7 +149,19 @@ public class UserManagementService(
         }
 
         var isSuperuserManaging = await access.IsSuperuserAsync();
-        var tenantIds = await ResolveTenantIdsForSaveAsync(model.Role, model.TenantIds, model.TenantId);
+        var tenantIds = await ResolveTenantIdsForSaveAsync(
+            model.Role, model.TenantIds, model.TenantId, isSuperuserManaging);
+
+        await LogUserTenantValidationAsync(
+            context: "CreateUser",
+            editedUserId: null,
+            role: model.Role,
+            licenseId: model.LicenseId,
+            requestedTenantIds: model.TenantIds,
+            legacyTenantId: model.TenantId,
+            resolvedTenantIds: tenantIds,
+            existingTenantIds: [],
+            isSuperuserManaging: isSuperuserManaging);
 
         var validation = await ValidateRoleAndTenantsAsync(model.Role, tenantIds, isNewUser: true);
         if (!validation.Succeeded)
@@ -164,7 +178,7 @@ public class UserManagementService(
         if (tenantIds.Count == 0
             && RequiresTenantAssignment(model.Role, isSuperuserManaging))
         {
-            return UserOperationResult.Fail("Für diese Rolle ist mindestens ein Mandant erforderlich.");
+            return UserOperationResult.Fail("Bitte wähle mindestens einen Mandanten aus.");
         }
 
         var createLimitCheck = await ValidateCreateLimitAsync(model.Role, model.LicenseId, tenantIds, isSuperuserManaging);
@@ -183,7 +197,7 @@ public class UserManagementService(
             Email = model.Email.Trim(),
             EmailConfirmed = true,
             DisplayName = model.DisplayName.Trim(),
-            TenantId = tenantIds.FirstOrDefault(),
+            TenantId = tenantIds.Count > 0 ? tenantIds[0] : null,
             LicenseId = resolvedLicenseId,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
@@ -235,11 +249,28 @@ public class UserManagementService(
         }
 
         var isSuperuserManaging = await access.IsSuperuserAsync();
-        var tenantIds = await ResolveTenantIdsForSaveAsync(model.Role, model.TenantIds, model.TenantId);
+        var existingTenantIds = await GetUserTenantIdsAsync(userId);
+        var tenantIds = await ResolveTenantIdsForSaveAsync(
+            model.Role, model.TenantIds, model.TenantId, isSuperuserManaging);
+
+        await LogUserTenantValidationAsync(
+            context: "UpdateUser",
+            editedUserId: userId,
+            role: model.Role,
+            licenseId: model.LicenseId,
+            requestedTenantIds: model.TenantIds,
+            legacyTenantId: model.TenantId,
+            resolvedTenantIds: tenantIds,
+            existingTenantIds: existingTenantIds,
+            isSuperuserManaging: isSuperuserManaging);
 
         var validation = await ValidateRoleAndTenantsAsync(model.Role, tenantIds, isNewUser: false);
         if (!validation.Succeeded)
         {
+            logger.LogWarning(
+                "Benutzerverwaltung UpdateUser: Mandantenvalidierung fehlgeschlagen für {UserId}. Grund: {Reason}",
+                userId,
+                validation.ErrorMessage);
             return validation;
         }
 
@@ -252,16 +283,16 @@ public class UserManagementService(
         if (tenantIds.Count == 0
             && RequiresTenantAssignment(model.Role, isSuperuserManaging))
         {
-            return UserOperationResult.Fail("Für diese Rolle ist mindestens ein Mandant erforderlich.");
+            return UserOperationResult.Fail("Bitte wähle mindestens einen Mandanten aus.");
         }
 
         var oldLicenseId = user.LicenseId;
         var oldIsActive = user.IsActive;
         var oldRole = (await userManager.GetRolesAsync(user)).FirstOrDefault();
-        var oldTenantIds = await GetUserTenantIdsAsync(userId);
+        var oldTenantIds = existingTenantIds;
 
         user.DisplayName = model.DisplayName.Trim();
-        user.TenantId = tenantIds.FirstOrDefault();
+        user.TenantId = tenantIds.Count > 0 ? tenantIds[0] : null;
         user.IsActive = model.IsActive;
         user.LicenseId = await ResolveLicenseIdForSaveAsync(
             model.Role, model.LicenseId, tenantIds, isSuperuserManaging);
@@ -503,8 +534,7 @@ public class UserManagementService(
 
         if (tenantIds.Count == 0)
         {
-            return UserOperationResult.Fail(
-                "Benutzer und Auditoren müssen einem Mandanten der ausgewählten Lizenz zugeordnet sein.");
+            return UserOperationResult.Fail("Bitte wähle mindestens einen Mandanten aus.");
         }
 
         foreach (var tenantId in tenantIds)
@@ -677,11 +707,19 @@ public class UserManagementService(
                 "Kein Mandant zugeordnet. Bitte wählen Sie oben im Header einen aktiven Mandanten aus.");
         }
 
+        if (tenantIds.Count == 0)
+        {
+            return UserOperationResult.Ok();
+        }
+
         foreach (var tenantId in tenantIds)
         {
-            if (!await access.CanAccessTenantAsync(tenantId))
+            if (!isSuperuserManaging)
             {
-                return UserOperationResult.Fail("Ein ausgewählter Mandant ist nicht zugänglich.");
+                if (!await access.CanAccessTenantAsync(tenantId))
+                {
+                    return UserOperationResult.Fail("Ein ausgewählter Mandant ist nicht zugänglich.");
+                }
             }
 
             await using var db = await dbFactory.CreateDbContextAsync();
@@ -698,20 +736,19 @@ public class UserManagementService(
     private async Task<IReadOnlyList<int>> ResolveTenantIdsForSaveAsync(
         string role,
         IList<int> requestedTenantIds,
-        int? legacyTenantId)
+        int? legacyTenantId,
+        bool isSuperuserManaging)
     {
         if (IUserAccessService.RoleRequiresNoTenant(role))
         {
             return [];
         }
 
-        var ids = requestedTenantIds.Count > 0
-            ? requestedTenantIds.ToList()
-            : legacyTenantId is int tid ? [tid] : [];
-
-        if (await access.IsSuperuserAsync())
+        if (isSuperuserManaging)
         {
-            return ids;
+            return requestedTenantIds.Count > 0
+                ? requestedTenantIds.Distinct().ToList()
+                : [];
         }
 
         var ownTenant = await access.GetCurrentTenantIdAsync();
@@ -720,6 +757,51 @@ public class UserManagementService(
             return [ownTenant.Value];
         }
 
-        return ids;
+        return requestedTenantIds.Count > 0
+            ? requestedTenantIds.ToList()
+            : legacyTenantId is int tid and > 0 ? [tid] : [];
+    }
+
+    private async Task LogUserTenantValidationAsync(
+        string context,
+        string? editedUserId,
+        string role,
+        Guid? licenseId,
+        IList<int> requestedTenantIds,
+        int? legacyTenantId,
+        IReadOnlyList<int> resolvedTenantIds,
+        IReadOnlyList<int> existingTenantIds,
+        bool isSuperuserManaging)
+    {
+        var currentHeaderTenantId = await access.GetCurrentTenantIdAsync();
+        var accessibleTenantIds = new List<int>();
+
+        if (!isSuperuserManaging)
+        {
+            foreach (var tenantId in resolvedTenantIds)
+            {
+                if (await access.CanAccessTenantAsync(tenantId))
+                {
+                    accessibleTenantIds.Add(tenantId);
+                }
+            }
+        }
+
+        logger.LogInformation(
+            "Benutzerverwaltung {Context}: EditedUserId={EditedUserId}, Role={Role}, IsSuperuserManaging={IsSuperuserManaging}, " +
+            "LicenseId={LicenseId}, RequestedTenantIds=[{RequestedTenantIds}], LegacyTenantId={LegacyTenantId}, " +
+            "ExistingTenantIds=[{ExistingTenantIds}], ResolvedTenantIds=[{ResolvedTenantIds}], " +
+            "CurrentHeaderTenantId={CurrentHeaderTenantId}, AccessibleRequestedTenantIds=[{AccessibleTenantIds}]",
+            context,
+            editedUserId,
+            role,
+            isSuperuserManaging,
+            licenseId,
+            string.Join(", ", requestedTenantIds),
+            legacyTenantId,
+            string.Join(", ", existingTenantIds),
+            string.Join(", ", resolvedTenantIds),
+            currentHeaderTenantId,
+            string.Join(", ", accessibleTenantIds));
     }
 }

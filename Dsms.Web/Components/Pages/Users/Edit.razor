@@ -204,7 +204,7 @@ else
         _editModel = new EditFormModel
         {
             DisplayName = _user.DisplayName,
-            TenantId = assignedTenantIds.Count > 0 ? assignedTenantIds[0] : _user.TenantId,
+            TenantId = assignedTenantIds.Count > 0 ? assignedTenantIds[0] : null,
             TenantIds = assignedTenantIds.ToList(),
             Role = roles.FirstOrDefault() ?? DsmsRoles.User,
             IsActive = _user.IsActive,
@@ -341,7 +341,7 @@ else
         {
             _filteredTenants = (await TenantManagement.GetTenantsByLicenseAsync(licenseId)).ToList();
             _editModel.TenantIds.RemoveAll(id => _filteredTenants.All(t => t.Id != id));
-            _editModel.TenantId = _editModel.TenantIds.FirstOrDefault();
+            _editModel.TenantId = _editModel.TenantIds.Count > 0 ? _editModel.TenantIds[0] : null;
         }
         else
         {
@@ -376,7 +376,7 @@ else
             _editModel.TenantIds.Remove(tenantId);
         }
 
-        _editModel.TenantId = _editModel.TenantIds.FirstOrDefault();
+        _editModel.TenantId = _editModel.TenantIds.Count > 0 ? _editModel.TenantIds[0] : null;
     }
 
     private async Task SaveAsync()
@@ -398,7 +398,7 @@ else
             && _tenantRequired
             && (_editModel.LicenseId is null || _editModel.TenantIds.Count == 0))
         {
-            _errorMessage = "Benutzer und Auditoren müssen einem Mandanten der ausgewählten Lizenz zugeordnet sein.";
+            _errorMessage = "Bitte wähle mindestens einen Mandanten aus.";
             return;
         }
 
@@ -415,7 +415,7 @@ else
             DisplayName = _editModel.DisplayName,
             Role = _editModel.Role,
             LicenseId = _editModel.LicenseId,
-            TenantId = _editModel.TenantId,
+            TenantId = _editModel.TenantIds.Count > 0 ? _editModel.TenantIds[0] : null,
             TenantIds = _editModel.TenantIds,
             IsActive = _editModel.IsActive
         });

@@ -348,7 +348,7 @@ else
             _model.TenantIds.Remove(tenantId);
         }
 
-        _model.TenantId = _model.TenantIds.FirstOrDefault();
+        _model.TenantId = _model.TenantIds.Count > 0 ? _model.TenantIds[0] : null;
         await RefreshCreateLimitAsync();
     }
 
@@ -377,7 +377,7 @@ else
             DisplayName = _model.DisplayName,
             Role = _model.Role,
             LicenseId = _model.LicenseId,
-            TenantId = _model.TenantId,
+            TenantId = _model.TenantIds.Count > 0 ? _model.TenantIds[0] : null,
             TenantIds = _model.TenantIds
         });
 

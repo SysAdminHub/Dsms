@@ -1,4 +1,5 @@
 using Dsms.Web.Data;
+using Dsms.Web.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dsms.Web.Services.Licenses;
@@ -28,6 +29,8 @@ public sealed class LicenseFeatureService(
             .Select(t => t.License)
             .FirstOrDefaultAsync(ct);
 
-        return license?.HasTrainingModule ?? false;
+        // Im neuen Lizenzmodell ist der zeitabhängige Status maßgeblich
+        // (Unlimited / ActiveUntil / Trial); nach Ablauf gilt das Modul als nicht aktiv.
+        return license is not null && LicenseProductRules.IsTrainingModuleActive(license);
     }
 }

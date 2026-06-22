@@ -4,6 +4,7 @@ using Dsms.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Dsms.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260622130815_AddProductPricingAndLicensePaidPlanModel")]
+    partial class AddProductPricingAndLicensePaidPlanModel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2485,23 +2488,6 @@ namespace Dsms.Web.Migrations
                     b.Property<decimal?>("LargeStorageYearlyPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("SpecialBaseMonthlyPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("SpecialBaseYearlyPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<bool>("SpecialOfferActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("tinyint(1)")
-                        .HasDefaultValue(false);
-
-                    b.Property<string>("SpecialOfferBadgeText")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
 
                     b.Property<decimal>("TrainingModuleMonthlyPrice")
                         .HasPrecision(18, 2)

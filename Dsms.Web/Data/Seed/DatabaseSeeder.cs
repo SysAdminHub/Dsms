@@ -34,6 +34,7 @@ public static class DatabaseSeeder
         await EmailTemplateSeeder.SeedAsync(db);
         await PageHelpContentSeeder.SeedAsync(db);
         await SubscriptionPlanSeeder.SeedAsync(db);
+        await ProductPricingSettingsSeeder.SeedAsync(db);
         await SeedRolesAsync(roleManager);
         await EnsureDefaultCategoriesForAllTenantsAsync(db);
         await TrainingTemplateSeeder.SeedAsync(db);
@@ -105,6 +106,15 @@ public static class DatabaseSeeder
         license.MaxStorageMb = 500;
         license.MaxEmailRemindersPerMonth = 100;
         license.HasTrainingModule = true;
+        // Neues Preis-/Lizenzmodell: Demo-Lizenz als bezahlter Zugang mit dauerhaftem Schulungsmodul.
+        license.PaidPlanEnabled = true;
+        license.LicensedUserCount = 10;
+        license.IncludedStorageGb = ProductPricingDefaults.IncludedStorageGb;
+        license.AdditionalStorageGb = 0;
+        license.TrainingModuleStatus = TrainingModuleStatus.Unlimited;
+        license.TrainingModuleUnlimited = true;
+        license.TrainingModuleTrialEndsAt = null;
+        license.TrainingModuleValidUntil = null;
         license.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();

@@ -135,7 +135,9 @@ public sealed partial class LicenseService(
             MaxActiveMeasuresPerTenant = dto.MaxActiveMeasuresPerTenant,
             MaxStorageMb = dto.MaxStorageMb,
             MaxEmailRemindersPerMonth = dto.MaxEmailRemindersPerMonth,
-            HasTrainingModule = dto.HasTrainingModule
+            HasTrainingModule = dto.HasTrainingModule,
+            TrainingModuleStatus = dto.HasTrainingModule ? TrainingModuleStatus.Unlimited : TrainingModuleStatus.Disabled,
+            TrainingModuleUnlimited = dto.HasTrainingModule
         };
 
         db.Licenses.Add(license);
@@ -191,6 +193,10 @@ public sealed partial class LicenseService(
         license.MaxStorageMb = dto.MaxStorageMb;
         license.MaxEmailRemindersPerMonth = dto.MaxEmailRemindersPerMonth;
         license.HasTrainingModule = dto.HasTrainingModule;
+        license.TrainingModuleStatus = dto.HasTrainingModule
+            ? TrainingModuleStatus.Unlimited
+            : TrainingModuleStatus.Disabled;
+        license.TrainingModuleUnlimited = dto.HasTrainingModule;
 
         await db.SaveChangesAsync();
 

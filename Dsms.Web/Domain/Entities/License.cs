@@ -1,3 +1,5 @@
+using Dsms.Web.Domain.Enums;
+
 namespace Dsms.Web.Domain.Entities;
 
 /// <summary>
@@ -40,8 +42,39 @@ public class License
 
     /// <summary>
     /// Wirksamer Feature-Status: Schulungsmodul für Mandanten dieser Lizenz.
+    /// Legacy-Flag aus dem alten Tarifmodell; im neuen Modell ist <see cref="TrainingModuleStatus"/> maßgeblich.
     /// </summary>
     public bool HasTrainingModule { get; set; } = true;
+
+    // --- Neues Preis-/Lizenzmodell der Datenschutz-Cloud ---------------------
+
+    /// <summary>
+    /// Bezahlter Zugang aktiv. Bei <c>true</c> entfallen die fachlichen Objekt-Limits
+    /// (Verarbeitungstätigkeiten, DSFAs, Maßnahmen, TOMs, Dienstleister, Risiken);
+    /// bei <c>false</c> gelten weiterhin die Free-Limits aus der bisherigen Konfiguration.
+    /// </summary>
+    public bool PaidPlanEnabled { get; set; }
+
+    /// <summary>Anzahl der lizenzierten Benutzer (Abrechnungsgrundlage im bezahlten Zugang).</summary>
+    public int LicensedUserCount { get; set; } = 1;
+
+    /// <summary>Im Grundpreis enthaltener Speicherplatz in GB.</summary>
+    public int IncludedStorageGb { get; set; }
+
+    /// <summary>Zusätzlich hinzugebuchter Speicherplatz in GB.</summary>
+    public int AdditionalStorageGb { get; set; }
+
+    /// <summary>Zustand des optionalen Schulungsmoduls.</summary>
+    public TrainingModuleStatus TrainingModuleStatus { get; set; } = TrainingModuleStatus.Disabled;
+
+    /// <summary>Ende des kostenlosen Testzeitraums des Schulungsmoduls (bei <see cref="TrainingModuleStatus.Trial"/>).</summary>
+    public DateTime? TrainingModuleTrialEndsAt { get; set; }
+
+    /// <summary>Festes Ablaufdatum des Schulungsmoduls (bei <see cref="TrainingModuleStatus.ActiveUntil"/>).</summary>
+    public DateTime? TrainingModuleValidUntil { get; set; }
+
+    /// <summary>Schulungsmodul dauerhaft freigeschaltet (entspricht <see cref="TrainingModuleStatus.Unlimited"/>).</summary>
+    public bool TrainingModuleUnlimited { get; set; }
 
     public ICollection<Tenant> Tenants { get; set; } = [];
 }

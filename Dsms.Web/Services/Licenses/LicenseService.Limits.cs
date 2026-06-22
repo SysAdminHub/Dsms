@@ -70,28 +70,32 @@ public sealed partial class LicenseService
             tenantId,
             "Verarbeitungstätigkeiten",
             l => l.MaxProcessingActivitiesPerTenant,
-            (db, tid, _) => CountArchivableForTenantAsync<ProcessingActivity>(db, tid));
+            (db, tid, _) => CountArchivableForTenantAsync<ProcessingActivity>(db, tid),
+            waiveWhenPaid: true);
 
     public Task<LicenseLimitCheckResult> CanCreateDpiaAsync(int tenantId) =>
         CheckTenantLimitAsync(
             tenantId,
             "DSFA",
             l => l.MaxDpiaPerTenant,
-            (db, tid, _) => CountArchivableForTenantAsync<DataProtectionImpactAssessment>(db, tid));
+            (db, tid, _) => CountArchivableForTenantAsync<DataProtectionImpactAssessment>(db, tid),
+            waiveWhenPaid: true);
 
     public Task<LicenseLimitCheckResult> CanCreateTomAsync(int tenantId) =>
         CheckTenantLimitAsync(
             tenantId,
             "TOMs",
             l => l.MaxTomsPerTenant,
-            (db, tid, _) => CountArchivableForTenantAsync<Tom>(db, tid));
+            (db, tid, _) => CountArchivableForTenantAsync<Tom>(db, tid),
+            waiveWhenPaid: true);
 
     public Task<LicenseLimitCheckResult> CanCreateProcessorAsync(int tenantId) =>
         CheckTenantLimitAsync(
             tenantId,
             "Dienstleister",
             l => l.MaxProcessorsPerTenant,
-            (db, tid, _) => CountArchivableForTenantAsync<ServiceProviderEntity>(db, tid));
+            (db, tid, _) => CountArchivableForTenantAsync<ServiceProviderEntity>(db, tid),
+            waiveWhenPaid: true);
 
     public Task<LicenseLimitCheckResult> CanCreateMeasureAsync(int tenantId) =>
         CheckTenantLimitAsync(
@@ -103,7 +107,8 @@ public sealed partial class LicenseService
                 .CountAsync(m => m.TenantId == tid
                     && !m.IsArchived
                     && m.Status != MeasureStatus.Done
-                    && m.Status != MeasureStatus.Cancelled));
+                    && m.Status != MeasureStatus.Cancelled),
+            waiveWhenPaid: true);
 
     public async Task<LicenseLimitCheckResult> CanUseStorageAsync(Guid licenseId, long additionalBytes)
     {
@@ -119,7 +124,13 @@ public sealed partial class LicenseService
             return usabilityBlock;
         }
 
-        if (!license.MaxStorageMb.HasValue)
+        // Im bezahlten Zugang werden Dokumente ausschließlich durch den verfügbaren
+        // Speicherplatz begrenzt (enthaltener + zusätzlicher Speicher); Free-Zugänge nutzen MaxStorageMb.
+        var storageLimitMb = LicenseProductRules.IsPaidPlanActive(license)
+            ? LicenseProductRules.GetTotalStorageMb(license)
+            : license.MaxStorageMb;
+
+        if (!storageLimitMb.HasValue)
         {
             return LicenseLimitHelper.BuildCheckResult(
                 "Speicher",
@@ -149,7 +160,7 @@ public sealed partial class LicenseService
         return LicenseLimitHelper.BuildCheckResult(
             "Speicher",
             projectedMb,
-            license.MaxStorageMb,
+            storageLimitMb,
             LicenseLimitHelper.SpecificBlockedMessage("Speicher"),
             licenseId);
     }
@@ -209,7 +220,8 @@ public sealed partial class LicenseService
         int tenantId,
         string limitName,
         Func<License, int?> getLimit,
-        Func<ApplicationDbContext, int, Dictionary<string, string>, Task<int>> countAsync)
+        Func<ApplicationDbContext, int, Dictionary<string, string>, Task<int>> countAsync,
+        bool waiveWhenPaid = false)
     {
         if (tenantId <= 0)
         {
@@ -240,10 +252,17 @@ public sealed partial class LicenseService
 
         var roleIds = await GetRoleIdsAsync(db);
         var current = await countAsync(db, tenantId, roleIds);
+
+        // Im bezahlten Zugang entfallen die fachlichen Objekt-Limits (Fair-Use-Modell);
+        // Free-Zugänge nutzen weiterhin die konfigurierten Per-Mandant-Limits.
+        var effectiveLimit = waiveWhenPaid && LicenseProductRules.AreBusinessObjectLimitsWaived(license)
+            ? (int?)null
+            : getLimit(license);
+
         return LicenseLimitHelper.BuildCheckResult(
             limitName,
             current,
-            getLimit(license),
+            effectiveLimit,
             LicenseLimitHelper.SpecificBlockedMessage(limitName),
             licenseId,
             tenantId);

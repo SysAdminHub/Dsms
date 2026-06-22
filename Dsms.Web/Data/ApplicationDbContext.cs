@@ -21,6 +21,7 @@ public class ApplicationDbContext(
 {
     public DbSet<License> Licenses => Set<License>();
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+    public DbSet<ProductPricingSettings> ProductPricingSettings => Set<ProductPricingSettings>();
     public DbSet<DiscountCode> DiscountCodes => Set<DiscountCode>();
     public DbSet<PendingSignup> PendingSignups => Set<PendingSignup>();
     public DbSet<LegalAcceptance> LegalAcceptances => Set<LegalAcceptance>();
@@ -122,9 +123,40 @@ public class ApplicationDbContext(
             e.Property(l => l.PlanName).HasDefaultValue("Manual");
             e.Property(l => l.Status).HasDefaultValue("Active");
             e.Property(l => l.HasTrainingModule).HasDefaultValue(true);
+            e.Property(l => l.PaidPlanEnabled).HasDefaultValue(false);
+            e.Property(l => l.LicensedUserCount).HasDefaultValue(1);
+            e.Property(l => l.IncludedStorageGb).HasDefaultValue(0);
+            e.Property(l => l.AdditionalStorageGb).HasDefaultValue(0);
+            e.Property(l => l.TrainingModuleStatus)
+                .HasConversion<int>()
+                .HasDefaultValue(TrainingModuleStatus.Disabled);
+            e.Property(l => l.TrainingModuleUnlimited).HasDefaultValue(false);
             e.HasIndex(l => l.LicenseNumber).IsUnique();
             e.HasIndex(l => l.CustomerName);
             e.HasIndex(l => l.Status);
+        });
+
+        builder.Entity<ProductPricingSettings>(e =>
+        {
+            e.ToTable("ProductPricingSettings");
+            e.HasKey(p => p.Id);
+            e.Property(p => p.BaseMonthlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.BaseYearlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.AdditionalUserMonthlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.AdditionalUserYearlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.AdditionalStorageMonthlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.AdditionalStorageYearlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.LargeStorageMonthlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.LargeStorageYearlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.TrainingModuleMonthlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.TrainingModuleYearlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.FairUseText).HasColumnType("text");
+            e.Property(p => p.SpecialOfferActive).HasDefaultValue(false);
+            e.Property(p => p.SpecialBaseMonthlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.SpecialBaseYearlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.SpecialOfferBadgeText).HasMaxLength(100);
+            e.Property(p => p.IsActive).HasDefaultValue(true);
+            e.HasIndex(p => p.IsActive);
         });
 
         builder.Entity<SubscriptionPlan>(e =>

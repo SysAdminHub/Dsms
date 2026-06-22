@@ -1,4 +1,5 @@
 using Dsms.Web.Domain.Entities;
+using Dsms.Web.Domain.Enums;
 
 namespace Dsms.Web.Services.Licenses;
 
@@ -30,7 +31,10 @@ internal static class PlanToLicenseMapper
         MaxActiveMeasuresPerTenant = plan.MaxActiveMeasuresPerTenant,
         MaxStorageMb = plan.MaxStorageMb,
         MaxEmailRemindersPerMonth = plan.MaxEmailRemindersPerMonth,
-        HasTrainingModule = plan.HasTrainingModule
+        HasTrainingModule = plan.HasTrainingModule,
+        // Schulungsmodul-Zustand aus dem Tarif ableiten (Foundation: an = Unlimited, aus = Disabled).
+        TrainingModuleStatus = plan.HasTrainingModule ? TrainingModuleStatus.Unlimited : TrainingModuleStatus.Disabled,
+        TrainingModuleUnlimited = plan.HasTrainingModule
     };
 
     public static string ResolvePlanNameForLicense(SubscriptionPlan plan, string? overridePlanName) =>

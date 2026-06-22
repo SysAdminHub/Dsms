@@ -1,0 +1,273 @@
+@page "/toms/categories"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="TOM-Kategorien" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="TOM-Kategorien" HelpKey="toms" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (!_authorized)
+{
+    <PageHeader Title="TOM-Kategorien" HelpKey="toms" />
+    <div class="alert alert-warning dsms-alert">Keine Berechtigung zur Verwaltung von TOM-Kategorien.</div>
+}
+else
+{
+    <PageHeader Title="TOM-Kategorien"
+                HelpKey="toms"
+                Subtitle="Mandantenspezifische Kategorien für technische und organisatorische Maßnahmen">
+        <a class="btn btn-sm btn-outline-secondary" href="toms">Zurück zum TOM-Verzeichnis</a>
+    </PageHeader>
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>Kategorien</span>
+            <button type="button" class="btn btn-sm btn-primary" @onclick="ShowCreateForm">Neue Kategorie</button>
+        </div>
+        <div class="dsms-card-body">
+            @if (_categories is null)
+            {
+                <div class="dsms-loading">Lade …</div>
+            }
+            else if (_categories.Count == 0)
+            {
+                <div class="alert alert-info dsms-alert mb-0">Noch keine Kategorien vorhanden.</div>
+            }
+            else
+            {
+                <div class="dsms-table-wrap">
+                    <table class="table dsms-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Beschreibung</th>
+                                <th>Sortierung</th>
+                                <th>Status</th>
+                                <th class="dsms-table-actions"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var category in _categories)
+                            {
+                                <tr class="@(!category.IsActive ? "dsms-table-row--archived" : null)">
+                                    <td>
+                                        <strong>@category.Name</strong>
+                                        @if (category.IsSystemDefault)
+                                        {
+                                            <span class="text-muted small ms-1">(Standard)</span>
+                                        }
+                                    </td>
+                                    <td>@(string.IsNullOrWhiteSpace(category.Description) ? "—" : category.Description)</td>
+                                    <td>@category.SortOrder</td>
+                                    <td>
+                                        @if (category.IsActive)
+                                        {
+                                            <StatusBadge Text="Aktiv" Variant="success" />
+                                        }
+                                        else
+                                        {
+                                            <StatusBadge Text="Inaktiv" Variant="warning" />
+                                        }
+                                    </td>
+                                    <td class="dsms-table-actions">
+                                        <div class="dsms-table-action-stack">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => EditCategory(category)">
+                                                Bearbeiten
+                                            </button>
+                                            @if (category.IsActive)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-warning" @onclick="() => ToggleActiveAsync(category, false)">
+                                                    Deaktivieren
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-success" @onclick="() => ToggleActiveAsync(category, true)">
+                                                    Reaktivieren
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (_showForm)
+    {
+        <div class="modal fade show d-block" tabindex="-1" role="dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">@(_editModel.Id is null ? "Neue Kategorie" : "Kategorie bearbeiten")</h5>
+                        <button type="button" class="btn-close" @onclick="CancelForm" disabled="@_saving"></button>
+                    </div>
+                    <EditForm Model="_editModel" OnValidSubmit="SaveAsync">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label" for="category-name">Name <span class="text-danger">*</span></label>
+                                <InputText id="category-name" class="form-control" @bind-Value="_editModel.Name" maxlength="150" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="category-description">Beschreibung</label>
+                                <InputTextArea id="category-description" class="form-control" rows="2" @bind-Value="_editModel.Description" maxlength="500" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="category-sort">Sortierung</label>
+                                <InputNumber id="category-sort" class="form-control" @bind-Value="_editModel.SortOrder" />
+                            </div>
+                            <div class="form-check mt-3">
+                                <InputCheckbox id="category-active" class="form-check-input" @bind-Value="_editModel.IsActive" />
+                                <label class="form-check-label" for="category-active">Aktiv</label>
+                            </div>
+                            @if (!string.IsNullOrEmpty(_formMessage))
+                            {
+                                <div class="alert @(_formError ? "alert-danger" : "alert-success") dsms-alert mt-3 mb-0">@_formMessage</div>
+                            }
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="CancelForm" disabled="@_saving">Abbrechen</button>
+                            <button type="submit" class="btn btn-primary" disabled="@_saving">
+                                @(_saving ? "Speichern …" : "Speichern")
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
+    }
+}
+
+@code {
+    [Inject] private TomCategoryService CategoryService { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _authorized;
+    private bool _showForm;
+    private bool _saving;
+    private bool _formError;
+    private string? _formMessage;
+    private List<TomCategory>? _categories;
+    private TomCategoryEditModel _editModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        _authorized = _tenantId is not null && await UserAccess.CanManageTomCategoriesAsync();
+        if (_authorized)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        _categories = (await CategoryService.GetAllForTenantAsync(_tenantId.Value)).ToList();
+    }
+
+    private void ShowCreateForm()
+    {
+        _editModel = new TomCategoryEditModel
+        {
+            SortOrder = (_categories?.Max(c => c.SortOrder) ?? 0) + 10,
+            IsActive = true
+        };
+        _formMessage = null;
+        _formError = false;
+        _showForm = true;
+    }
+
+    private void EditCategory(TomCategory category)
+    {
+        _editModel = new TomCategoryEditModel
+        {
+            Id = category.Id,
+            Name = category.Name,
+            Description = category.Description,
+            SortOrder = category.SortOrder,
+            IsActive = category.IsActive
+        };
+        _formMessage = null;
+        _formError = false;
+        _showForm = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_tenantId is null || _saving)
+        {
+            return;
+        }
+
+        _saving = true;
+        _formMessage = null;
+        _formError = false;
+
+        try
+        {
+            if (_editModel.Id is null)
+            {
+                var (result, error, _) = await CategoryService.CreateAsync(_editModel, _tenantId.Value);
+                if (result != TomCategorySaveResult.Success)
+                {
+                    _formMessage = error ?? "Speichern fehlgeschlagen.";
+                    _formError = true;
+                    return;
+                }
+            }
+            else
+            {
+                var (result, error) = await CategoryService.UpdateAsync(_editModel, _tenantId.Value);
+                if (result != TomCategorySaveResult.Success)
+                {
+                    _formMessage = error ?? "Speichern fehlgeschlagen.";
+                    _formError = true;
+                    return;
+                }
+            }
+
+            _showForm = false;
+            await LoadAsync();
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ToggleActiveAsync(TomCategory category, bool isActive)
+    {
+        if (_tenantId is null)
+        {
+            return;
+        }
+
+        await CategoryService.SetActiveAsync(category.Id, _tenantId.Value, isActive);
+        await LoadAsync();
+    }
+
+    private void CancelForm()
+    {
+        if (_saving)
+        {
+            return;
+        }
+
+        _showForm = false;
+    }
+}

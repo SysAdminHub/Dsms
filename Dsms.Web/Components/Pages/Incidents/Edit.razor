@@ -382,7 +382,10 @@ else
                                                @onchange="e => ToggleTom(tom.Id, (bool)e.Value!)" />
                                         <label class="form-check-label" for="@($"tom-{tom.Id}")">
                                             @tom.Title
-                                            <span class="text-muted">(@TomLabels.GetCategoryLabel(tom.Category))</span>
+                                            @if (tom.TomCategory is not null)
+                                            {
+                                                <span class="text-muted">(@tom.TomCategory.Name)</span>
+                                            }
                                         </label>
                                     </div>
                                 }
@@ -471,7 +474,7 @@ else
         _processingActivities = await Db.ProcessingActivities.OrderBy(p => p.Name).ToListAsync();
         _serviceProviders = await Db.ServiceProviders.OrderBy(s => s.Name).ToListAsync();
         _measures = await Db.Measures.OrderBy(m => m.Title).ToListAsync();
-        _toms = await Db.Toms.OrderBy(t => t.Title).ToListAsync();
+        _toms = await Db.Toms.Include(t => t.TomCategory).OrderBy(t => t.Title).ToListAsync();
 
         if (Id is int editId and > 0)
         {

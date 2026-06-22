@@ -96,17 +96,27 @@ else
 
                         <label class="form-label">Kategorie</label>
 
-                        <InputSelect class="form-select" @bind-Value="_model.Category">
+                        <InputSelect class="form-select" @bind-Value="_model.TomCategoryId">
 
-                            @foreach (var category in Enum.GetValues<TomCategory>())
+                            <option value="">– Bitte wählen –</option>
+
+                            @foreach (var category in _categoryOptions)
 
                             {
 
-                                <option value="@category">@TomLabels.GetCategoryLabel(category)</option>
+                                <option value="@category.Id">@(category.IsActive ? category.Name : $"{category.Name} (deaktiviert)")</option>
 
                             }
 
                         </InputSelect>
+
+                        @if (_categoryOptions.Count == 0)
+
+                        {
+
+                            <div class="form-text text-muted">Keine aktiven Kategorien vorhanden. Bitte zuerst unter „Kategorien verwalten“ eine Kategorie anlegen.</div>
+
+                        }
 
                     </div>
 
@@ -286,6 +296,7 @@ else
     [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
     [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private TomCategoryService TomCategoryService { get; set; } = null!;
 
     private int? _tenantId;
 
@@ -311,9 +322,12 @@ else
     private HashSet<int> _selectedActivityIds = [];
     private TomImplementationStatus? _previousStatus;
     private string? _previousTitle;
-    private TomCategory? _previousCategory;
+    private int? _previousCategoryId;
+    private string? _previousCategoryName;
     private string? _previousOwner;
     private DateOnly? _previousNextReviewAt;
+
+    private List<TomCategory> _categoryOptions = [];
 
     protected override async Task OnInitializedAsync()
 
@@ -369,7 +383,7 @@ else
             _model = existing;
             _previousStatus = existing.ImplementationStatus;
             _previousTitle = existing.Title;
-            _previousCategory = existing.Category;
+            _previousCategoryId = existing.TomCategoryId;
             _previousOwner = existing.Owner;
             _previousNextReviewAt = existing.NextReviewAt;
 
@@ -383,6 +397,12 @@ else
 
                 .ToHashSet();
 
+            _categoryOptions = (await TomCategoryService.GetOptionsForTomEditAsync(
+                _tenantId.Value, existing.TomCategoryId)).ToList();
+
+            _previousCategoryName = _categoryOptions
+                .FirstOrDefault(c => c.Id == existing.TomCategoryId)?.Name;
+
         }
 
         else
@@ -390,6 +410,12 @@ else
         {
 
             _model.TenantId = _tenantId.Value;
+
+            _categoryOptions = (await TomCategoryService.GetOptionsForTomEditAsync(_tenantId.Value, null)).ToList();
+
+            // Neue TOMs erhalten standardmäßig die Kategorie „Sonstige“, sonst die erste aktive Kategorie.
+            _model.TomCategoryId = _categoryOptions.FirstOrDefault(c => c.Name == "Sonstige")?.Id
+                ?? _categoryOptions.FirstOrDefault()?.Id;
 
             _createLimit = await LicenseService.CanCreateTomAsync(_tenantId.Value);
 
@@ -454,6 +480,26 @@ else
         _model.ValidFrom = _validFrom.HasValue ? DateOnly.FromDateTime(_validFrom.Value) : null;
 
         _model.NextReviewAt = _nextReviewAt.HasValue ? DateOnly.FromDateTime(_nextReviewAt.Value) : null;
+
+
+
+        // Kategorie muss zum Mandanten gehören und darf bei neuer Zuordnung nicht inaktiv sein.
+
+        var (categoryValid, categoryError) = await TomCategoryService.ValidateCategoryForTomAsync(
+
+            _tenantId.Value, _model.TomCategoryId, _previousCategoryId);
+
+        if (!categoryValid)
+
+        {
+
+            _saveError = categoryError;
+
+            _saving = false;
+
+            return;
+
+        }
 
 
 
@@ -592,8 +638,14 @@ else
 
         await Db.SaveChangesAsync();
 
+        var currentCategoryName = _model.TomCategoryId is null
+            ? null
+            : (await Db.TomCategories
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == _model.TomCategoryId && c.TenantId == _tenantId))?.Name;
+
         var changes = ComplianceAuditDiffBuilder.ForTom(
-            _previousTitle, _previousCategory, _previousStatus, _previousOwner, _previousNextReviewAt, _model);
+            _previousTitle, _previousCategoryName, _previousStatus, _previousOwner, _previousNextReviewAt, _model, currentCategoryName);
         await ComplianceAuditLog.LogTomUpdatedAsync(
             _model.Id, _model.Title, _tenantId.Value, changes);
 

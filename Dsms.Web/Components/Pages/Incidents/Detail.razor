@@ -332,7 +332,7 @@ else
                             {
                                 <tr>
                                     <td><strong>@tom.Title</strong></td>
-                                    <td>@TomLabels.GetCategoryLabel(tom.Category)</td>
+                                    <td>@(tom.TomCategory is not null ? tom.TomCategory.Name : "—")</td>
                                     <td>
                                         <StatusBadge Text="@TomLabels.GetImplementationStatusLabel(tom.ImplementationStatus)"
                                                      Variant="@TomLabels.GetImplementationStatusVariant(tom.ImplementationStatus)" />
@@ -445,9 +445,10 @@ else
                 .OrderBy(m => m.Title)
                 .ToListAsync();
 
-            _linkedToms = await Db.PrivacyIncidentToms
-                .Where(l => l.PrivacyIncidentId == Id)
-                .Select(l => l.Tom)
+            _linkedToms = await Db.Toms
+                .Include(t => t.TomCategory)
+                .Where(t => Db.PrivacyIncidentToms
+                    .Any(l => l.PrivacyIncidentId == Id && l.TomId == t.Id))
                 .OrderBy(t => t.Title)
                 .ToListAsync();
 

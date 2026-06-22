@@ -172,6 +172,18 @@ public sealed class ComplianceAuditLogService(ILogService logService) : IComplia
     public Task LogDocumentCategoryReactivatedAsync(int id, string name, int tenantId) =>
         LogAsync("DocumentCategoryReactivated", "Dokumentkategorie wurde reaktiviert.", "DocumentCategory", id, name, tenantId);
 
+    public Task LogTomCategoryCreatedAsync(int id, string name, int tenantId) =>
+        LogAsync("TomCategoryCreated", "TOM-Kategorie wurde erstellt.", "TomCategory", id, name, tenantId);
+
+    public Task LogTomCategoryUpdatedAsync(int id, string name, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes) =>
+        LogUpdateAsync("TomCategoryUpdated", "TOM-Kategorie wurde geändert.", "TomCategory", id, name, tenantId, changes);
+
+    public Task LogTomCategoryDeactivatedAsync(int id, string name, int tenantId) =>
+        LogAsync("TomCategoryDeactivated", "TOM-Kategorie wurde deaktiviert.", "TomCategory", id, name, tenantId);
+
+    public Task LogTomCategoryReactivatedAsync(int id, string name, int tenantId) =>
+        LogAsync("TomCategoryReactivated", "TOM-Kategorie wurde reaktiviert.", "TomCategory", id, name, tenantId);
+
     public Task LogDataProtectionRoleCreatedAsync(int id, string roleTitle, int tenantId) =>
         LogAsync("DataProtectionRoleCreated", "Datenschutzrolle wurde erstellt.", "DataProtectionRole", id, roleTitle, tenantId);
 

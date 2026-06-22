@@ -48,16 +48,16 @@ public static class ComplianceAuditDiffBuilder
 
     public static List<AuditFieldChangeDto> ForTom(
         string? previousTitle,
-        TomCategory? previousCategory,
+        string? previousCategoryName,
         TomImplementationStatus? previousStatus,
         string? previousOwner,
         DateOnly? previousNextReviewAt,
-        Tom current)
+        Tom current,
+        string? currentCategoryName)
     {
         var changes = new List<AuditFieldChangeDto>();
         AuditDiffHelper.AddIfChanged(changes, "Title", "Titel", previousTitle, current.Title);
-        AuditDiffHelper.AddIfChanged(changes, "Category", "Kategorie", previousCategory, current.Category,
-            v => v is TomCategory c ? TomLabels.GetCategoryLabel(c) : AuditDiffHelper.FormatAuditValue(v));
+        AuditDiffHelper.AddIfChanged(changes, "Category", "Kategorie", previousCategoryName, currentCategoryName);
         AuditDiffHelper.AddIfChanged(changes, "ImplementationStatus", "Umsetzungsstatus",
             previousStatus, current.ImplementationStatus,
             v => v is TomImplementationStatus s ? TomLabels.GetImplementationStatusLabel(s) : AuditDiffHelper.FormatAuditValue(v));
@@ -196,6 +196,21 @@ public static class ComplianceAuditDiffBuilder
         AuditDiffHelper.AddIfChanged(changes, "Description", "Beschreibung", previousDescription, current.Description);
         AuditDiffHelper.AddIfChanged(changes, "Color", "Farbe", previousColor, current.Color,
             v => v is string s ? DocumentCategoryColors.GetLabel(s) : AuditDiffHelper.FormatAuditValue(v));
+        AuditDiffHelper.AddIfChanged(changes, "SortOrder", "Sortierung", previousSortOrder, current.SortOrder);
+        AuditDiffHelper.AddIfChanged(changes, "IsActive", "Aktiv", previousIsActive, current.IsActive);
+        return changes;
+    }
+
+    public static List<AuditFieldChangeDto> ForTomCategory(
+        string? previousName,
+        string? previousDescription,
+        int? previousSortOrder,
+        bool? previousIsActive,
+        TomCategoryEditModel current)
+    {
+        var changes = new List<AuditFieldChangeDto>();
+        AuditDiffHelper.AddIfChanged(changes, "Name", "Name", previousName, current.Name);
+        AuditDiffHelper.AddIfChanged(changes, "Description", "Beschreibung", previousDescription, current.Description);
         AuditDiffHelper.AddIfChanged(changes, "SortOrder", "Sortierung", previousSortOrder, current.SortOrder);
         AuditDiffHelper.AddIfChanged(changes, "IsActive", "Aktiv", previousIsActive, current.IsActive);
         return changes;

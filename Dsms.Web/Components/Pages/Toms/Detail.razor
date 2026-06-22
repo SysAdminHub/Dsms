@@ -70,7 +70,7 @@ else
 
                     <div class="dsms-detail-label">Kategorie</div>
 
-                    <div>@TomLabels.GetCategoryLabel(_tom.Category)</div>
+                    <div>@(_tom.TomCategory is not null ? _tom.TomCategory.Name : "—")</div>
 
                 </div>
 
@@ -288,6 +288,7 @@ else
 
 
         _tom = await Db.Toms
+            .Include(t => t.TomCategory)
             .FirstOrDefaultAsync(t => t.Id == Id && t.TenantId == _tenantId);
 
 

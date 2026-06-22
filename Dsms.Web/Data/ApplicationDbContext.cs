@@ -37,6 +37,7 @@ public class ApplicationDbContext(
     public DbSet<DocumentLink> DocumentLinks => Set<DocumentLink>();
     public DbSet<ProcessingActivity> ProcessingActivities => Set<ProcessingActivity>();
     public DbSet<Tom> Toms => Set<Tom>();
+    public DbSet<TomCategory> TomCategories => Set<TomCategory>();
     public DbSet<ProcessingActivityTom> ProcessingActivityToms => Set<ProcessingActivityTom>();
     public DbSet<ServiceProviderEntity> ServiceProviders => Set<ServiceProviderEntity>();
     public DbSet<ProcessingActivityServiceProvider> ProcessingActivityServiceProviders => Set<ProcessingActivityServiceProvider>();
@@ -842,8 +843,25 @@ public class ApplicationDbContext(
             e.Property(t => t.Notes).HasColumnType("text");
             e.Property(t => t.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(t => t.Tenant).WithMany(tenant => tenant.Toms).OnDelete(DeleteBehavior.Restrict);
+            // Kategorie wird nie gelöscht (nur deaktiviert); Restrict schützt bestehende TOMs.
+            e.HasOne(t => t.TomCategory).WithMany(c => c.Toms)
+                .HasForeignKey(t => t.TomCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(t => t.TenantId);
+            e.HasIndex(t => t.TomCategoryId);
             e.HasIndex(t => new { t.TenantId, t.ImplementationStatus });
+        });
+
+        builder.Entity<TomCategory>(e =>
+        {
+            e.ToTable("TomCategories");
+            e.Property(c => c.Name).HasMaxLength(150).IsRequired();
+            e.Property(c => c.Description).HasMaxLength(500);
+            e.Property(c => c.CreatedByUserId).HasMaxLength(450);
+            e.Property(c => c.UpdatedByUserId).HasMaxLength(450);
+            e.HasOne(c => c.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(c => c.TenantId);
+            e.HasIndex(c => new { c.TenantId, c.Name }).IsUnique();
         });
 
         // Many-to-Many TOM ↔ Verarbeitungstätigkeit mit Mandantenschutz auf Verknüpfungsebene.
@@ -1160,6 +1178,10 @@ public class ApplicationDbContext(
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 
         builder.Entity<DocumentCategory>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<TomCategory>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 

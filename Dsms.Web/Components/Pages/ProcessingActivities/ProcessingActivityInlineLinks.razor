@@ -1,0 +1,995 @@
+@*
+    Inline-Anlage und Verknüpfung von TOMs, Dienstleistern und Maßnahmen direkt in der VVT-Maske.
+    Bewusst nur im Modul Verarbeitungstätigkeiten eingesetzt.
+    Verwendet einen eigenen DbContext (Factory), um Tracking-Konflikte mit der Stammdaten-Maske zu vermeiden.
+*@
+@implements IDisposable
+
+<div class="dsms-inline-links">
+    @if (_activityId == 0)
+    {
+        <div class="alert alert-info dsms-alert">
+            Die Verarbeitungstätigkeit wird beim ersten Anlegen oder Verknüpfen automatisch als Entwurf gespeichert,
+            damit zugehörige Einträge sofort verknüpft werden können.
+        </div>
+    }
+
+    @* ---------------------------------- TOMs ---------------------------------- *@
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Zugeordnete TOMs (@_linkedToms.Count)</div>
+        <div class="dsms-card-body">
+            @if (_linkedToms.Count == 0)
+            {
+                <div class="dsms-empty">Noch keine TOMs zugeordnet.</div>
+            }
+            else
+            {
+                <div class="dsms-table-wrap">
+                    <table class="table dsms-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Bezeichnung</th>
+                                <th>Kategorie</th>
+                                <th>Umsetzungsstatus</th>
+                                <th class="text-end">Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var tom in _linkedToms)
+                            {
+                                <tr>
+                                    <td><strong>@tom.Title</strong></td>
+                                    <td>@(tom.TomCategory is not null ? tom.TomCategory.Name : "—")</td>
+                                    <td>@TomLabels.GetImplementationStatusLabel(tom.ImplementationStatus)</td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                                @onclick="() => RemoveTomLinkAsync(tom.Id)">Verknüpfung aufheben</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <div class="dsms-inline-actions">
+                <button type="button" class="btn btn-outline-primary" @onclick="OpenLinkTomAsync">Vorhandene TOM verknüpfen</button>
+                <button type="button" class="btn btn-primary" @onclick="OpenCreateTomAsync">TOM erstellen</button>
+            </div>
+        </div>
+    </div>
+
+    @* ------------------------------ Dienstleister ------------------------------ *@
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Zugeordnete Dienstleister (@_linkedServiceProviders.Count)</div>
+        <div class="dsms-card-body">
+            @if (_linkedServiceProviders.Count == 0)
+            {
+                <div class="dsms-empty">Noch keine Dienstleister zugeordnet.</div>
+            }
+            else
+            {
+                <div class="dsms-table-wrap">
+                    <table class="table dsms-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Art</th>
+                                <th>Status</th>
+                                <th class="text-end">Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var sp in _linkedServiceProviders)
+                            {
+                                <tr>
+                                    <td><strong>@sp.Name</strong></td>
+                                    <td>@ServiceProviderLabels.GetProviderTypeLabel(sp.ProviderType)</td>
+                                    <td>@ServiceProviderLabels.GetStatusLabel(sp.Status)</td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                                @onclick="() => RemoveServiceProviderLinkAsync(sp.Id)">Verknüpfung aufheben</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <div class="dsms-inline-actions">
+                <button type="button" class="btn btn-outline-primary" @onclick="OpenLinkServiceProviderAsync">Vorhandenen Dienstleister verknüpfen</button>
+                <button type="button" class="btn btn-primary" @onclick="OpenCreateServiceProviderAsync">Dienstleister anlegen</button>
+            </div>
+        </div>
+    </div>
+
+    @* -------------------------------- Maßnahmen -------------------------------- *@
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Zugeordnete Maßnahmen (@_linkedMeasures.Count)</div>
+        <div class="dsms-card-body">
+            @if (_linkedMeasures.Count == 0)
+            {
+                <div class="dsms-empty">Noch keine Maßnahmen zugeordnet.</div>
+            }
+            else
+            {
+                <div class="dsms-table-wrap">
+                    <table class="table dsms-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Titel</th>
+                                <th>Status</th>
+                                <th>Fällig am</th>
+                                <th class="text-end">Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var measure in _linkedMeasures)
+                            {
+                                <tr>
+                                    <td><strong>@measure.Title</strong></td>
+                                    <td>@MeasureLabels.GetStatusLabel(measure.Status)</td>
+                                    <td>@(measure.DueDate?.ToString("d") ?? "—")</td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                                @onclick="() => RemoveMeasureLinkAsync(measure.Id)">Verknüpfung aufheben</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <div class="dsms-inline-actions">
+                <button type="button" class="btn btn-outline-primary" @onclick="OpenLinkMeasureAsync">Vorhandene Maßnahme verknüpfen</button>
+                <button type="button" class="btn btn-primary" @onclick="OpenCreateMeasureAsync">Neue Maßnahme erstellen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ============================== Modal: TOM erstellen ============================== *@
+@if (_showCreateTom)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">TOM erstellen</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_modalError))
+                    {
+                        <div class="alert alert-danger dsms-alert">@_modalError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">Bezeichnung der Maßnahme *</label>
+                        <input class="form-control" @bind="_newTom.Title" />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Kategorie</label>
+                            <select class="form-select" @bind="_newTom.TomCategoryId">
+                                <option value="">– Bitte wählen –</option>
+                                @foreach (var category in _tomCategoryOptions)
+                                {
+                                    <option value="@category.Id">@category.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Umsetzungsstatus</label>
+                            <select class="form-select" @bind="_newTom.ImplementationStatus">
+                                @foreach (var status in Enum.GetValues<TomImplementationStatus>())
+                                {
+                                    <option value="@status">@TomLabels.GetImplementationStatusLabel(status)</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-1">
+                        <label class="form-label">Beschreibung</label>
+                        <textarea class="form-control" rows="2" @bind="_newTom.Description"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CloseModals">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveNewTomAsync" disabled="@_modalSaving">Speichern &amp; verknüpfen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@* ========================== Modal: Dienstleister anlegen ========================== *@
+@if (_showCreateServiceProvider)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Dienstleister anlegen</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_modalError))
+                    {
+                        <div class="alert alert-danger dsms-alert">@_modalError</div>
+                    }
+                    <p class="form-text text-muted">
+                        Minimalanlage – weitere Details können später im Dienstleister-Modul ergänzt werden.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label">Name des Dienstleisters *</label>
+                        <input class="form-control" @bind="_newServiceProvider.Name" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Art des Dienstleisters</label>
+                        <select class="form-select" @bind="_newServiceProvider.ProviderType">
+                            @foreach (var type in Enum.GetValues<ServiceProviderType>())
+                            {
+                                <option value="@type">@ServiceProviderLabels.GetProviderTypeLabel(type)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-check mb-1">
+                        <input type="checkbox" class="form-check-input" id="inline-sp-processor"
+                               @bind="_newServiceProvider.IsDataProcessor" />
+                        <label class="form-check-label" for="inline-sp-processor">Ist Auftragsverarbeiter</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CloseModals">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveNewServiceProviderAsync" disabled="@_modalSaving">Speichern &amp; verknüpfen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@* ========================= Modal: Neue Maßnahme erstellen ========================= *@
+@if (_showCreateMeasure)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Neue Maßnahme erstellen</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_modalError))
+                    {
+                        <div class="alert alert-danger dsms-alert">@_modalError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">Titel *</label>
+                        <input class="form-control" @bind="_newMeasure.Title" />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" @bind="_newMeasure.Status">
+                                @foreach (var status in Enum.GetValues<MeasureStatus>())
+                                {
+                                    <option value="@status">@MeasureLabels.GetStatusLabel(status)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Fällig am</label>
+                            <input type="date" class="form-control" @bind="_newMeasureDueDate" />
+                        </div>
+                    </div>
+                    <div class="mb-1">
+                        <label class="form-label">Beschreibung</label>
+                        <textarea class="form-control" rows="2" @bind="_newMeasure.Description"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CloseModals">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveNewMeasureAsync" disabled="@_modalSaving">Speichern &amp; verknüpfen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@* ===================== Modal: Vorhandene Einträge verknüpfen ===================== *@
+@if (_showLink)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@_linkTitle</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_modalError))
+                    {
+                        <div class="alert alert-danger dsms-alert">@_modalError</div>
+                    }
+                    @if (_linkOptions.Count == 0)
+                    {
+                        <div class="alert alert-info dsms-alert mb-0">
+                            Keine weiteren Einträge zum Verknüpfen vorhanden. Legen Sie einen neuen Eintrag an.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <input class="form-control" placeholder="Suchen…" @bind="_linkSearch" @bind:event="oninput" />
+                        </div>
+                        <div class="dsms-checkbox-list">
+                            @foreach (var option in FilteredLinkOptions)
+                            {
+                                var checkboxId = $"inline-link-{option.Id}";
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="@checkboxId"
+                                           checked="@_linkSelection.Contains(option.Id)"
+                                           @onchange="e => ToggleLinkSelection(option.Id, (bool)e.Value!)" />
+                                    <label class="form-check-label" for="@checkboxId">@option.Label</label>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CloseModals">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" @onclick="ConfirmLinkAsync"
+                            disabled="@(_modalSaving || _linkSelection.Count == 0)">Verknüpfen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@* -------------------------------- Toast / Hinweis -------------------------------- *@
+@if (_toastVisible && _toastMessage is not null)
+{
+    <div class="dsms-toast-container">
+        <div class="dsms-toast">
+            <span class="dsms-toast-icon">✓</span>
+            <span>@_toastMessage</span>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>Aktuelle VVT-Id; 0 für eine noch nicht gespeicherte neue Verarbeitungstätigkeit.</summary>
+    [Parameter] public int ProcessingActivityId { get; set; }
+
+    /// <summary>
+    /// Stellt sicher, dass die VVT serverseitig gespeichert ist und liefert ihre Id zurück
+    /// (oder null, wenn nicht gespeichert werden konnte, z. B. fehlende Pflichtangaben).
+    /// </summary>
+    [Parameter] public Func<Task<int?>>? EnsureActivitySaved { get; set; }
+
+    [Inject] private IDbContextFactory<ApplicationDbContext> DbFactory { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ILicenseService LicenseService { get; set; } = null!;
+    [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
+    [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
+
+    private int? _tenantId;
+    private int _activityId;
+
+    private List<Tom> _linkedToms = [];
+    private List<TomCategory> _tomCategoryOptions = [];
+    private List<DsmsServiceProvider> _linkedServiceProviders = [];
+    private List<Measure> _linkedMeasures = [];
+
+    private bool _showCreateTom;
+    private bool _showCreateServiceProvider;
+    private bool _showCreateMeasure;
+    private bool _showLink;
+    private bool _modalSaving;
+    private string? _modalError;
+
+    private Tom _newTom = new();
+    private DsmsServiceProvider _newServiceProvider = new();
+    private Measure _newMeasure = new() { Status = MeasureStatus.Open };
+    private DateTime? _newMeasureDueDate;
+
+    private LinkKind _linkKind;
+    private string _linkTitle = string.Empty;
+    private string _linkSearch = string.Empty;
+    private List<LinkOption> _linkOptions = [];
+    private readonly HashSet<int> _linkSelection = [];
+
+    private string? _toastMessage;
+    private bool _toastVisible;
+    private CancellationTokenSource? _toastCts;
+
+    private IEnumerable<LinkOption> FilteredLinkOptions =>
+        string.IsNullOrWhiteSpace(_linkSearch)
+            ? _linkOptions
+            : _linkOptions.Where(o => o.Label.Contains(_linkSearch.Trim(), StringComparison.CurrentCultureIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        _activityId = ProcessingActivityId;
+        if (_activityId > 0)
+        {
+            await LoadLinkedAsync();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Falls die übergeordnete Maske eine neue VVT gespeichert hat, Id übernehmen und Daten laden.
+        if (ProcessingActivityId > 0 && ProcessingActivityId != _activityId)
+        {
+            _activityId = ProcessingActivityId;
+            await LoadLinkedAsync();
+        }
+    }
+
+    private async Task LoadLinkedAsync()
+    {
+        if (_activityId == 0 || _tenantId is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var tenantId = _tenantId.Value;
+
+        _linkedToms = await db.ProcessingActivityToms
+            .AsNoTracking()
+            .Where(l => l.ProcessingActivityId == _activityId && l.TenantId == tenantId)
+            .Include(l => l.Tom)
+                .ThenInclude(t => t.TomCategory)
+            .Select(l => l.Tom)
+            .OrderBy(t => t.Title)
+            .ToListAsync();
+
+        _tomCategoryOptions = await db.TomCategories
+            .AsNoTracking()
+            .Where(c => c.TenantId == tenantId && c.IsActive)
+            .OrderBy(c => c.SortOrder)
+            .ThenBy(c => c.Name)
+            .ToListAsync();
+
+        _linkedServiceProviders = await db.ProcessingActivityServiceProviders
+            .AsNoTracking()
+            .Where(l => l.ProcessingActivityId == _activityId && l.TenantId == tenantId)
+            .Include(l => l.ServiceProvider)
+            .Select(l => l.ServiceProvider)
+            .OrderBy(s => s.Name)
+            .ToListAsync();
+
+        _linkedMeasures = await db.ProcessingActivityMeasures
+            .AsNoTracking()
+            .Where(l => l.ProcessingActivityId == _activityId && l.TenantId == tenantId)
+            .Include(l => l.Measure)
+            .Select(l => l.Measure)
+            .OrderBy(m => m.Title)
+            .ToListAsync();
+    }
+
+    /// <summary>Sorgt für eine gültige VVT-Id (ggf. Entwurf speichern) und gibt sie zurück.</summary>
+    private async Task<bool> EnsureSavedAsync()
+    {
+        if (_activityId > 0)
+        {
+            return true;
+        }
+
+        if (EnsureActivitySaved is null)
+        {
+            return false;
+        }
+
+        var newId = await EnsureActivitySaved.Invoke();
+        if (newId is > 0)
+        {
+            _activityId = newId.Value;
+            await LoadLinkedAsync();
+            return true;
+        }
+
+        return false;
+    }
+
+    // ----------------------------- TOM: erstellen ------------------------------
+    private async Task OpenCreateTomAsync()
+    {
+        if (!await EnsureSavedAsync()) return;
+        _newTom = new Tom
+        {
+            ImplementationStatus = TomImplementationStatus.Planned,
+            TomCategoryId = _tomCategoryOptions.FirstOrDefault(c => c.Name == "Sonstige")?.Id
+                ?? _tomCategoryOptions.FirstOrDefault()?.Id
+        };
+        _modalError = null;
+        _showCreateTom = true;
+    }
+
+    private async Task SaveNewTomAsync()
+    {
+        if (_tenantId is null || _activityId == 0) return;
+        _modalError = null;
+
+        if (string.IsNullOrWhiteSpace(_newTom.Title))
+        {
+            _modalError = "Bitte geben Sie eine Bezeichnung ein.";
+            return;
+        }
+
+        if (!await UserAccess.CanEditComplianceContentAsync())
+        {
+            _modalError = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
+
+        var limit = await LicenseService.CanCreateTomAsync(_tenantId.Value);
+        if (!await LicenseCreateGuard.IsAllowedAsync(limit, "Tom"))
+        {
+            _modalError = limit.Message;
+            return;
+        }
+
+        _modalSaving = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            _newTom.TenantId = _tenantId.Value;
+            _newTom.CreatedAt = DateTime.UtcNow;
+            db.Toms.Add(_newTom);
+            await db.SaveChangesAsync();
+
+            db.ProcessingActivityToms.Add(new ProcessingActivityTom
+            {
+                TenantId = _tenantId.Value,
+                ProcessingActivityId = _activityId,
+                TomId = _newTom.Id,
+                CreatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+
+            await ComplianceAuditLog.LogTomCreatedAsync(_newTom.Id, _newTom.Title, _tenantId.Value);
+
+            var title = _newTom.Title;
+            _showCreateTom = false;
+            await LoadLinkedAsync();
+            ShowToast($"TOM „{title}“ wurde erstellt und verknüpft.");
+        }
+        finally
+        {
+            _modalSaving = false;
+        }
+    }
+
+    // ------------------------- Dienstleister: anlegen --------------------------
+    private async Task OpenCreateServiceProviderAsync()
+    {
+        if (!await EnsureSavedAsync()) return;
+        _newServiceProvider = new DsmsServiceProvider
+        {
+            Status = ServiceProviderStatus.InReview,
+            ProviderType = ServiceProviderType.Other
+        };
+        _modalError = null;
+        _showCreateServiceProvider = true;
+    }
+
+    private async Task SaveNewServiceProviderAsync()
+    {
+        if (_tenantId is null || _activityId == 0) return;
+        _modalError = null;
+
+        if (string.IsNullOrWhiteSpace(_newServiceProvider.Name))
+        {
+            _modalError = "Bitte geben Sie einen Namen ein.";
+            return;
+        }
+
+        if (!await UserAccess.CanEditComplianceContentAsync())
+        {
+            _modalError = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
+
+        var limit = await LicenseService.CanCreateProcessorAsync(_tenantId.Value);
+        if (!await LicenseCreateGuard.IsAllowedAsync(limit, "ServiceProvider"))
+        {
+            _modalError = limit.Message;
+            return;
+        }
+
+        _modalSaving = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            _newServiceProvider.TenantId = _tenantId.Value;
+            _newServiceProvider.CreatedAt = DateTime.UtcNow;
+            if (!_newServiceProvider.ThirdCountryInvolvement)
+            {
+                _newServiceProvider.ThirdCountryLegalBasis = ThirdCountryTransferLegalBasis.NoThirdCountryTransfer;
+            }
+            db.ServiceProviders.Add(_newServiceProvider);
+            await db.SaveChangesAsync();
+
+            db.ProcessingActivityServiceProviders.Add(new ProcessingActivityServiceProvider
+            {
+                TenantId = _tenantId.Value,
+                ProcessingActivityId = _activityId,
+                ServiceProviderId = _newServiceProvider.Id,
+                RoleInProcessing = ProcessingRole.DataProcessor,
+                CreatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+
+            await ComplianceAuditLog.LogProcessorCreatedAsync(_newServiceProvider.Id, _newServiceProvider.Name, _tenantId.Value);
+
+            var name = _newServiceProvider.Name;
+            _showCreateServiceProvider = false;
+            await LoadLinkedAsync();
+            ShowToast($"Dienstleister „{name}“ wurde angelegt und verknüpft.");
+        }
+        finally
+        {
+            _modalSaving = false;
+        }
+    }
+
+    // --------------------------- Maßnahme: erstellen ---------------------------
+    private async Task OpenCreateMeasureAsync()
+    {
+        if (!await EnsureSavedAsync()) return;
+        _newMeasure = new Measure { Status = MeasureStatus.Open };
+        _newMeasureDueDate = null;
+        _modalError = null;
+        _showCreateMeasure = true;
+    }
+
+    private async Task SaveNewMeasureAsync()
+    {
+        if (_tenantId is null || _activityId == 0) return;
+        _modalError = null;
+
+        if (string.IsNullOrWhiteSpace(_newMeasure.Title))
+        {
+            _modalError = "Bitte geben Sie einen Titel ein.";
+            return;
+        }
+
+        if (!await UserAccess.CanEditTenantOperationalContentAsync())
+        {
+            _modalError = "Keine Berechtigung zum Anlegen von Maßnahmen.";
+            return;
+        }
+
+        var limit = await LicenseService.CanCreateMeasureAsync(_tenantId.Value);
+        if (!await LicenseCreateGuard.IsAllowedAsync(limit, "Measure"))
+        {
+            _modalError = limit.Message;
+            return;
+        }
+
+        _modalSaving = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            _newMeasure.TenantId = _tenantId.Value;
+            _newMeasure.DueDate = _newMeasureDueDate.HasValue ? DateOnly.FromDateTime(_newMeasureDueDate.Value) : null;
+            _newMeasure.CreatedAt = DateTime.UtcNow;
+            if (_newMeasure.Status == MeasureStatus.Done)
+            {
+                _newMeasure.CompletedAt ??= DateTime.UtcNow;
+            }
+            db.Measures.Add(_newMeasure);
+            await db.SaveChangesAsync();
+
+            db.ProcessingActivityMeasures.Add(new ProcessingActivityMeasure
+            {
+                TenantId = _tenantId.Value,
+                ProcessingActivityId = _activityId,
+                MeasureId = _newMeasure.Id,
+                CreatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+
+            await ComplianceAuditLog.LogMeasureCreatedAsync(_newMeasure.Id, _newMeasure.Title, _tenantId.Value);
+
+            var title = _newMeasure.Title;
+            _showCreateMeasure = false;
+            await LoadLinkedAsync();
+            ShowToast($"Maßnahme „{title}“ wurde erstellt und verknüpft.");
+        }
+        finally
+        {
+            _modalSaving = false;
+        }
+    }
+
+    // ------------------------ Vorhandene Einträge verknüpfen -------------------
+    private async Task OpenLinkTomAsync()
+    {
+        if (!await EnsureSavedAsync()) return;
+        await OpenLinkAsync(LinkKind.Tom);
+    }
+
+    private async Task OpenLinkServiceProviderAsync()
+    {
+        if (!await EnsureSavedAsync()) return;
+        await OpenLinkAsync(LinkKind.ServiceProvider);
+    }
+
+    private async Task OpenLinkMeasureAsync()
+    {
+        if (!await EnsureSavedAsync()) return;
+        await OpenLinkAsync(LinkKind.Measure);
+    }
+
+    private async Task OpenLinkAsync(LinkKind kind)
+    {
+        if (_tenantId is null || _activityId == 0) return;
+
+        _linkKind = kind;
+        _linkSearch = string.Empty;
+        _linkSelection.Clear();
+        _modalError = null;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var tenantId = _tenantId.Value;
+
+        switch (kind)
+        {
+            case LinkKind.Tom:
+                _linkTitle = "Vorhandene TOM verknüpfen";
+                var linkedTomIds = _linkedToms.Select(t => t.Id).ToHashSet();
+                _linkOptions = (await db.Toms.AsNoTracking()
+                        .Where(t => t.TenantId == tenantId)
+                        .OrderBy(t => t.Title)
+                        .Select(t => new { t.Id, t.Title })
+                        .ToListAsync())
+                    .Where(t => !linkedTomIds.Contains(t.Id))
+                    .Select(t => new LinkOption(t.Id, t.Title))
+                    .ToList();
+                break;
+
+            case LinkKind.ServiceProvider:
+                _linkTitle = "Vorhandenen Dienstleister verknüpfen";
+                var linkedSpIds = _linkedServiceProviders.Select(s => s.Id).ToHashSet();
+                _linkOptions = (await db.ServiceProviders.AsNoTracking()
+                        .Where(s => s.TenantId == tenantId)
+                        .OrderBy(s => s.Name)
+                        .Select(s => new { s.Id, s.Name })
+                        .ToListAsync())
+                    .Where(s => !linkedSpIds.Contains(s.Id))
+                    .Select(s => new LinkOption(s.Id, s.Name))
+                    .ToList();
+                break;
+
+            case LinkKind.Measure:
+                _linkTitle = "Vorhandene Maßnahme verknüpfen";
+                var linkedMeasureIds = _linkedMeasures.Select(m => m.Id).ToHashSet();
+                _linkOptions = (await db.Measures.AsNoTracking()
+                        .Where(m => m.TenantId == tenantId)
+                        .OrderBy(m => m.Title)
+                        .Select(m => new { m.Id, m.Title })
+                        .ToListAsync())
+                    .Where(m => !linkedMeasureIds.Contains(m.Id))
+                    .Select(m => new LinkOption(m.Id, m.Title))
+                    .ToList();
+                break;
+        }
+
+        _showLink = true;
+    }
+
+    private void ToggleLinkSelection(int id, bool selected)
+    {
+        if (selected) _linkSelection.Add(id);
+        else _linkSelection.Remove(id);
+    }
+
+    private async Task ConfirmLinkAsync()
+    {
+        if (_tenantId is null || _activityId == 0 || _linkSelection.Count == 0) return;
+
+        if (!await UserAccess.CanEditComplianceContentAsync())
+        {
+            _modalError = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            return;
+        }
+
+        _modalSaving = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var tenantId = _tenantId.Value;
+            var ids = _linkSelection.ToList();
+            int linked;
+            string label;
+
+            switch (_linkKind)
+            {
+                case LinkKind.Tom:
+                    var validTomIds = await db.Toms.Where(t => t.TenantId == tenantId && ids.Contains(t.Id))
+                        .Select(t => t.Id).ToListAsync();
+                    var existingTomIds = await db.ProcessingActivityToms
+                        .Where(l => l.ProcessingActivityId == _activityId && l.TenantId == tenantId)
+                        .Select(l => l.TomId).ToListAsync();
+                    var newTomIds = validTomIds.Except(existingTomIds).ToList();
+                    foreach (var id in newTomIds)
+                    {
+                        db.ProcessingActivityToms.Add(new ProcessingActivityTom
+                        {
+                            TenantId = tenantId,
+                            ProcessingActivityId = _activityId,
+                            TomId = id,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                    linked = newTomIds.Count;
+                    label = linked == 1 ? "TOM" : "TOMs";
+                    break;
+
+                case LinkKind.ServiceProvider:
+                    var validSpIds = await db.ServiceProviders.Where(s => s.TenantId == tenantId && ids.Contains(s.Id))
+                        .Select(s => s.Id).ToListAsync();
+                    var existingSpIds = await db.ProcessingActivityServiceProviders
+                        .Where(l => l.ProcessingActivityId == _activityId && l.TenantId == tenantId)
+                        .Select(l => l.ServiceProviderId).ToListAsync();
+                    var newSpIds = validSpIds.Except(existingSpIds).ToList();
+                    foreach (var id in newSpIds)
+                    {
+                        db.ProcessingActivityServiceProviders.Add(new ProcessingActivityServiceProvider
+                        {
+                            TenantId = tenantId,
+                            ProcessingActivityId = _activityId,
+                            ServiceProviderId = id,
+                            RoleInProcessing = ProcessingRole.DataProcessor,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                    linked = newSpIds.Count;
+                    label = linked == 1 ? "Dienstleister" : "Dienstleister";
+                    break;
+
+                case LinkKind.Measure:
+                    var validMeasureIds = await db.Measures.Where(m => m.TenantId == tenantId && ids.Contains(m.Id))
+                        .Select(m => m.Id).ToListAsync();
+                    var existingMeasureIds = await db.ProcessingActivityMeasures
+                        .Where(l => l.ProcessingActivityId == _activityId && l.TenantId == tenantId)
+                        .Select(l => l.MeasureId).ToListAsync();
+                    var newMeasureIds = validMeasureIds.Except(existingMeasureIds).ToList();
+                    foreach (var id in newMeasureIds)
+                    {
+                        db.ProcessingActivityMeasures.Add(new ProcessingActivityMeasure
+                        {
+                            TenantId = tenantId,
+                            ProcessingActivityId = _activityId,
+                            MeasureId = id,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                    linked = newMeasureIds.Count;
+                    label = linked == 1 ? "Maßnahme" : "Maßnahmen";
+                    break;
+
+                default:
+                    return;
+            }
+
+            await db.SaveChangesAsync();
+
+            _showLink = false;
+            await LoadLinkedAsync();
+            ShowToast($"{linked} {label} verknüpft.");
+        }
+        finally
+        {
+            _modalSaving = false;
+        }
+    }
+
+    // ------------------------------ Verknüpfung lösen --------------------------
+    private async Task RemoveTomLinkAsync(int tomId)
+    {
+        if (!await CanEditAsync()) return;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var rows = await db.ProcessingActivityToms
+            .Where(l => l.ProcessingActivityId == _activityId && l.TenantId == _tenantId && l.TomId == tomId)
+            .ToListAsync();
+        db.ProcessingActivityToms.RemoveRange(rows);
+        await db.SaveChangesAsync();
+        await LoadLinkedAsync();
+        ShowToast("Verknüpfung der TOM wurde aufgehoben.");
+    }
+
+    private async Task RemoveServiceProviderLinkAsync(int serviceProviderId)
+    {
+        if (!await CanEditAsync()) return;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var rows = await db.ProcessingActivityServiceProviders
+            .Where(l => l.ProcessingActivityId == _activityId && l.TenantId == _tenantId && l.ServiceProviderId == serviceProviderId)
+            .ToListAsync();
+        db.ProcessingActivityServiceProviders.RemoveRange(rows);
+        await db.SaveChangesAsync();
+        await LoadLinkedAsync();
+        ShowToast("Verknüpfung des Dienstleisters wurde aufgehoben.");
+    }
+
+    private async Task RemoveMeasureLinkAsync(int measureId)
+    {
+        if (!await CanEditAsync()) return;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var rows = await db.ProcessingActivityMeasures
+            .Where(l => l.ProcessingActivityId == _activityId && l.TenantId == _tenantId && l.MeasureId == measureId)
+            .ToListAsync();
+        db.ProcessingActivityMeasures.RemoveRange(rows);
+        await db.SaveChangesAsync();
+        await LoadLinkedAsync();
+        ShowToast("Verknüpfung der Maßnahme wurde aufgehoben.");
+    }
+
+    private async Task<bool> CanEditAsync()
+    {
+        if (_tenantId is null || _activityId == 0) return false;
+        return await UserAccess.CanEditComplianceContentAsync();
+    }
+
+    private void CloseModals()
+    {
+        _showCreateTom = false;
+        _showCreateServiceProvider = false;
+        _showCreateMeasure = false;
+        _showLink = false;
+        _modalError = null;
+    }
+
+    private void ShowToast(string message)
+    {
+        _toastMessage = message;
+        _toastVisible = true;
+
+        _toastCts?.Cancel();
+        _toastCts?.Dispose();
+        _toastCts = new CancellationTokenSource();
+        var token = _toastCts.Token;
+
+        // Auto-Ausblenden im Hintergrund, ohne den auslösenden Handler zu blockieren.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(4000, token);
+                _toastVisible = false;
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (TaskCanceledException)
+            {
+                // Neuer Toast hat den vorherigen abgelöst.
+            }
+        });
+    }
+
+    public void Dispose()
+    {
+        _toastCts?.Cancel();
+        _toastCts?.Dispose();
+    }
+
+    private enum LinkKind
+    {
+        Tom,
+        ServiceProvider,
+        Measure
+    }
+
+    private record LinkOption(int Id, string Label);
+}

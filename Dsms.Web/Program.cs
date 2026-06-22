@@ -87,6 +87,7 @@ builder.Services.AddScoped<DataSubjectRequestService>();
 builder.Services.AddScoped<DocumentStorageService>();
 builder.Services.AddScoped<DocumentLinksService>();
 builder.Services.AddScoped<DocumentCategoryService>();
+builder.Services.AddScoped<TomCategoryService>();
 builder.Services.AddScoped<DataProtectionRoleService>();
 builder.Services.AddScoped<ITenantExportService, TenantExportService>();
 builder.Services.AddScoped<ITenantDeletionService, TenantDeletionService>();

@@ -34,12 +34,14 @@ public class ProcessingActivityRelationsService(ApplicationDbContext db)
             return null;
         }
 
-        var toms = await db.ProcessingActivityToms
+        var toms = await db.Toms
             .AsNoTracking()
-            .Where(l => l.ProcessingActivityId == processingActivityId && l.TenantId == tenantId)
-            .Include(l => l.Tom)
-            .OrderBy(l => l.Tom.Title)
-            .Select(l => l.Tom)
+            .Include(t => t.TomCategory)
+            .Where(t => db.ProcessingActivityToms
+                .Any(l => l.TomId == t.Id
+                    && l.ProcessingActivityId == processingActivityId
+                    && l.TenantId == tenantId))
+            .OrderBy(t => t.Title)
             .ToListAsync(ct);
 
         var serviceProviderLinks = await db.ProcessingActivityServiceProviders

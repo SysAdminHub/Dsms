@@ -1583,3 +1583,77 @@
     font-size: var(--dsms-font-size-base);
     letter-spacing: 0.08em;
 }
+
+/* ---- VVT: zentrale Aktionsleiste am Seitenende (sticky) ---- */
+.dsms-form-actions--page-end {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    margin-top: var(--dsms-space-8);
+    padding: var(--dsms-space-4);
+    background: var(--dsms-surface);
+    border: 1px solid var(--dsms-border);
+    border-radius: var(--dsms-radius-lg);
+    box-shadow: var(--dsms-shadow-lg);
+}
+
+/* ---- VVT: Inline-Anlage und Verknüpfung (TOMs, Dienstleister, Maßnahmen) ---- */
+.dsms-inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--dsms-space-3);
+    margin-top: var(--dsms-space-4);
+    padding-top: var(--dsms-space-4);
+    border-top: 1px solid var(--dsms-border);
+}
+
+/* ---- Toast / transiente Erfolgsmeldung ---- */
+.dsms-toast-container {
+    position: fixed;
+    right: var(--dsms-space-4);
+    bottom: var(--dsms-space-4);
+    z-index: 1080;
+    display: flex;
+    flex-direction: column;
+    gap: var(--dsms-space-2);
+    max-width: min(90vw, 28rem);
+}
+
+.dsms-toast {
+    display: flex;
+    align-items: center;
+    gap: var(--dsms-space-3);
+    padding: var(--dsms-space-3) var(--dsms-space-4);
+    background: var(--dsms-success-bg);
+    border: 1px solid var(--dsms-success);
+    border-radius: var(--dsms-radius-lg);
+    box-shadow: var(--dsms-shadow-lg);
+    color: var(--dsms-text);
+    font-size: var(--dsms-font-size-sm);
+    animation: dsms-toast-in 0.18s ease-out;
+}
+
+.dsms-toast-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: var(--dsms-success);
+    color: #ffffff;
+    font-weight: 700;
+    line-height: 1;
+}
+
+@keyframes dsms-toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(0.5rem);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

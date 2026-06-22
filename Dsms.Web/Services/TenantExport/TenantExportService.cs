@@ -312,6 +312,7 @@ public class TenantExportService(
         var items = await db.Toms
             .IgnoreQueryFilters()
             .AsNoTracking()
+            .Include(t => t.TomCategory)
             .Where(t => t.TenantId == tenantId)
             .ToListAsync(ct);
 
@@ -332,7 +333,7 @@ public class TenantExportService(
             Id = t.Id,
             Title = t.Title,
             Description = t.Description,
-            Category = t.Category.ToString(),
+            Category = t.TomCategory?.Name ?? string.Empty,
             ProtectionGoal = t.ProtectionGoal.ToString(),
             ImplementationStatus = t.ImplementationStatus.ToString(),
             Owner = t.Owner,

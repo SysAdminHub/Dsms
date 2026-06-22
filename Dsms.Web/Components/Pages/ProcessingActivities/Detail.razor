@@ -152,7 +152,7 @@ else
                         {
                             <tr>
                                 <td><strong>@tom.Title</strong></td>
-                                <td>@TomLabels.GetCategoryLabel(tom.Category)</td>
+                                <td>@(tom.TomCategory is not null ? tom.TomCategory.Name : "—")</td>
                                 <td>@TomLabels.GetProtectionGoalLabel(tom.ProtectionGoal)</td>
                                 <td>
                                     <StatusBadge Text="@TomLabels.GetImplementationStatusLabel(tom.ImplementationStatus)"

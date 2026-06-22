@@ -5,25 +5,6 @@ namespace Dsms.Web.Domain;
 /// <summary>Deutsche Anzeigelabels für TOM-Kategorien, Schutzziele und Umsetzungsstatus in der UI.</summary>
 public static class TomLabels
 {
-    public static string GetCategoryLabel(TomCategory category) => category switch
-    {
-        TomCategory.PhysicalAccessControl => "Zutrittskontrolle",
-        TomCategory.AdmissionControl => "Zugangskontrolle",
-        TomCategory.AccessControl => "Zugriffskontrolle",
-        TomCategory.DisclosureControl => "Weitergabekontrolle",
-        TomCategory.InputControl => "Eingabekontrolle",
-        TomCategory.OrderControl => "Auftragskontrolle",
-        TomCategory.AvailabilityControl => "Verfügbarkeitskontrolle",
-        TomCategory.SeparationRequirement => "Trennungsgebot",
-        TomCategory.Encryption => "Verschlüsselung",
-        TomCategory.BackupAndRecovery => "Backup und Wiederherstellung",
-        TomCategory.Logging => "Protokollierung",
-        TomCategory.AuthorizationConcept => "Berechtigungskonzept",
-        TomCategory.TrainingAndAwareness => "Schulung und Sensibilisierung",
-        TomCategory.Other => "Sonstige",
-        _ => category.ToString()
-    };
-
     public static string GetProtectionGoalLabel(TomProtectionGoal goal) => goal switch
     {
         TomProtectionGoal.Confidentiality => "Vertraulichkeit",

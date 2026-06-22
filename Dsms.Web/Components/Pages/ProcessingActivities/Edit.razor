@@ -41,46 +41,55 @@ else
 
     <div class="dsms-card dsms-form-card">
         <div class="dsms-card-body">
-            <EditForm Model="_model" OnValidSubmit="SaveAsync" class="dsms-form">
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" id="vtt-form" class="dsms-form">
                 <ValidationSummary class="alert alert-danger dsms-alert" />
 
                 <div class="mb-3">
                     <label class="form-label">Bezeichnung der Verarbeitung *</label>
-                    <InputText class="form-control" @bind-Value="_model.Name" />
+                    <InputText class="form-control" @bind-Value="_model.Name"
+                               placeholder="z. B. Kundenverwaltung, Lohnabrechnung, Bewerbermanagement" />
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Beschreibung</label>
-                    <InputTextArea class="form-control" @bind-Value="_model.Description" rows="3" />
+                    <InputTextArea class="form-control" @bind-Value="_model.Description" rows="3"
+                                   placeholder="z. B. Verarbeitung personenbezogener Daten zur Verwaltung von Kundenanfragen und Vertragsbeziehungen" />
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Zweck der Verarbeitung</label>
-                    <InputTextArea class="form-control" @bind-Value="_model.Purpose" rows="3" />
+                    <InputTextArea class="form-control" @bind-Value="_model.Purpose" rows="3"
+                                   placeholder="z. B. Bearbeitung von Kundenanfragen, Vertragsabwicklung und Rechnungsstellung" />
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Verantwortlicher Bereich / Abteilung</label>
-                        <InputText class="form-control" @bind-Value="_model.ResponsibleDepartment" />
+                        <InputText class="form-control" @bind-Value="_model.ResponsibleDepartment"
+                                   placeholder="z. B. IT-Abteilung, Personalabteilung, Vertrieb" />
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Verantwortliche Person (Owner)</label>
-                        <InputText class="form-control" @bind-Value="_model.Owner" />
+                        <InputText class="form-control" @bind-Value="_model.Owner"
+                                   placeholder="z. B. Max Mustermann, IT-Leitung" />
                     </div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Rechtsgrundlage</label>
-                    <InputTextArea class="form-control" @bind-Value="_model.LegalBasis" rows="2" />
+                    <InputTextArea class="form-control" @bind-Value="_model.LegalBasis" rows="2"
+                                   placeholder="z. B. Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung), Art. 6 Abs. 1 lit. c DSGVO" />
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Kategorien betroffener Personen</label>
-                    <InputTextArea class="form-control" @bind-Value="_model.DataSubjectCategories" rows="2" />
+                    <InputTextArea class="form-control" @bind-Value="_model.DataSubjectCategories" rows="2"
+                                   placeholder="z. B. Kunden, Interessenten, Mitarbeiter, Bewerber" />
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Kategorien personenbezogener Daten</label>
-                    <InputTextArea class="form-control" @bind-Value="_model.PersonalDataCategories" rows="2" />
+                    <InputTextArea class="form-control" @bind-Value="_model.PersonalDataCategories" rows="2"
+                                   placeholder="z. B. Stammdaten, Kontaktdaten, Vertragsdaten, Zahlungsdaten" />
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Empfänger / Empfängerkategorien</label>
-                    <InputTextArea class="form-control" @bind-Value="_model.Recipients" rows="2" />
+                    <InputTextArea class="form-control" @bind-Value="_model.Recipients" rows="2"
+                                   placeholder="z. B. Steuerberater, Hosting-Anbieter, externe Dienstleister" />
                 </div>
                 <div class="form-check mb-3">
                     <InputCheckbox class="form-check-input" @bind-Value="_model.ThirdCountryTransfer" id="thirdCountry" />
@@ -90,12 +99,19 @@ else
                 {
                     <div class="mb-3">
                         <label class="form-label">Beschreibung der Drittlandübermittlung</label>
-                        <InputTextArea class="form-control" @bind-Value="_model.ThirdCountryTransferDescription" rows="2" />
+                        <InputTextArea class="form-control" @bind-Value="_model.ThirdCountryTransferDescription" rows="2"
+                                       placeholder="z. B. Übermittlung an Dienstleister in den USA auf Basis von Standardvertragsklauseln (SCC)" />
                     </div>
                 }
                 <div class="mb-3">
                     <label class="form-label">Löschfrist / Aufbewahrungsfrist</label>
-                    <InputTextArea class="form-control" @bind-Value="_model.RetentionPeriod" rows="2" />
+                    <InputTextArea class="form-control" @bind-Value="_model.RetentionPeriod" rows="2"
+                                   placeholder="z. B. 10 Jahre nach Ende des Kalenderjahres gemäß gesetzlicher Aufbewahrungspflichten" />
+                    <div class="form-text">
+                        Hinweis: Die konkrete Aufbewahrungsfrist hängt von der Art der Unterlagen ab.
+                        <a href="https://www.reisswolf.com/leistungsbereiche/aktenvernichtung-datenvernichtung/aufbewahrungsfristen/"
+                           target="_blank" rel="noopener noreferrer">Übersicht zu Aufbewahrungsfristen</a>
+                    </div>
                 </div>
                 <div class="form-check mb-3">
                     <InputCheckbox class="form-check-input" @bind-Value="_model.DpiaRequired" id="dpiaRequired" />
@@ -111,12 +127,18 @@ else
                     </InputSelect>
                 </div>
 
-                <div class="dsms-form-actions">
-                    <button type="submit" class="btn btn-primary" disabled="@(_saving || (_model.Id == 0 && _createLimit is { IsAllowed: false }))">Speichern</button>
-                    <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"processing-activities/{_model.Id}" : "processing-activities")">Abbrechen</a>
-                </div>
             </EditForm>
         </div>
+    </div>
+
+    <h2 class="dsms-section-title">Zugehörige Einträge anlegen und verknüpfen</h2>
+    <ProcessingActivityInlineLinks ProcessingActivityId="_model.Id"
+                                   EnsureActivitySaved="EnsureActivitySavedAsync" />
+
+    @* Zentrale Aktionsleiste am Seitenende; der Speichern-Button bleibt über das form-Attribut Teil des VVT-Formulars. *@
+    <div class="dsms-form-actions dsms-form-actions--page-end">
+        <button type="submit" form="vtt-form" class="btn btn-primary" disabled="@(_saving || (_model.Id == 0 && _createLimit is { IsAllowed: false }))">Speichern</button>
+        <a class="btn btn-outline-secondary" href="@(_model.Id > 0 ? $"processing-activities/{_model.Id}" : "processing-activities")">Abbrechen</a>
     </div>
 }
 
@@ -177,6 +199,63 @@ else
             _model.TenantId = _tenantId.Value;
             _createLimit = await LicenseService.CanCreateProcessingActivityAsync(_tenantId.Value);
         }
+    }
+
+    /// <summary>
+    /// Stellt sicher, dass die VVT gespeichert ist, bevor zugehörige Einträge inline angelegt/verknüpft werden.
+    /// Eine ganz neue VVT wird dafür als Entwurf serverseitig gespeichert, damit eine gültige Id vorliegt.
+    /// Gibt die Id zurück oder null, wenn nicht gespeichert werden konnte.
+    /// </summary>
+    private async Task<int?> EnsureActivitySavedAsync()
+    {
+        if (_model.Id > 0)
+        {
+            return _model.Id;
+        }
+
+        if (_tenantId is null)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.Name))
+        {
+            _saveError = "Bitte geben Sie zuerst eine Bezeichnung der Verarbeitung ein, um zugehörige Einträge anzulegen oder zu verknüpfen.";
+            StateHasChanged();
+            return null;
+        }
+
+        if (!await UserAccess.CanEditComplianceContentAsync())
+        {
+            _saveError = await UserAccess.GetTenantBusinessWriteDeniedMessageAsync();
+            StateHasChanged();
+            return null;
+        }
+
+        var limitCheck = await LicenseService.CanCreateProcessingActivityAsync(_tenantId.Value);
+        if (!await LicenseCreateGuard.IsAllowedAsync(limitCheck, "ProcessingActivity"))
+        {
+            _saveError = limitCheck.Message;
+            StateHasChanged();
+            return null;
+        }
+
+        _saveError = null;
+        _model.TenantId = _tenantId.Value;
+        _model.CreatedAt = DateTime.UtcNow;
+        Db.ProcessingActivities.Add(_model);
+        await Db.SaveChangesAsync();
+        await ComplianceAuditLog.LogProcessingActivityCreatedAsync(_model.Id, _model.Name, _tenantId.Value);
+
+        // Ausgangswerte aktualisieren, damit ein späteres "Speichern" keine künstlichen Änderungen protokolliert.
+        _previousStatus = _model.Status;
+        _previousName = _model.Name;
+        _previousOwner = _model.Owner;
+        _previousDepartment = _model.ResponsibleDepartment;
+        _createLimit = null;
+
+        StateHasChanged();
+        return _model.Id;
     }
 
     private async Task SaveAsync()

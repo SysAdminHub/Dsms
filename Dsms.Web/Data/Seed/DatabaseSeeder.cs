@@ -60,6 +60,7 @@ public static class DatabaseSeeder
         foreach (var tenantId in tenantIds)
         {
             await DocumentCategorySeeder.EnsureDefaultCategoriesAsync(db, tenantId);
+            await TomCategorySeeder.EnsureDefaultCategoriesAsync(db, tenantId);
         }
     }
 
@@ -179,6 +180,7 @@ public static class DatabaseSeeder
     private static async Task EnsureTenantDocumentCategoriesAsync(ApplicationDbContext db, Tenant tenant)
     {
         await DocumentCategorySeeder.EnsureDefaultCategoriesAsync(db, tenant.Id);
+        await TomCategorySeeder.EnsureDefaultCategoriesAsync(db, tenant.Id);
     }
 
     private static async Task EnsureDemoBusinessDataAsync(ApplicationDbContext db, Tenant tenant)
@@ -277,12 +279,14 @@ public static class DatabaseSeeder
         };
         db.ProcessingActivities.Add(processingActivity);
 
+        var accessControlCategory = await TomCategorySeeder.FindDefaultCategoryAsync(db, tenant.Id, "Zugriffskontrolle");
+
         var demoTom = new Tom
         {
             TenantId = tenant.Id,
             Title = "Rollenbasierte Zugriffskontrolle auf HR-Systeme",
             Description = "Zugriffe auf Personalakten nur für berechtigte HR-Mitarbeiter; jährliche Berechtigungsprüfung.",
-            Category = TomCategory.AccessControl,
+            TomCategoryId = accessControlCategory?.Id,
             ProtectionGoal = TomProtectionGoal.Confidentiality,
             ImplementationStatus = TomImplementationStatus.Implemented,
             Owner = "IT-Sicherheit",

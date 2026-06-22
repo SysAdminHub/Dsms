@@ -17,7 +17,9 @@ public class Tom : ArchivableEntityBase, ITenantEntity
     /// <summary>Beschreibung der Maßnahme und ihrer Umsetzung.</summary>
     public string? Description { get; set; }
 
-    public TomCategory Category { get; set; } = TomCategory.Other;
+    /// <summary>Mandantenbezogene Kategorie (aus der Datenbank, ersetzt das frühere Enum).</summary>
+    public int? TomCategoryId { get; set; }
+    public TomCategory? TomCategory { get; set; }
 
     public TomProtectionGoal ProtectionGoal { get; set; } = TomProtectionGoal.Confidentiality;
 

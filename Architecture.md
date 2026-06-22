@@ -148,7 +148,8 @@ Laden in `Program.cs`: `builder.Configuration.GetConnectionString("DefaultConnec
 | `DocumentCategories` | `DocumentCategory` (mandantenbezogene, editierbare Kategorien) |
 | `DocumentLinks` | `DocumentLink` (Many-to-Many Bezüge Dokument ↔ Fachobjekt) |
 | `ProcessingActivities` | `ProcessingActivity` |
-| `Toms` | `Tom` |
+| `Toms` | `Tom` (Kategorie über `TomCategoryId` → `TomCategory`) |
+| `TomCategories` | `TomCategory` (mandantenbezogene, editierbare TOM-Kategorien; Aktiv/Inaktiv statt Löschen) |
 | `ProcessingActivityToms` | `ProcessingActivityTom` |
 | `ServiceProviders` | `ServiceProvider` (Entity; DbSet-Alias wegen DI-Namenskollision) |
 | `ProcessingActivityServiceProviders` | `ProcessingActivityServiceProvider` |
@@ -299,6 +300,7 @@ Felder **`AssignedUserId`** existieren auf `AuditRun` und `Measure`, werden in d
 | `DocumentUploadValidation` | Static | Dateityp-, MIME- und Größenprüfung für Uploads (PDF, DOCX, XLSX, JPG, PNG; max. 10 MB) |
 | `DocumentLinksService` | Scoped | Many-to-Many-Verknüpfungen (`DocumentLink`); Laden, Setzen, Validierung mandantensicher |
 | `DocumentCategoryService` | Scoped | Mandanten-Kategorien für Dokumente (CRUD, Aktiv/Inaktiv, Auditlog) |
+| `TomCategoryService` | Scoped | Mandanten-Kategorien für TOMs (CRUD, Aktiv/Inaktiv, Validierung, Auditlog) |
 | `DataProtectionRoleService` | Scoped | Organisatorische Datenschutzrollen (CRUD, Suche/Filter, Organigramm via `GetOrgChartAsync`, Berichtslinie/Vertretung, Exportdaten, Auditlog) |
 | `DocumentFileEndpoints` | Minimal API | `GET /documents/{id}/download` und `/view` – mandantengebunden via EF-Filter |
 | `ArchiveViewContextAccessor` | Scoped | Aktiv-/Archivansicht für EF Global Query Filter (`ShowArchivedOnly`) |

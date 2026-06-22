@@ -17,6 +17,10 @@ else
 {
     <PageHeader Title="TOM-Verzeichnis" HelpKey="toms" Subtitle="Technische und organisatorische Maßnahmen">
         <div class="d-flex flex-wrap gap-2 align-items-center">
+            @if (_canManageCategories)
+            {
+                <a class="btn btn-sm btn-outline-secondary" href="toms/categories">Kategorien verwalten</a>
+            }
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (_canEdit && !_showArchived)
             {
@@ -84,7 +88,7 @@ else
                                         <span class="ms-2"><ArchivedBadge /></span>
                                     }
                                 </td>
-                                <td>@TomLabels.GetCategoryLabel(item.Category)</td>
+                                <td>@(string.IsNullOrWhiteSpace(item.CategoryName) ? "—" : item.CategoryName)</td>
                                 <td>@TomLabels.GetProtectionGoalLabel(item.ProtectionGoal)</td>
                                 <td>
                                     <StatusBadge Text="@TomLabels.GetImplementationStatusLabel(item.ImplementationStatus)"
@@ -131,6 +135,7 @@ else
 
     private int? _tenantId;
     private bool _canEdit;
+    private bool _canManageCategories;
     private bool _showArchived;
     private LicenseLimitCheckResult? _createLimit;
     private List<TomListRow>? _items;
@@ -141,6 +146,7 @@ else
         if (_tenantId is null) return;
 
         _canEdit = await UserAccess.CanEditComplianceContentAsync();
+        _canManageCategories = await UserAccess.CanManageTomCategoriesAsync();
 
         _createLimit = await LicenseService.CanCreateTomAsync(_tenantId.Value);
         await LoadDataAsync();
@@ -155,7 +161,7 @@ else
             {
                 Id = t.Id,
                 Title = t.Title,
-                Category = t.Category,
+                CategoryName = t.TomCategory != null ? t.TomCategory.Name : null,
                 ProtectionGoal = t.ProtectionGoal,
                 ImplementationStatus = t.ImplementationStatus,
                 Owner = t.Owner,
@@ -184,7 +190,7 @@ else
     {
         public int Id { get; init; }
         public string Title { get; init; } = "";
-        public TomCategory Category { get; init; }
+        public string? CategoryName { get; init; }
         public TomProtectionGoal ProtectionGoal { get; init; }
         public TomImplementationStatus ImplementationStatus { get; init; }
         public string? Owner { get; init; }

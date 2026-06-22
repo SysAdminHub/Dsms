@@ -44,8 +44,8 @@ Der folgende Umfang ist Bestandteil der Open-Source-Fachanwendung **`Dsms.Web`**
 | Bereich | Beschreibung |
 |--------|--------------|
 | Dashboard | Kennzahlen und Übersichten zu Maßnahmen, Audits, TOMs, Dienstleistern, DSFA und VVT |
-| VVT | Verzeichnis von Verarbeitungstätigkeiten inkl. Verknüpfungen und Stammdaten |
-| TOMs | Technische und organisatorische Maßnahmen |
+| VVT | Verzeichnis von Verarbeitungstätigkeiten inkl. Stammdaten und Verknüpfungen; TOMs, Dienstleister und Maßnahmen können direkt in der VVT-Maske angelegt und sofort verknüpft werden |
+| TOMs | Technische und organisatorische Maßnahmen; mandantenfähige, durch Mandanten-Admins verwaltbare TOM-Kategorien (Aktiv/Inaktiv statt Löschen) |
 | DSFA | Datenschutz-Folgenabschätzungen |
 | Dienstleister | Auftragsverarbeiter und externe Dienstleister |
 | Datenschutzvorfälle | Vorfallregister mit Verknüpfungen |

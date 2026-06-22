@@ -66,6 +66,11 @@ public interface IComplianceAuditLogService
     Task LogDocumentCategoryDeactivatedAsync(int id, string name, int tenantId);
     Task LogDocumentCategoryReactivatedAsync(int id, string name, int tenantId);
 
+    Task LogTomCategoryCreatedAsync(int id, string name, int tenantId);
+    Task LogTomCategoryUpdatedAsync(int id, string name, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes);
+    Task LogTomCategoryDeactivatedAsync(int id, string name, int tenantId);
+    Task LogTomCategoryReactivatedAsync(int id, string name, int tenantId);
+
     Task LogDataProtectionRoleCreatedAsync(int id, string roleTitle, int tenantId);
     Task LogDataProtectionRoleUpdatedAsync(int id, string roleTitle, int tenantId, IReadOnlyList<AuditFieldChangeDto> changes);
     Task LogDataProtectionRoleDeactivatedAsync(int id, string roleTitle, int tenantId);

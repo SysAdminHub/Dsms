@@ -110,6 +110,9 @@ public interface IUserAccessService
     /// <summary>Dokumentkategorien verwalten: Mandanten-Admin oder Superuser im Supportmodus.</summary>
     Task<bool> CanManageDocumentCategoriesAsync();
 
+    /// <summary>TOM-Kategorien verwalten: Mandanten-Admin oder Superuser im Supportmodus.</summary>
+    Task<bool> CanManageTomCategoriesAsync();
+
     /// <summary>Organisatorische Datenschutzrollen verwalten: Mandanten-Admin oder Superuser im Supportmodus.</summary>
     Task<bool> CanManageDataProtectionRolesAsync();
 

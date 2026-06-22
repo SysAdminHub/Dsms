@@ -52,13 +52,20 @@ else
                 </div>
                 <div class="row">
                     <div class="col-md-4 mb-3">
-                        <label class="form-label">Art des Dienstleisters *</label>
-                        <InputSelect class="form-select" @bind-Value="_model.ProviderType">
-                            @foreach (var type in Enum.GetValues<ServiceProviderType>())
+                        <label class="form-label">Art des Dienstleisters</label>
+                        <InputSelect class="form-select" @bind-Value="_model.ServiceProviderCategoryId">
+                            <option value="">— Bitte wählen —</option>
+                            @foreach (var category in _categoryOptions)
                             {
-                                <option value="@type">@ServiceProviderLabels.GetProviderTypeLabel(type)</option>
+                                <option value="@category.Id">@CategoryOptionLabel(category)</option>
                             }
                         </InputSelect>
+                        @if (_categoryOptions.Count == 0)
+                        {
+                            <div class="form-text text-muted">
+                                Keine Dienstleister-Arten vorhanden. <a href="service-providers/categories">Arten verwalten</a>
+                            </div>
+                        }
                     </div>
                     <div class="col-md-4 mb-3">
                         <label class="form-label">Status *</label>
@@ -303,6 +310,7 @@ else
     [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
     [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ServiceProviderCategoryService CategoryService { get; set; } = null!;
     [Inject] private ILogger<Edit> Logger { get; set; } = null!;
 
     private int? _tenantId;
@@ -323,6 +331,8 @@ else
     private ServiceProviderStatus? _previousStatus;
     private string? _previousName;
     private string? _previousResponsible;
+    private int? _previousCategoryId;
+    private IReadOnlyList<ServiceProviderCategory> _categoryOptions = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -365,6 +375,7 @@ else
             _previousStatus = existing.Status;
             _previousName = existing.Name;
             _previousResponsible = existing.ResponsiblePerson;
+            _previousCategoryId = existing.ServiceProviderCategoryId;
             _avvDate = existing.DataProcessingAgreementDate?.ToDateTime(TimeOnly.MinValue);
             _avvReviewDate = existing.DataProcessingAgreementReviewedAt?.ToDateTime(TimeOnly.MinValue);
             _tomsReviewDate = existing.TomsReviewedAt?.ToDateTime(TimeOnly.MinValue);
@@ -387,8 +398,14 @@ else
             Role = existingActivityRoles?.GetValueOrDefault(a.Id, ProcessingRole.DataProcessor) ?? ProcessingRole.DataProcessor
         }).ToList();
 
+        _categoryOptions = await CategoryService.GetOptionsForServiceProviderEditAsync(
+            _tenantId.Value, _model.ServiceProviderCategoryId);
+
         UpdateValidationWarning();
     }
+
+    private static string CategoryOptionLabel(ServiceProviderCategory category) =>
+        category.IsActive ? category.Name : $"{category.Name} (deaktiviert)";
 
     private void ToggleActivity(int activityId, bool selected)
     {
@@ -477,6 +494,14 @@ else
             if (validTomIds.Count != _selectedTomIds.Count)
             {
                 _saveError = "Eine oder mehrere TOMs gehören nicht zu Ihrem Mandanten.";
+                return;
+            }
+
+            var (categoryValid, categoryError) = await CategoryService.ValidateCategoryForServiceProviderAsync(
+                _tenantId.Value, _model.ServiceProviderCategoryId, _previousCategoryId);
+            if (!categoryValid)
+            {
+                _saveError = categoryError;
                 return;
             }
 

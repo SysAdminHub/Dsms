@@ -51,7 +51,7 @@ else
             <div class="row g-3">
                 <div class="col-md-6">
                     <div class="dsms-detail-label">Art des Dienstleisters</div>
-                    <div>@ServiceProviderLabels.GetProviderTypeLabel(_provider.ProviderType)</div>
+                    <div>@CategoryDisplay(_provider.ServiceProviderCategory)</div>
                 </div>
                 <div class="col-md-6">
                     <div class="dsms-detail-label">Status</div>
@@ -294,6 +294,7 @@ else
         _canEdit = await UserAccess.CanEditComplianceContentAsync();
 
         _provider = await Db.ServiceProviders
+            .Include(s => s.ServiceProviderCategory)
             .FirstOrDefaultAsync(s => s.Id == Id && s.TenantId == _tenantId);
 
         if (_provider is not null)
@@ -316,6 +317,16 @@ else
         }
 
         _loaded = true;
+    }
+
+    private static string CategoryDisplay(ServiceProviderCategory? category)
+    {
+        if (category is null)
+        {
+            return "—";
+        }
+
+        return category.IsActive ? category.Name : $"{category.Name} (deaktiviert)";
     }
 
     private static MarkupString DisplayMultiline(string? text) =>

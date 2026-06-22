@@ -216,6 +216,21 @@ public static class ComplianceAuditDiffBuilder
         return changes;
     }
 
+    public static List<AuditFieldChangeDto> ForServiceProviderCategory(
+        string? previousName,
+        string? previousDescription,
+        int? previousSortOrder,
+        bool? previousIsActive,
+        ServiceProviderCategoryEditModel current)
+    {
+        var changes = new List<AuditFieldChangeDto>();
+        AuditDiffHelper.AddIfChanged(changes, "Name", "Name", previousName, current.Name);
+        AuditDiffHelper.AddIfChanged(changes, "Description", "Beschreibung", previousDescription, current.Description);
+        AuditDiffHelper.AddIfChanged(changes, "SortOrder", "Sortierung", previousSortOrder, current.SortOrder);
+        AuditDiffHelper.AddIfChanged(changes, "IsActive", "Aktiv", previousIsActive, current.IsActive);
+        return changes;
+    }
+
     public static List<AuditFieldChangeDto> ForDataProtectionRole(
         string? previousTitle,
         bool? previousIsActive,

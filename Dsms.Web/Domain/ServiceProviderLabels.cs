@@ -11,40 +11,6 @@ public static class ServiceProviderLabels
 
 {
 
-    public static string GetProviderTypeLabel(ServiceProviderType type) => type switch
-
-    {
-
-        ServiceProviderType.Hosting => "Hosting",
-
-        ServiceProviderType.CloudService => "Cloud-Dienst",
-
-        ServiceProviderType.ItSupport => "IT-Support",
-
-        ServiceProviderType.SoftwareVendor => "Softwareanbieter",
-
-        ServiceProviderType.Payroll => "Lohnabrechnung",
-
-        ServiceProviderType.Accounting => "Buchhaltung",
-
-        ServiceProviderType.Newsletter => "Newsletter",
-
-        ServiceProviderType.Crm => "CRM",
-
-        ServiceProviderType.DocumentDestruction => "Aktenvernichtung",
-
-        ServiceProviderType.Maintenance => "Wartung",
-
-        ServiceProviderType.Consulting => "Beratung",
-
-        ServiceProviderType.Other => "Sonstige",
-
-        _ => type.ToString()
-
-    };
-
-
-
     public static string GetStatusLabel(ServiceProviderStatus status) => status switch
 
     {

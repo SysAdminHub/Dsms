@@ -356,6 +356,7 @@ public class TenantExportService(
         var items = await db.ServiceProviders
             .IgnoreQueryFilters()
             .AsNoTracking()
+            .Include(s => s.ServiceProviderCategory)
             .Where(s => s.TenantId == tenantId)
             .ToListAsync(ct);
 
@@ -376,7 +377,7 @@ public class TenantExportService(
             Id = s.Id,
             Name = s.Name,
             Description = s.Description,
-            ProviderType = s.ProviderType.ToString(),
+            ProviderType = s.ServiceProviderCategory?.Name ?? string.Empty,
             ServicePurpose = s.ServicePurpose,
             ContactPerson = s.ContactPerson,
             Email = s.Email,

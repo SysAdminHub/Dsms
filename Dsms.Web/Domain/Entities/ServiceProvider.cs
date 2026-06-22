@@ -34,7 +34,11 @@ public class ServiceProvider : ArchivableEntityBase, ITenantEntity
 
 
 
-    public ServiceProviderType ProviderType { get; set; } = ServiceProviderType.Other;
+    /// <summary>Mandantenbezogene Art des Dienstleisters (aus der Datenbank, ersetzt das frühere Enum).</summary>
+
+    public int? ServiceProviderCategoryId { get; set; }
+
+    public ServiceProviderCategory? ServiceProviderCategory { get; set; }
 
 
 

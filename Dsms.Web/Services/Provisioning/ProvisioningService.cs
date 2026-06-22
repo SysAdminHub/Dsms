@@ -218,6 +218,7 @@ public sealed class ProvisioningService(
 
                 await DocumentCategorySeeder.EnsureDefaultCategoriesAsync(db, tenant.Id, admin.Id);
                 await TomCategorySeeder.EnsureDefaultCategoriesAsync(db, tenant.Id, admin.Id);
+                await ServiceProviderCategorySeeder.EnsureDefaultCategoriesAsync(db, tenant.Id, admin.Id);
 
                 await db.SaveChangesAsync();
                 await transaction.CommitAsync();

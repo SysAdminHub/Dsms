@@ -61,6 +61,7 @@ public static class DatabaseSeeder
         {
             await DocumentCategorySeeder.EnsureDefaultCategoriesAsync(db, tenantId);
             await TomCategorySeeder.EnsureDefaultCategoriesAsync(db, tenantId);
+            await ServiceProviderCategorySeeder.EnsureDefaultCategoriesAsync(db, tenantId);
         }
     }
 
@@ -181,6 +182,7 @@ public static class DatabaseSeeder
     {
         await DocumentCategorySeeder.EnsureDefaultCategoriesAsync(db, tenant.Id);
         await TomCategorySeeder.EnsureDefaultCategoriesAsync(db, tenant.Id);
+        await ServiceProviderCategorySeeder.EnsureDefaultCategoriesAsync(db, tenant.Id);
     }
 
     private static async Task EnsureDemoBusinessDataAsync(ApplicationDbContext db, Tenant tenant)
@@ -306,12 +308,14 @@ public static class DatabaseSeeder
             CreatedAt = DateTime.UtcNow
         });
 
+        var payrollCategory = await ServiceProviderCategorySeeder.FindDefaultCategoryAsync(db, tenant.Id, "Lohnabrechnung");
+
         var payrollProvider = new Domain.Entities.ServiceProvider
         {
             TenantId = tenant.Id,
             Name = "Lohnbuchhaltung Müller GmbH",
             Description = "Externe Lohnabrechnung für Beschäftigte.",
-            ProviderType = ServiceProviderType.Payroll,
+            ServiceProviderCategoryId = payrollCategory?.Id,
             ServicePurpose = "Lohn- und Gehaltsabrechnung",
             Country = "Deutschland",
             IsDataProcessor = true,

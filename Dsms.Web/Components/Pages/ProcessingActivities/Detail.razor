@@ -215,7 +215,7 @@ else
                             var sp = link.ServiceProvider;
                             <tr>
                                 <td><strong>@sp.Name</strong></td>
-                                <td>@ServiceProviderLabels.GetProviderTypeLabel(sp.ProviderType)</td>
+                                <td>@(sp.ServiceProviderCategory is null ? "—" : (sp.ServiceProviderCategory.IsActive ? sp.ServiceProviderCategory.Name : $"{sp.ServiceProviderCategory.Name} (deaktiviert)"))</td>
                                 <td>@(sp.IsDataProcessor ? "Ja" : "Nein")</td>
                                 <td>@(sp.DataProcessingAgreementExists ? "Ja" : "Nein")</td>
                                 <td>@(sp.ThirdCountryInvolvement ? "Ja" : "Nein")</td>

@@ -113,6 +113,9 @@ public interface IUserAccessService
     /// <summary>TOM-Kategorien verwalten: Mandanten-Admin oder Superuser im Supportmodus.</summary>
     Task<bool> CanManageTomCategoriesAsync();
 
+    /// <summary>Dienstleister-Arten verwalten: Mandanten-Admin oder Superuser im Supportmodus.</summary>
+    Task<bool> CanManageServiceProviderCategoriesAsync();
+
     /// <summary>Organisatorische Datenschutzrollen verwalten: Mandanten-Admin oder Superuser im Supportmodus.</summary>
     Task<bool> CanManageDataProtectionRolesAsync();
 

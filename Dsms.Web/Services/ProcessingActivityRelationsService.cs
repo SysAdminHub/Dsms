@@ -48,6 +48,7 @@ public class ProcessingActivityRelationsService(ApplicationDbContext db)
             .AsNoTracking()
             .Where(l => l.ProcessingActivityId == processingActivityId && l.TenantId == tenantId)
             .Include(l => l.ServiceProvider)
+                .ThenInclude(s => s.ServiceProviderCategory)
             .OrderBy(l => l.ServiceProvider.Name)
             .ToListAsync(ct);
 

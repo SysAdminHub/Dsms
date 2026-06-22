@@ -147,6 +147,17 @@
                     </AuthorizeView>
                 }
 
+                @if (_showLookupSettings)
+                {
+                    <div class="nav-section">Einstellungen</div>
+
+                    <div class="nav-item">
+
+                        <NavLink class="nav-link" href="settings/lookups">Auswahllisten</NavLink>
+
+                    </div>
+                }
+
                 @if (_isSuperuser)
                 {
                     <div class="nav-section">Administration</div>
@@ -320,6 +331,8 @@
 
     private bool _showAdminLicense;
 
+    private bool _showLookupSettings;
+
 
 
     protected override async Task OnInitializedAsync()
@@ -337,6 +350,8 @@
         _showTenantUserManagement = !_isSuperuser && await UserAccess.CanManageUsersAsync();
 
         _showAdminLicense = await UserAccess.IsTenantAdminAsync();
+
+        _showLookupSettings = await UserAccess.CanManageTenantDataAsync();
 
     }
 

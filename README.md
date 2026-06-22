@@ -47,7 +47,7 @@ Der folgende Umfang ist Bestandteil der Open-Source-Fachanwendung **`Dsms.Web`**
 | VVT | Verzeichnis von Verarbeitungstätigkeiten inkl. Stammdaten und Verknüpfungen; TOMs, Dienstleister und Maßnahmen können direkt in der VVT-Maske angelegt und sofort verknüpft werden |
 | TOMs | Technische und organisatorische Maßnahmen; mandantenfähige, durch Mandanten-Admins verwaltbare TOM-Kategorien (Aktiv/Inaktiv statt Löschen) |
 | DSFA | Datenschutz-Folgenabschätzungen |
-| Dienstleister | Auftragsverarbeiter und externe Dienstleister |
+| Dienstleister | Auftragsverarbeiter und externe Dienstleister; mandantenfähige, durch Mandanten-Admins verwaltbare „Art des Dienstleisters“ (Aktiv/Inaktiv statt Löschen) |
 | Datenschutzvorfälle | Vorfallregister mit Verknüpfungen |
 | Betroffenenanfragen | Dokumentation von DSGVO-Anfragen und Fristen |
 | Maßnahmen | Maßnahmenverfolgung mit Status und Fälligkeit |
@@ -61,6 +61,7 @@ Der folgende Umfang ist Bestandteil der Open-Source-Fachanwendung **`Dsms.Web`**
 | Quiz | Lernerfolgskontrolle in Schulungen |
 | PDF-Bescheinigungen | Teilnahmebescheinigungen für Schulungen |
 | Supportzugriff | Zeitlich begrenzte Supportfreigabe durch Mandanten-Admins |
+| Auswahllisten | Zentrale Verwaltung mandantenfähiger Katalogwerte unter „Einstellungen → Auswahllisten“ (TOM-Kategorien, Dienstleister-Arten); Dokumentkategorien bleiben separat im Dokumentenmodul |
 | Auditlog | Admin-Protokollierung und Plattform-Logs |
 | Lizenzanzeige | Anzeige der Mandanten-Lizenz und Limits (`/admin/license`) |
 | Benutzer & Mandanten | Benutzer- und Mandantenverwaltung, Mandanten-Export |

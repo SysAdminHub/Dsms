@@ -1,0 +1,79 @@
+@page "/settings/lookups"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<BrandedPageTitle Title="Auswahllisten" />
+
+@if (_tenantId is null)
+{
+    <PageHeader Title="Auswahllisten" />
+    <div class="alert alert-warning dsms-alert">Kein Mandant zugeordnet.</div>
+}
+else if (!_authorized)
+{
+    <PageHeader Title="Auswahllisten" />
+    <div class="alert alert-warning dsms-alert">Keine Berechtigung zur Verwaltung von Auswahllisten.</div>
+}
+else
+{
+    <PageHeader Title="Auswahllisten"
+                Subtitle="Mandantenspezifische Katalogwerte für Auswahlfelder verwalten" />
+
+    <div class="dsms-card mb-4">
+        <div class="dsms-card-header">Konfigurierbare Listen</div>
+        <div class="dsms-card-body">
+            <p class="text-muted">
+                Werte können angelegt, bearbeitet, deaktiviert und wieder aktiviert werden.
+                Werte werden nie gelöscht, damit bestehende Zuordnungen und historische Datensätze erhalten bleiben.
+            </p>
+            <div class="dsms-table-wrap">
+                <table class="table dsms-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Liste</th>
+                            <th>Verwendung</th>
+                            <th class="dsms-table-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>TOM-Kategorien</strong></td>
+                            <td>Kategorien im TOM-Verzeichnis (technische und organisatorische Maßnahmen)</td>
+                            <td class="dsms-table-actions">
+                                <a class="btn btn-sm btn-outline-primary" href="toms/categories">Verwalten</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Dienstleister-Arten</strong></td>
+                            <td>„Art des Dienstleisters“ im Dienstleisterverzeichnis</td>
+                            <td class="dsms-table-actions">
+                                <a class="btn btn-sm btn-outline-primary" href="service-providers/categories">Verwalten</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Dokumentkategorien</strong></td>
+                            <td>Kategorien für Dokumente im Dokumentenmodul</td>
+                            <td class="dsms-table-actions">
+                                <a class="btn btn-sm btn-outline-primary" href="documents/categories">Verwalten</a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ICurrentUserContext CurrentUser { get; set; } = null!;
+
+    private int? _tenantId;
+    private bool _authorized;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenantId = await CurrentUser.GetTenantIdAsync();
+        _authorized = _tenantId is not null && await UserAccess.CanManageTenantDataAsync();
+    }
+}

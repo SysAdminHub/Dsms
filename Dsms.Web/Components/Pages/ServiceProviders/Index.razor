@@ -17,6 +17,10 @@ else
 {
     <PageHeader Title="Dienstleister" HelpKey="service-providers" Subtitle="Auftragsverarbeiter und externe Dienstleister">
         <div class="d-flex flex-wrap gap-2 align-items-center">
+            @if (_canManageCategories)
+            {
+                <a class="btn btn-sm btn-outline-secondary" href="service-providers/categories">Arten verwalten</a>
+            }
             <ArchiveViewToggle OnViewChanged="LoadDataAsync" />
             @if (_canEdit && !_showArchived)
             {
@@ -85,7 +89,7 @@ else
                                         <span class="ms-2"><ArchivedBadge /></span>
                                     }
                                 </td>
-                                <td>@ServiceProviderLabels.GetProviderTypeLabel(item.ProviderType)</td>
+                                <td>@CategoryDisplay(item.ServiceProviderCategory)</td>
                                 <td>
                                     <StatusBadge Text="@ServiceProviderLabels.GetStatusLabel(item.Status)"
                                                  Variant="@ServiceProviderLabels.GetStatusVariant(item.Status)" />
@@ -148,6 +152,7 @@ else
 
     private int? _tenantId;
     private bool _canEdit;
+    private bool _canManageCategories;
     private bool _showArchived;
     private LicenseLimitCheckResult? _createLimit;
     private List<DsmsServiceProvider>? _items;
@@ -158,6 +163,7 @@ else
         if (_tenantId is null) return;
 
         _canEdit = await UserAccess.CanEditComplianceContentAsync();
+        _canManageCategories = await UserAccess.CanManageServiceProviderCategoriesAsync();
 
         _createLimit = await LicenseService.CanCreateProcessorAsync(_tenantId.Value);
         await LoadDataAsync();
@@ -167,8 +173,19 @@ else
     {
         _showArchived = ArchiveView.ShowArchivedOnly;
         _items = await Db.ServiceProviders
+            .Include(s => s.ServiceProviderCategory)
             .OrderByDescending(s => _showArchived ? s.ArchivedAt : (s.UpdatedAt ?? s.CreatedAt))
             .ToListAsync();
+    }
+
+    private static string CategoryDisplay(ServiceProviderCategory? category)
+    {
+        if (category is null)
+        {
+            return "—";
+        }
+
+        return category.IsActive ? category.Name : $"{category.Name} (deaktiviert)";
     }
 
     private string FormatDateColumn(DsmsServiceProvider item) =>

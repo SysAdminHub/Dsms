@@ -40,6 +40,7 @@ public class ApplicationDbContext(
     public DbSet<TomCategory> TomCategories => Set<TomCategory>();
     public DbSet<ProcessingActivityTom> ProcessingActivityToms => Set<ProcessingActivityTom>();
     public DbSet<ServiceProviderEntity> ServiceProviders => Set<ServiceProviderEntity>();
+    public DbSet<ServiceProviderCategory> ServiceProviderCategories => Set<ServiceProviderCategory>();
     public DbSet<ProcessingActivityServiceProvider> ProcessingActivityServiceProviders => Set<ProcessingActivityServiceProvider>();
     public DbSet<ServiceProviderTom> ServiceProviderToms => Set<ServiceProviderTom>();
     public DbSet<ProcessingActivityMeasure> ProcessingActivityMeasures => Set<ProcessingActivityMeasure>();
@@ -903,9 +904,26 @@ public class ApplicationDbContext(
             e.Property(s => s.Notes).HasColumnType("text");
             e.Property(s => s.ArchivedByUserId).HasMaxLength(450);
             e.HasOne(s => s.Tenant).WithMany(t => t.ServiceProviders).OnDelete(DeleteBehavior.Restrict);
+            // Art wird nie gelöscht (nur deaktiviert); Restrict schützt bestehende Dienstleister.
+            e.HasOne(s => s.ServiceProviderCategory).WithMany(c => c.ServiceProviders)
+                .HasForeignKey(s => s.ServiceProviderCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(s => s.TenantId);
+            e.HasIndex(s => s.ServiceProviderCategoryId);
             e.HasIndex(s => new { s.TenantId, s.Status });
             e.HasIndex(s => new { s.TenantId, s.IsDataProcessor });
+        });
+
+        builder.Entity<ServiceProviderCategory>(e =>
+        {
+            e.ToTable("ServiceProviderCategories");
+            e.Property(c => c.Name).HasMaxLength(150).IsRequired();
+            e.Property(c => c.Description).HasMaxLength(500);
+            e.Property(c => c.CreatedByUserId).HasMaxLength(450);
+            e.Property(c => c.UpdatedByUserId).HasMaxLength(450);
+            e.HasOne(c => c.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(c => c.TenantId);
+            e.HasIndex(c => new { c.TenantId, c.Name }).IsUnique();
         });
 
         // Many-to-Many Dienstleister ↔ Verarbeitungstätigkeit inkl. Rolle in der Verarbeitung.
@@ -1182,6 +1200,10 @@ public class ApplicationDbContext(
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 
         builder.Entity<TomCategory>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<ServiceProviderCategory>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 

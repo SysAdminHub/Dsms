@@ -84,7 +84,7 @@
                             {
                                 <tr>
                                     <td><strong>@sp.Name</strong></td>
-                                    <td>@ServiceProviderLabels.GetProviderTypeLabel(sp.ProviderType)</td>
+                                    <td>@ServiceProviderCategoryDisplay(sp.ServiceProviderCategory)</td>
                                     <td>@ServiceProviderLabels.GetStatusLabel(sp.Status)</td>
                                     <td class="text-end">
                                         <button type="button" class="btn btn-sm btn-outline-danger"
@@ -229,10 +229,11 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Art des Dienstleisters</label>
-                        <select class="form-select" @bind="_newServiceProvider.ProviderType">
-                            @foreach (var type in Enum.GetValues<ServiceProviderType>())
+                        <select class="form-select" @bind="_newServiceProvider.ServiceProviderCategoryId">
+                            <option value="">— Bitte wählen —</option>
+                            @foreach (var category in _serviceProviderCategoryOptions)
                             {
-                                <option value="@type">@ServiceProviderLabels.GetProviderTypeLabel(type)</option>
+                                <option value="@category.Id">@category.Name</option>
                             }
                         </select>
                     </div>
@@ -386,6 +387,7 @@
     private List<Tom> _linkedToms = [];
     private List<TomCategory> _tomCategoryOptions = [];
     private List<DsmsServiceProvider> _linkedServiceProviders = [];
+    private List<ServiceProviderCategory> _serviceProviderCategoryOptions = [];
     private List<Measure> _linkedMeasures = [];
 
     private bool _showCreateTom;
@@ -465,8 +467,16 @@
             .AsNoTracking()
             .Where(l => l.ProcessingActivityId == _activityId && l.TenantId == tenantId)
             .Include(l => l.ServiceProvider)
+                .ThenInclude(s => s.ServiceProviderCategory)
             .Select(l => l.ServiceProvider)
             .OrderBy(s => s.Name)
+            .ToListAsync();
+
+        _serviceProviderCategoryOptions = await db.ServiceProviderCategories
+            .AsNoTracking()
+            .Where(c => c.TenantId == tenantId && c.IsActive)
+            .OrderBy(c => c.SortOrder)
+            .ThenBy(c => c.Name)
             .ToListAsync();
 
         _linkedMeasures = await db.ProcessingActivityMeasures
@@ -476,6 +486,16 @@
             .Select(l => l.Measure)
             .OrderBy(m => m.Title)
             .ToListAsync();
+    }
+
+    private static string ServiceProviderCategoryDisplay(ServiceProviderCategory? category)
+    {
+        if (category is null)
+        {
+            return "—";
+        }
+
+        return category.IsActive ? category.Name : $"{category.Name} (deaktiviert)";
     }
 
     /// <summary>Sorgt für eine gültige VVT-Id (ggf. Entwurf speichern) und gibt sie zurück.</summary>
@@ -577,8 +597,7 @@
         if (!await EnsureSavedAsync()) return;
         _newServiceProvider = new DsmsServiceProvider
         {
-            Status = ServiceProviderStatus.InReview,
-            ProviderType = ServiceProviderType.Other
+            Status = ServiceProviderStatus.InReview
         };
         _modalError = null;
         _showCreateServiceProvider = true;

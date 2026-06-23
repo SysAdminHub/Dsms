@@ -144,6 +144,13 @@ else
         {
             _userLimit = await LicenseService.CanCreateUserAsync(tid);
             _auditorLimit = await LicenseService.CanCreateAuditorAsync(tid);
+
+            // Im bezahlten Zugang liefern Benutzer- und Auditoren-Prüfung dasselbe
+            // lizenzweite Zugangslimit; doppelte Anzeige vermeiden.
+            if (_userLimit?.LimitName == LicenseLimitHelper.LicensedAccessLimitName)
+            {
+                _auditorLimit = null;
+            }
         }
     }
 

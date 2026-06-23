@@ -72,9 +72,62 @@ else
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Rechtsgrundlage</label>
+                    <label class="form-label">Rechtsgrundlagen</label>
+
+                    @if (_selectedLegalBasisKeys.Count > 0)
+                    {
+                        <div class="dsms-legalbasis-chips mb-2">
+                            @foreach (var option in LegalBasisOptions.All.Where(o => _selectedLegalBasisKeys.Contains(o.Key)))
+                            {
+                                <span class="dsms-legalbasis-chip">
+                                    <span class="dsms-legalbasis-chip__label">@option.Label</span>
+                                    <button type="button" class="dsms-legalbasis-chip__remove"
+                                            aria-label="@($"{option.ShortName} entfernen")"
+                                            title="Entfernen"
+                                            @onclick="() => ToggleLegalBasis(option.Key, false)">×</button>
+                                </span>
+                            }
+                        </div>
+                    }
+
+                    <div class="dsms-legalbasis-options">
+                        @foreach (var option in LegalBasisOptions.All)
+                        {
+                            var checkboxId = $"legalbasis-{option.Key}";
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="@checkboxId"
+                                       checked="@_selectedLegalBasisKeys.Contains(option.Key)"
+                                       @onchange="e => ToggleLegalBasis(option.Key, (bool)(e.Value ?? false))" />
+                                <label class="form-check-label" for="@checkboxId">@option.Label</label>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="form-text">
+                        Wählen Sie eine oder mehrere passende Rechtsgrundlagen aus. Bei besonderen Kategorien
+                        personenbezogener Daten kann zusätzlich Art. 9 Abs. 2 DSGVO relevant sein.
+                    </div>
+                    <div class="alert alert-info dsms-alert mt-2 mb-0 py-2">
+                        Bei besonderen Kategorien personenbezogener Daten ist zusätzlich eine Bedingung nach
+                        Art. 9 Abs. 2 DSGVO zu prüfen.
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Ergänzende Angaben zur Rechtsgrundlage</label>
                     <InputTextArea class="form-control" @bind-Value="_model.LegalBasis" rows="2"
-                                   placeholder="z. B. Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung), Art. 6 Abs. 1 lit. c DSGVO" />
+                                   placeholder="z. B. Vertragserfüllung zur Bearbeitung von Kundenaufträgen; gesetzliche Aufbewahrungspflichten für Rechnungsdaten." />
+                    @if (_selectedLegalBasisKeys.Count == 0 && string.IsNullOrWhiteSpace(_model.LegalBasis))
+                    {
+                        <div class="form-text text-warning">
+                            Empfehlung: Bitte wählen Sie mindestens eine Rechtsgrundlage aus oder ergänzen Sie eine Angabe im Freitextfeld.
+                        </div>
+                    }
+                    else if (_selectedLegalBasisKeys.Contains(LegalBasisOptions.Keys.Other) && string.IsNullOrWhiteSpace(_model.LegalBasis))
+                    {
+                        <div class="form-text text-warning">
+                            Empfehlung: Bei „Sonstige / eigene Rechtsgrundlage“ sollten Sie die Rechtsgrundlage hier näher beschreiben.
+                        </div>
+                    }
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Kategorien betroffener Personen</label>
@@ -151,6 +204,7 @@ else
     [Inject] private ILicenseCreateGuard LicenseCreateGuard { get; set; } = null!;
     [Inject] private IComplianceAuditLogService ComplianceAuditLog { get; set; } = null!;
     [Inject] private IUserAccessService UserAccess { get; set; } = null!;
+    [Inject] private ProcessingActivityRelationsService Relations { get; set; } = null!;
 
     private int? _tenantId;
     private bool _canEdit;
@@ -160,6 +214,7 @@ else
     private string? _saveError;
     private LicenseLimitCheckResult? _createLimit;
     private ProcessingActivity _model = new() { Status = ProcessingActivityStatus.Draft };
+    private HashSet<string> _selectedLegalBasisKeys = new(StringComparer.Ordinal);
     private ProcessingActivityStatus? _previousStatus;
     private string? _previousName;
     private string? _previousOwner;
@@ -193,11 +248,31 @@ else
             _previousName = existing.Name;
             _previousOwner = existing.Owner;
             _previousDepartment = existing.ResponsibleDepartment;
+
+            var keys = await Relations.GetLegalBasisKeysAsync(_tenantId.Value, existing.Id);
+            _selectedLegalBasisKeys = keys.ToHashSet(StringComparer.Ordinal);
         }
         else
         {
             _model.TenantId = _tenantId.Value;
             _createLimit = await LicenseService.CanCreateProcessingActivityAsync(_tenantId.Value);
+        }
+    }
+
+    private void ToggleLegalBasis(string key, bool selected)
+    {
+        if (!LegalBasisOptions.IsKnownKey(key))
+        {
+            return;
+        }
+
+        if (selected)
+        {
+            _selectedLegalBasisKeys.Add(key);
+        }
+        else
+        {
+            _selectedLegalBasisKeys.Remove(key);
         }
     }
 
@@ -245,6 +320,10 @@ else
         _model.CreatedAt = DateTime.UtcNow;
         Db.ProcessingActivities.Add(_model);
         await Db.SaveChangesAsync();
+
+        await Relations.SyncLegalBasisLinksAsync(_tenantId.Value, _model.Id, _selectedLegalBasisKeys);
+        await Db.SaveChangesAsync();
+
         await ComplianceAuditLog.LogProcessingActivityCreatedAsync(_model.Id, _model.Name, _tenantId.Value);
 
         // Ausgangswerte aktualisieren, damit ein späteres "Speichern" keine künstlichen Änderungen protokolliert.
@@ -297,6 +376,10 @@ else
             _model.UpdatedAt = DateTime.UtcNow;
         }
 
+        await Db.SaveChangesAsync();
+
+        // Strukturierte Rechtsgrundlagen synchronisieren (Id liegt nach dem ersten Speichern vor).
+        await Relations.SyncLegalBasisLinksAsync(_tenantId.Value, _model.Id, _selectedLegalBasisKeys);
         await Db.SaveChangesAsync();
 
         if (isNew)

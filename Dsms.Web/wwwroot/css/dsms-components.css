@@ -648,6 +648,63 @@
     margin-left: 0.35rem;
 }
 
+/* ---- Rechtsgrundlagen-Auswahl (VVT) ---- */
+.dsms-legalbasis-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.dsms-legalbasis-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: 100%;
+    padding: 0.25rem 0.35rem 0.25rem 0.65rem;
+    border-radius: 999px;
+    font-size: var(--dsms-font-size-sm);
+    font-weight: 600;
+    background: var(--dsms-primary-soft);
+    color: var(--dsms-primary);
+    border: 1px solid var(--dsms-primary-soft);
+}
+
+.dsms-legalbasis-chip__label {
+    overflow-wrap: anywhere;
+}
+
+.dsms-legalbasis-chip__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex: 0 0 auto;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.55);
+    color: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.dsms-legalbasis-chip__remove:hover,
+.dsms-legalbasis-chip__remove:focus-visible {
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.dsms-legalbasis-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.75rem;
+    border: 1px solid var(--dsms-border-color, #e2e8f0);
+    border-radius: var(--dsms-radius);
+    background: var(--dsms-surface, #fff);
+}
+
 /* ---- Alerts ---- */
 .dsms-alert {
     border-radius: var(--dsms-radius);

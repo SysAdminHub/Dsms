@@ -126,6 +126,10 @@ public sealed partial class LicenseService
             MaxStorageMb = baseDetails.MaxStorageMb,
             MaxEmailRemindersPerMonth = baseDetails.MaxEmailRemindersPerMonth,
             HasTrainingModule = baseDetails.HasTrainingModule,
+            PaidPlanEnabled = baseDetails.PaidPlanEnabled,
+            LicensedUserCount = baseDetails.LicensedUserCount,
+            IncludedStorageGb = baseDetails.IncludedStorageGb,
+            AdditionalStorageGb = baseDetails.AdditionalStorageGb,
             Usage = baseDetails.Usage,
             Usability = baseDetails.Usability
         };

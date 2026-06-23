@@ -65,14 +65,26 @@ else
                             Mandanten:
                             <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Mandanten", _license.Usage.CurrentTenants, _license.MaxTenants)" />
                         </li>
-                        <li class="mb-2">
-                            Admins:
-                            <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Admins", _license.Usage.CurrentAdmins, _license.MaxAdmins)" />
-                        </li>
-                        <li class="mb-2">
-                            Speicher (MB):
-                            <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Speicher", _license.Usage.CurrentStorageMb, _license.MaxStorageMb)" />
-                        </li>
+                        @if (_license.PaidPlanEnabled)
+                        {
+                            <li class="mb-2">
+                                Zugänge: @_license.Usage.CurrentLicensedAccesses von @_license.LicensedUserCount lizenzierten Zugängen verwendet
+                            </li>
+                            <li class="mb-2">
+                                Speicher: @LicenseLimitHelper.FormatStorageUsageGb(_license.Usage.CurrentStorageMb, _license.TotalStorageGb)
+                            </li>
+                        }
+                        else
+                        {
+                            <li class="mb-2">
+                                Admins:
+                                <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Admins", _license.Usage.CurrentAdmins, _license.MaxAdmins)" />
+                            </li>
+                            <li class="mb-2">
+                                Speicher (MB):
+                                <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Speicher", _license.Usage.CurrentStorageMb, _license.MaxStorageMb)" />
+                            </li>
+                        }
                         <li>
                             E-Mail-Erinnerungen (aktueller Monat):
                             <LicenseLimitRow Item="@LicenseLimitHelper.CreateItem("Erinnerungen", _license.Usage.CurrentEmailRemindersThisMonth, _license.MaxEmailRemindersPerMonth)" />
@@ -90,12 +102,19 @@ else
                         <li>Auditoren gesamt: @_license.Usage.CurrentAuditorsTotal</li>
                         <li>Eigene Auditvorlagen gesamt: @_license.Usage.CurrentCustomAuditTemplatesTotal</li>
                         <li>Laufende Audits gesamt: @_license.Usage.CurrentActiveAuditsTotal</li>
-                        <li>Verarbeitungstätigkeiten gesamt: @_license.Usage.CurrentProcessingActivitiesTotal</li>
-                        <li>DSFA gesamt: @_license.Usage.CurrentDpiaTotal</li>
-                        <li>TOMs gesamt: @_license.Usage.CurrentTomsTotal</li>
-                        <li>Dienstleister gesamt: @_license.Usage.CurrentProcessorsTotal</li>
-                        <li>Laufende Maßnahmen gesamt: @_license.Usage.CurrentActiveMeasuresTotal</li>
+                        @if (!_license.PaidPlanEnabled)
+                        {
+                            <li>Verarbeitungstätigkeiten gesamt: @_license.Usage.CurrentProcessingActivitiesTotal</li>
+                            <li>DSFA gesamt: @_license.Usage.CurrentDpiaTotal</li>
+                            <li>TOMs gesamt: @_license.Usage.CurrentTomsTotal</li>
+                            <li>Dienstleister gesamt: @_license.Usage.CurrentProcessorsTotal</li>
+                            <li>Laufende Maßnahmen gesamt: @_license.Usage.CurrentActiveMeasuresTotal</li>
+                        }
                     </ul>
+                    @if (_license.PaidPlanEnabled)
+                    {
+                        <p class="text-muted small mb-0 mt-2">@LicenseLimitHelper.PaidPlanUnlimitedObjectsHint</p>
+                    }
                 </div>
             </div>
         </div>
@@ -115,7 +134,7 @@ else
                             <div class="mb-4 pb-3 border-bottom">
                                 <h6 class="mb-3">Mandant: @tenant.TenantName</h6>
                                 <ul class="list-unstyled mb-0">
-                                    @foreach (var item in tenant.Items)
+                                    @foreach (var item in tenant.Items.Where(i => !(_license.PaidPlanEnabled && i.IsBusinessObjectLimit)))
                                     {
                                         <li class="mb-2">
                                             @item.Name:
@@ -123,6 +142,10 @@ else
                                         </li>
                                     }
                                 </ul>
+                                @if (_license.PaidPlanEnabled)
+                                {
+                                    <p class="text-muted small mb-0 mt-2">@LicenseLimitHelper.PaidPlanUnlimitedObjectsHint</p>
+                                }
                             </div>
                         }
                     }

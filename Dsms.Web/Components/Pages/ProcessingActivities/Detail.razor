@@ -91,7 +91,21 @@ else
                     <div>@(activity.ThirdCountryTransfer ? "Ja" : "Nein")</div>
                 </div>
                 <div class="col-12">
-                    <div class="dsms-detail-label">Rechtsgrundlage</div>
+                    <div class="dsms-detail-label">Rechtsgrundlagen</div>
+                    @if (_snapshot.LegalBasisKeys.Count > 0)
+                    {
+                        <ul class="dsms-list mb-2">
+                            @foreach (var label in LegalBasisOptions.GetLabels(_snapshot.LegalBasisKeys))
+                            {
+                                <li class="dsms-list-item">@label</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <div class="dsms-detail-value mb-2">—</div>
+                    }
+                    <div class="dsms-detail-label">Ergänzende Angaben zur Rechtsgrundlage</div>
                     <div class="dsms-detail-value">@DisplayMultiline(activity.LegalBasis)</div>
                 </div>
                 <div class="col-12">

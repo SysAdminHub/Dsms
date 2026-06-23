@@ -69,6 +69,12 @@ public class ProcessingActivityRelationsService(ApplicationDbContext db)
             .OrderByDescending(d => d.UpdatedAt ?? d.CreatedAt)
             .ToListAsync(ct);
 
+        var legalBasisKeys = await db.ProcessingActivityLegalBases
+            .AsNoTracking()
+            .Where(l => l.ProcessingActivityId == processingActivityId && l.TenantId == tenantId)
+            .Select(l => l.LegalBasisKey)
+            .ToListAsync(ct);
+
         var auditAnswerRows = await db.ProcessingActivityAuditAnswers
             .AsNoTracking()
             .Where(l => l.ProcessingActivityId == processingActivityId && l.TenantId == tenantId)
@@ -105,7 +111,60 @@ public class ProcessingActivityRelationsService(ApplicationDbContext db)
             measureLinks,
             auditAnswerRows,
             dpiaAssessments,
+            legalBasisKeys,
             warnings);
+    }
+
+    /// <summary>
+    /// Lädt die ausgewählten Rechtsgrundlagen-Keys einer Verarbeitungstätigkeit (mandantenbezogen).
+    /// </summary>
+    public async Task<List<string>> GetLegalBasisKeysAsync(
+        int tenantId,
+        int processingActivityId,
+        CancellationToken ct = default) =>
+        await db.ProcessingActivityLegalBases
+            .Where(l => l.ProcessingActivityId == processingActivityId && l.TenantId == tenantId)
+            .Select(l => l.LegalBasisKey)
+            .ToListAsync(ct);
+
+    /// <summary>
+    /// Synchronisiert die Rechtsgrundlagen-Zuordnungen einer Verarbeitungstätigkeit.
+    /// Nur bekannte Standard-Keys werden gespeichert; abgewählte Zuordnungen werden entfernt.
+    /// Speichert NICHT selbst – der Aufrufer ruft SaveChangesAsync auf, damit der Vorgang
+    /// gemeinsam mit dem Speichern der Verarbeitungstätigkeit erfolgen kann.
+    /// </summary>
+    public async Task SyncLegalBasisLinksAsync(
+        int tenantId,
+        int processingActivityId,
+        IReadOnlyCollection<string> selectedKeys,
+        CancellationToken ct = default)
+    {
+        var targetKeys = selectedKeys
+            .Where(LegalBasisOptions.IsKnownKey)
+            .Distinct(StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var existing = await db.ProcessingActivityLegalBases
+            .Where(l => l.ProcessingActivityId == processingActivityId && l.TenantId == tenantId)
+            .ToListAsync(ct);
+
+        var toRemove = existing.Where(l => !targetKeys.Contains(l.LegalBasisKey)).ToList();
+        if (toRemove.Count > 0)
+        {
+            db.ProcessingActivityLegalBases.RemoveRange(toRemove);
+        }
+
+        var existingKeys = existing.Select(l => l.LegalBasisKey).ToHashSet(StringComparer.Ordinal);
+        foreach (var key in targetKeys.Where(k => !existingKeys.Contains(k)))
+        {
+            db.ProcessingActivityLegalBases.Add(new ProcessingActivityLegalBasis
+            {
+                TenantId = tenantId,
+                ProcessingActivityId = processingActivityId,
+                LegalBasisKey = key,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
     }
 
     /// <summary>
@@ -497,4 +556,5 @@ public record ProcessingActivityRelationsSnapshot(
     IReadOnlyList<Measure> Measures,
     IReadOnlyList<LinkedAuditAnswerRow> AuditAnswers,
     IReadOnlyList<DataProtectionImpactAssessment> DpiaAssessments,
+    IReadOnlyList<string> LegalBasisKeys,
     IReadOnlyList<string> Warnings);

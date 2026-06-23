@@ -1,9 +1,11 @@
-@* Dezente Anzeige der Lizenznutzung in Listen, Formularen und Lizenzübersichten. *@
-@if (Check is not null)
+@* Dezente Anzeige der Lizenznutzung in Listen, Formularen und Lizenzübersichten.
+   Unbegrenzte Limits (z. B. fachliche Objekte im bezahlten Zugang) werden bewusst
+   NICHT angezeigt, damit keine "X von unbegrenzt"-Hinweise erscheinen. *@
+@if (Check is { IsUnlimited: false })
 {
     <span class="dsms-license-usage-badge @CssClass" title="@Check.Message">@LicenseLimitHelper.FormatUsageBadgeText(Check)</span>
 }
-else if (Item is not null)
+else if (Item is { IsUnlimited: false })
 {
     <span class="dsms-license-usage-badge @ItemCssClass">@LicenseLimitHelper.FormatUsageItemBadgeText(Item)</span>
 }

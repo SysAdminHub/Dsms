@@ -75,6 +75,7 @@ public sealed partial class LicenseService(
                 MaxAuditorsPerTenant = license.MaxAuditorsPerTenant,
                 MaxActiveAuditsPerTenant = license.MaxActiveAuditsPerTenant,
                 MaxActiveMeasuresPerTenant = license.MaxActiveMeasuresPerTenant,
+                PaidPlanEnabled = license.PaidPlanEnabled,
                 Usage = usage,
                 Usability = LicenseLimitHelper.EvaluateUsability(license.Status, license.ValidUntil)
             });
@@ -319,6 +320,7 @@ public sealed partial class LicenseService(
             .ToDictionaryAsync(r => r.Name!, r => r.Id);
 
         var currentAdmins = await CountLicenseAdminsAsync(db, licenseId, roleIds);
+        var currentLicensedAccesses = await CountActiveLicenseAccessesAsync(db, licenseId, roleIds);
         var usersByTenant = await CountUsersByRolePerTenantAsync(db, tenantIds, roleIds[DsmsRoles.User], roleIds[DsmsRoles.Superuser]);
         var auditorsByTenant = await CountUsersByRolePerTenantAsync(db, tenantIds, roleIds[DsmsRoles.Auditor], roleIds[DsmsRoles.Superuser]);
 
@@ -392,6 +394,7 @@ public sealed partial class LicenseService(
             LicenseId = licenseId,
             CurrentTenants = tenants.Count,
             CurrentAdmins = currentAdmins,
+            CurrentLicensedAccesses = currentLicensedAccesses,
             CurrentUsersTotal = tenantUsages.Sum(t => t.CurrentUsers),
             CurrentAuditorsTotal = tenantUsages.Sum(t => t.CurrentAuditors),
             CurrentCustomAuditTemplatesTotal = tenantUsages.Sum(t => t.CurrentCustomAuditTemplates),
@@ -506,6 +509,10 @@ public sealed partial class LicenseService(
         MaxStorageMb = license.MaxStorageMb,
         MaxEmailRemindersPerMonth = license.MaxEmailRemindersPerMonth,
         HasTrainingModule = license.HasTrainingModule,
+        PaidPlanEnabled = license.PaidPlanEnabled,
+        LicensedUserCount = license.LicensedUserCount,
+        IncludedStorageGb = license.IncludedStorageGb,
+        AdditionalStorageGb = license.AdditionalStorageGb,
         Usage = usage,
         Usability = LicenseLimitHelper.EvaluateUsability(license.Status, license.ValidUntil)
     };

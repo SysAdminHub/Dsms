@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Dsms.Web.Services.Licenses;
 
 /// <summary>
@@ -8,7 +10,29 @@ public static class LicenseLimitHelper
 {
     public const int WarningThresholdPercent = 80;
 
-    public static LicenseLimitUsageItemDto CreateItem(string name, int current, int? limit)
+    private static readonly CultureInfo GermanCulture = CultureInfo.GetCultureInfo("de-DE");
+
+    public const string PaidPlanUnlimitedObjectsHint =
+        "Datenschutzobjekte sind im bezahlten Zugang unbegrenzt nutzbar.";
+
+    public const string PaidPlanUnlimitedObjectsHintDetailed =
+        "Verarbeitungstätigkeiten, DSFAs, Maßnahmen, TOMs und Dienstleister sind im bezahlten Zugang unbegrenzt enthalten.";
+
+    /// <summary>
+    /// Anzeigename des lizenzweiten Zugangslimits im bezahlten Zugang.
+    /// Im neuen Preis-/Lizenzmodell werden Admins und Benutzer nicht mehr getrennt limitiert,
+    /// sondern gemeinsam als "Zugänge" gezählt.
+    /// </summary>
+    public const string LicensedAccessLimitName = "Zugänge";
+
+    public const string LicensedAccessLimitReachedMessage =
+        "Die maximale Anzahl lizenzierter Zugänge ist erreicht. Bitte wenden Sie sich an Ihren Administrator oder den Support.";
+
+    public static LicenseLimitUsageItemDto CreateItem(
+        string name,
+        int current,
+        int? limit,
+        bool isBusinessObjectLimit = false)
     {
         var isUnlimited = !limit.HasValue;
         int? percentage = null;
@@ -34,7 +58,8 @@ public static class LicenseLimitHelper
             IsUnlimited = isUnlimited,
             Percentage = percentage,
             IsWarning = isWarning,
-            IsExceeded = isExceeded
+            IsExceeded = isExceeded,
+            IsBusinessObjectLimit = isBusinessObjectLimit
         };
     }
 
@@ -42,23 +67,48 @@ public static class LicenseLimitHelper
         TenantUsageDto tenant,
         LicenseDetailsDto license)
     {
+        // Im bezahlten Zugang entfallen die fachlichen Objekt-Limits (Fair-Use-Modell);
+        // Free-Zugänge nutzen weiterhin die konfigurierten Per-Mandant-Limits.
+        var businessObjectsWaived = license.PaidPlanEnabled;
+        int? BusinessLimit(int? configured) => businessObjectsWaived ? null : configured;
+
+        var items = new List<LicenseLimitUsageItemDto>();
+
+        // Im bezahlten Zugang werden Benutzer und Auditoren nicht mehr getrennt je Mandant
+        // limitiert, sondern lizenzweit als "Zugänge" gezählt. Daher entfallen die
+        // separaten Per-Mandant-Anzeigen für Benutzer/Auditoren; Free-Zugänge behalten sie.
+        if (!license.PaidPlanEnabled)
+        {
+            items.Add(CreateItem("Benutzer", tenant.CurrentUsers, license.MaxUsersPerTenant));
+            items.Add(CreateItem("Auditoren", tenant.CurrentAuditors, license.MaxAuditorsPerTenant));
+        }
+
+        items.Add(CreateItem("Eigene Auditvorlagen", tenant.CurrentCustomAuditTemplates, license.MaxCustomAuditTemplatesPerTenant));
+        items.Add(CreateItem("Laufende Audits", tenant.CurrentActiveAudits, license.MaxActiveAuditsPerTenant));
+        items.Add(CreateItem("Verarbeitungstätigkeiten", tenant.CurrentProcessingActivities, BusinessLimit(license.MaxProcessingActivitiesPerTenant), isBusinessObjectLimit: true));
+        items.Add(CreateItem("DSFA", tenant.CurrentDpia, BusinessLimit(license.MaxDpiaPerTenant), isBusinessObjectLimit: true));
+        items.Add(CreateItem("TOMs", tenant.CurrentToms, BusinessLimit(license.MaxTomsPerTenant), isBusinessObjectLimit: true));
+        items.Add(CreateItem("Dienstleister", tenant.CurrentProcessors, BusinessLimit(license.MaxProcessorsPerTenant), isBusinessObjectLimit: true));
+        items.Add(CreateItem("Laufende Maßnahmen", tenant.CurrentActiveMeasures, BusinessLimit(license.MaxActiveMeasuresPerTenant), isBusinessObjectLimit: true));
+
         return new TenantLimitUsageDto
         {
             TenantId = tenant.TenantId,
             TenantName = tenant.TenantName,
-            Items =
-            [
-                CreateItem("Benutzer", tenant.CurrentUsers, license.MaxUsersPerTenant),
-                CreateItem("Auditoren", tenant.CurrentAuditors, license.MaxAuditorsPerTenant),
-                CreateItem("Eigene Auditvorlagen", tenant.CurrentCustomAuditTemplates, license.MaxCustomAuditTemplatesPerTenant),
-                CreateItem("Laufende Audits", tenant.CurrentActiveAudits, license.MaxActiveAuditsPerTenant),
-                CreateItem("Verarbeitungstätigkeiten", tenant.CurrentProcessingActivities, license.MaxProcessingActivitiesPerTenant),
-                CreateItem("DSFA", tenant.CurrentDpia, license.MaxDpiaPerTenant),
-                CreateItem("TOMs", tenant.CurrentToms, license.MaxTomsPerTenant),
-                CreateItem("Dienstleister", tenant.CurrentProcessors, license.MaxProcessorsPerTenant),
-                CreateItem("Laufende Maßnahmen", tenant.CurrentActiveMeasures, license.MaxActiveMeasuresPerTenant)
-            ]
+            Items = items
         };
+    }
+
+    /// <summary>
+    /// Formatiert die Speichernutzung in GB, z. B. "2,4 GB von 20 GB verwendet".
+    /// <paramref name="totalLimitGb"/> = null bedeutet unbegrenzt.
+    /// </summary>
+    public static string FormatStorageUsageGb(int currentMb, int? totalLimitGb)
+    {
+        var currentGb = (currentMb / 1024.0).ToString("0.0", GermanCulture);
+        return totalLimitGb.HasValue
+            ? $"{currentGb} GB von {totalLimitGb} GB verwendet"
+            : $"{currentGb} GB verwendet · unbegrenzt";
     }
 
     public static string FormatPerTenantLimit(int? limit) =>

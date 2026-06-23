@@ -23,8 +23,15 @@ public class ProcessingActivity : ArchivableEntityBase, ITenantEntity
     /// <summary>Verantwortlicher Bereich oder Abteilung in der Organisation.</summary>
     public string? ResponsibleDepartment { get; set; }
 
-    /// <summary>Rechtsgrundlage der Verarbeitung (z. B. Art. 6 Abs. 1 DSGVO).</summary>
+    /// <summary>
+    /// Ergänzende Freitextangaben zur Rechtsgrundlage. Strukturierte Rechtsgrundlagen
+    /// werden über <see cref="LegalBasisLinks"/> erfasst; dieses Feld bleibt für ergänzende
+    /// Angaben sowie zur Erhaltung bestehender Freitext-Rechtsgrundlagen erhalten.
+    /// </summary>
     public string? LegalBasis { get; set; }
+
+    /// <summary>Strukturiert ausgewählte Standard-Rechtsgrundlagen (DSGVO) zu dieser Verarbeitungstätigkeit.</summary>
+    public ICollection<ProcessingActivityLegalBasis> LegalBasisLinks { get; set; } = [];
 
     /// <summary>Kategorien der betroffenen Personen (z. B. Mitarbeiter, Kunden).</summary>
     public string? DataSubjectCategories { get; set; }

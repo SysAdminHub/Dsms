@@ -240,6 +240,12 @@ public class TenantExportService(
             .Where(l => l.TenantId == tenantId)
             .ToListAsync(ct);
 
+        var legalBasisLinks = await db.ProcessingActivityLegalBases
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(l => l.TenantId == tenantId)
+            .ToListAsync(ct);
+
         return items.Select(p => new ProcessingActivityExportDto
         {
             Id = p.Id,
@@ -248,6 +254,8 @@ public class TenantExportService(
             Purpose = p.Purpose,
             ResponsibleDepartment = p.ResponsibleDepartment,
             LegalBasis = p.LegalBasis,
+            LegalBasisKeys = legalBasisLinks.Where(l => l.ProcessingActivityId == p.Id)
+                .Select(l => l.LegalBasisKey).ToList(),
             DataSubjectCategories = p.DataSubjectCategories,
             PersonalDataCategories = p.PersonalDataCategories,
             Recipients = p.Recipients,

@@ -61,6 +61,7 @@ public sealed class ProcessingActivityExportDto
     public string? Purpose { get; init; }
     public string? ResponsibleDepartment { get; init; }
     public string? LegalBasis { get; init; }
+    public IReadOnlyList<string> LegalBasisKeys { get; init; } = [];
     public string? DataSubjectCategories { get; init; }
     public string? PersonalDataCategories { get; init; }
     public string? Recipients { get; init; }

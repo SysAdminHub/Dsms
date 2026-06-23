@@ -121,6 +121,8 @@ public sealed class TenantDataErasureService(
                 await DeleteTenantRowsAsync(db.ProcessingActivityServiceProviders, tenantId, ct);
             counts[nameof(db.ProcessingActivityToms)] =
                 await DeleteTenantRowsAsync(db.ProcessingActivityToms, tenantId, ct);
+            counts[nameof(db.ProcessingActivityLegalBases)] =
+                await DeleteTenantRowsAsync(db.ProcessingActivityLegalBases, tenantId, ct);
             counts[nameof(db.ServiceProviderToms)] =
                 await DeleteTenantRowsAsync(db.ServiceProviderToms, tenantId, ct);
             counts[nameof(db.DataProtectionImpactAssessments)] =

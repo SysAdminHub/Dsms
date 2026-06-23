@@ -40,6 +40,7 @@ public class ApplicationDbContext(
     public DbSet<Tom> Toms => Set<Tom>();
     public DbSet<TomCategory> TomCategories => Set<TomCategory>();
     public DbSet<ProcessingActivityTom> ProcessingActivityToms => Set<ProcessingActivityTom>();
+    public DbSet<ProcessingActivityLegalBasis> ProcessingActivityLegalBases => Set<ProcessingActivityLegalBasis>();
     public DbSet<ServiceProviderEntity> ServiceProviders => Set<ServiceProviderEntity>();
     public DbSet<ServiceProviderCategory> ServiceProviderCategories => Set<ServiceProviderCategory>();
     public DbSet<ProcessingActivityServiceProvider> ProcessingActivityServiceProviders => Set<ProcessingActivityServiceProvider>();
@@ -865,6 +866,20 @@ public class ApplicationDbContext(
             e.HasIndex(p => p.TenantId);
         });
 
+        // 1:n Verarbeitungstätigkeit ↔ Standard-Rechtsgrundlage (DSGVO) mit Mandantenschutz.
+        builder.Entity<ProcessingActivityLegalBasis>(e =>
+        {
+            e.ToTable("ProcessingActivityLegalBases");
+            e.Property(l => l.LegalBasisKey).HasMaxLength(40).IsRequired();
+            e.HasOne(l => l.Tenant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.ProcessingActivity)
+                .WithMany(p => p.LegalBasisLinks)
+                .HasForeignKey(l => l.ProcessingActivityId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(l => l.TenantId);
+            e.HasIndex(l => new { l.ProcessingActivityId, l.LegalBasisKey }).IsUnique();
+        });
+
         // TOM-Verzeichnis – mandantenbezogene Schutzmaßnahmen.
         builder.Entity<Tom>(e =>
         {
@@ -1172,6 +1187,10 @@ public class ApplicationDbContext(
         ApplyArchivableTenantFilter<TrainingAssignment>(builder);
 
         builder.Entity<ProcessingActivityTom>()
+            .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
+                && e.TenantId == tenantContextAccessor.CurrentTenantId);
+
+        builder.Entity<ProcessingActivityLegalBasis>()
             .HasQueryFilter(e => tenantContextAccessor.CurrentTenantId.HasValue
                 && e.TenantId == tenantContextAccessor.CurrentTenantId);
 

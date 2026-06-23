@@ -68,6 +68,7 @@ public sealed class LicenseListItemDto
     public int? MaxAuditorsPerTenant { get; init; }
     public int? MaxActiveAuditsPerTenant { get; init; }
     public int? MaxActiveMeasuresPerTenant { get; init; }
+    public bool PaidPlanEnabled { get; init; }
     public LicenseUsageDto Usage { get; init; } = new();
     public LicenseUsabilityInfo Usability { get; init; } = new();
 }
@@ -106,6 +107,22 @@ public sealed class LicenseDetailsDto
     public int? MaxEmailRemindersPerMonth { get; init; }
     public bool HasTrainingModule { get; init; }
 
+    // --- Neues Preis-/Lizenzmodell ---------------------------------------
+    /// <summary>Bezahlter Zugang aktiv. Bei <c>true</c> entfallen die fachlichen Objekt-Limits.</summary>
+    public bool PaidPlanEnabled { get; init; }
+
+    /// <summary>Anzahl der lizenzierten Benutzerzugänge (Abrechnungsgrundlage im bezahlten Zugang).</summary>
+    public int LicensedUserCount { get; init; } = 1;
+
+    /// <summary>Im Grundpreis enthaltener Speicherplatz in GB.</summary>
+    public int IncludedStorageGb { get; init; }
+
+    /// <summary>Zusätzlich hinzugebuchter Speicherplatz in GB.</summary>
+    public int AdditionalStorageGb { get; init; }
+
+    /// <summary>Gesamter verfügbarer Speicherplatz in GB (enthaltener + zusätzlicher Speicher).</summary>
+    public int TotalStorageGb => IncludedStorageGb + AdditionalStorageGb;
+
     public LicenseUsageDto Usage { get; init; } = new();
     public LicenseUsabilityInfo Usability { get; init; } = new();
 }
@@ -115,6 +132,14 @@ public sealed class LicenseUsageDto
     public Guid LicenseId { get; init; }
     public int CurrentTenants { get; init; }
     public int CurrentAdmins { get; init; }
+
+    /// <summary>
+    /// Anzahl der aktiven, lizenzierten Zugänge (alle aktiven Benutzer mit Zugriff auf die
+    /// Mandanten der Lizenz, inkl. Admins/Auditoren, ohne Superuser).
+    /// Abrechnungsgrundlage im bezahlten Zugang (Vergleich gegen <c>LicensedUserCount</c>).
+    /// </summary>
+    public int CurrentLicensedAccesses { get; init; }
+
     public int CurrentUsersTotal { get; init; }
     public int CurrentAuditorsTotal { get; init; }
     public int CurrentCustomAuditTemplatesTotal { get; init; }
@@ -153,6 +178,13 @@ public sealed class LicenseLimitUsageItemDto
     public int? Percentage { get; init; }
     public bool IsWarning { get; init; }
     public bool IsExceeded { get; init; }
+
+    /// <summary>
+    /// Kennzeichnet ein fachliches Objektlimit (Verarbeitungstätigkeiten, DSFAs, Maßnahmen,
+    /// TOMs, Dienstleister), das im bezahlten Zugang entfällt. Wird in der UI genutzt,
+    /// um solche Zeilen bei bezahlten Lizenzen auszublenden.
+    /// </summary>
+    public bool IsBusinessObjectLimit { get; init; }
 
     public string DisplayText => IsUnlimited
         ? $"{CurrentValue} / unbegrenzt"

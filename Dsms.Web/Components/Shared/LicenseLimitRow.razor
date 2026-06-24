@@ -1,8 +1,13 @@
-@* Zeigt aktuellen Verbrauch gegen ein Limit mit Warn-/Überschreitungsstatus. *@
+@* Zeigt aktuellen Verbrauch gegen ein Limit. Unterscheidet "Limit erreicht" (== Limit)
+   und "Limit überschritten" (> Limit). *@
 <span class="@CssClass">@Item.DisplayText</span>
-@if (Item.IsExceeded)
+@if (Item.IsOverLimit)
 {
-    <StatusBadge Text="Überschritten" Variant="danger" />
+    <StatusBadge Text="Limit überschritten" Variant="danger" />
+}
+else if (Item.IsAtLimit)
+{
+    <StatusBadge Text="Limit erreicht" Variant="warning" />
 }
 else if (Item.IsWarning)
 {
@@ -12,9 +17,11 @@ else if (Item.IsWarning)
 @code {
     [Parameter, EditorRequired] public LicenseLimitUsageItemDto Item { get; set; } = null!;
 
-    private string CssClass => Item.IsExceeded
+    private string CssClass => Item.IsOverLimit
         ? "text-danger fw-semibold"
-        : Item.IsWarning
-            ? "text-warning-emphasis"
-            : "";
+        : Item.IsAtLimit
+            ? "text-warning-emphasis fw-semibold"
+            : Item.IsWarning
+                ? "text-warning-emphasis"
+                : "";
 }

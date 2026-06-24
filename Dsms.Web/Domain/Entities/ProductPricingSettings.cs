@@ -19,6 +19,18 @@ public class ProductPricingSettings : EntityBase
     /// <summary>Jährlicher Preis je zusätzlichem Benutzer.</summary>
     public decimal AdditionalUserYearlyPrice { get; set; }
 
+    /// <summary>
+    /// Im Grundpreis enthaltene Anzahl Mandanten des bezahlten Zugangs (in der Regel 1).
+    /// Der erste Mandant ist damit im Grundpreis enthalten.
+    /// </summary>
+    public int IncludedTenantCount { get; set; }
+
+    /// <summary>Monatlicher Preis je zusätzlichem Mandanten (über den enthaltenen Mandanten hinaus).</summary>
+    public decimal AdditionalTenantMonthlyPrice { get; set; }
+
+    /// <summary>Jährlicher Preis je zusätzlichem Mandanten (über den enthaltenen Mandanten hinaus).</summary>
+    public decimal AdditionalTenantYearlyPrice { get; set; }
+
     /// <summary>Im Grundpreis enthaltener Speicherplatz in GB.</summary>
     public int IncludedStorageGb { get; set; }
 

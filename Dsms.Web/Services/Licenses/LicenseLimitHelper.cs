@@ -13,10 +13,10 @@ public static class LicenseLimitHelper
     private static readonly CultureInfo GermanCulture = CultureInfo.GetCultureInfo("de-DE");
 
     public const string PaidPlanUnlimitedObjectsHint =
-        "Datenschutzobjekte sind im bezahlten Zugang unbegrenzt nutzbar.";
+        "Datenschutzobjekte und Audits sind im bezahlten Zugang unbegrenzt nutzbar.";
 
     public const string PaidPlanUnlimitedObjectsHintDetailed =
-        "Verarbeitungstätigkeiten, DSFAs, Maßnahmen, TOMs und Dienstleister sind im bezahlten Zugang unbegrenzt enthalten.";
+        "Verarbeitungstätigkeiten, DSFAs, Maßnahmen, TOMs, Dienstleister, Auditvorlagen und Audit-Durchläufe sind im bezahlten Zugang unbegrenzt nutzbar.";
 
     /// <summary>
     /// Anzeigename des lizenzweiten Zugangslimits im bezahlten Zugang.
@@ -38,11 +38,13 @@ public static class LicenseLimitHelper
         string name,
         int current,
         int? limit,
-        bool isBusinessObjectLimit = false)
+        bool isBusinessObjectLimit = false,
+        string? informationalSuffix = null)
     {
         var isUnlimited = !limit.HasValue;
         int? percentage = null;
         var isExceeded = false;
+        var isOverLimit = false;
         var isWarning = false;
 
         if (!isUnlimited)
@@ -52,7 +54,9 @@ public static class LicenseLimitHelper
                 percentage = (int)Math.Round(100.0 * current / limit.Value);
             }
 
+            // Unterscheidung: erreicht (current == limit) vs. überschritten (current > limit).
             isExceeded = current >= limit.Value;
+            isOverLimit = current > limit.Value;
             isWarning = !isExceeded && percentage >= WarningThresholdPercent;
         }
 
@@ -65,7 +69,9 @@ public static class LicenseLimitHelper
             Percentage = percentage,
             IsWarning = isWarning,
             IsExceeded = isExceeded,
-            IsBusinessObjectLimit = isBusinessObjectLimit
+            IsOverLimit = isOverLimit,
+            IsBusinessObjectLimit = isBusinessObjectLimit,
+            InformationalSuffix = informationalSuffix
         };
     }
 
@@ -73,8 +79,8 @@ public static class LicenseLimitHelper
         TenantUsageDto tenant,
         LicenseDetailsDto license)
     {
-        // Im bezahlten Zugang entfallen die fachlichen Objekt-Limits (Fair-Use-Modell);
-        // Free-Zugänge nutzen weiterhin die konfigurierten Per-Mandant-Limits.
+        // Im bezahlten Zugang entfallen die fachlichen Objekt-Limits sowie die Audit-Limits
+        // (Fair-Use-Modell); Free-Zugänge nutzen weiterhin die konfigurierten Per-Mandant-Limits.
         var businessObjectsWaived = license.PaidPlanEnabled;
         int? BusinessLimit(int? configured) => businessObjectsWaived ? null : configured;
 
@@ -89,13 +95,15 @@ public static class LicenseLimitHelper
             items.Add(CreateItem("Auditoren", tenant.CurrentAuditors, license.MaxAuditorsPerTenant));
         }
 
-        items.Add(CreateItem("Eigene Auditvorlagen", tenant.CurrentCustomAuditTemplates, license.MaxCustomAuditTemplatesPerTenant));
-        items.Add(CreateItem("Laufende Audits", tenant.CurrentActiveAudits, license.MaxActiveAuditsPerTenant));
-        items.Add(CreateItem("Verarbeitungstätigkeiten", tenant.CurrentProcessingActivities, BusinessLimit(license.MaxProcessingActivitiesPerTenant), isBusinessObjectLimit: true));
-        items.Add(CreateItem("DSFA", tenant.CurrentDpia, BusinessLimit(license.MaxDpiaPerTenant), isBusinessObjectLimit: true));
-        items.Add(CreateItem("TOMs", tenant.CurrentToms, BusinessLimit(license.MaxTomsPerTenant), isBusinessObjectLimit: true));
-        items.Add(CreateItem("Dienstleister", tenant.CurrentProcessors, BusinessLimit(license.MaxProcessorsPerTenant), isBusinessObjectLimit: true));
-        items.Add(CreateItem("Laufende Maßnahmen", tenant.CurrentActiveMeasures, BusinessLimit(license.MaxActiveMeasuresPerTenant), isBusinessObjectLimit: true));
+        // Eigene Auditvorlagen und laufende Audits zählen im bezahlten Zugang als unbegrenzt nutzbar
+        // (kein X/Y-Limit, nur informative Anzeige). Free-Zugänge behalten die konfigurierten Limits.
+        items.Add(CreateItem("Eigene Auditvorlagen", tenant.CurrentCustomAuditTemplates, BusinessLimit(license.MaxCustomAuditTemplatesPerTenant), isBusinessObjectLimit: true, informationalSuffix: "angelegt"));
+        items.Add(CreateItem("Laufende Audits", tenant.CurrentActiveAudits, BusinessLimit(license.MaxActiveAuditsPerTenant), isBusinessObjectLimit: true, informationalSuffix: "aktiv"));
+        items.Add(CreateItem("Verarbeitungstätigkeiten", tenant.CurrentProcessingActivities, BusinessLimit(license.MaxProcessingActivitiesPerTenant), isBusinessObjectLimit: true, informationalSuffix: "angelegt"));
+        items.Add(CreateItem("DSFA", tenant.CurrentDpia, BusinessLimit(license.MaxDpiaPerTenant), isBusinessObjectLimit: true, informationalSuffix: "angelegt"));
+        items.Add(CreateItem("TOMs", tenant.CurrentToms, BusinessLimit(license.MaxTomsPerTenant), isBusinessObjectLimit: true, informationalSuffix: "angelegt"));
+        items.Add(CreateItem("Dienstleister", tenant.CurrentProcessors, BusinessLimit(license.MaxProcessorsPerTenant), isBusinessObjectLimit: true, informationalSuffix: "angelegt"));
+        items.Add(CreateItem("Laufende Maßnahmen", tenant.CurrentActiveMeasures, BusinessLimit(license.MaxActiveMeasuresPerTenant), isBusinessObjectLimit: true, informationalSuffix: "aktiv"));
 
         return new TenantLimitUsageDto
         {
@@ -296,6 +304,7 @@ public static class LicenseLimitHelper
             IsUnlimited = item.IsUnlimited,
             IsWarning = item.IsWarning,
             IsExceeded = item.IsExceeded,
+            IsOverLimit = item.IsOverLimit,
             LicenseId = licenseId,
             TenantId = tenantId,
             BlockReason = isAllowed ? LicenseBlockReason.None : LicenseBlockReason.LimitReached

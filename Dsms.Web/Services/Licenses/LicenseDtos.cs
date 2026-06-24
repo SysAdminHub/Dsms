@@ -20,7 +20,12 @@ public sealed class LicenseLimitCheckResult
     public int? LimitValue { get; init; }
     public bool IsUnlimited { get; init; }
     public bool IsWarning { get; init; }
+
+    /// <summary>Limit erreicht oder überschritten (current &gt;= limit).</summary>
     public bool IsExceeded { get; init; }
+
+    /// <summary>Limit echt überschritten (current &gt; limit). Bei "Limit erreicht" (current == limit) <c>false</c>.</summary>
+    public bool IsOverLimit { get; init; }
     public Guid? LicenseId { get; init; }
     public int? TenantId { get; init; }
     public string? LicenseStatus { get; init; }
@@ -177,18 +182,39 @@ public sealed class LicenseLimitUsageItemDto
     public bool IsUnlimited { get; init; }
     public int? Percentage { get; init; }
     public bool IsWarning { get; init; }
+
+    /// <summary>Limit erreicht oder überschritten (current &gt;= limit).</summary>
     public bool IsExceeded { get; init; }
 
+    /// <summary>Limit echt überschritten (current &gt; limit). Bei "Limit erreicht" (current == limit) <c>false</c>.</summary>
+    public bool IsOverLimit { get; init; }
+
     /// <summary>
-    /// Kennzeichnet ein fachliches Objektlimit (Verarbeitungstätigkeiten, DSFAs, Maßnahmen,
-    /// TOMs, Dienstleister), das im bezahlten Zugang entfällt. Wird in der UI genutzt,
-    /// um solche Zeilen bei bezahlten Lizenzen auszublenden.
+    /// Limit genau erreicht, aber nicht überschritten (current == limit). Fachlich: "Limit erreicht".
+    /// </summary>
+    public bool IsAtLimit => IsExceeded && !IsOverLimit;
+
+    /// <summary>
+    /// Kennzeichnet ein Limit, das im bezahlten Zugang entfällt (Fair-Use): fachliche
+    /// Datenschutzobjekte (Verarbeitungstätigkeiten, DSFAs, Maßnahmen, TOMs, Dienstleister)
+    /// sowie eigene Auditvorlagen und laufende Audits. Wird in der UI genutzt, um solche Zeilen
+    /// bei bezahlten Lizenzen nicht mehr als X/Y-Limit, sondern rein informativ anzuzeigen.
     /// </summary>
     public bool IsBusinessObjectLimit { get; init; }
+
+    /// <summary>
+    /// Einheit für die rein informative Anzeige im bezahlten Zugang (z. B. "angelegt", "aktiv").
+    /// </summary>
+    public string? InformationalSuffix { get; init; }
 
     public string DisplayText => IsUnlimited
         ? $"{CurrentValue} / unbegrenzt"
         : $"{CurrentValue} / {LimitValue}";
+
+    /// <summary>Rein informative Anzeige ohne Limit, z. B. "0 angelegt" oder "0 aktiv".</summary>
+    public string InformationalText => string.IsNullOrWhiteSpace(InformationalSuffix)
+        ? CurrentValue.ToString()
+        : $"{CurrentValue} {InformationalSuffix}";
 }
 
 public sealed class TenantLimitUsageDto

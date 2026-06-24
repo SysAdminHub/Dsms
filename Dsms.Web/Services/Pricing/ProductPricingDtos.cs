@@ -10,6 +10,9 @@ public sealed class ProductPricingSettingsDto
     public decimal BaseYearlyPrice { get; init; }
     public decimal AdditionalUserMonthlyPrice { get; init; }
     public decimal AdditionalUserYearlyPrice { get; init; }
+    public int IncludedTenantCount { get; init; }
+    public decimal AdditionalTenantMonthlyPrice { get; init; }
+    public decimal AdditionalTenantYearlyPrice { get; init; }
     public int IncludedStorageGb { get; init; }
     public int AdditionalStoragePackageGb { get; init; }
     public decimal AdditionalStorageMonthlyPrice { get; init; }

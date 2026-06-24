@@ -10,6 +10,9 @@ public static class ProductPricingDefaults
     public const decimal BaseYearlyPrice = 299m;
     public const decimal AdditionalUserMonthlyPrice = 5m;
     public const decimal AdditionalUserYearlyPrice = 49m;
+    public const int IncludedTenantCount = 1;
+    public const decimal AdditionalTenantMonthlyPrice = 9m;
+    public const decimal AdditionalTenantYearlyPrice = 99m;
     public const int IncludedStorageGb = 10;
     public const int AdditionalStoragePackageGb = 10;
     public const decimal AdditionalStorageMonthlyPrice = 5m;

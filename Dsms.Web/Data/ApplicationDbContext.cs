@@ -145,6 +145,8 @@ public class ApplicationDbContext(
             e.Property(p => p.BaseYearlyPrice).HasPrecision(18, 2);
             e.Property(p => p.AdditionalUserMonthlyPrice).HasPrecision(18, 2);
             e.Property(p => p.AdditionalUserYearlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.AdditionalTenantMonthlyPrice).HasPrecision(18, 2);
+            e.Property(p => p.AdditionalTenantYearlyPrice).HasPrecision(18, 2);
             e.Property(p => p.AdditionalStorageMonthlyPrice).HasPrecision(18, 2);
             e.Property(p => p.AdditionalStorageYearlyPrice).HasPrecision(18, 2);
             e.Property(p => p.LargeStorageMonthlyPrice).HasPrecision(18, 2);

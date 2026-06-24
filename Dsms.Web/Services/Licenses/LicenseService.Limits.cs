@@ -58,6 +58,8 @@ public sealed partial class LicenseService
             waiveWhenPaid: true);
 
     public Task<LicenseLimitCheckResult> CanCreateCustomAuditTemplateAsync(int tenantId) =>
+        // Im bezahlten Zugang entfällt das Limit für eigene Auditvorlagen (Fair-Use-Modell);
+        // Free-Zugänge nutzen weiterhin MaxCustomAuditTemplatesPerTenant.
         CheckTenantLimitAsync(
             tenantId,
             "eigene Auditvorlagen",
@@ -66,9 +68,12 @@ public sealed partial class LicenseService
                 .IgnoreQueryFilters()
                 .CountAsync(t => t.TenantId == tid
                     && !t.IsArchived
-                    && t.TemplateType == AuditTemplateType.Tenant));
+                    && t.TemplateType == AuditTemplateType.Tenant),
+            waiveWhenPaid: true);
 
     public Task<LicenseLimitCheckResult> CanCreateActiveAuditAsync(int tenantId) =>
+        // Im bezahlten Zugang entfällt das Limit für laufende Audits (Fair-Use-Modell);
+        // Free-Zugänge nutzen weiterhin MaxActiveAuditsPerTenant.
         CheckTenantLimitAsync(
             tenantId,
             "laufende Audits",
@@ -77,7 +82,8 @@ public sealed partial class LicenseService
                 .IgnoreQueryFilters()
                 .CountAsync(r => r.TenantId == tid
                     && !r.IsArchived
-                    && (r.Status == AuditRunStatus.Draft || r.Status == AuditRunStatus.InProgress)));
+                    && (r.Status == AuditRunStatus.Draft || r.Status == AuditRunStatus.InProgress)),
+            waiveWhenPaid: true);
 
     public Task<LicenseLimitCheckResult> CanCreateProcessingActivityAsync(int tenantId) =>
         CheckTenantLimitAsync(

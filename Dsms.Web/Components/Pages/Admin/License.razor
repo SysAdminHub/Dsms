@@ -363,11 +363,18 @@ else
                             <div class="mb-4 pb-3 border-bottom">
                                 <h6 class="mb-3">Mandant: @tenant.TenantName</h6>
                                 <ul class="list-unstyled mb-0">
-                                    @foreach (var item in tenant.Items.Where(i => !(_license.PaidPlanEnabled && i.IsBusinessObjectLimit)))
+                                    @foreach (var item in tenant.Items)
                                     {
                                         <li class="mb-2">
                                             @item.Name:
-                                            <LicenseLimitRow Item="@item" />
+                                            @if (_license.PaidPlanEnabled && item.IsBusinessObjectLimit)
+                                            {
+                                                <span class="text-muted">@item.InformationalText</span>
+                                            }
+                                            else
+                                            {
+                                                <LicenseLimitRow Item="@item" />
+                                            }
                                         </li>
                                     }
                                 </ul>

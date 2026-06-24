@@ -2479,6 +2479,14 @@ namespace Dsms.Web.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal>("AdditionalTenantMonthlyPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AdditionalTenantYearlyPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("AdditionalUserMonthlyPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -2503,6 +2511,9 @@ namespace Dsms.Web.Migrations
                         .HasColumnType("text");
 
                     b.Property<int>("IncludedStorageGb")
+                        .HasColumnType("int");
+
+                    b.Property<int>("IncludedTenantCount")
                         .HasColumnType("int");
 
                     b.Property<bool>("IsActive")

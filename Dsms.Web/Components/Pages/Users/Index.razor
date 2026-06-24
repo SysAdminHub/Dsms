@@ -24,6 +24,10 @@
         {
             <LicenseUsageBadge Check="_adminLimit" />
         }
+        @if (_showLicensedAccessHint)
+        {
+            <span class="text-muted small">@LicenseLimitHelper.LicensedAccessCountingHint</span>
+        }
     </div>
 }
 
@@ -119,6 +123,11 @@ else
     private LicenseLimitCheckResult? _userLimit;
     private LicenseLimitCheckResult? _auditorLimit;
     private LicenseLimitCheckResult? _adminLimit;
+
+    // Hinweis nur im bezahlten Zugang anzeigen, wenn das gemeinsame Zugangslimit ("Zugänge") greift.
+    private bool _showLicensedAccessHint =>
+        _userLimit?.LimitName == LicenseLimitHelper.LicensedAccessLimitName
+        || _adminLimit?.LimitName == LicenseLimitHelper.LicensedAccessLimitName;
     private string? _sendingUserId;
     private string? _sendingInviteUserId;
     private string? _successMessage;

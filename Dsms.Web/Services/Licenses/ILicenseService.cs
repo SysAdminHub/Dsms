@@ -15,7 +15,7 @@ public interface ILicenseService
     Task<IReadOnlyList<LicenseOptionDto>> GetActiveLicenseOptionsAsync();
 
     Task<LicenseLimitCheckResult> CanCreateTenantAsync(Guid licenseId);
-    Task<LicenseLimitCheckResult> CanCreateAdminAsync(Guid licenseId);
+    Task<LicenseLimitCheckResult> CanCreateAdminAsync(Guid licenseId, int? tenantId = null);
     Task<LicenseLimitCheckResult> CanCreateUserAsync(int tenantId);
     Task<LicenseLimitCheckResult> CanCreateAuditorAsync(int tenantId);
     Task<LicenseLimitCheckResult> CanCreateCustomAuditTemplateAsync(int tenantId);

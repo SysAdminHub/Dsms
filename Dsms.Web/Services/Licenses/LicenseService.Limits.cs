@@ -18,9 +18,12 @@ public sealed partial class LicenseService
                 .IgnoreQueryFilters()
                 .CountAsync(t => t.LicenseId == id && t.IsActive));
 
-    public Task<LicenseLimitCheckResult> CanCreateAdminAsync(Guid licenseId) =>
-        // Im bezahlten Zugang gibt es kein getrenntes Admin-Limit mehr; es zählen nur noch
-        // die gesamten lizenzierten Zugänge gegen LicensedUserCount. Free-Zugänge nutzen weiterhin MaxAdmins.
+    public Task<LicenseLimitCheckResult> CanCreateAdminAsync(Guid licenseId, int? tenantId = null) =>
+        // Im bezahlten Zugang gibt es kein getrenntes Admin-Limit mehr; Admins zählen gemeinsam mit
+        // normalen Benutzern als lizenzierte Zugänge gegen LicensedUserCount. Ist ein Mandant bekannt
+        // (z. B. Mandanten-Admin legt einen weiteren Admin an), wird der aktuelle Mandant herangezogen;
+        // ohne Mandantenkontext (Superuser, lizenzweite Sicht) wird lizenzweit gezählt.
+        // Free-Zugänge nutzen weiterhin MaxAdmins.
         CheckLicenseWideLimitAsync(
             licenseId,
             "Admins",
@@ -30,7 +33,8 @@ public sealed partial class LicenseService
                 var roleIds = await GetRoleIdsAsync(db);
                 return await CountLicenseAdminsAsync(db, id, roleIds);
             },
-            treatAsLicensedAccessWhenPaid: true);
+            treatAsLicensedAccessWhenPaid: true,
+            licensedAccessTenantId: tenantId);
 
     public Task<LicenseLimitCheckResult> CanCreateUserAsync(int tenantId) =>
         // Im bezahlten Zugang werden Benutzer nicht mehr je Mandant limitiert, sondern lizenzweit
@@ -43,14 +47,15 @@ public sealed partial class LicenseService
             treatAsLicensedAccessWhenPaid: true);
 
     public Task<LicenseLimitCheckResult> CanCreateAuditorAsync(int tenantId) =>
-        // Im bezahlten Zugang zählen Auditoren als normale Zugänge mit (keine getrennte Limitierung mehr);
-        // Free-Zugänge nutzen weiterhin MaxAuditorsPerTenant.
+        // Im bezahlten Zugang sind Auditoren rein lesende Zugänge und werden NICHT auf die
+        // lizenzierten Zugänge (Admin + Benutzer) angerechnet; sie sind daher unbegrenzt
+        // anlegbar. Free-Zugänge nutzen weiterhin das getrennte MaxAuditorsPerTenant-Limit.
         CheckTenantLimitAsync(
             tenantId,
             "Auditoren",
             l => l.MaxAuditorsPerTenant,
             (db, tid, roleIds) => CountRoleUsersForTenantAsync(db, tid, roleIds[DsmsRoles.Auditor], roleIds[DsmsRoles.Superuser]),
-            treatAsLicensedAccessWhenPaid: true);
+            waiveWhenPaid: true);
 
     public Task<LicenseLimitCheckResult> CanCreateCustomAuditTemplateAsync(int tenantId) =>
         CheckTenantLimitAsync(
@@ -202,7 +207,8 @@ public sealed partial class LicenseService
         string limitName,
         Func<License, int?> getLimit,
         Func<ApplicationDbContext, Guid, Task<int>> countAsync,
-        bool treatAsLicensedAccessWhenPaid = false)
+        bool treatAsLicensedAccessWhenPaid = false,
+        int? licensedAccessTenantId = null)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
         var license = await db.Licenses.AsNoTracking().FirstOrDefaultAsync(l => l.Id == licenseId);
@@ -218,7 +224,7 @@ public sealed partial class LicenseService
 
         if (treatAsLicensedAccessWhenPaid && LicenseProductRules.IsPaidPlanActive(license))
         {
-            return await BuildLicensedAccessResultAsync(db, license, licenseId);
+            return await BuildLicensedAccessResultAsync(db, license, licenseId, licensedAccessTenantId);
         }
 
         var limit = getLimit(license);
@@ -298,7 +304,13 @@ public sealed partial class LicenseService
         int? tenantId = null)
     {
         var roleIds = await GetRoleIdsAsync(db);
-        var current = await CountActiveLicenseAccessesAsync(db, licenseId, roleIds);
+
+        // Ist ein Mandant bekannt, werden nur die Zugänge dieses Mandanten gewertet
+        // (fachliche Anforderung: "lizenzierte Zugänge" beziehen sich auf den aktuellen Mandanten).
+        // Ohne Mandantenkontext (z. B. lizenzweite Superuser-Sicht) wird lizenzweit gezählt.
+        var current = tenantId is int tid
+            ? await CountActiveTenantAccessesAsync(db, tid, roleIds)
+            : await CountActiveLicenseAccessesAsync(db, licenseId, roleIds);
 
         return LicenseLimitHelper.BuildCheckResult(
             LicenseLimitHelper.LicensedAccessLimitName,
@@ -310,16 +322,59 @@ public sealed partial class LicenseService
     }
 
     /// <summary>
-    /// Zählt im bezahlten Zugang alle aktiven, lizenzierten Zugänge: alle aktiven Benutzer,
-    /// die der Lizenz zugeordnet sind (Admins über LicenseId) oder Zugriff auf einen Mandanten
-    /// der Lizenz haben (UserTenants + Legacy-TenantId). Rollen/Adminstatus spielen keine Rolle;
-    /// Superuser werden nicht mitgezählt. Jeder Benutzer wird genau einmal gezählt.
+    /// Zählt im bezahlten Zugang die aktiven, lizenzierten Zugänge eines EINZELNEN Mandanten.
+    /// Gezählt werden nur aktive Benutzer mit Rolle <see cref="DsmsRoles.Admin"/> oder
+    /// <see cref="DsmsRoles.User"/>. Auditoren (rein lesend), deaktivierte Benutzer, Superuser
+    /// sowie Benutzer anderer Mandanten zählen NICHT mit. Über UserTenants und die Legacy-TenantId
+    /// zugeordnete Benutzer werden vereinigt; jeder Benutzer wird über die Benutzer-ID genau einmal
+    /// gezählt (Distinct gegen Doppelzählung bei mehreren Mappings/Rollen).
+    /// </summary>
+    private static async Task<int> CountActiveTenantAccessesAsync(
+        ApplicationDbContext db,
+        int tenantId,
+        Dictionary<string, string> roleIds)
+    {
+        var adminRoleId = roleIds[DsmsRoles.Admin];
+        var userRoleId = roleIds[DsmsRoles.User];
+        var superuserRoleId = roleIds[DsmsRoles.Superuser];
+
+        var fromUserTenants = await (
+            from ut in db.UserTenants.IgnoreQueryFilters()
+            join u in db.Users on ut.UserId equals u.Id
+            where ut.TenantId == tenantId
+                && u.IsActive
+                && db.UserRoles.Any(ur => ur.UserId == u.Id
+                    && (ur.RoleId == adminRoleId || ur.RoleId == userRoleId))
+                && !db.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId == superuserRoleId)
+            select u.Id
+        ).ToListAsync();
+
+        var fromLegacy = await db.Users
+            .Where(u => u.TenantId == tenantId
+                && u.IsActive
+                && db.UserRoles.Any(ur => ur.UserId == u.Id
+                    && (ur.RoleId == adminRoleId || ur.RoleId == userRoleId))
+                && !db.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId == superuserRoleId))
+            .Select(u => u.Id)
+            .ToListAsync();
+
+        return fromUserTenants.Concat(fromLegacy).Distinct().Count();
+    }
+
+    /// <summary>
+    /// Zählt im bezahlten Zugang die aktiven, lizenzierten Zugänge LIZENZWEIT (über alle Mandanten
+    /// der Lizenz). Gezählt werden nur aktive Benutzer mit Rolle <see cref="DsmsRoles.Admin"/> oder
+    /// <see cref="DsmsRoles.User"/>; Auditoren und Superuser zählen nicht mit. Wird für die
+    /// Plattform-/Superuser-Lizenzübersicht ohne Mandantenkontext verwendet. Jeder Benutzer wird
+    /// genau einmal gezählt.
     /// </summary>
     private static async Task<int> CountActiveLicenseAccessesAsync(
         ApplicationDbContext db,
         Guid licenseId,
         Dictionary<string, string> roleIds)
     {
+        var adminRoleId = roleIds[DsmsRoles.Admin];
+        var userRoleId = roleIds[DsmsRoles.User];
         var superuserRoleId = roleIds[DsmsRoles.Superuser];
 
         var tenantIds = await db.Tenants
@@ -328,9 +383,11 @@ public sealed partial class LicenseService
             .Select(t => t.Id)
             .ToListAsync();
 
-        // Admins / lizenzweit über LicenseId zugeordnete Benutzer.
+        // Admins / lizenzweit über LicenseId zugeordnete Benutzer (nur Admin-/Benutzer-Rolle).
         var adminUserIds = await db.Users
             .Where(u => u.LicenseId == licenseId && u.IsActive)
+            .Where(u => db.UserRoles.Any(ur => ur.UserId == u.Id
+                && (ur.RoleId == adminRoleId || ur.RoleId == userRoleId)))
             .Where(u => !db.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId == superuserRoleId))
             .Select(u => u.Id)
             .ToListAsync();
@@ -344,6 +401,8 @@ public sealed partial class LicenseService
                 join u in db.Users on ut.UserId equals u.Id
                 where tenantIds.Contains(ut.TenantId)
                     && u.IsActive
+                    && db.UserRoles.Any(ur => ur.UserId == u.Id
+                        && (ur.RoleId == adminRoleId || ur.RoleId == userRoleId))
                     && !db.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId == superuserRoleId)
                 select u.Id
             ).ToListAsync();
@@ -352,6 +411,8 @@ public sealed partial class LicenseService
                 .Where(u => u.TenantId != null
                     && tenantIds.Contains(u.TenantId.Value)
                     && u.IsActive)
+                .Where(u => db.UserRoles.Any(ur => ur.UserId == u.Id
+                    && (ur.RoleId == adminRoleId || ur.RoleId == userRoleId)))
                 .Where(u => !db.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId == superuserRoleId))
                 .Select(u => u.Id)
                 .ToListAsync();

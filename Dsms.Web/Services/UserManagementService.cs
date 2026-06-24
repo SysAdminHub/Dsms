@@ -291,6 +291,22 @@ public class UserManagementService(
         var oldRole = (await userManager.GetRolesAsync(user)).FirstOrDefault();
         var oldTenantIds = existingTenantIds;
 
+        // Rollenwechsel/Reaktivierung, der einen zusätzlichen lizenzierten Zugang belegt
+        // (Admin/Benutzer aktiv), muss gegen das Zugangslimit geprüft werden. Auditoren und
+        // deaktivierte Benutzer zählen nicht mit; ein Wechsel Auditor -> Benutzer/Admin belegt
+        // daher einen Zugang zusätzlich und kann das Limit erreichen.
+        var willCountAsAccess = model.IsActive && model.Role is DsmsRoles.Admin or DsmsRoles.User;
+        var wasCountingAsAccess = oldIsActive && oldRole is DsmsRoles.Admin or DsmsRoles.User;
+        if (willCountAsAccess && !wasCountingAsAccess)
+        {
+            var accessLimitCheck = await ValidateCreateLimitAsync(
+                model.Role, model.LicenseId, tenantIds, isSuperuserManaging);
+            if (!accessLimitCheck.Succeeded)
+            {
+                return accessLimitCheck;
+            }
+        }
+
         user.DisplayName = model.DisplayName.Trim();
         user.TenantId = tenantIds.Count > 0 ? tenantIds[0] : null;
         user.IsActive = model.IsActive;
@@ -397,7 +413,14 @@ public class UserManagementService(
                 return UserOperationResult.Ok();
             }
 
-            var check = await licenseService.CanCreateAdminAsync(adminLicenseId.Value);
+            // Im bezahlten Zugang zählt der neue Admin als lizenzierter Zugang des aktuellen Mandanten.
+            // Legt ein Mandanten-Admin den Admin an, ist der Mandant bekannt und wird mandantenbezogen
+            // geprüft; im Superuser-Kontext (ohne konkreten Mandanten) bleibt es lizenzweit.
+            int? adminTenantId = isSuperuserManaging
+                ? null
+                : (tenantIds.FirstOrDefault() > 0 ? tenantIds[0] : null);
+
+            var check = await licenseService.CanCreateAdminAsync(adminLicenseId.Value, adminTenantId);
             if (!await licenseCreateGuard.IsAllowedAsync(check, "ApplicationUser"))
             {
                 return UserOperationResult.Fail(check.Message);

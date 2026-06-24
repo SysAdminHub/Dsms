@@ -28,6 +28,12 @@ public static class LicenseLimitHelper
     public const string LicensedAccessLimitReachedMessage =
         "Die maximale Anzahl lizenzierter Zugänge ist erreicht. Bitte wenden Sie sich an Ihren Administrator oder den Support.";
 
+    /// <summary>
+    /// Kurzer Hinweis, was als lizenzierter Zugang gezählt wird (für Tooltip/Untertext im Benutzerbereich).
+    /// </summary>
+    public const string LicensedAccessCountingHint =
+        "Gezählt werden aktive Admins und Benutzer des aktuellen Mandanten. Auditoren werden nicht angerechnet.";
+
     public static LicenseLimitUsageItemDto CreateItem(
         string name,
         int current,
